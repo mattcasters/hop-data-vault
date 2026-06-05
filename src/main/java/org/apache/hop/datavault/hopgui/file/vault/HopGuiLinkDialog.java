@@ -54,7 +54,6 @@ public class HopGuiLinkDialog {
   private Text wTableName;
   private Text wDescription;
   private Text wRecordSource;
-  private Text wConfigurationName;
   private TableView wHubNames;
   private TableView wDrivingKeyNames;
   private Button wHasDescriptiveAttributes;
@@ -166,32 +165,13 @@ public class HopGuiLinkDialog {
     wRecordSource.setLayoutData(fdRecordSource);
     wRecordSource.addModifyListener(e -> input.setChanged());
 
-    // Configuration
-    Label wlConfigurationName = new Label(shell, SWT.RIGHT);
-    wlConfigurationName.setText(BaseMessages.getString(PKG, "HopGuiLinkDialog.ConfigurationName.Label"));
-    PropsUi.setLook(wlConfigurationName);
-    FormData fdlConfigurationName = new FormData();
-    fdlConfigurationName.left = new FormAttachment(0, 0);
-    fdlConfigurationName.top = new FormAttachment(wRecordSource, margin);
-    fdlConfigurationName.right = new FormAttachment(middle, -margin);
-    wlConfigurationName.setLayoutData(fdlConfigurationName);
-
-    wConfigurationName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wConfigurationName);
-    FormData fdConfigurationName = new FormData();
-    fdConfigurationName.left = new FormAttachment(middle, 0);
-    fdConfigurationName.top = new FormAttachment(wRecordSource, margin);
-    fdConfigurationName.right = new FormAttachment(100, 0);
-    wConfigurationName.setLayoutData(fdConfigurationName);
-    wConfigurationName.addModifyListener(e -> input.setChanged());
-
     // Has descriptive attributes
     Label wlHasDescriptive = new Label(shell, SWT.RIGHT);
     wlHasDescriptive.setText(BaseMessages.getString(PKG, "HopGuiLinkDialog.HasDescriptiveAttributes.Label"));
     PropsUi.setLook(wlHasDescriptive);
     FormData fdlHasDescriptive = new FormData();
     fdlHasDescriptive.left = new FormAttachment(0, 0);
-    fdlHasDescriptive.top = new FormAttachment(wConfigurationName, margin);
+    fdlHasDescriptive.top = new FormAttachment(wRecordSource, margin);
     fdlHasDescriptive.right = new FormAttachment(middle, -margin);
     wlHasDescriptive.setLayoutData(fdlHasDescriptive);
 
@@ -199,7 +179,7 @@ public class HopGuiLinkDialog {
     PropsUi.setLook(wHasDescriptiveAttributes);
     FormData fdHasDescriptive = new FormData();
     fdHasDescriptive.left = new FormAttachment(middle, 0);
-    fdHasDescriptive.top = new FormAttachment(wConfigurationName, margin);
+    fdHasDescriptive.top = new FormAttachment(wRecordSource, margin);
     wHasDescriptiveAttributes.setLayoutData(fdHasDescriptive);
     wHasDescriptiveAttributes.addListener(SWT.Selection, e -> input.setChanged());
 
@@ -288,7 +268,6 @@ public class HopGuiLinkDialog {
     if (input.getTableName() != null) wTableName.setText(input.getTableName());
     if (input.getDescription() != null) wDescription.setText(input.getDescription());
     if (input.getRecordSource() != null) wRecordSource.setText(input.getRecordSource());
-    if (input.getConfigurationName() != null) wConfigurationName.setText(input.getConfigurationName());
     wHasDescriptiveAttributes.setSelection(input.isHasDescriptiveAttributes());
 
     if (input.getHubNames() != null) {
@@ -310,7 +289,6 @@ public class HopGuiLinkDialog {
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
     input.setRecordSource(wRecordSource.getText());
-    input.setConfigurationName(wConfigurationName.getText());
     input.setHasDescriptiveAttributes(wHasDescriptiveAttributes.getSelection());
 
     List<String> hubs = new ArrayList<>();

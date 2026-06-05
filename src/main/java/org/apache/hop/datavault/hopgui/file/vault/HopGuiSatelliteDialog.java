@@ -56,7 +56,6 @@ public class HopGuiSatelliteDialog {
   private Text wTableName;
   private Text wDescription;
   private Text wRecordSource;
-  private Text wConfigurationName;
   private Text wHubName;
   private Text wLinkName;
   private Button wMultiActive;
@@ -170,32 +169,13 @@ public class HopGuiSatelliteDialog {
     wRecordSource.setLayoutData(fdRecordSource);
     wRecordSource.addModifyListener(e -> input.setChanged());
 
-    // Configuration
-    Label wlConfigurationName = new Label(shell, SWT.RIGHT);
-    wlConfigurationName.setText(BaseMessages.getString(PKG, "HopGuiSatelliteDialog.ConfigurationName.Label"));
-    PropsUi.setLook(wlConfigurationName);
-    FormData fdlConfigurationName = new FormData();
-    fdlConfigurationName.left = new FormAttachment(0, 0);
-    fdlConfigurationName.top = new FormAttachment(wRecordSource, margin);
-    fdlConfigurationName.right = new FormAttachment(middle, -margin);
-    wlConfigurationName.setLayoutData(fdlConfigurationName);
-
-    wConfigurationName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wConfigurationName);
-    FormData fdConfigurationName = new FormData();
-    fdConfigurationName.left = new FormAttachment(middle, 0);
-    fdConfigurationName.top = new FormAttachment(wRecordSource, margin);
-    fdConfigurationName.right = new FormAttachment(100, 0);
-    wConfigurationName.setLayoutData(fdConfigurationName);
-    wConfigurationName.addModifyListener(e -> input.setChanged());
-
     // Hub name (ref)
     Label wlHubName = new Label(shell, SWT.RIGHT);
     wlHubName.setText(BaseMessages.getString(PKG, "HopGuiSatelliteDialog.HubName.Label"));
     PropsUi.setLook(wlHubName);
     FormData fdlHubName = new FormData();
     fdlHubName.left = new FormAttachment(0, 0);
-    fdlHubName.top = new FormAttachment(wConfigurationName, margin);
+    fdlHubName.top = new FormAttachment(wRecordSource, margin);
     fdlHubName.right = new FormAttachment(middle, -margin);
     wlHubName.setLayoutData(fdlHubName);
 
@@ -203,7 +183,7 @@ public class HopGuiSatelliteDialog {
     PropsUi.setLook(wHubName);
     FormData fdHubName = new FormData();
     fdHubName.left = new FormAttachment(middle, 0);
-    fdHubName.top = new FormAttachment(wConfigurationName, margin);
+    fdHubName.top = new FormAttachment(wRecordSource, margin);
     fdHubName.right = new FormAttachment(100, 0);
     wHubName.setLayoutData(fdHubName);
     wHubName.addModifyListener(e -> input.setChanged());
@@ -334,7 +314,6 @@ public class HopGuiSatelliteDialog {
     if (input.getTableName() != null) wTableName.setText(input.getTableName());
     if (input.getDescription() != null) wDescription.setText(input.getDescription());
     if (input.getRecordSource() != null) wRecordSource.setText(input.getRecordSource());
-    if (input.getConfigurationName() != null) wConfigurationName.setText(input.getConfigurationName());
     if (input.getHubName() != null) wHubName.setText(input.getHubName());
     if (input.getLinkName() != null) wLinkName.setText(input.getLinkName());
     wMultiActive.setSelection(input.isMultiActive());
@@ -359,7 +338,6 @@ public class HopGuiSatelliteDialog {
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
     input.setRecordSource(wRecordSource.getText());
-    input.setConfigurationName(wConfigurationName.getText());
     input.setHubName(wHubName.getText());
     input.setLinkName(wLinkName.getText());
     input.setMultiActive(wMultiActive.getSelection());

@@ -29,6 +29,8 @@ import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.gui.plugin.IGuiRefresher;
 import org.apache.hop.core.gui.plugin.action.GuiActionType;
+import org.apache.hop.core.gui.plugin.key.GuiKeyboardShortcut;
+import org.apache.hop.core.gui.plugin.key.GuiOsxKeyboardShortcut;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElementType;
 import org.apache.hop.core.variables.IVariables;
@@ -88,6 +90,14 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
   public static final String TOOLBAR_ITEM_ZOOM_OUT = "HopGuiVaultGraph-ToolBar-10020-Zoom-Out";
   public static final String TOOLBAR_ITEM_ZOOM_100 = "HopGuiVaultGraph-ToolBar-10030-Zoom-100";
   public static final String TOOLBAR_ITEM_ZOOM_FIT = "HopGuiVaultGraph-ToolBar-10040-Zoom-Fit";
+
+  public static final String TOOLBAR_ITEM_SELECT_ALL =
+      "HopGuiVaultGraph-ToolBar-20010-Select-All";
+  public static final String TOOLBAR_ITEM_UNSELECT_ALL =
+      "HopGuiVaultGraph-ToolBar-20020-Unselect-All";
+
+  public static final String TOOLBAR_ITEM_EDIT_MODEL =
+      "HopGuiVaultGraph-ToolBar-10050-Edit-Model";
 
   private final HopGui hopGui;
   private final ExplorerPerspective perspective;
@@ -596,6 +606,15 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     redraw();
   }
 
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_EDIT_MODEL,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.EditModel.Tooltip",
+      image = "datavault_model.svg")
+  public void editModelProperties() {
+    editModelProperties( model );
+  }
+
   // --- @GuiContextAction methods for background canvas context (left click) ---
   // The parentId links to HopGuiVaultContext so they appear in the dialog presented on canvas click.
   // Location is taken from the click point passed in the context (de-magnified model coords).
@@ -670,6 +689,23 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     realModel.setChanged();
     realGraph.redraw();
     realGraph.updateGui();
+  }
+
+  @GuiContextAction(
+      id = "vault-graph-edit-model",
+      parentId = HopGuiVaultContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "Edit model properties",
+      tooltip = "Edit the properties of this Data Vault model",
+      image = "datavault_model.svg",
+      category = "Data Vault",
+      categoryOrder = "10")
+  public void editModelProperties( HopGuiVaultContext context ) {
+    HopGuiVaultGraph realGraph = context.getVaultGraph();
+    DataVaultModel realModel = context.getModel();
+    if ( realGraph != null && realModel != null ) {
+      realGraph.editModelProperties( realModel );
+    }
   }
 
   // --- @GuiContextAction methods for table context (left click on icon body, not name) ---
@@ -922,6 +958,21 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     }
   }
 
+  private void editModelProperties( DataVaultModel modelToEdit ) {
+    if ( modelToEdit == null ) {
+      return;
+    }
+    HopGuiDataVaultModelDialog dialog = new HopGuiDataVaultModelDialog( getShell(), hopGui, modelToEdit );
+    if ( dialog.open() ) {
+      modelToEdit.setChanged();
+      redraw();
+      updateGui();
+      if ( perspective != null ) {
+        perspective.updateTabItem( this );
+      }
+    }
+  }
+
   private void cancelRelationshipDrag() {
     startRelationshipTable = null;
     relationshipDragEndLocation = null;
@@ -1138,14 +1189,38 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     hopGui.handleFileCapabilities(fileType, this, hasChanged(), false, false);
   }
 
+  @GuiKeyboardShortcut(control = true, key = 'a')
+  @GuiOsxKeyboardShortcut(command = true, key = 'a')
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_SELECT_ALL,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.SelectAll.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/select-all.svg")
   @Override
   public void selectAll() {
-    // TODO
+    if (model != null && model.getTables() != null) {
+      for (IDvTable t : model.getTables()) {
+        if (t != null) {
+          t.setSelected(true);
+        }
+      }
+      redraw();
+    }
   }
 
+  @GuiKeyboardShortcut(key = SWT.ESC)
+  @GuiOsxKeyboardShortcut(key = SWT.ESC)
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_UNSELECT_ALL,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.UnselectAll.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/unselect-all.svg")
   @Override
   public void unselectAll() {
-    // TODO
+    unselectAllTables();
+    redraw();
   }
 
   @Override

@@ -52,12 +52,6 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged {
   /** Default or suggested record source value for rows loaded into this table. */
   String getRecordSource();
 
-  /**
-   * Optional name of a DataVaultConfiguration to use specifically for this table.
-   * If null/empty, the containing DataVaultModel's configuration (or a global default) is used.
-   */
-  String getConfigurationName();
-
   /** Returns the type of this Data Vault table (HUB, SATELLITE or LINK). */
   DvTableType getTableType();
 

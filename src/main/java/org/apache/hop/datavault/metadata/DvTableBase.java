@@ -33,7 +33,6 @@ import org.apache.hop.metadata.api.IHopMetadata;
  *   <li>physical table name</li>
  *   <li>description</li>
  *   <li>record source</li>
- *   <li>optional reference to a DataVaultConfiguration</li>
  * </ul>
  *
  * <p>Concrete classes (DvHub, DvLink, DvSatellite) extend this and add their specific
@@ -63,9 +62,6 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
 
   @HopMetadataProperty
   protected String recordSource;
-
-  @HopMetadataProperty(key = "configuration")
-  protected String configurationName;
 
   /** The type of this Data Vault table. Persisted for easy identification when serializing models. */
   @HopMetadataProperty
@@ -141,18 +137,6 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
       setChanged();
     }
     this.recordSource = recordSource;
-  }
-
-  @Override
-  public String getConfigurationName() {
-    return configurationName;
-  }
-
-  public void setConfigurationName(String configurationName) {
-    if (!java.util.Objects.equals(this.configurationName, configurationName)) {
-      setChanged();
-    }
-    this.configurationName = configurationName;
   }
 
   @Override

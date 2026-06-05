@@ -57,7 +57,6 @@ public class HopGuiHubDialog {
   private Text wTableName;
   private Text wDescription;
   private Text wRecordSource;
-  private Text wConfigurationName;
   private TableView wBusinessKeys;
 
   private boolean ok;
@@ -167,32 +166,13 @@ public class HopGuiHubDialog {
     wRecordSource.setLayoutData(fdRecordSource);
     wRecordSource.addModifyListener(e -> input.setChanged());
 
-    // Configuration name
-    Label wlConfigurationName = new Label(shell, SWT.RIGHT);
-    wlConfigurationName.setText(BaseMessages.getString(PKG, "HopGuiHubDialog.ConfigurationName.Label"));
-    PropsUi.setLook(wlConfigurationName);
-    FormData fdlConfigurationName = new FormData();
-    fdlConfigurationName.left = new FormAttachment(0, 0);
-    fdlConfigurationName.top = new FormAttachment(wRecordSource, margin);
-    fdlConfigurationName.right = new FormAttachment(middle, -margin);
-    wlConfigurationName.setLayoutData(fdlConfigurationName);
-
-    wConfigurationName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wConfigurationName);
-    FormData fdConfigurationName = new FormData();
-    fdConfigurationName.left = new FormAttachment(middle, 0);
-    fdConfigurationName.top = new FormAttachment(wRecordSource, margin);
-    fdConfigurationName.right = new FormAttachment(100, 0);
-    wConfigurationName.setLayoutData(fdConfigurationName);
-    wConfigurationName.addModifyListener(e -> input.setChanged());
-
     // Business keys - use TableView
     Label wlBusinessKeys = new Label(shell, SWT.LEFT);
     wlBusinessKeys.setText(BaseMessages.getString(PKG, "HopGuiHubDialog.BusinessKeys.Label"));
     PropsUi.setLook(wlBusinessKeys);
     FormData fdlBusinessKeys = new FormData();
     fdlBusinessKeys.left = new FormAttachment(0, 0);
-    fdlBusinessKeys.top = new FormAttachment(wConfigurationName, margin);
+    fdlBusinessKeys.top = new FormAttachment(wRecordSource, margin);
     wlBusinessKeys.setLayoutData(fdlBusinessKeys);
 
     ColumnInfo[] columns =
@@ -245,7 +225,6 @@ public class HopGuiHubDialog {
     if (input.getTableName() != null) wTableName.setText(input.getTableName());
     if (input.getDescription() != null) wDescription.setText(input.getDescription());
     if (input.getRecordSource() != null) wRecordSource.setText(input.getRecordSource());
-    if (input.getConfigurationName() != null) wConfigurationName.setText(input.getConfigurationName());
 
     if (input.getBusinessKeys() != null) {
       for (int i = 0; i < input.getBusinessKeys().size(); i++) {
@@ -264,7 +243,6 @@ public class HopGuiHubDialog {
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
     input.setRecordSource(wRecordSource.getText());
-    input.setConfigurationName(wConfigurationName.getText());
 
     // Business keys from table
     List<BusinessKey> keys = new ArrayList<>();
