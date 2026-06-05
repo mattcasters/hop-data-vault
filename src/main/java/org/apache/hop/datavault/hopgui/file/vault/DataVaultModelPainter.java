@@ -23,6 +23,7 @@ import org.apache.hop.core.gui.DPoint;
 import org.apache.hop.core.gui.IGc;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.svg.SvgFile;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
@@ -42,6 +43,8 @@ import java.util.Map;
  * Draws simple lines from satellites to their parent hubs (or links).
  * Supports mouse-over underline on table names (for hyperlink style) and populates AreaOwners
  * for name (TRANSFORM_NAME) vs body (TRANSFORM_ICON) to support differentiated clicks.
+ * If a table has a non-empty description, draws a small INFO_DISABLED icon at top-left and
+ * registers a TRANSFORM_INFO_ICON area (for tooltip on hover).
  */
 public class DataVaultModelPainter {
 
@@ -63,6 +66,7 @@ public class DataVaultModelPainter {
 
   private static final int ICON_SIZE = 32;
   private static final int MARGIN = 5;
+  private static final int MINI_ICON_SIZE = 16;
   // Note: TABLE_* removed in favor of per-table dynamic sizes based on textExtent()
 
   public DataVaultModelPainter(
@@ -289,6 +293,35 @@ public class DataVaultModelPainter {
       areaOwners.add(
           new AreaOwner(
               AreaType.TRANSFORM_NAME, nsx, nsy, nsw, nsh, new DPoint(0, 0), table, name));
+    }
+
+    // If the table has a description, draw a small info icon at the top-left corner (slightly
+    // protruding) and register a TRANSFORM_INFO_ICON area owner (screen coords) so that mouse-over
+    // can show the description as a tooltip (modeled after PipelinePainter.drawTransformInformationIndicator).
+    if (!Utils.isEmpty(table.getDescription())) {
+      int xInfo = x - (MINI_ICON_SIZE / 2) - 1;
+      int yInfo = y - (MINI_ICON_SIZE / 2) - 1;
+      try {
+        gc.drawImage(IGc.EImage.INFO_DISABLED, xInfo, yInfo, magnification);
+      } catch (Exception e) {
+        // optional decoration; ignore draw failure
+      }
+      if (areaOwners != null) {
+        int isx = (int) (xInfo * magnification) + offset.x;
+        int isy = (int) (yInfo * magnification) + offset.y;
+        int isw = (int) (MINI_ICON_SIZE * magnification);
+        int ish = (int) (MINI_ICON_SIZE * magnification);
+        areaOwners.add(
+            new AreaOwner(
+                AreaType.TRANSFORM_INFO_ICON,
+                isx,
+                isy,
+                isw,
+                ish,
+                new DPoint(0, 0),
+                null,
+                table));
+      }
     }
 
     gc.setFont(IGc.EFont.GRAPH); // reset?

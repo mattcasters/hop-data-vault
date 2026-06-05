@@ -19,6 +19,8 @@ package org.apache.hop.datavault.metadata;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.hop.core.CheckResult;
+import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.changed.ChangedFlag;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.gui.plugin.GuiElementType;
@@ -195,6 +197,21 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
       setChanged();
     }
     this.sources = sources;
+  }
+
+  /**
+   * Perform a series of validation checks on this Data Vault model and return the results.
+   *
+   * @return list of check results (errors, warnings, ok)
+   */
+  public List<ICheckResult> check() {
+    List<ICheckResult> remarks = new ArrayList<>();
+    if (tables != null) {
+      for (IDvTable table : tables) {
+        table.check(remarks);
+      }
+    }
+    return remarks;
   }
 
   // -------------------------------------------------------------------------------------

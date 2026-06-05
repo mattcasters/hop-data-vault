@@ -20,13 +20,21 @@ package org.apache.hop.datavault.metadata;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.hop.base.IBaseMeta;
+import org.apache.hop.core.CheckResult;
+import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.gui.IGuiPosition;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadata;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.ui.hopgui.HopGui;
 
 /**
  * Data Vault 2.0 Satellite metadata definition.
@@ -36,6 +44,8 @@ import org.apache.hop.metadata.api.IHasName;
  */
 @GuiPlugin
 public class DvSatellite extends DvTableBase implements IDvTable, IGuiPosition, IBaseMeta, IHasName {
+
+  private static final Class<?> PKG = DvSatellite.class;
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_SATELLITE_DIALOG";
 
@@ -153,5 +163,41 @@ public class DvSatellite extends DvTableBase implements IDvTable, IGuiPosition, 
       setChanged();
     }
     this.drivingKey = drivingKey;
+  }
+
+  @Override
+  public void check(List<ICheckResult> remarks) {
+    super.check(remarks);
+    if (Utils.isEmpty(hubName) && Utils.isEmpty(linkName)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.NotLinked"),
+              this));
+    } else if (!Utils.isEmpty(hubName)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.LinkedToHub", hubName),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.LinkedToLink", linkName),
+              this));
+    }
+  }
+
+  @Override
+  public PipelineMeta generateUpdatePipeline(HopGui hopGui, DataVaultModel model) throws HopException {
+    // TODO: implement for satellites (stub for now)
+    return null;
+  }
+
+  @Override
+  public IRowMeta getTargetTableLayout(HopGui hopGui, DataVaultModel model) {
+    // TODO: implement for satellites (stub for now)
+    return null;
   }
 }

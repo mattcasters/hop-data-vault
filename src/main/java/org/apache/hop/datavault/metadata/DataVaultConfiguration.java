@@ -17,6 +17,7 @@
 
 package org.apache.hop.datavault.metadata;
 
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
@@ -34,6 +35,7 @@ import org.apache.hop.metadata.api.IHopMetadata;
  *
  * <p>Common options covered:
  * <ul>
+ *   <li>Target database (DatabaseMeta) for physical implementation</li>
  *   <li>Hashing algorithm (MD5, SHA1, SHA256...)</li>
  *   <li>Hash key storage: binary (recommended) or string (hex)</li>
  *   <li>Trimming of business keys</li>
@@ -56,6 +58,20 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_CONFIGURATION_DIALOG";
 
   @HopMetadataProperty private String name;
+
+  /**
+   * The target database (DatabaseMeta) in which the Data Vault will be implemented.
+   * This makes the configuration aware of the destination RDBMS for quoting, DDL, etc.
+   */
+  @GuiWidgetElement(
+      order = "0050",
+      type = GuiElementType.METADATA,
+      metadata = DatabaseMeta.class,
+      label = "i18n::DataVaultConfiguration.TargetDatabase.Label",
+      toolTip = "i18n::DataVaultConfiguration.TargetDatabase.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty(key = "targetDatabase")
+  private String targetDatabase;
 
   // --- Hashing Strategy ---
   @GuiWidgetElement(
@@ -232,6 +248,14 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @Override
   public void setName(String name) {
     this.name = name;
+  }
+
+  public String getTargetDatabase() {
+    return targetDatabase;
+  }
+
+  public void setTargetDatabase(String targetDatabase) {
+    this.targetDatabase = targetDatabase;
   }
 
   public HashAlgorithm getHashAlgorithm() {

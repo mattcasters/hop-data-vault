@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.exception.HopException;
@@ -35,6 +36,7 @@ import org.apache.hop.core.gui.plugin.key.GuiKeyboardShortcut;
 import org.apache.hop.core.gui.plugin.key.GuiOsxKeyboardShortcut;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElementType;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
@@ -44,7 +46,27 @@ import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.datavault.metadata.DataVaultSource;
+import org.apache.hop.datavault.metadata.DataVaultSourceType;
+import org.apache.hop.datavault.metadata.DvDatabaseSource;
+import org.apache.hop.datavault.metadata.SourceField;
+import org.apache.hop.datavault.metadata.DataVaultConfiguration;
+import org.apache.hop.core.database.DatabaseMeta;
+import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta;
+import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta.CheckSumType;
+import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta.ResultType;
+import org.apache.hop.pipeline.transforms.checksum.Field;
+import org.apache.hop.datavault.metadata.HashAlgorithm;
+import org.apache.hop.datavault.metadata.HashKeyDataType;
+import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.ui.core.PropsUi;
+import org.apache.hop.ui.core.dialog.CheckResultDialog;
+import org.apache.hop.ui.core.dialog.ErrorDialog;
+import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.pipeline.transform.TransformMeta;
+import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
+import org.apache.hop.core.xml.XmlHandler;
+import org.w3c.dom.Node;
 import org.apache.hop.ui.core.gui.GuiToolbarWidgets;
 import org.apache.hop.ui.core.gui.IToolbarContainer;
 import org.apache.hop.ui.hopgui.HopGui;
@@ -60,6 +82,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseMoveListener;
+import org.eclipse.swt.events.MouseTrackAdapter;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
@@ -98,6 +121,12 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
 
   public static final String TOOLBAR_ITEM_EDIT_MODEL =
       "HopGuiVaultGraph-ToolBar-10050-Edit-Model";
+
+  public static final String TOOLBAR_ITEM_CHECK_MODEL =
+      "HopGuiVaultGraph-ToolBar-10060-Check-Model";
+
+  public static final String TOOLBAR_ITEM_DEBUG =
+      "HopGuiVaultGraph-ToolBar-10070-Debug";
 
   private final HopGui hopGui;
   private final ExplorerPerspective perspective;
@@ -185,6 +214,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
         new MouseAdapter() {
           @Override
           public void mouseDown(MouseEvent e) {
+            canvas.setToolTipText( null );
             Point real = screen2real( e.x, e.y );
             lastClick = new Point( real.x, real.y );
             lastButton = e.button;
@@ -206,6 +236,15 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
             }
 
             if ( hit != null ) {
+              if ( areaOwner != null
+                  && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_INFO_ICON ) {
+                // Clicking the info icon (description badge) should not start a drag or open context menu.
+                // The description is already visible via tooltip on hover.
+                avoidContextDialog = true;
+                clearTableDragState();
+                return;
+              }
+
               if ( e.button == 2 || (e.button == 1 && shift) ) {
                 // Middle button or Shift+Left: start dragging a relationship from this table
                 // (hub<->sat or hub<->link). Completion on mouseUp.
@@ -272,6 +311,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
 
           @Override
           public void mouseUp(MouseEvent e) {
+            canvas.setToolTipText( null );
             // A single click on the background isn't a selection.
             // We need to show the context dialog for the model.
             //
@@ -469,6 +509,25 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
 
             // Update mouse-over for table name underline (only on name area, not during drag/rel/lasso)
             AreaOwner areaOwner = getVisibleAreaOwner( e.x, e.y );
+
+            // Show description tooltip when hovering over the info icon (if present for the table)
+            if ( areaOwner != null
+                && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_INFO_ICON ) {
+              IDvTable t = null;
+              Object o = areaOwner.getOwner();
+              if ( o instanceof IDvTable tt ) {
+                t = tt;
+              } else if ( areaOwner.getParent() instanceof IDvTable tt ) {
+                t = tt;
+              }
+              String tip = ( t != null && !Utils.isEmpty( t.getDescription() ) ) ? t.getDescription() : null;
+              if ( !java.util.Objects.equals( canvas.getToolTipText(), tip ) ) {
+                canvas.setToolTipText( tip );
+              }
+            } else if ( canvas.getToolTipText() != null ) {
+              canvas.setToolTipText( null );
+            }
+
             String newOver = null;
             if ( areaOwner != null
                 && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_NAME
@@ -486,6 +545,19 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
             if ( doRedraw ) {
               redraw();
               updateGui();
+            }
+          }
+        });
+
+    // Track listener to clear tooltips (and hover state) when mouse leaves the canvas area.
+    canvas.addMouseTrackListener(
+        new MouseTrackAdapter() {
+          @Override
+          public void mouseExit(MouseEvent e) {
+            canvas.setToolTipText( null );
+            if ( mouseOverTableName != null ) {
+              mouseOverTableName = null;
+              redraw();
             }
           }
         });
@@ -769,6 +841,58 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     editModelProperties( model );
   }
 
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_CHECK_MODEL,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.CheckModel.Tooltip",
+      image = "ui/images/check.svg")
+  public void checkModel() {
+    if (model == null) {
+      return;
+    }
+    List<ICheckResult> remarks = model.check();
+    CheckResultDialog dialog = new CheckResultDialog(hopGui.getShell(), remarks);
+    dialog.open();
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_DEBUG,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.Debug.Tooltip",
+      image = "ui/images/debug.svg")
+  public void debugPipelines() {
+    if (model == null || model.getTables() == null) {
+      return;
+    }
+    for (IDvTable table : model.getTables()) {
+      String tableName = !Utils.isEmpty(table.getTableName()) ? table.getTableName() : table.getName();
+      try {
+        PipelineMeta pipelineMeta = table.generateUpdatePipeline(hopGui, model);
+        if (pipelineMeta == null) {
+          continue;
+        }
+
+        // Serialize to XML and back before opening.
+        // This ensures the transforms are loaded via the Hop plugin registry / proper classloaders
+        // (instead of direct compile-time classes) which prevents class loading issues when
+        // opening e.g. the Table Input transform dialog in the generated pipeline.
+        String xml = pipelineMeta.getXml(hopGui.getVariables());
+        Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
+        PipelineMeta reloaded =
+            new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
+
+        // Open in HopGui (not saved)
+        HopGui.getExplorerPerspective().addPipeline(reloaded);
+      } catch (Exception e) {
+        new ErrorDialog(
+            hopGui.getShell(),
+            "Error",
+            "Error generating debug pipeline for '" + tableName + "'",
+            e);
+      }
+    }
+  }
+
   // --- @GuiContextAction methods for background canvas context (left click) ---
   // The parentId links to HopGuiVaultContext so they appear in the dialog presented on canvas click.
   // Location is taken from the click point passed in the context (de-magnified model coords).
@@ -974,11 +1098,16 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
 
   // --- Context menu / click handling support ---
 
+  private float getCorrectedMagnification() {
+    return (float) (magnification * PropsUi.getInstance().getZoomFactor());
+  }
+
   private Point screen2real( int x, int y ) {
-    if ( magnification <= 0 ) {
+    float m = getCorrectedMagnification();
+    if ( m <= 0 ) {
       return new Point( x - offset.x, y - offset.y );
     }
-    return new Point( (int) ((x - offset.x) / magnification ), (int) ((y - offset.y) / magnification ) );
+    return new Point( (int) ((x - offset.x) / m ), (int) ((y - offset.y) / m ) );
   }
 
   private IDvTable findTableAtScreen( int screenX, int screenY ) {
@@ -992,16 +1121,16 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       }
       // Since setTransform handles mag/pan, visual positions are approx (loc * mag + offset)
       // Box sizes (drawnBox) are now in logical units, so visual size = logical * mag
-      int sx = (int) ( loc.x * magnification ) + offset.x;
-      int sy = (int) ( loc.y * magnification ) + offset.y;
+      int sx = (int) ( loc.x * getCorrectedMagnification() ) + offset.x;
+      int sy = (int) ( loc.y * getCorrectedMagnification() ) + offset.y;
       int tw = 140;
       int th = 70;
       if (table instanceof DvTableBase base) {
         if (base.getDrawnBoxWidth() > 0) tw = base.getDrawnBoxWidth();
         if (base.getDrawnBoxHeight() > 0) th = base.getDrawnBoxHeight();
       }
-      int sw = (int) (tw * magnification);
-      int sh = (int) (th * magnification);
+      int sw = (int) (tw * getCorrectedMagnification());
+      int sh = (int) (th * getCorrectedMagnification());
       if ( screenX >= sx && screenX < sx + sw && screenY >= sy && screenY < sy + sh ) {
         return table;
       }
@@ -1028,10 +1157,10 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       if ( base.getDrawnBoxWidth() > 0 ) tw = base.getDrawnBoxWidth();
       if ( base.getDrawnBoxHeight() > 0 ) th = base.getDrawnBoxHeight();
     }
-    int sx = (int) ( loc.x * magnification ) + offset.x;
-    int sy = (int) ( loc.y * magnification ) + offset.y;
-    int sw = Math.max( 1, (int) ( tw * magnification ) );
-    int sh = Math.max( 1, (int) ( th * magnification ) );
+    int sx = (int) ( loc.x * getCorrectedMagnification() ) + offset.x;
+    int sy = (int) ( loc.y * getCorrectedMagnification() ) + offset.y;
+    int sw = Math.max( 1, (int) ( tw * getCorrectedMagnification() ) );
+    int sh = Math.max( 1, (int) ( th * getCorrectedMagnification() ) );
 
     int tMinX = sx;
     int tMaxX = sx + sw;
@@ -1101,6 +1230,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
   private void clearLasso() {
     selectionRegion = null;
     if (canvas != null && !canvas.isDisposed()) {
+      canvas.setToolTipText( null );
       canvas.setData("mode", "null");
       setCursor(null);
     }
@@ -1545,6 +1675,9 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     clearLasso();
     areaOwners.clear();
     mouseOverTableName = null;
+    if ( canvas != null && !canvas.isDisposed() ) {
+      canvas.setToolTipText( null );
+    }
     lastClick = null;
     lastButton = 0;
     this.model = model;

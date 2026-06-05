@@ -17,13 +17,19 @@
 
 package org.apache.hop.datavault.metadata;
 
+import java.util.List;
 import org.apache.hop.base.IBaseMeta;
+import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.ICheckResultSource;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.IGuiPosition;
 import org.apache.hop.metadata.api.HopMetadataObject;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadataObjectFactory;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.ui.hopgui.HopGui;
 
 /**
  * Common interface for all Data Vault 2.0 table-like structures:
@@ -38,7 +44,7 @@ import org.apache.hop.metadata.api.IHopMetadataObjectFactory;
  * modeling perspective (analogous to TransformMeta / ActionMeta in pipelines/workflows).
  */
 @HopMetadataObject(xmlKey = "tableType", objectFactory = IDvTable.DvTableFactory.class)
-public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged {
+public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, ICheckResultSource {
 
   /** Logical / metadata name of this DV object. Usually matches the table name unless overridden. */
   String getName();
@@ -55,6 +61,42 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged {
 
   /** Returns the type of this Data Vault table (HUB, SATELLITE or LINK). */
   DvTableType getTableType();
+
+  /**
+   * Perform checks on this table definition and add results (errors, warnings, etc) to the
+   * provided list.
+   *
+   * @param remarks the list to append CheckResult instances to
+   */
+  void check(List<ICheckResult> remarks);
+
+  /**
+   * Generate an "update" pipeline for this table (e.g. for debug purposes in the modeler).
+   * The implementation in DvHub contains the full logic (moved from HopGuiVaultGraph.debugPipelines());
+   * empty stubs for DvSatellite / DvLink.
+   *
+   * @param hopGui for access to metadata provider, variables, etc.
+   * @param model the containing DataVaultModel (for config name etc.)
+   * @return the generated PipelineMeta (or null); caller does the XML roundtrip + HopGui open.
+   * @throws HopException on metadata load or other errors during generation
+   */
+  PipelineMeta generateUpdatePipeline(HopGui hopGui, DataVaultModel model) throws HopException;
+
+  /**
+   * Get the target table layout (IRowMeta) for this DV table. Used to define/create the physical
+   * table in the target database before loading.
+   *
+   * <p>First column: calculated hash key name (using business key + hub suffix from config),
+   * with data type (Binary/String) from DataVaultConfiguration.
+   *
+   * <p>Then: the business key source field names (type taken from the DataVaultSource fields).
+   *
+   * <p>Finally: the load date field name from config, as Hop Timestamp.
+   *
+   * @param hopGui to access the metadata provider for loading DataVaultConfiguration, DataVaultSource, etc.
+   * @param model the DataVaultModel (to resolve the configuration name)
+   */
+  IRowMeta getTargetTableLayout(HopGui hopGui, DataVaultModel model);
 
   /**
    * Factory used by the Hop metadata serializer to handle polymorphic serialization of
