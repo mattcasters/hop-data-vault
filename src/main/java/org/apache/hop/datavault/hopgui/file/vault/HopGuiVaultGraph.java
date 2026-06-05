@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.Point;
+import org.apache.hop.core.gui.Rectangle;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.gui.plugin.IGuiRefresher;
@@ -141,6 +142,12 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
   private Point[] previousTableLocations;
   private IDvTable currentTable;
 
+  // Lasso / rubber-band multi-select: started on background left-click+drag.
+  // Uses SCREEN coordinates (drawn on raw GC after painter, untransformed).
+  // On start (unless CTRL held) we unselect all. On release, select tables whose
+  // drawn screen rect overlaps the lasso rect.
+  private Rectangle selectionRegion;
+
   public HopGuiVaultGraph(
       Composite parent,
       HopGui hopGui,
@@ -208,6 +215,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
                 candidateRelationshipTarget = hit;
                 mouseOverTableName = null;
                 clearTableDragState();
+                clearLasso();
                 avoidContextDialog = true;
                 redraw();
                 return;
@@ -227,6 +235,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
                   previousTableLocations = getSelectedTableLocations();
                   Point p = hit.getLocation() != null ? hit.getLocation() : new Point( 0, 0 );
                   iconOffset = new Point( real.x - p.x, real.y - p.y );
+                  clearLasso();
                   avoidContextDialog = true;
                   redraw();
                   return;
@@ -235,9 +244,25 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
             }
 
             // Background click: cancel active relationship drag or table drag (like hop drag cancel on bg)
-            if ( startRelationshipTable != null || currentTable != null || iconDragStartScreen != null ) {
+            if ( startRelationshipTable != null || currentTable != null || iconDragStartScreen != null || selectionRegion != null ) {
               cancelRelationshipDrag();
               clearTableDragState();
+              clearLasso();
+              avoidContextDialog = true;
+              redraw();
+              return;
+            }
+
+            // Start lasso (rubber-band) selection on left-click background drag.
+            // Unless CTRL is held, unselect all tables at start of lasso (per spec).
+            if ( e.button == 1 ) {
+              if ( !control ) {
+                unselectAllTables();
+              }
+              selectionRegion = new Rectangle( e.x, e.y, 0, 0 );
+              mouseOverTableName = null;
+              canvas.setData( "mode", "select" );
+              setCursor( getDisplay().getSystemCursor( SWT.CURSOR_CROSS ) );
               avoidContextDialog = true;
               redraw();
               return;
@@ -259,6 +284,52 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
               avoidContextDialog = true;
               redraw();
               return;
+            }
+
+            if ( selectionRegion != null ) {
+              // Finish lasso drag: update final size
+              selectionRegion.width = e.x - selectionRegion.x;
+              selectionRegion.height = e.y - selectionRegion.y;
+
+              int absW = Math.abs( selectionRegion.width );
+              int absH = Math.abs( selectionRegion.height );
+
+              if ( absW < ICON_DRAG_THRESHOLD_PX && absH < ICON_DRAG_THRESHOLD_PX ) {
+                // Essentially a click (not a drag), clear lasso and fall through so pure-click
+                // logic can show the background context dialog if appropriate.
+                selectionRegion = null;
+                canvas.setData( "mode", "null" );
+                setCursor( null );
+                redraw();
+                // fall through
+              } else {
+                // Real lasso: select tables whose visual (screen) area overlaps the lasso rect.
+                int x1 = selectionRegion.x;
+                int y1 = selectionRegion.y;
+                int x2 = x1 + selectionRegion.width;
+                int y2 = y1 + selectionRegion.height;
+                int minX = Math.min( x1, x2 );
+                int maxX = Math.max( x1, x2 );
+                int minY = Math.min( y1, y2 );
+                int maxY = Math.max( y1, y2 );
+
+                if ( model != null && model.getTables() != null ) {
+                  for ( IDvTable table : model.getTables() ) {
+                    if ( isTableInLassoScreenRect( table, minX, minY, maxX, maxY ) ) {
+                      table.setSelected( true );
+                    }
+                  }
+                }
+
+                selectionRegion = null;
+                canvas.setData( "mode", "null" );
+                setCursor( null );
+                avoidContextDialog = true;
+                redraw();
+                updateGui();
+                lastButton = 0;
+                return;
+              }
             }
 
             if ( e.button == 1 ) {
@@ -307,6 +378,12 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
               avoidContextDialog = false;
             }
 
+            // In case a lasso was left (defensive)
+            if ( selectionRegion != null ) {
+              selectionRegion = null;
+              setCursor( null );
+            }
+
             lastButton = 0;
           }
 
@@ -317,6 +394,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
               editTable( hit );
             }
             clearTableDragState();
+            clearLasso();
           }
         });
 
@@ -368,13 +446,28 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
               }
             }
 
-            // Update mouse-over for table name underline (only on name area, not during drag/rel)
+            // Update lasso rubber band if active (bg left drag)
+            if ( selectionRegion != null
+                && ( e.stateMask & SWT.BUTTON1 ) != 0
+                && startRelationshipTable == null ) {
+              selectionRegion.width = e.x - selectionRegion.x;
+              selectionRegion.height = e.y - selectionRegion.y;
+              doRedraw = true;
+            }
+
+            if ( selectionRegion != null && mouseOverTableName != null ) {
+              mouseOverTableName = null;
+              doRedraw = true;
+            }
+
+            // Update mouse-over for table name underline (only on name area, not during drag/rel/lasso)
             AreaOwner areaOwner = getVisibleAreaOwner( e.x, e.y );
             String newOver = null;
             if ( areaOwner != null
                 && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_NAME
                 && startRelationshipTable == null
-                && !dragSelection ) {
+                && !dragSelection
+                && selectionRegion == null ) {
               newOver = (String) areaOwner.getOwner();
             }
             if ( (mouseOverTableName == null && newOver != null)
@@ -385,6 +478,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
 
             if ( doRedraw ) {
               redraw();
+              updateGui();
             }
           }
         });
@@ -467,6 +561,13 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
           startRelationshipTable, relationshipDragEndLocation, candidateRelationshipTarget);
       painter.draw();
 
+      // Draw lasso (rubber-band selection rect) if active. Draw directly on the raw SWT GC
+      // in screen coordinates (after resetting transform) so the dashed rect is independent
+      // of current zoom/pan and follows the mouse drag 1:1.
+      if ( selectionRegion != null ) {
+        drawLasso( swtGc );
+      }
+
     } catch (Exception e) {
       // Log error, draw message
       swtGc.drawText("Error drawing model: " + e.getMessage(), 10, 10);
@@ -475,6 +576,44 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
         gc.dispose();
       }
     }
+  }
+
+  /**
+   * Draw the current lasso selection rectangle as a dashed rubber-band on the raw SWT GC.
+   * Must be called with screen-space coordinates; resets transform to identity before drawing.
+   */
+  private void drawLasso( GC gc ) {
+    if ( selectionRegion == null || gc == null || gc.isDisposed() ) {
+      return;
+    }
+    // Force identity so coords are absolute screen pixels (lasso is always screen-based)
+    gc.setTransform( null );
+    gc.setLineStyle( SWT.LINE_DASH );
+    gc.setLineWidth( 1 );
+    if ( canvas != null && !canvas.isDisposed() ) {
+      gc.setForeground( canvas.getDisplay().getSystemColor( SWT.COLOR_BLACK ) );
+    } else {
+      gc.setForeground( getDisplay().getSystemColor( SWT.COLOR_BLACK ) );
+    }
+
+    int x = selectionRegion.x;
+    int y = selectionRegion.y;
+    int w = selectionRegion.width;
+    int h = selectionRegion.height;
+    // Normalize negative extents (user dragged left/up) so drawRectangle gets +w +h
+    if ( w < 0 ) {
+      x = x + w;
+      w = -w;
+    }
+    if ( h < 0 ) {
+      y = y + h;
+      h = -h;
+    }
+    gc.drawRectangle( x, y, w, h );
+
+    // Restore default style/width
+    gc.setLineStyle( SWT.LINE_SOLID );
+    gc.setLineWidth( 1 );
   }
 
   @Override
@@ -515,6 +654,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     if (magnification > 10f) {
       magnification = 10f;
     }
+    clearLasso();
     setZoomLabel();
     redraw();
   }
@@ -529,6 +669,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     if (magnification < 0.1f) {
       magnification = 0.1f;
     }
+    clearLasso();
     setZoomLabel();
     redraw();
   }
@@ -540,6 +681,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       image = "ui/images/zoom-100.svg")
   public void zoom100Percent() {
     magnification = 1.0f;
+    clearLasso();
     setZoomLabel();
     redraw();
   }
@@ -556,6 +698,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
         || canvas == null
         || canvas.isDisposed()) {
       magnification = 1.0f;
+      clearLasso();
       setZoomLabel();
       redraw();
       return;
@@ -567,6 +710,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       // not laid out yet, use defaults
       canvasW = 800;
       canvasH = 600;
+      clearLasso();
     }
 
     int minX = Integer.MAX_VALUE;
@@ -603,6 +747,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       if (magnification < 0.1f) magnification = 0.1f;
     }
     setZoomLabel();
+    clearLasso();
     redraw();
   }
 
@@ -636,7 +781,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       return;
     }
     DvHub hub = new DvHub( getUniqueTableNameFromModel( "Hub", realModel ) );
-    hub.setLocation( click != null ? new Point( click.x, click.y ) : new Point( 50, 50 ) );
+    PropsUi.setLocation( hub, click != null ? click.x : 50, click != null ? click.y : 50 );
     realModel.getTables().add( hub );
     realModel.setChanged();
     realGraph.redraw();
@@ -660,7 +805,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       return;
     }
     DvSatellite sat = new DvSatellite( getUniqueTableNameFromModel( "Satellite", realModel ) );
-    sat.setLocation( click != null ? new Point( click.x, click.y ) : new Point( 50, 50 ) );
+    PropsUi.setLocation( sat, click != null ? click.x : 50, click != null ? click.y : 50 );
     realModel.getTables().add( sat );
     realModel.setChanged();
     realGraph.redraw();
@@ -684,7 +829,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       return;
     }
     DvLink link = new DvLink( getUniqueTableNameFromModel( "Link", realModel ) );
-    link.setLocation( click != null ? new Point( click.x, click.y ) : new Point( 50, 50 ) );
+    PropsUi.setLocation( link, click != null ? click.x : 50, click != null ? click.y : 50 );
     realModel.getTables().add( link );
     realModel.setChanged();
     realGraph.redraw();
@@ -814,6 +959,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
 
     // factor for future scroll adjustments (not used yet)
     float factor = magnification / oldMagnification;
+    clearLasso();
     // no-op for now
   }
 
@@ -852,6 +998,42 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       }
     }
     return null;
+  }
+
+  /**
+   * Test if the table's current drawn visual rectangle (in screen coords, using drawnBox size +
+   * magnification + offset, exactly like findTableAtScreen and AreaOwner registration) overlaps
+   * the given lasso rect (in screen pixels). Used to decide which tables to select on lasso up.
+   */
+  private boolean isTableInLassoScreenRect( IDvTable table, int lassoMinX, int lassoMinY, int lassoMaxX, int lassoMaxY ) {
+    if ( table == null ) {
+      return false;
+    }
+    Point loc = table.getLocation();
+    if ( loc == null ) {
+      return false;
+    }
+    int tw = 140;
+    int th = 70;
+    if ( table instanceof DvTableBase base ) {
+      if ( base.getDrawnBoxWidth() > 0 ) tw = base.getDrawnBoxWidth();
+      if ( base.getDrawnBoxHeight() > 0 ) th = base.getDrawnBoxHeight();
+    }
+    int sx = (int) ( loc.x * magnification ) + offset.x;
+    int sy = (int) ( loc.y * magnification ) + offset.y;
+    int sw = Math.max( 1, (int) ( tw * magnification ) );
+    int sh = Math.max( 1, (int) ( th * magnification ) );
+
+    int tMinX = sx;
+    int tMaxX = sx + sw;
+    int tMinY = sy;
+    int tMaxY = sy + sh;
+
+    // Overlap test (intersection, not strict containment): select the table if its visual area
+    // touches the lasso rect at all. This is practical for lasso selection.
+    boolean xOverlap = Math.max( lassoMinX, tMinX ) < Math.min( lassoMaxX, tMaxX );
+    boolean yOverlap = Math.max( lassoMinY, tMinY ) < Math.min( lassoMaxY, tMaxY );
+    return xOverlap && yOverlap;
   }
 
   /** Lookup area owner at screen mouse coords (for name vs icon body hits, hover etc). */
@@ -904,6 +1086,15 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     iconOffset = null;
     previousTableLocations = null;
     currentTable = null;
+    clearLasso();
+  }
+
+  private void clearLasso() {
+    selectionRegion = null;
+    if (canvas != null && !canvas.isDisposed()) {
+      canvas.setData("mode", "null");
+      setCursor(null);
+    }
   }
 
   private void moveSelectedTables( int dx, int dy ) {
@@ -929,7 +1120,8 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       if ( loc == null ) {
         loc = new Point( 0, 0 );
       }
-      t.setLocation( new Point( loc.x + dx, loc.y + dy ) );
+      PropsUi.setLocation( t, loc.x + dx, loc.y + dy );
+      t.setChanged();
     }
   }
 
@@ -978,6 +1170,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     relationshipDragEndLocation = null;
     candidateRelationshipTarget = null;
     clearTableDragState();
+    clearLasso();
     if (canvas != null && !canvas.isDisposed()) {
       canvas.setData("mode", "null");
     }
@@ -1220,6 +1413,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
   @Override
   public void unselectAll() {
     unselectAllTables();
+    clearLasso();
     redraw();
   }
 
@@ -1339,6 +1533,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
   public void setModel(DataVaultModel model) {
     cancelRelationshipDrag();
     clearTableDragState();
+    clearLasso();
     areaOwners.clear();
     mouseOverTableName = null;
     lastClick = null;
