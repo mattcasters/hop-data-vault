@@ -22,12 +22,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.hop.core.Props;
+import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.Rectangle;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
-import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.gui.plugin.IGuiRefresher;
 import org.apache.hop.core.gui.plugin.action.GuiActionType;
 import org.apache.hop.core.gui.plugin.key.GuiKeyboardShortcut;
@@ -43,17 +44,15 @@ import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
-import org.apache.hop.core.Props;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.gui.GuiToolbarWidgets;
 import org.apache.hop.ui.core.gui.IToolbarContainer;
-import org.apache.hop.ui.hopgui.ToolbarFacade;
 import org.apache.hop.ui.hopgui.HopGui;
+import org.apache.hop.ui.hopgui.ToolbarFacade;
 import org.apache.hop.ui.hopgui.context.GuiContextUtil;
 import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
 import org.apache.hop.ui.hopgui.file.IHopFileType;
 import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
-import org.apache.hop.ui.hopgui.file.pipeline.HopGuiPipelineGraph;
 import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.hopgui.shared.SwtGc;
@@ -562,7 +561,9 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       areaOwners.clear();
       DataVaultModelPainter painter =
           new DataVaultModelPainter(
-              model, gc, width, height, magnification, offset, areaOwners, mouseOverTableName);
+              model, gc, width, height,
+                  (float) (magnification * PropsUi.getNativeZoomFactor()),
+                  offset, areaOwners, mouseOverTableName);
       // Pass current (if any) relationship drag state so painter can render the candidate line
       // (in logical coords, before tables).
       painter.setRelationshipDragInfo(
@@ -1140,13 +1141,13 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     boolean changed = false;
     Shell parentShell = getShell();
     if ( table.getTableType() == DvTableType.HUB ) {
-      HopGuiHubDialog dialog = new HopGuiHubDialog( parentShell, variables, (DvHub) table );
+      HopGuiHubDialog dialog = new HopGuiHubDialog( parentShell, hopGui, (DvHub) table );
       changed = dialog.open();
     } else if ( table.getTableType() == DvTableType.SATELLITE ) {
-      HopGuiSatelliteDialog dialog = new HopGuiSatelliteDialog( parentShell, variables, (DvSatellite) table );
+      HopGuiSatelliteDialog dialog = new HopGuiSatelliteDialog( parentShell, hopGui, (DvSatellite) table );
       changed = dialog.open();
     } else if ( table.getTableType() == DvTableType.LINK ) {
-      HopGuiLinkDialog dialog = new HopGuiLinkDialog( parentShell, variables, (DvLink) table );
+      HopGuiLinkDialog dialog = new HopGuiLinkDialog( parentShell, hopGui, (DvLink) table );
       changed = dialog.open();
     }
     if ( changed ) {

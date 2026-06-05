@@ -60,6 +60,10 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
   @HopMetadataProperty
   protected String description;
 
+  /**
+   * Name of the referenced {@link DataVaultSource} metadata element (by name) to use as the
+   * default/suggested record source value.
+   */
   @HopMetadataProperty
   protected String recordSource;
 

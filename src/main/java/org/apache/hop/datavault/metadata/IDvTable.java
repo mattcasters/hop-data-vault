@@ -49,7 +49,8 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged {
   /** Human-readable description of this table / concept. */
   String getDescription();
 
-  /** Default or suggested record source value for rows loaded into this table. */
+  /** Name of the {@link DataVaultSource} metadata element providing the default or suggested
+   * record source value for rows loaded into this table. */
   String getRecordSource();
 
   /** Returns the type of this Data Vault table (HUB, SATELLITE or LINK). */

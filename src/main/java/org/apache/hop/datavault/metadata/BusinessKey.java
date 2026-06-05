@@ -67,6 +67,15 @@ public class BusinessKey {
   @HopMetadataProperty
   private String length;
 
+  @GuiWidgetElement(
+      order = "0500",
+      type = GuiElementType.TEXT,
+      label = "i18n::BusinessKey.SourceFieldName.Label",
+      toolTip = "i18n::BusinessKey.SourceFieldName.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String sourceFieldName;
+
   public BusinessKey() {}
 
   public BusinessKey(String name) {
@@ -103,5 +112,13 @@ public class BusinessKey {
 
   public void setLength(String length) {
     this.length = length;
+  }
+
+  public String getSourceFieldName() {
+    return sourceFieldName;
+  }
+
+  public void setSourceFieldName(String sourceFieldName) {
+    this.sourceFieldName = sourceFieldName;
   }
 }

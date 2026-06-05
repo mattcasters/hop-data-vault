@@ -20,14 +20,18 @@ package org.apache.hop.datavault.hopgui.file.vault;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.SatelliteAttribute;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.widget.ColumnInfo;
+import org.apache.hop.ui.core.widget.MetaSelectionLine;
 import org.apache.hop.ui.core.widget.TableView;
+import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.FormAttachment;
@@ -49,13 +53,14 @@ public class HopGuiSatelliteDialog {
   private Shell parent;
   private IVariables variables;
   private DvSatellite input;
+  private HopGui hopGui;
   private Shell shell;
 
   // Widgets
   private Text wName;
   private Text wTableName;
   private Text wDescription;
-  private Text wRecordSource;
+  private MetaSelectionLine<DataVaultSource> wRecordSource;
   private Text wHubName;
   private Text wLinkName;
   private Button wMultiActive;
@@ -64,9 +69,10 @@ public class HopGuiSatelliteDialog {
 
   private boolean ok;
 
-  public HopGuiSatelliteDialog(Shell parent, IVariables variables, DvSatellite satellite) {
+  public HopGuiSatelliteDialog(Shell parent, HopGui hopGui, DvSatellite satellite) {
     this.parent = parent;
-    this.variables = variables;
+    this.hopGui = hopGui;
+    this.variables = hopGui.getVariables();
     this.input = satellite;
   }
 
@@ -150,20 +156,18 @@ public class HopGuiSatelliteDialog {
     wDescription.setLayoutData(fdDescription);
     wDescription.addModifyListener(e -> input.setChanged());
 
-    // Record source
-    Label wlRecordSource = new Label(shell, SWT.RIGHT);
-    wlRecordSource.setText(BaseMessages.getString(PKG, "HopGuiSatelliteDialog.RecordSource.Label"));
-    PropsUi.setLook(wlRecordSource);
-    FormData fdlRecordSource = new FormData();
-    fdlRecordSource.left = new FormAttachment(0, 0);
-    fdlRecordSource.top = new FormAttachment(wDescription, margin);
-    fdlRecordSource.right = new FormAttachment(middle, -margin);
-    wlRecordSource.setLayoutData(fdlRecordSource);
-
-    wRecordSource = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wRecordSource);
+    // Record source (now a reference to DataVaultSource metadata)
+    wRecordSource =
+        new MetaSelectionLine<>(
+            variables,
+            hopGui.getMetadataProvider(),
+            DataVaultSource.class,
+            shell,
+            SWT.SINGLE | SWT.LEFT | SWT.BORDER,
+            BaseMessages.getString(PKG, "HopGuiSatelliteDialog.RecordSource.Label"),
+            BaseMessages.getString(PKG, "HopGuiSatelliteDialog.RecordSource.ToolTip"));
     FormData fdRecordSource = new FormData();
-    fdRecordSource.left = new FormAttachment(middle, 0);
+    fdRecordSource.left = new FormAttachment(0, 0);
     fdRecordSource.top = new FormAttachment(wDescription, margin);
     fdRecordSource.right = new FormAttachment(100, 0);
     wRecordSource.setLayoutData(fdRecordSource);
@@ -313,7 +317,12 @@ public class HopGuiSatelliteDialog {
     if (input.getName() != null) wName.setText(input.getName());
     if (input.getTableName() != null) wTableName.setText(input.getTableName());
     if (input.getDescription() != null) wDescription.setText(input.getDescription());
-    if (input.getRecordSource() != null) wRecordSource.setText(input.getRecordSource());
+    try {
+      wRecordSource.fillItems();
+      wRecordSource.setText(Const.NVL(input.getRecordSource(), ""));
+    } catch (HopException e) {
+      wRecordSource.setText(Const.NVL(input.getRecordSource(), ""));
+    }
     if (input.getHubName() != null) wHubName.setText(input.getHubName());
     if (input.getLinkName() != null) wLinkName.setText(input.getLinkName());
     wMultiActive.setSelection(input.isMultiActive());
