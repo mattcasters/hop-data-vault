@@ -35,12 +35,6 @@ import org.apache.hop.metadata.api.IHasName;
  * Changes are captured by inserting new rows (insert-only pattern in DV 2.0).
  */
 @GuiPlugin
-@HopMetadata(
-    key = "data-vault-satellite",
-    name = "i18n::DvSatellite.name",
-    description = "i18n::DvSatellite.description",
-    image = "datavault_satellite.svg",
-    documentationUrl = "/metadata-types/data-vault-satellite.html")
 public class DvSatellite extends DvTableBase implements IDvTable, IGuiPosition, IBaseMeta, IHasName {
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_SATELLITE_DIALOG";

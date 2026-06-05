@@ -36,12 +36,6 @@ import org.apache.hop.metadata.api.IHasName;
  * (plus any additional descriptors for the relationship).
  */
 @GuiPlugin
-@HopMetadata(
-    key = "data-vault-link",
-    name = "i18n::DvLink.name",
-    description = "i18n::DvLink.description",
-    image = "datavault_link.svg",
-    documentationUrl = "/metadata-types/data-vault-link.html")
 public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBaseMeta, IHasName {
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_LINK_DIALOG";

@@ -273,6 +273,14 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
 
           @Override
           public void mouseUp(MouseEvent e) {
+            // A single click on the background isn't a selection.
+            // We need to show the context dialog for the model.
+            //
+            if (startRelationshipTable==null && selectionRegion!=null && selectionRegion.isEmpty()) {
+              avoidContextDialog=false;
+              selectionRegion = null;
+            }
+
             if ( startRelationshipTable != null ) {
               // Complete relationship drag if dropped on a different valid table
               IDvTable target = findTableAtScreen( e.x, e.y );
@@ -284,7 +292,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
               avoidContextDialog = true;
               redraw();
               return;
-            }
+            } else
 
             if ( selectionRegion != null ) {
               // Finish lasso drag: update final size

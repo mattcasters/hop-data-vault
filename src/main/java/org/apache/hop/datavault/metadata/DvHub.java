@@ -33,12 +33,6 @@ import org.apache.hop.metadata.api.IHasName;
  * It contains the business key(s) and the surrogate hash key derived from them.
  */
 @GuiPlugin
-@HopMetadata(
-    key = "data-vault-hub",
-    name = "i18n::DvHub.name",
-    description = "i18n::DvHub.description",
-    image = "datavault_hub.svg",
-    documentationUrl = "/metadata-types/data-vault-hub.html")
 public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseMeta, IHasName {
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_HUB_DIALOG";

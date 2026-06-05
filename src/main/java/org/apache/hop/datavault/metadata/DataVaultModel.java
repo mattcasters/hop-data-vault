@@ -41,6 +41,10 @@ import org.apache.hop.metadata.api.IHopMetadata;
  * ({@link IDvTable#getTableType()}) and full definition. The model provides the "big picture"
  * and a single place to attach a default DataVaultConfiguration.
  *
+ * <p>Sources ({@link IDvSource}) describe the incoming systems (Database connections + expected
+ * row layouts today). They are used by generators / transforms to know where data originates
+ * and what columns to expect.
+ *
  * <p>Implements IChanged (like PipelineMeta) for dirty state tracking in the visual modeler.
  */
 @GuiPlugin
@@ -92,6 +96,14 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
   // GuiElementType.LIST is not available; lists are handled by serialization and the metadata perspective.
   @HopMetadataProperty(key="table", groupKey = "tables")
   private List<IDvTable> tables = new ArrayList<>();
+
+  /**
+   * Source systems feeding this Data Vault model.
+   * Each source (Database today) references a connection by name and declares the
+   * expected row layout via its list of {@link SourceField}s.
+   */
+  @HopMetadataProperty(key = "source", groupKey = "sources")
+  private List<IDvSource> sources = new ArrayList<>();
 
   protected final ChangedFlag changedFlag = new ChangedFlag();
 
@@ -174,6 +186,17 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
     this.tables = tables;
   }
 
+  public List<IDvSource> getSources() {
+    return sources;
+  }
+
+  public void setSources(List<IDvSource> sources) {
+    if (!java.util.Objects.equals(this.sources, sources)) {
+      setChanged();
+    }
+    this.sources = sources;
+  }
+
   // -------------------------------------------------------------------------------------
   // IChanged implementation (like PipelineMeta / AbstractMeta)
   // -------------------------------------------------------------------------------------
@@ -186,6 +209,13 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
     if (tables != null) {
       for (IDvTable table : tables) {
         if (table.hasChanged()) {
+          return true;
+        }
+      }
+    }
+    if (sources != null) {
+      for (IDvSource source : sources) {
+        if (source.hasChanged()) {
           return true;
         }
       }
@@ -209,6 +239,11 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
     if (tables != null) {
       for (IDvTable table : tables) {
         table.clearChanged();
+      }
+    }
+    if (sources != null) {
+      for (IDvSource source : sources) {
+        source.clearChanged();
       }
     }
   }
