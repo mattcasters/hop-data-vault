@@ -1,0 +1,14 @@
+Apache Hop Data Vault
+Copyright 2026 The Apache Software Foundation
+
+This project contains code generated with the assistance of Grok,
+developed by xAI.
+
+The use of Grok was instrumental in accelerating development of
+the Data Vault 2.0 metadata model, loading patterns, and related
+components for Apache Hop.
+
+See: https://x.ai
+     https://github.com/apache/hop/issues/7077
+
+
