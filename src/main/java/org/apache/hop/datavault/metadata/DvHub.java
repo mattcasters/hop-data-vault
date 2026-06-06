@@ -530,8 +530,6 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       tableName = ctx.hub.getName();
     }
 
-    Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
-
     try {
       TableOutputMeta tableOutputMeta = new TableOutputMeta();
       tableOutputMeta.setConnection(ctx.targetDbName);
