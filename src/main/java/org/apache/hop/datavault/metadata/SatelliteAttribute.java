@@ -78,11 +78,11 @@ public class SatelliteAttribute {
   @GuiWidgetElement(
       order = "0600",
       type = GuiElementType.CHECKBOX,
-      label = "i18n::SatelliteAttribute.IncludeInHashDiff.Label",
-      toolTip = "i18n::SatelliteAttribute.IncludeInHashDiff.ToolTip",
+      label = "i18n::SatelliteAttribute.IncludeInChangeDataCapture.Label",
+      toolTip = "i18n::SatelliteAttribute.IncludeInChangeDataCapture.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
-  private boolean includeInHashDiff = true;
+  private boolean includeInChangeDataCapture = true;
 
   public SatelliteAttribute() {}
 
@@ -130,11 +130,11 @@ public class SatelliteAttribute {
     this.precision = precision;
   }
 
-  public boolean isIncludeInHashDiff() {
-    return includeInHashDiff;
+  public boolean isIncludeInChangeDataCapture() {
+    return includeInChangeDataCapture;
   }
 
-  public void setIncludeInHashDiff(boolean includeInHashDiff) {
-    this.includeInHashDiff = includeInHashDiff;
+  public void setIncludeInChangeDataCapture(boolean includeInChangeDataCapture) {
+    this.includeInChangeDataCapture = includeInChangeDataCapture;
   }
 }

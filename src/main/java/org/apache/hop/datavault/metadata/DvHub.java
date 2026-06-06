@@ -205,18 +205,21 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       // Source TableInput (from record source)
       TransformMeta sourceTransform = addSourceTableInput(ctx, pipelineMeta);
 
-      // Target TableInput (from target DB, for diff)
+      // Target TableInput (from target DB, for diff). Includes business key at start and
+      // hash at end (per request) so that when combined with passthroughs the layouts align
+      // as much as possible.
       TransformMeta targetTransform = addTargetTableInput(ctx, pipelineMeta);
 
-      // MergeRows (diff) if we have a target side
+      // MergeRows (diff) if we have a target side. The source table input is the compare leg
+      // (direct hop, per request).
       TransformMeta mergeTransform =
           addMergeRowsIfNeeded(ctx, pipelineMeta, sourceTransform, targetTransform);
 
       // Filter Rows: keep only "new" rows coming out of the diff (for insert into target hub)
       TransformMeta filterTransform = addFilterNewRowsIfNeeded(pipelineMeta, mergeTransform);
 
-      // CheckSum for the hub hash key (input is the filter when present, otherwise the merge or
-      // source)
+      // CheckSum after the filter (only for new rows). The result type (STRING/HEX/BINARY) and
+      // length in the final layout still reflect the HashKeyDataType choice from configuration.
       TransformMeta checkSumTransform = addCheckSum(ctx, pipelineMeta);
 
       // Add Constant transform for the static load date (provided to the method)
@@ -226,7 +229,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
       TransformMeta tableOutputTransform = addTableOutput(ctx, pipelineMeta, targetLayout);
 
-      // Wire the hops (up to checksum, then constant, then table output)
+      // Wire the hops: direct from source table input to MergeRows (compare leg), target to
+      // MergeRows (reference), then filter -> checksum (new rows) -> constant -> table output.
       addPipelineHops(
           pipelineMeta,
           sourceTransform,
@@ -402,7 +406,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
     MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
     mergeRowsMeta.setReferenceTransform(ctx.targetTransformName); // target as reference
-    mergeRowsMeta.setCompareTransform(ctx.sourceTransformName); // source as compare
+    // Direct hop from source table input as the compare leg (per request).
+    mergeRowsMeta.setCompareTransform(sourceTransform.getName());
     mergeRowsMeta.setFlagField("flag");
 
     List<String> keyFields = new ArrayList<>();
@@ -419,6 +424,9 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     // Pass through the record source indicator from the source (compare) side.
     // It was added (as constant or source column) and aliased in the source TableInput.
     // We use referenceField=false so the value is taken from the "new" / compare leg.
+    // Note: hash is not passed through here (it is not present in the source TI); it is
+    // added by the post-filter CheckSum on new rows only. The target query includes the
+    // hash (at end) for layout compatibility where possible.
     String rsFieldName = ctx.hub.getRecordSourceFieldName();
     if (Utils.isEmpty(rsFieldName)) {
       rsFieldName = ctx.recordSourceField;
@@ -483,9 +491,13 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
     checkSumMeta.setResultFieldName(resultFieldName);
 
-    if (ctx.config != null && ctx.config.getHashKeyDataType() == HashKeyDataType.BINARY) {
+    HashKeyDataType hdt = (ctx.config != null) ? ctx.config.getHashKeyDataType() : HashKeyDataType.BINARY;
+    if (hdt == HashKeyDataType.BINARY) {
       checkSumMeta.setResultType(ResultType.BINARY);
+    } else if (hdt == HashKeyDataType.HEX) {
+      checkSumMeta.setResultType(ResultType.HEXADECIMAL);
     } else {
+      // STRING -> the decimal-dash string format (0-255 separated by "-")
       checkSumMeta.setResultType(ResultType.STRING);
     }
 
@@ -564,23 +576,36 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       TransformMeta constantTransform,
       TransformMeta tableOutputTransform) {
     if (mergeTransform != null) {
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(sourceTransform, mergeTransform));
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(targetTransform, mergeTransform));
+      // Direct hop from source table input to Merge Rows as the compare leg (per request).
+      if (sourceTransform != null) {
+        pipelineMeta.addPipelineHop(new PipelineHopMeta(sourceTransform, mergeTransform));
+      }
+      if (targetTransform != null) {
+        pipelineMeta.addPipelineHop(new PipelineHopMeta(targetTransform, mergeTransform));
+      }
       if (filterTransform != null) {
         pipelineMeta.addPipelineHop(new PipelineHopMeta(mergeTransform, filterTransform));
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(filterTransform, checkSumTransform));
-      } else {
+        if (checkSumTransform != null) {
+          pipelineMeta.addPipelineHop(new PipelineHopMeta(filterTransform, checkSumTransform));
+        }
+      } else if (checkSumTransform != null) {
         pipelineMeta.addPipelineHop(new PipelineHopMeta(mergeTransform, checkSumTransform));
       }
-    } else if (sourceTransform != null && checkSumTransform != null) {
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(sourceTransform, checkSumTransform));
+      // After filter: checksum (on new rows) -> constant -> output
+      if (checkSumTransform != null && constantTransform != null) {
+        pipelineMeta.addPipelineHop(new PipelineHopMeta(checkSumTransform, constantTransform));
+      }
+    } else if (checkSumTransform != null && constantTransform != null) {
+      // No target (no merge): source -> checksum -> constant -> output
+      if (sourceTransform != null && checkSumTransform != null) {
+        pipelineMeta.addPipelineHop(new PipelineHopMeta(sourceTransform, checkSumTransform));
+      }
+      if (checkSumTransform != null && constantTransform != null) {
+        pipelineMeta.addPipelineHop(new PipelineHopMeta(checkSumTransform, constantTransform));
+      }
     }
 
-    // After checksum: add the constant load date, then table output (always, to persist the new
-    // rows)
-    if (checkSumTransform != null && constantTransform != null) {
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(checkSumTransform, constantTransform));
-    }
+    // Final hop to TableOutput (when present)
     if (constantTransform != null && tableOutputTransform != null) {
       pipelineMeta.addPipelineHop(new PipelineHopMeta(constantTransform, tableOutputTransform));
     }
@@ -604,6 +629,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
     final String sourceTransformName;
     final String targetTransformName;
+    final String hashKeyFieldName;
     final DatabaseMeta sourceDatabaseMeta;
     final String sourceDbName;
     final String sourceSchema;
@@ -628,6 +654,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         String pipelineName,
         String sourceTransformName,
         String targetTransformName,
+        String hashKeyFieldName,
         DatabaseMeta sourceDatabaseMeta,
         String sourceDbName,
         String sourceSchema,
@@ -649,6 +676,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       this.pipelineName = pipelineName;
       this.sourceTransformName = sourceTransformName;
       this.targetTransformName = targetTransformName;
+      this.hashKeyFieldName = hashKeyFieldName != null ? hashKeyFieldName : "hashkey_HK";
       this.sourceDatabaseMeta = sourceDatabaseMeta;
       this.sourceDbName = sourceDbName;
       this.sourceSchema = sourceSchema;
@@ -728,6 +756,15 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
       String targetTransformName = "target_" + targetTableName;
 
+      String hashKeyFieldName = hub.getHashKeyFieldName();
+      if (Utils.isEmpty(hashKeyFieldName)) {
+        if (!Utils.isEmpty(hub.getBusinessKeys())) {
+          hashKeyFieldName = hub.getBusinessKeys().get(0).getName() + "_HK";
+        } else {
+          hashKeyFieldName = "hashkey_HK";
+        }
+      }
+
       // Source side loads (recordSource -> DataVaultSource -> DvDatabaseSource -> DatabaseMeta + PK
       // fields)
       DatabaseMeta sourceDatabaseMeta = null;
@@ -788,6 +825,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
           pipelineName,
           sourceTransformName,
           targetTransformName,
+          hashKeyFieldName,
           sourceDatabaseMeta,
           sourceDbName,
           sourceSchema,
@@ -831,11 +869,25 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       }
 
       IValueMeta hashMeta;
-      if (config.getHashKeyDataType() == HashKeyDataType.BINARY) {
+      HashKeyDataType hdt = config.getHashKeyDataType();
+      HashAlgorithm algo = config.getHashAlgorithm();
+      if (algo == null) {
+        algo = HashAlgorithm.MD5;
+      }
+      int digestBytes = algo.getDigestLength();
+
+      if (hdt == HashKeyDataType.BINARY) {
         hashMeta = new ValueMetaBinary(hashKeyName);
-        // optionally set length based on algo, but not specified in task
-      } else {
+        hashMeta.setLength(digestBytes);
+      } else if (hdt == HashKeyDataType.HEX) {
         hashMeta = new ValueMetaString(hashKeyName);
+        hashMeta.setLength(digestBytes * 2);
+      } else {
+        // STRING: the decimal-dash format produced by CheckSum ResultType.STRING
+        // max length = N*3 + (N-1)  e.g. 63 for MD5
+        int stringMax = digestBytes * 3 + (digestBytes > 0 ? digestBytes - 1 : 0);
+        hashMeta = new ValueMetaString(hashKeyName);
+        hashMeta.setLength(stringMax);
       }
       rowMeta.addValueMeta(hashMeta);
 
@@ -864,7 +916,12 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
               int hopType = sf.getHopType();
               if (hopType > 0) {
                 bkMeta = ValueMetaFactory.createValueMeta(srcFieldName, hopType);
-                bkMeta.setLength(Const.toInt(bk.getLength(), -1));
+                // Prefer length/precision declared on the Data Vault Source's SourceField
+                // (the actual source column definition) over the BusinessKey metadata.
+                String len = !Utils.isEmpty(sf.getLength()) ? sf.getLength() : bk.getLength();
+                String prec = !Utils.isEmpty(sf.getPrecision()) ? sf.getPrecision() : null;
+                bkMeta.setLength(Const.toInt(len, -1));
+                bkMeta.setPrecision(Const.toInt(prec, -1));
                 if (!Utils.isEmpty(bk.getDataType()) && bkMeta.getType() == IValueMeta.TYPE_NONE) {
                   throw new HopException(
                       "Please specify a data type for business key " + bk.getName());
@@ -875,7 +932,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
           }
         }
         if (bkMeta == null) {
-          // fallback using bk dataType or string
+          // fallback using bk dataType or string (no SourceField available to take length/precision from)
           String dt = bk.getDataType();
           int typeId = IValueMeta.TYPE_STRING;
           if (!Utils.isEmpty(dt)) {
@@ -884,6 +941,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
           }
           bkMeta = ValueMetaFactory.createValueMeta(srcFieldName, typeId);
           bkMeta.setLength(Const.toInt(bk.getLength(), 15));
+          bkMeta.setPrecision(-1);
         }
         rowMeta.addValueMeta(bkMeta);
       }

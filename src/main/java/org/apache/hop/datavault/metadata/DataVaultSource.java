@@ -19,6 +19,8 @@ package org.apache.hop.datavault.metadata;
 
 import java.util.ArrayList;
 import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.plugin.GuiElementType;
@@ -46,6 +48,8 @@ import org.apache.hop.metadata.api.IHopMetadataSerializer;
     description = "i18n::DataVaultSource.description",
     image = "datavault_model.svg",
     documentationUrl = "/metadata-types/data-vault-source.html")
+@Getter
+@Setter
 public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IHasName {
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_SOURCE_DIALOG";

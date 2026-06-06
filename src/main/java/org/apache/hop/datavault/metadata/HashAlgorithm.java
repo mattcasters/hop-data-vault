@@ -33,5 +33,17 @@ public enum HashAlgorithm {
   SHA256,
 
   /** 512-bit. Maximum strength, larger storage. */
-  SHA512
+  SHA512;
+
+  /**
+   * Returns the length in bytes of the raw digest produced by this algorithm.
+   */
+  public int getDigestLength() {
+    return switch (this) {
+      case MD5 -> 16;
+      case SHA1 -> 20;
+      case SHA256 -> 32;
+      case SHA512 -> 64;
+    };
+  }
 }

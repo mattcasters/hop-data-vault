@@ -19,6 +19,8 @@ package org.apache.hop.datavault.metadata;
 
 import java.util.ArrayList;
 import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.changed.ChangedFlag;
@@ -36,20 +38,22 @@ import org.apache.hop.metadata.api.IHopMetadata;
 /**
  * A named Data Vault 2.0 model.
  *
- * <p>This aggregates references to Hubs, Links and Satellites (via {@link IDvTable})
- * that belong together in one enterprise data warehouse (or a subject area / release of it).
+ * <p>This aggregates references to Hubs, Links and Satellites (via {@link IDvTable}) that belong
+ * together in one enterprise data warehouse (or a subject area / release of it).
  *
- * <p>Each table in the unified {@link #getTables()} list carries its own type
- * ({@link IDvTable#getTableType()}) and full definition. The model provides the "big picture"
- * and a single place to attach a default DataVaultConfiguration.
+ * <p>Each table in the unified {@link #getTables()} list carries its own type ({@link
+ * IDvTable#getTableType()}) and full definition. The model provides the "big picture" and a single
+ * place to attach a default DataVaultConfiguration.
  *
- * <p>Sources ({@link IDvSource}) describe the incoming systems (Database connections + expected
- * row layouts today). They are used by generators / transforms to know where data originates
- * and what columns to expect.
+ * <p>Sources ({@link IDvSource}) describe the incoming systems (Database connections + expected row
+ * layouts today). They are used by generators / transforms to know where data originates and what
+ * columns to expect.
  *
  * <p>Implements IChanged (like PipelineMeta) for dirty state tracking in the visual modeler.
  */
 @GuiPlugin
+@Getter
+@Setter
 public class DataVaultModel extends HopMetadataBase implements IHopMetadata, IChanged, IHasName {
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_MODEL_DIALOG";
@@ -60,8 +64,8 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
   @HopMetadataProperty private String filename;
 
   /**
-   * Whether the name should be kept in sync with the filename (derived via extractNameFromFilename).
-   * Default true, like AbstractMetaInfo.
+   * Whether the name should be kept in sync with the filename (derived via
+   * extractNameFromFilename). Default true, like AbstractMetaInfo.
    */
   @HopMetadataProperty(key = "name_sync_with_filename")
   private boolean nameSynchronizedWithFilename = true;
@@ -76,8 +80,8 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
   private String description;
 
   /**
-   * Default configuration for hashing and physical strategy used by objects in this model
-   * (can be overridden at the individual table level).
+   * Default configuration for hashing and physical strategy used by objects in this model (can be
+   * overridden at the individual table level).
    */
   @GuiWidgetElement(
       order = "0200",
@@ -90,20 +94,20 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
   private String configurationName;
 
   /**
-   * All tables (Hubs, Links and Satellites) that belong to this Data Vault model.
-   * Each table knows its own type via {@link IDvTable#getTableType()}.
-   * Stored using storeWithName so that the model holds references to the individual
-   * table metadata objects (rather than inlining them).
+   * All tables (Hubs, Links and Satellites) that belong to this Data Vault model. Each table knows
+   * its own type via {@link IDvTable#getTableType()}. Stored using storeWithName so that the model
+   * holds references to the individual table metadata objects (rather than inlining them).
    */
-  // GuiElementType.LIST is not available; lists are handled by serialization and the metadata perspective.
-  @HopMetadataProperty(key="table", groupKey = "tables")
+  // GuiElementType.LIST is not available; lists are handled by serialization and the metadata
+  // perspective.
+  @HopMetadataProperty(key = "table", groupKey = "tables")
   private List<IDvTable> tables = new ArrayList<>();
 
   /**
-   * Source systems feeding this Data Vault model.
-   * Each source (Database today) references a connection by name and declares the
-   * expected row layout via its list of {@link SourceField}s.
+   * Source systems feeding this Data Vault model. Each source (Database today) references a
+   * connection by name and declares the expected row layout via its list of {@link SourceField}s.
    */
+  @Getter
   @HopMetadataProperty(key = "source", groupKey = "sources")
   private List<IDvSource> sources = new ArrayList<>();
 
@@ -133,19 +137,11 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
     this.name = name;
   }
 
-  public String getFilename() {
-    return filename;
-  }
-
   public void setFilename(String filename) {
     if (!java.util.Objects.equals(this.filename, filename)) {
       setChanged();
     }
     this.filename = filename;
-  }
-
-  public boolean isNameSynchronizedWithFilename() {
-    return nameSynchronizedWithFilename;
   }
 
   public void setNameSynchronizedWithFilename(boolean nameSynchronizedWithFilename) {
@@ -155,19 +151,11 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
     this.nameSynchronizedWithFilename = nameSynchronizedWithFilename;
   }
 
-  public String getDescription() {
-    return description;
-  }
-
   public void setDescription(String description) {
     if (!java.util.Objects.equals(this.description, description)) {
       setChanged();
     }
     this.description = description;
-  }
-
-  public String getConfigurationName() {
-    return configurationName;
   }
 
   public void setConfigurationName(String configurationName) {
@@ -177,19 +165,11 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
     this.configurationName = configurationName;
   }
 
-  public List<IDvTable> getTables() {
-    return tables;
-  }
-
   public void setTables(List<IDvTable> tables) {
     if (!java.util.Objects.equals(this.tables, tables)) {
       setChanged();
     }
     this.tables = tables;
-  }
-
-  public List<IDvSource> getSources() {
-    return sources;
   }
 
   public void setSources(List<IDvSource> sources) {
@@ -263,5 +243,19 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
         source.clearChanged();
       }
     }
+  }
+
+  /**
+   * Find the Hub with the given name in the model
+   * @param hubName The name of the hub to look for.
+   * @return The Hub or null if not found.
+   */
+  public DvHub findHub(String hubName) {
+    for (IDvTable table : tables) {
+      if (table.getTableType() == DvTableType.HUB && table.getName().equalsIgnoreCase(hubName)) {
+        return (DvHub) table;
+      }
+    }
+    return null;
   }
 }

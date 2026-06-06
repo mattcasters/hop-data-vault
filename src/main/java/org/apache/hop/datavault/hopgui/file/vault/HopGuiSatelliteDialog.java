@@ -21,7 +21,11 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.SourceField;
+import org.apache.hop.ui.core.dialog.ErrorDialog;
+import org.apache.hop.ui.core.dialog.MessageBox;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.SatelliteAttribute;
@@ -93,11 +97,14 @@ public class HopGuiSatelliteDialog {
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
+    Button wGetAttributes = new Button(shell, SWT.PUSH);
+    wGetAttributes.setText(BaseMessages.getString(PKG, "HopGuiSatelliteDialog.GetAttributes.Button"));
+    wGetAttributes.addListener(SWT.Selection, e -> getAttributes());
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
 
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
+    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wGetAttributes, wCancel}, margin, null);
 
     // Name
     Label wlName = new Label(shell, SWT.RIGHT);
@@ -280,7 +287,7 @@ public class HopGuiSatelliteDialog {
               ColumnInfo.COLUMN_TYPE_TEXT,
               false),
           new ColumnInfo(
-              BaseMessages.getString(PKG, "HopGuiSatelliteDialog.Attribute.IncludeInHashDiff.Column"),
+              BaseMessages.getString(PKG, "HopGuiSatelliteDialog.Attribute.IncludeInChangeDataCapture.Column"),
               ColumnInfo.COLUMN_TYPE_CCOMBO,
               new String[] {
                 BaseMessages.getString(PKG, "System.Combo.Yes"),
@@ -337,7 +344,7 @@ public class HopGuiSatelliteDialog {
         item.setText(3, Const.NVL(attr.getDataType(), ""));
         item.setText(4, Const.NVL(attr.getLength(), ""));
         item.setText(5, Const.NVL(attr.getPrecision(), ""));
-        item.setText(6, attr.isIncludeInHashDiff() ? "Y" : "N");
+        item.setText(6, attr.isIncludeInChangeDataCapture() ? "Y" : "N");
       }
     }
   }
@@ -360,7 +367,7 @@ public class HopGuiSatelliteDialog {
       attr.setDataType(item.getText(3));
       attr.setLength(item.getText(4));
       attr.setPrecision(item.getText(5));
-      attr.setIncludeInHashDiff("Y".equalsIgnoreCase(item.getText(6)));
+      attr.setIncludeInChangeDataCapture("Y".equalsIgnoreCase(item.getText(6)));
       attrs.add(attr);
     }
     input.setAttributes(attrs);
@@ -372,6 +379,71 @@ public class HopGuiSatelliteDialog {
   private void cancel() {
     ok = false;
     dispose();
+  }
+
+  private void getAttributes() {
+    String sourceName = wRecordSource.getText();
+    if (Utils.isEmpty(sourceName)) {
+      MessageBox mb = new MessageBox(shell, SWT.OK | SWT.ICON_ERROR);
+      mb.setMessage(
+          BaseMessages.getString(PKG, "HopGuiSatelliteDialog.GetAttributes.NoSource.Message"));
+      mb.setText(BaseMessages.getString(PKG, "HopGuiSatelliteDialog.GetAttributes.NoSource.Title"));
+      mb.open();
+      return;
+    }
+
+    DataVaultSource source = null;
+    List<SourceField> sourceFields = null;
+
+    try {
+      source =
+          hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sourceName);
+      if (source != null) {
+        sourceFields = source.getFields(hopGui.getMetadataProvider());
+      }
+    } catch (HopException e) {
+      new ErrorDialog(
+          shell,
+          BaseMessages.getString(PKG, "System.Dialog.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiSatelliteDialog.GetAttributes.ErrorLoadingSource.Message", sourceName),
+          e);
+      return;
+    }
+
+    if (source == null
+        || sourceFields == null
+        || sourceFields.isEmpty()) {
+      MessageBox mb = new MessageBox(shell, SWT.OK | SWT.ICON_INFORMATION);
+      mb.setMessage(
+          BaseMessages.getString(PKG, "HopGuiSatelliteDialog.GetAttributes.NoFields.Message", sourceName));
+      mb.setText(BaseMessages.getString(PKG, "HopGuiSatelliteDialog.GetAttributes.NoFields.Title"));
+      mb.open();
+      return;
+    }
+
+    String drivingKey = wDrivingKey.getText() != null ? wDrivingKey.getText().trim() : "";
+
+    for (SourceField sf : sourceFields) {
+      if (sf.isPrimaryKey()) {
+        continue;
+      }
+      if (!Utils.isEmpty(drivingKey) && drivingKey.equals(sf.getName())) {
+        continue;
+      }
+
+      TableItem item = new TableItem(wAttributes.table, SWT.NONE);
+      item.setText(1, Const.NVL(sf.getName(), ""));
+      item.setText(2, Const.NVL(sf.getDescription(), ""));
+      item.setText(3, Const.NVL(sf.getSourceDataType(), ""));
+      item.setText(4, Const.NVL(sf.getLength(), ""));
+      item.setText(5, Const.NVL(sf.getPrecision(), ""));
+      item.setText(6, "Y"); // includeInChangeDataCapture default true
+    }
+
+    wAttributes.removeEmptyRows();
+    wAttributes.setRowNums();
+    wAttributes.optWidth(true);
+    input.setChanged();
   }
 
   private void dispose() {

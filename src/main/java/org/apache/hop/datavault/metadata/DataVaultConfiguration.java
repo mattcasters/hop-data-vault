@@ -17,6 +17,8 @@
 
 package org.apache.hop.datavault.metadata;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
@@ -53,6 +55,8 @@ import org.apache.hop.metadata.api.IHopMetadata;
     description = "i18n::DataVaultConfiguration.description",
     image = "datavault_configuration.svg",
     documentationUrl = "/metadata-types/data-vault-configuration.html")
+@Getter
+@Setter
 public class DataVaultConfiguration extends HopMetadataBase implements IHopMetadata, IHasName {
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_CONFIGURATION_DIALOG";
@@ -158,15 +162,6 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   private String linkHashKeySuffix = "_HK";
 
   @GuiWidgetElement(
-      order = "0320",
-      type = GuiElementType.TEXT,
-      label = "i18n::DataVaultConfiguration.SatelliteHashDiffSuffix.Label",
-      toolTip = "i18n::DataVaultConfiguration.SatelliteHashDiffSuffix.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private String satelliteHashDiffSuffix = "_HASHDIFF";
-
-  @GuiWidgetElement(
       order = "0330",
       type = GuiElementType.TEXT,
       label = "i18n::DataVaultConfiguration.LoadDateField.Label",
@@ -214,15 +209,6 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
 
   // --- Satellite loading pattern ---
   @GuiWidgetElement(
-      order = "0400",
-      type = GuiElementType.CHECKBOX,
-      label = "i18n::DataVaultConfiguration.UseHashDiff.Label",
-      toolTip = "i18n::DataVaultConfiguration.UseHashDiff.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private boolean useHashDiff = true;
-
-  @GuiWidgetElement(
       order = "0410",
       type = GuiElementType.CHECKBOX,
       label = "i18n::DataVaultConfiguration.UseLoadEndDate.Label",
@@ -251,147 +237,4 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
     this.name = name;
   }
 
-  public String getTargetDatabase() {
-    return targetDatabase;
-  }
-
-  public void setTargetDatabase(String targetDatabase) {
-    this.targetDatabase = targetDatabase;
-  }
-
-  public HashAlgorithm getHashAlgorithm() {
-    return hashAlgorithm;
-  }
-
-  public void setHashAlgorithm(HashAlgorithm hashAlgorithm) {
-    this.hashAlgorithm = hashAlgorithm;
-  }
-
-  public HashKeyDataType getHashKeyDataType() {
-    return hashKeyDataType;
-  }
-
-  public void setHashKeyDataType(HashKeyDataType hashKeyDataType) {
-    this.hashKeyDataType = hashKeyDataType;
-  }
-
-  public HashContentCasing getHashContentCasing() {
-    return hashContentCasing;
-  }
-
-  public void setHashContentCasing(HashContentCasing hashContentCasing) {
-    this.hashContentCasing = hashContentCasing;
-  }
-
-  public String getBusinessKeyDelimiter() {
-    return businessKeyDelimiter;
-  }
-
-  public void setBusinessKeyDelimiter(String businessKeyDelimiter) {
-    this.businessKeyDelimiter = businessKeyDelimiter;
-  }
-
-  public String getNullPlaceholder() {
-    return nullPlaceholder;
-  }
-
-  public void setNullPlaceholder(String nullPlaceholder) {
-    this.nullPlaceholder = nullPlaceholder;
-  }
-
-  public boolean isTrimBusinessKeys() {
-    return trimBusinessKeys;
-  }
-
-  public void setTrimBusinessKeys(boolean trimBusinessKeys) {
-    this.trimBusinessKeys = trimBusinessKeys;
-  }
-
-  public boolean isGenerateUnknownRecord() {
-    return generateUnknownRecord;
-  }
-
-  public void setGenerateUnknownRecord(boolean generateUnknownRecord) {
-    this.generateUnknownRecord = generateUnknownRecord;
-  }
-
-  public String getUnknownBusinessKeyValue() {
-    return unknownBusinessKeyValue;
-  }
-
-  public void setUnknownBusinessKeyValue(String unknownBusinessKeyValue) {
-    this.unknownBusinessKeyValue = unknownBusinessKeyValue;
-  }
-
-  public String getLinkHashKeySuffix() {
-    return linkHashKeySuffix;
-  }
-
-  public void setLinkHashKeySuffix(String linkHashKeySuffix) {
-    this.linkHashKeySuffix = linkHashKeySuffix;
-  }
-
-  public String getSatelliteHashDiffSuffix() {
-    return satelliteHashDiffSuffix;
-  }
-
-  public void setSatelliteHashDiffSuffix(String satelliteHashDiffSuffix) {
-    this.satelliteHashDiffSuffix = satelliteHashDiffSuffix;
-  }
-
-  public String getLoadDateField() {
-    return loadDateField;
-  }
-
-  public void setLoadDateField(String loadDateField) {
-    this.loadDateField = loadDateField;
-  }
-
-  public String getLoadEndDateField() {
-    return loadEndDateField;
-  }
-
-  public void setLoadEndDateField(String loadEndDateField) {
-    this.loadEndDateField = loadEndDateField;
-  }
-
-  public String getRecordSourceField() {
-    return recordSourceField;
-  }
-
-  public void setRecordSourceField(String recordSourceField) {
-    this.recordSourceField = recordSourceField;
-  }
-
-  public String getRecordSourceFieldLength() {
-    return recordSourceFieldLength;
-  }
-
-  public void setRecordSourceFieldLength(String recordSourceFieldLength) {
-    this.recordSourceFieldLength = recordSourceFieldLength;
-  }
-
-  public String getSourceField() {
-    return sourceField;
-  }
-
-  public void setSourceField(String sourceField) {
-    this.sourceField = sourceField;
-  }
-
-  public boolean isUseHashDiff() {
-    return useHashDiff;
-  }
-
-  public void setUseHashDiff(boolean useHashDiff) {
-    this.useHashDiff = useHashDiff;
-  }
-
-  public boolean isUseLoadEndDate() {
-    return useLoadEndDate;
-  }
-
-  public void setUseLoadEndDate(boolean useLoadEndDate) {
-    this.useLoadEndDate = useLoadEndDate;
-  }
 }

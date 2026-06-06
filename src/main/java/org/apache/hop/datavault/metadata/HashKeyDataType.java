@@ -20,13 +20,23 @@ package org.apache.hop.datavault.metadata;
 /**
  * The physical data type used to store hash keys in the Data Vault tables.
  *
- * <p>STRING (hex) is easier for debugging and some tools but uses more space (2x) and may have collation issues.
+ * <p>The actual representation depends on the HashKeyDataType + the CheckSum transform's ResultType:
+ * <ul>
+ *   <li>STRING: decimal numbers 0-255 separated by "-" (produced by CheckSum default STRING mode).
+ *       For MD5: max 63 chars. Larger for SHA*.</li>
+ *   <li>HEX: lowercase hexadecimal (produced by CheckSum HEXADECIMAL mode). MD5=32, SHA256=64, etc.</li>
+ *   <li>BINARY: raw bytes (16 for MD5, 32 for SHA256, etc.). Preferred for production.</li>
+ * </ul>
+ * STRING and HEX are easier for debugging and some tools but use more space and may have collation issues.
  * BINARY is strongly recommended for production DV2.0 for storage efficiency and performance.
  */
 public enum HashKeyDataType {
-  /** Store as hex string, e.g. CHAR(32) or VARCHAR for MD5 upper case hex. */
+  /** Store using the decimal-dash string format from the CheckSum step (e.g. "213-29-140-..."). */
   STRING,
 
-  /** Store as raw binary bytes, e.g. BINARY(16) for MD5, BINARY(32) for SHA256. Preferred. */
+  /** Store as hexadecimal string (e.g. "d41d8cd98f00b204e9800998ecf8427e" for MD5). */
+  HEX,
+
+  /** Store as raw binary bytes. */
   BINARY
 }
