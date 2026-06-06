@@ -17,19 +17,19 @@
 
 package org.apache.hop.datavault.metadata;
 
+import java.util.Date;
 import java.util.List;
-import org.apache.hop.base.IBaseMeta;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.changed.ChangedFlag;
-import org.apache.hop.core.gui.IGuiPosition;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadata;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
-import org.apache.hop.ui.hopgui.HopGui;
 
 /**
  * Common abstract base class for Data Vault 2.0 table definitions (Hub, Link, Satellite).
@@ -268,13 +268,13 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
   }
 
   @Override
-  public IRowMeta getTargetTableLayout(HopGui hopGui, DataVaultModel model) {
+  public IRowMeta getTargetTableLayout(IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model) throws HopException {
     // default: no layout in base
     return null;
   }
 
   @Override
-  public PipelineMeta generateUpdatePipeline(HopGui hopGui, DataVaultModel model) throws HopException {
+  public PipelineMeta generateUpdatePipeline(IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model, Date loadDate) throws HopException {
     // default: no pipeline in base
     return null;
   }

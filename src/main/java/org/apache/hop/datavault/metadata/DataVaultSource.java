@@ -29,6 +29,7 @@ import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadata;
+import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.api.IHopMetadataSerializer;
 
@@ -70,6 +71,35 @@ public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IH
   @HopMetadataProperty
   private String sourceTableName;
 
+  /**
+   * Optional name of a column in the source table that holds the per-row source system indicator
+   * (record source) value. Used only if no static {@link #sourceIndicator} is provided.
+   */
+  @GuiWidgetElement(
+      order = "0300",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultSource.SourceIndicatorField.Label",
+      toolTip = "i18n::DataVaultSource.SourceIndicatorField.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String sourceIndicatorField;
+
+  /**
+   * Optional static value for the source system indicator (record source) for rows coming from this
+   * source. If specified (non-empty after variable resolution), this static value is used in
+   * preference to any sourceIndicatorField.
+   */
+  @GuiWidgetElement(
+      order = "0400",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultSource.SourceIndicator.Label",
+      toolTip = "i18n::DataVaultSource.SourceIndicator.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String sourceIndicator;
+
   public DataVaultSource() {
     super();
   }
@@ -102,6 +132,46 @@ public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IH
 
   public void setSourceTableName(String sourceTableName) {
     this.sourceTableName = sourceTableName;
+  }
+
+  public String getSourceIndicatorField() {
+    return sourceIndicatorField;
+  }
+
+  public void setSourceIndicatorField(String sourceIndicatorField) {
+    this.sourceIndicatorField = sourceIndicatorField;
+  }
+
+  public String getSourceIndicator() {
+    return sourceIndicator;
+  }
+
+  public void setSourceIndicator(String sourceIndicator) {
+    this.sourceIndicator = sourceIndicator;
+  }
+
+  /**
+   * Resolve the source indicator (record source value) according to the defined precedence:
+   *
+   * <p>If a static {@code sourceIndicator} is specified and non-empty (variables resolved if
+   * provided), that static value is returned. Otherwise, the indicator value should come from the
+   * column named by {@code sourceIndicatorField} in the referenced source table (if any), or none.
+   *
+   * @param variables used to resolve variables in a static sourceIndicator (may be null)
+   * @return the static indicator value to emit, or {@code null} meaning "use the column named in
+   *     sourceIndicatorField from the source table (or no indicator)"
+   */
+  public String getResolvedSourceIndicator(IVariables variables) {
+    String staticValue = sourceIndicator;
+    if (variables != null) {
+      staticValue = variables.resolve(staticValue);
+    }
+    if (!StringUtils.isEmpty(staticValue)) {
+      return staticValue;
+    }
+    // No static value: the indicator (if any) comes from the field named in sourceIndicatorField
+    // in the source table rows.
+    return null;
   }
 
   public List<SourceField> getFields(IHopMetadataProvider metadataProvider) throws HopException {

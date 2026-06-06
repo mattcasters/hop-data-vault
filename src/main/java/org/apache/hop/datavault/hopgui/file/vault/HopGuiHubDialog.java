@@ -67,6 +67,8 @@ public class HopGuiHubDialog {
   private Text wTableName;
   private Text wDescription;
   private MetaSelectionLine<DataVaultSource> wRecordSource;
+  private Text wHashKeyFieldName;
+  private Text wRecordSourceFieldName;
   private TableView wBusinessKeys;
 
   private boolean ok;
@@ -178,13 +180,51 @@ public class HopGuiHubDialog {
     wRecordSource.setLayoutData(fdRecordSource);
     wRecordSource.addModifyListener(e -> input.setChanged());
 
+    // Hash key field name (per-hub, replaces global suffix from DataVaultConfiguration)
+    Label wlHashKeyFieldName = new Label(shell, SWT.RIGHT);
+    wlHashKeyFieldName.setText(BaseMessages.getString(PKG, "HopGuiHubDialog.HashKeyFieldName.Label"));
+    PropsUi.setLook(wlHashKeyFieldName);
+    FormData fdlHashKeyFieldName = new FormData();
+    fdlHashKeyFieldName.left = new FormAttachment(0, 0);
+    fdlHashKeyFieldName.top = new FormAttachment(wRecordSource, margin);
+    fdlHashKeyFieldName.right = new FormAttachment(middle, -margin);
+    wlHashKeyFieldName.setLayoutData(fdlHashKeyFieldName);
+
+    wHashKeyFieldName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wHashKeyFieldName);
+    FormData fdHashKeyFieldName = new FormData();
+    fdHashKeyFieldName.left = new FormAttachment(middle, 0);
+    fdHashKeyFieldName.top = new FormAttachment(wRecordSource, margin);
+    fdHashKeyFieldName.right = new FormAttachment(100, 0);
+    wHashKeyFieldName.setLayoutData(fdHashKeyFieldName);
+    wHashKeyFieldName.addModifyListener(e -> input.setChanged());
+
+    // Record source field name (per-hub override of the one in DataVaultConfiguration)
+    Label wlRecordSourceFieldName = new Label(shell, SWT.RIGHT);
+    wlRecordSourceFieldName.setText(BaseMessages.getString(PKG, "HopGuiHubDialog.RecordSourceFieldName.Label"));
+    PropsUi.setLook(wlRecordSourceFieldName);
+    FormData fdlRecordSourceFieldName = new FormData();
+    fdlRecordSourceFieldName.left = new FormAttachment(0, 0);
+    fdlRecordSourceFieldName.top = new FormAttachment(wHashKeyFieldName, margin);
+    fdlRecordSourceFieldName.right = new FormAttachment(middle, -margin);
+    wlRecordSourceFieldName.setLayoutData(fdlRecordSourceFieldName);
+
+    wRecordSourceFieldName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wRecordSourceFieldName);
+    FormData fdRecordSourceFieldName = new FormData();
+    fdRecordSourceFieldName.left = new FormAttachment(middle, 0);
+    fdRecordSourceFieldName.top = new FormAttachment(wHashKeyFieldName, margin);
+    fdRecordSourceFieldName.right = new FormAttachment(100, 0);
+    wRecordSourceFieldName.setLayoutData(fdRecordSourceFieldName);
+    wRecordSourceFieldName.addModifyListener(e -> input.setChanged());
+
     // Business keys - use TableView
     Label wlBusinessKeys = new Label(shell, SWT.LEFT);
     wlBusinessKeys.setText(BaseMessages.getString(PKG, "HopGuiHubDialog.BusinessKeys.Label"));
     PropsUi.setLook(wlBusinessKeys);
     FormData fdlBusinessKeys = new FormData();
     fdlBusinessKeys.left = new FormAttachment(0, 0);
-    fdlBusinessKeys.top = new FormAttachment(wRecordSource, margin);
+    fdlBusinessKeys.top = new FormAttachment(wRecordSourceFieldName, margin);
     wlBusinessKeys.setLayoutData(fdlBusinessKeys);
 
     ColumnInfo[] columns =
@@ -246,6 +286,12 @@ public class HopGuiHubDialog {
     } catch (HopException e) {
       wRecordSource.setText(Const.NVL(input.getRecordSource(), ""));
     }
+    if (input.getHashKeyFieldName() != null) {
+      wHashKeyFieldName.setText(input.getHashKeyFieldName());
+    }
+    if (input.getRecordSourceFieldName() != null) {
+      wRecordSourceFieldName.setText(input.getRecordSourceFieldName());
+    }
 
     if (input.getBusinessKeys() != null) {
       for (int i = 0; i < input.getBusinessKeys().size(); i++) {
@@ -265,6 +311,8 @@ public class HopGuiHubDialog {
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
     input.setRecordSource(wRecordSource.getText());
+    input.setHashKeyFieldName(wHashKeyFieldName.getText());
+    input.setRecordSourceFieldName(wRecordSourceFieldName.getText());
 
     // Business keys from table
     List<BusinessKey> keys = new ArrayList<>();

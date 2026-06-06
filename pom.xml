@@ -23,19 +23,20 @@
 
   <groupId>org.apache.hop</groupId>
   <artifactId>hop-datavault</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.0.2-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <name>Hop Data Vault 2.0 Metadata</name>
   <description>Metadata definitions for Data Vault 2.0 models (Hubs, Links, Satellites) and update configurations for Apache Hop</description>
-  <url>https://github.com/mattcasters/datavault</url>
+  <url>https://github.com/mattcasters/hop-data-vault</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <hop.version>2.18.0</hop.version>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
     <jandex.version>3.5.3</jandex.version>
+    <lombok.version>1.18.42</lombok.version>
   </properties>
 
   <dependencies>
@@ -70,6 +71,58 @@
       <version>${jandex.version}</version>
       <scope>provided</scope>
     </dependency>
+
+    <!-- Lombok for cleaner code (getters, setters, etc.). Matches the version used by Apache Hop 2.18. -->
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>${lombok.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!--
+      Additional Hop transform plugins made available on the compile classpath (provided scope)
+      so that code using the Hop API (e.g. to construct PipelineMeta with transforms like TableInput,
+      TableOutput, MergeRows, FilterRows) can compile against their Meta classes etc.
+      These are NOT packaged into this plugin's jar (Hop loads plugins dynamically).
+      Corresponding plugin dependencies are declared via src/main/resources/dependencies.xml
+      which is included in the assembly.
+    -->
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-tableinput</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-tableoutput</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-mergerows</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-filterrows</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-checksum</artifactId>
+      <version>2.18.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-sql</artifactId>
+      <version>2.18.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-constant</artifactId>
+      <version>2.18.0-SNAPSHOT</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -81,7 +134,14 @@
         <configuration>
           <source>${maven.compiler.source}</source>
           <target>${maven.compiler.target}</target>
-          <release>17</release>
+          <release>21</release>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
       </plugin>
 
@@ -109,7 +169,7 @@
         <version>3.6.0</version>
         <configuration>
           <descriptors>
-            <descriptor>src/assembly/plugin-assembly.xml</descriptor>
+            <descriptor>src/assembly/assembly.xml</descriptor>
           </descriptors>
           <appendAssemblyId>false</appendAssemblyId>
         </configuration>

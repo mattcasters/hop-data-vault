@@ -149,15 +149,6 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
 
   // --- Naming conventions (update / physical strategy) ---
   @GuiWidgetElement(
-      order = "0300",
-      type = GuiElementType.TEXT,
-      label = "i18n::DataVaultConfiguration.HubHashKeySuffix.Label",
-      toolTip = "i18n::DataVaultConfiguration.HubHashKeySuffix.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private String hubHashKeySuffix = "_HK";
-
-  @GuiWidgetElement(
       order = "0310",
       type = GuiElementType.TEXT,
       label = "i18n::DataVaultConfiguration.LinkHashKeySuffix.Label",
@@ -201,6 +192,16 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String recordSourceField = "RECORD_SOURCE";
+
+  @GuiWidgetElement(
+      order = "0355",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.RecordSourceFieldLength.Label",
+      toolTip = "i18n::DataVaultConfiguration.RecordSourceFieldLength.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String recordSourceFieldLength = "100";
 
   @GuiWidgetElement(
       order = "0360",
@@ -322,14 +323,6 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
     this.unknownBusinessKeyValue = unknownBusinessKeyValue;
   }
 
-  public String getHubHashKeySuffix() {
-    return hubHashKeySuffix;
-  }
-
-  public void setHubHashKeySuffix(String hubHashKeySuffix) {
-    this.hubHashKeySuffix = hubHashKeySuffix;
-  }
-
   public String getLinkHashKeySuffix() {
     return linkHashKeySuffix;
   }
@@ -368,6 +361,14 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
 
   public void setRecordSourceField(String recordSourceField) {
     this.recordSourceField = recordSourceField;
+  }
+
+  public String getRecordSourceFieldLength() {
+    return recordSourceFieldLength;
+  }
+
+  public void setRecordSourceFieldLength(String recordSourceFieldLength) {
+    this.recordSourceFieldLength = recordSourceFieldLength;
   }
 
   public String getSourceField() {

@@ -17,6 +17,8 @@
 
 package org.apache.hop.datavault.hopgui.file.vault;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -867,7 +869,14 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     for (IDvTable table : model.getTables()) {
       String tableName = !Utils.isEmpty(table.getTableName()) ? table.getTableName() : table.getName();
       try {
-        PipelineMeta pipelineMeta = table.generateUpdatePipeline(hopGui, model);
+        // Provide a static load date value for this batch (used in Constant transform + stored in target)
+        Timestamp loadDate = Timestamp.from(Instant.now());
+
+        PipelineMeta pipelineMeta = table.generateUpdatePipeline(
+                hopGui.getMetadataProvider(),
+                hopGui.getVariables(),
+                model,
+                loadDate);
         if (pipelineMeta == null) {
           continue;
         }

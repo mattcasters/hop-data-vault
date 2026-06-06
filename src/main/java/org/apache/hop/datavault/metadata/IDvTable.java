@@ -17,6 +17,7 @@
 
 package org.apache.hop.datavault.metadata;
 
+import java.util.Date;
 import java.util.List;
 import org.apache.hop.base.IBaseMeta;
 import org.apache.hop.core.ICheckResult;
@@ -28,8 +29,9 @@ import org.apache.hop.metadata.api.HopMetadataObject;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadataObjectFactory;
 import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
-import org.apache.hop.ui.hopgui.HopGui;
 
 /**
  * Common interface for all Data Vault 2.0 table-like structures:
@@ -75,28 +77,31 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
    * The implementation in DvHub contains the full logic (moved from HopGuiVaultGraph.debugPipelines());
    * empty stubs for DvSatellite / DvLink.
    *
-   * @param hopGui for access to metadata provider, variables, etc.
+   * @param metadataProvider for loading configuration, database connections, sources etc.
+   * @param variables for variable resolution during SQL generation and quoting.
    * @param model the containing DataVaultModel (for config name etc.)
+   * @param loadDate the static load date (Timestamp) to use for all records in this batch update (added via Constant transform using the load date field name from config)
    * @return the generated PipelineMeta (or null); caller does the XML roundtrip + HopGui open.
    * @throws HopException on metadata load or other errors during generation
    */
-  PipelineMeta generateUpdatePipeline(HopGui hopGui, DataVaultModel model) throws HopException;
+  PipelineMeta generateUpdatePipeline(IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model, Date loadDate) throws HopException;
 
   /**
    * Get the target table layout (IRowMeta) for this DV table. Used to define/create the physical
    * table in the target database before loading.
    *
-   * <p>First column: calculated hash key name (using business key + hub suffix from config),
+   * <p>First column: the hub's hash key field name (surrogate key column name),
    * with data type (Binary/String) from DataVaultConfiguration.
    *
    * <p>Then: the business key source field names (type taken from the DataVaultSource fields).
    *
    * <p>Finally: the load date field name from config, as Hop Timestamp.
    *
-   * @param hopGui to access the metadata provider for loading DataVaultConfiguration, DataVaultSource, etc.
+   * @param metadataProvider to access for loading DataVaultConfiguration, DataVaultSource, etc.
+   * @param variables for resolving names if needed
    * @param model the DataVaultModel (to resolve the configuration name)
    */
-  IRowMeta getTargetTableLayout(HopGui hopGui, DataVaultModel model);
+  IRowMeta getTargetTableLayout(IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model) throws HopException;
 
   /**
    * Factory used by the Hop metadata serializer to handle polymorphic serialization of

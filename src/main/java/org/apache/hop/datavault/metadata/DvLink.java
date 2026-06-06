@@ -18,6 +18,7 @@
 package org.apache.hop.datavault.metadata;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import org.apache.hop.base.IBaseMeta;
 import org.apache.hop.core.CheckResult;
@@ -28,13 +29,13 @@ import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.i18n.BaseMessages;
-import org.apache.hop.metadata.api.HopMetadata;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
-import org.apache.hop.ui.hopgui.HopGui;
 
 /**
  * Data Vault 2.0 Link metadata definition.
@@ -138,13 +139,13 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   }
 
   @Override
-  public PipelineMeta generateUpdatePipeline(HopGui hopGui, DataVaultModel model) throws HopException {
+  public PipelineMeta generateUpdatePipeline(IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model, Date loadDate) throws HopException {
     // TODO: implement for links (stub for now)
     return null;
   }
 
   @Override
-  public IRowMeta getTargetTableLayout(HopGui hopGui, DataVaultModel model) {
+  public IRowMeta getTargetTableLayout(IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model) {
     // TODO: implement for links (stub for now)
     return null;
   }
