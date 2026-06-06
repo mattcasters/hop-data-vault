@@ -1,0 +1,8 @@
+{
+  "sourceIndicator": "",
+  "sourceTableName": "CRM-product",
+  "virtualPath": "",
+  "sourceType": "DATABASE",
+  "sourceIndicatorField": "record_source",
+  "name": "CRM-product"
+}
