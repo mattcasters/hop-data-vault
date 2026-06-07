@@ -19,12 +19,15 @@ package org.apache.hop.datavault.metadata;
 
 import java.util.Date;
 import java.util.List;
+import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.changed.ChangedFlag;
-import org.apache.hop.core.gui.Point;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadata;
@@ -53,6 +56,8 @@ import org.apache.hop.pipeline.PipelineMeta;
  * in a visual Data Vault modeler.
  */
 public abstract class DvTableBase extends HopMetadataBase implements IHopMetadata, IDvTable {
+
+  private static final Class<?> PKG = DvTableBase.class;
 
   // Common DV table properties. @HopMetadataProperty is here for correct JSON serialization
   // and metadata provider behavior. The @GuiWidgetElement annotations are deliberately
@@ -264,7 +269,41 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
 
   @Override
   public void check(List<ICheckResult> remarks) {
-    // default: no checks in base
+    if (Utils.isEmpty(getName())) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "DvTableBase.CheckResult.NoName"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvTableBase.CheckResult.HasName", getName()),
+              this));
+    }
+
+    if (Utils.isEmpty(getRecordSource())) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "DvTableBase.CheckResult.NoRecordSource"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvTableBase.CheckResult.HasRecordSource", getRecordSource()),
+              this));
+    }
+
+    if (Utils.isEmpty(getTableName())) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(PKG, "DvTableBase.CheckResult.NoTableName"),
+              this));
+    }
   }
 
   @Override

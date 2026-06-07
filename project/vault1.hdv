@@ -1,119 +1,161 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <data-vault-model>
-<name>vault1</name>
-<filename>/home/matt/git/mattcasters/hop-data-vault/project/vault1.hdv</filename>
-<name_sync_with_filename>Y</name_sync_with_filename>
-<description/>
-<configuration>vault-config</configuration>
-<tables><table><businessKeys><name>customer_id</name>
-<description/>
-<dataType>Integer</dataType>
-<length>9</length>
-<sourceFieldName>customer_id</sourceFieldName>
-</businessKeys><hashKeyFieldName>customer_hk</hashKeyFieldName>
-<tableName>hub_customer</tableName>
-<description/>
-<recordSource>CRM-customer</recordSource>
-<tableType>HUB</tableType>
-<xloc>64</xloc>
-<yloc>32</yloc>
-<name>hub_customer</name>
-<virtualPath/>
-</table><table><hub>hub_customer</hub>
-<link/>
-<multiActive>N</multiActive>
-<drivingKey/>
-<tableName>sat_customer</tableName>
-<description/>
-<recordSource>CRM-customer</recordSource>
-<tableType>SATELLITE</tableType>
-<xloc>352</xloc>
-<yloc>32</yloc>
-<name>sat_customer</name>
-<virtualPath/>
-</table><table><businessKeys><name>product_id</name>
-<description/>
-<dataType>String</dataType>
-<length>7</length>
-<sourceFieldName>product_id</sourceFieldName>
-</businessKeys><hashKeyFieldName>product_hk</hashKeyFieldName>
-<tableName>hub_product</tableName>
-<description/>
-<recordSource>CRM-product</recordSource>
-<tableType>HUB</tableType>
-<xloc>352</xloc>
-<yloc>528</yloc>
-<name>hub_product</name>
-<virtualPath/>
-</table><table><hub>hub_product</hub>
-<link/>
-<multiActive>N</multiActive>
-<drivingKey/>
-<tableName>sat_product</tableName>
-<description/>
-<recordSource>CRM-product</recordSource>
-<tableType>SATELLITE</tableType>
-<xloc>656</xloc>
-<yloc>528</yloc>
-<name>sat_product</name>
-<virtualPath/>
-</table><table><businessKeys><name>order_id</name>
-<description/>
-<dataType>String</dataType>
-<length>7</length>
-<sourceFieldName>order_id</sourceFieldName>
-</businessKeys><hashKeyFieldName>order_hk</hashKeyFieldName>
-<tableName>hub_order</tableName>
-<description/>
-<recordSource>CRM-order</recordSource>
-<tableType>HUB</tableType>
-<xloc>208</xloc>
-<yloc>256</yloc>
-<name>hub_order</name>
-<virtualPath/>
-</table><table><hub>hub_order</hub>
-<link/>
-<multiActive>N</multiActive>
-<drivingKey/>
-<tableName>sat_order</tableName>
-<description/>
-<recordSource>CRM-order</recordSource>
-<tableType>SATELLITE</tableType>
-<xloc>512</xloc>
-<yloc>256</yloc>
-<name>sat_order</name>
-<virtualPath/>
-</table><table><hubNames>hub_order</hubNames>
-<hubNames>hub_customer</hubNames>
-<linkHashKeyFieldName>customer_order_hk</linkHashKeyFieldName>
-<hubSourceKeyFields><hubSourceKeyField><hubName>hub_order</hubName>
-<sourceBusinessKeyFields><sourceBusinessKeyField>order_id</sourceBusinessKeyField>
-</sourceBusinessKeyFields></hubSourceKeyField><hubSourceKeyField><hubName>hub_customer</hubName>
-<sourceBusinessKeyFields><sourceBusinessKeyField>customer_id</sourceBusinessKeyField>
-</sourceBusinessKeyFields></hubSourceKeyField></hubSourceKeyFields><hasDescriptiveAttributes>N</hasDescriptiveAttributes>
-<tableName>lnk_customer_order</tableName>
-<description/>
-<recordSource>CRM-order</recordSource>
-<tableType>LINK</tableType>
-<xloc>112</xloc>
-<yloc>144</yloc>
-<name>lnk_customer_order</name>
-<virtualPath/>
-</table><table><hubNames>hub_order</hubNames>
-<hubNames>hub_product</hubNames>
-<linkHashKeyFieldName>product_order_hk</linkHashKeyFieldName>
-<hubSourceKeyFields><hubSourceKeyField><hubName>hub_order</hubName>
-<sourceBusinessKeyFields><sourceBusinessKeyField>order_id</sourceBusinessKeyField>
-</sourceBusinessKeyFields></hubSourceKeyField><hubSourceKeyField><hubName>hub_product</hubName>
-<sourceBusinessKeyFields><sourceBusinessKeyField>product_id</sourceBusinessKeyField>
-</sourceBusinessKeyFields></hubSourceKeyField></hubSourceKeyFields><hasDescriptiveAttributes>N</hasDescriptiveAttributes>
-<tableName>lnk_product_order</tableName>
-<description/>
-<recordSource>CRM-order</recordSource>
-<tableType>LINK</tableType>
-<xloc>256</xloc>
-<yloc>384</yloc>
-<name>lnk_product_order</name>
-<virtualPath/>
-</table></tables><sources></sources>
+  <name>vault1</name>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/project/vault1.hdv</filename>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <description/>
+  <configuration>vault-config</configuration>
+  <tables>
+    <table>
+      <businessKeys>
+        <name>customer_id</name>
+        <description/>
+        <dataType>Integer</dataType>
+        <length>9</length>
+        <sourceFieldName>customer_id</sourceFieldName>
+      </businessKeys>
+      <hashKeyFieldName>customer_hk</hashKeyFieldName>
+      <tableName>hub_customer</tableName>
+      <description/>
+      <recordSource>CRM-customer</recordSource>
+      <tableType>HUB</tableType>
+      <xloc>64</xloc>
+      <yloc>32</yloc>
+      <name>hub_customer</name>
+      <virtualPath/>
+    </table>
+    <table>
+      <hub>hub_customer</hub>
+      <link/>
+      <multiActive>N</multiActive>
+      <drivingKey/>
+      <tableName>sat_customer</tableName>
+      <description/>
+      <recordSource>CRM-customer</recordSource>
+      <tableType>SATELLITE</tableType>
+      <xloc>352</xloc>
+      <yloc>32</yloc>
+      <name>sat_customer</name>
+      <virtualPath/>
+    </table>
+    <table>
+      <businessKeys>
+        <name>product_id</name>
+        <description/>
+        <dataType>String</dataType>
+        <length>7</length>
+        <sourceFieldName>product_id</sourceFieldName>
+      </businessKeys>
+      <hashKeyFieldName>product_hk</hashKeyFieldName>
+      <tableName>hub_product</tableName>
+      <description/>
+      <recordSource>CRM-product</recordSource>
+      <tableType>HUB</tableType>
+      <xloc>352</xloc>
+      <yloc>528</yloc>
+      <name>hub_product</name>
+      <virtualPath/>
+    </table>
+    <table>
+      <hub>hub_product</hub>
+      <link/>
+      <multiActive>N</multiActive>
+      <drivingKey/>
+      <tableName>sat_product</tableName>
+      <description/>
+      <recordSource>CRM-product</recordSource>
+      <tableType>SATELLITE</tableType>
+      <xloc>656</xloc>
+      <yloc>528</yloc>
+      <name>sat_product</name>
+      <virtualPath/>
+    </table>
+    <table>
+      <businessKeys>
+        <name>order_id</name>
+        <description/>
+        <dataType>String</dataType>
+        <length>7</length>
+        <sourceFieldName>order_id</sourceFieldName>
+      </businessKeys>
+      <hashKeyFieldName>order_hk</hashKeyFieldName>
+      <tableName>hub_order</tableName>
+      <description/>
+      <recordSource>CRM-order</recordSource>
+      <tableType>HUB</tableType>
+      <xloc>208</xloc>
+      <yloc>256</yloc>
+      <name>hub_order</name>
+      <virtualPath/>
+    </table>
+    <table>
+      <hub>hub_order</hub>
+      <link/>
+      <multiActive>N</multiActive>
+      <drivingKey/>
+      <tableName>sat_order</tableName>
+      <description/>
+      <recordSource>CRM-order</recordSource>
+      <tableType>SATELLITE</tableType>
+      <xloc>512</xloc>
+      <yloc>256</yloc>
+      <name>sat_order</name>
+      <virtualPath/>
+    </table>
+    <table>
+      <hubNames>hub_customer</hubNames>
+      <hubNames>hub_order</hubNames>
+      <linkHashKeyFieldName>customer_order_hk</linkHashKeyFieldName>
+      <hubSourceKeyFields>
+        <hubSourceKeyField>
+          <hubName>hub_customer</hubName>
+          <sourceBusinessKeyFields>
+            <sourceBusinessKeyField>customer_id</sourceBusinessKeyField>
+          </sourceBusinessKeyFields>
+        </hubSourceKeyField>
+        <hubSourceKeyField>
+          <hubName>hub_order</hubName>
+          <sourceBusinessKeyFields>
+            <sourceBusinessKeyField>order_id</sourceBusinessKeyField>
+          </sourceBusinessKeyFields>
+        </hubSourceKeyField>
+      </hubSourceKeyFields>
+      <hasDescriptiveAttributes>N</hasDescriptiveAttributes>
+      <tableName>lnk_customer_order</tableName>
+      <description/>
+      <recordSource>CRM-order</recordSource>
+      <tableType>LINK</tableType>
+      <xloc>112</xloc>
+      <yloc>144</yloc>
+      <name>lnk_customer_order</name>
+      <virtualPath/>
+    </table>
+    <table>
+      <hubNames>hub_product</hubNames>
+      <hubNames>hub_order</hubNames>
+      <linkHashKeyFieldName>product_order_hk</linkHashKeyFieldName>
+      <hubSourceKeyFields>
+        <hubSourceKeyField>
+          <hubName>hub_product</hubName>
+          <sourceBusinessKeyFields>
+            <sourceBusinessKeyField>product_id</sourceBusinessKeyField>
+          </sourceBusinessKeyFields>
+        </hubSourceKeyField>
+        <hubSourceKeyField>
+          <hubName>hub_order</hubName>
+          <sourceBusinessKeyFields>
+            <sourceBusinessKeyField>order_id</sourceBusinessKeyField>
+          </sourceBusinessKeyFields>
+        </hubSourceKeyField>
+      </hubSourceKeyFields>
+      <hasDescriptiveAttributes>N</hasDescriptiveAttributes>
+      <tableName>lnk_product_order</tableName>
+      <description/>
+      <recordSource>CRM-order</recordSource>
+      <tableType>LINK</tableType>
+      <xloc>256</xloc>
+      <yloc>384</yloc>
+      <name>lnk_product_order</name>
+      <virtualPath/>
+    </table>
+  </tables>
 </data-vault-model>

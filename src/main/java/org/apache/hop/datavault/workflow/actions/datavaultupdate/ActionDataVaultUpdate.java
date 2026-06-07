@@ -19,10 +19,15 @@ package org.apache.hop.datavault.workflow.actions.datavaultupdate;
 
 import java.util.Date;
 import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.vfs2.FileObject;
+import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.annotations.Action;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.file.IHasFilename;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
@@ -31,16 +36,15 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.metadata.DataVaultModel;
-import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.config.PipelineRunConfiguration;
 import org.apache.hop.pipeline.engine.IPipelineEngine;
 import org.apache.hop.pipeline.engine.PipelineEngineFactory;
-import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.action.ActionBase;
 import org.apache.hop.workflow.action.IAction;
 import org.w3c.dom.Document;
@@ -56,6 +60,8 @@ import org.w3c.dom.Node;
     keywords = "i18n::ActionDataVaultUpdate.Keywords",
     documentationUrl = "/workflow/actions/datavaultupdate.html")
 @GuiPlugin(description = "Data Vault Update action")
+@Getter
+@Setter
 public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAction {
   private static final Class<?> PKG = ActionDataVaultUpdate.class;
 
@@ -80,6 +86,24 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
   @HopMetadataProperty
   private String pipelineRunConfiguration;
 
+  @GuiWidgetElement(
+      order = "0300",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionDataVaultUpdate.LogModelCheckFailures.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.LogModelCheckFailures.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean logModelCheckFailures = true;
+
+  @GuiWidgetElement(
+      order = "0400",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionDataVaultUpdate.AbortOnModelCheckFailures.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.AbortOnModelCheckFailures.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean abortOnModelCheckFailures = true;
+
   public ActionDataVaultUpdate(String name) {
     super(name, "");
     dataVaultModelFile = null;
@@ -94,6 +118,8 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     super(meta);
     this.dataVaultModelFile = meta.dataVaultModelFile;
     this.pipelineRunConfiguration = meta.pipelineRunConfiguration;
+    this.logModelCheckFailures = meta.logModelCheckFailures;
+    this.abortOnModelCheckFailures = meta.abortOnModelCheckFailures;
   }
 
   @Override
@@ -112,11 +138,6 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     result.setNrErrors(1);
 
     try {
-      String realModelFile = resolve(dataVaultModelFile);
-      if (Utils.isEmpty(realModelFile)) {
-        logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.NoModelFile"));
-        return result;
-      }
 
       String realRunConfig = resolve(pipelineRunConfiguration);
       if (Utils.isEmpty(realRunConfig)) {
@@ -124,18 +145,34 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
         return result;
       }
 
-      // Load the DataVaultModel from .hdv file (XML)
-      FileObject file = HopVfs.getFileObject(realModelFile, getVariables());
-      Document document = XmlHandler.loadXmlFile(file);
-      Node rootNode = XmlHandler.getSubNode(document, "data-vault-model");
-      if (rootNode == null) {
-        rootNode = document.getDocumentElement();
-      }
+      DataVaultModel model = loadReferencedDataModel(getMetadataProvider(), this);
 
-      DataVaultModel model = new DataVaultModel();
-      IHopMetadataProvider provider = getMetadataProvider();
-      XmlMetadataUtil.deSerializeFromXml(rootNode, DataVaultModel.class, model, provider);
-      model.setFilename(realModelFile);
+      // Perform model check if requested
+      if (logModelCheckFailures || abortOnModelCheckFailures) {
+        List<ICheckResult> remarks = model.check(getMetadataProvider(), this);
+        for (ICheckResult remark : remarks) {
+          if (remark.getType() == ICheckResult.TYPE_RESULT_WARNING
+              || remark.getType() == ICheckResult.TYPE_RESULT_ERROR) {
+            logBasic(
+                BaseMessages.getString(
+                    PKG,
+                    "ActionDataVaultUpdate.Log.ModelCheckResult",
+                    remark.getTypeDesc(),
+                    remark.getText()));
+          }
+        }
+
+        if (abortOnModelCheckFailures) {
+          boolean hasError =
+              remarks.stream().anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR);
+          if (hasError) {
+            logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Log.AbortingOnModelCheck"));
+            result.setResult(false);
+            result.setNrErrors(1);
+            return result;
+          }
+        }
+      }
 
       List<IDvTable> tables = model.getTables();
       if (tables == null || tables.isEmpty()) {
@@ -155,7 +192,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                 PKG, "ActionDataVaultUpdate.Log.GeneratingForTable", table.getName()));
 
         PipelineMeta pipelineMeta =
-            table.generateUpdatePipeline(provider, getVariables(), model, loadDate);
+            table.generateUpdatePipeline(getMetadataProvider(), getVariables(), model, loadDate);
 
         if (pipelineMeta == null) {
           logError(
@@ -174,7 +211,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
 
         IPipelineEngine<PipelineMeta> engine =
             PipelineEngineFactory.createPipelineEngine(
-                getVariables(), realRunConfig, provider, pipelineMeta);
+                getVariables(), realRunConfig, getMetadataProvider(), pipelineMeta);
 
         engine.setLogLevel(getLogLevel());
         engine.setParent(this);
@@ -218,19 +255,73 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     }
   }
 
-  public String getDataVaultModelFile() {
-    return dataVaultModelFile;
+  private DataVaultModel loadReferencedDataModel(IHopMetadataProvider provider, IVariables variables)
+      throws HopException {
+    String realModelFile = variables.resolve(dataVaultModelFile);
+    if (Utils.isEmpty(realModelFile)) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.NoModelFile"));
+    }
+    // Load the DataVaultModel from .hdv file (XML)
+    FileObject file = HopVfs.getFileObject(realModelFile, getVariables());
+    Document document = XmlHandler.loadXmlFile(file);
+    Node rootNode = XmlHandler.getSubNode(document, "data-vault-model");
+    if (rootNode == null) {
+      rootNode = document.getDocumentElement();
+    }
+
+    DataVaultModel model = new DataVaultModel();
+    XmlMetadataUtil.deSerializeFromXml(rootNode, DataVaultModel.class, model, provider);
+    model.setFilename(realModelFile);
+
+    return model;
   }
 
-  public void setDataVaultModelFile(String dataVaultModelFile) {
-    this.dataVaultModelFile = dataVaultModelFile;
+  /**
+   * @return The objects referenced in the transform, like a a pipeline, a workflow, a mapper, a
+   *     reducer, a combiner, ...
+   */
+  @Override
+  public String[] getReferencedObjectDescriptions() {
+    return new String[] {
+            BaseMessages.getString(PKG, "ActionDataVaultUpdate.ReferencedObject.Description"),
+    };
   }
 
-  public String getPipelineRunConfiguration() {
-    return pipelineRunConfiguration;
+  @Override
+  public boolean[] isReferencedObjectEnabled() {
+    return new boolean[] {
+      StringUtils.isNotEmpty(dataVaultModelFile),
+    };
   }
 
-  public void setPipelineRunConfiguration(String pipelineRunConfiguration) {
-    this.pipelineRunConfiguration = pipelineRunConfiguration;
+  /**
+   * Load the referenced object
+   *
+   * @param index the referenced object index to load (in case there are multiple references)
+   * @param metadataProvider metadataProvider
+   * @param variables the variable variables to use
+   * @return the referenced object once loaded
+   * @throws HopException
+   */
+  @Override
+  public IHasFilename loadReferencedObject(
+      int index, IHopMetadataProvider metadataProvider, IVariables variables) throws HopException {
+    return loadReferencedDataModel(metadataProvider, variables);
+  }
+
+  @Override
+  public boolean isEvaluation() {
+    return true;
+  }
+
+  @Override
+  public boolean isUnconditional() {
+    return false;
+  }
+
+  @Override
+  public boolean supportsDrillDown() {
+    return true;
   }
 }

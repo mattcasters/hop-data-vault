@@ -63,6 +63,8 @@ import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
 import org.apache.hop.pipeline.transforms.mergerows.MergeRowsMeta;
 import org.apache.hop.pipeline.transforms.mergerows.PassThroughField;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.sort.SortRowsField;
 import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
@@ -216,6 +218,51 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
               BaseMessages.getString(PKG, "DvLink.CheckResult.ConnectedToHubs", hubNames.size()),
               this));
     }
+
+    if (Utils.isEmpty(linkHashKeyFieldName)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(PKG, "DvLink.CheckResult.NoLinkHashKeyFieldName"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvLink.CheckResult.HasLinkHashKeyFieldName", linkHashKeyFieldName),
+              this));
+    }
+
+    if (Utils.isEmpty(drivingKeyNames)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(PKG, "DvLink.CheckResult.NoDrivingKeys"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvLink.CheckResult.HasDrivingKeys", drivingKeyNames.size()),
+              this));
+      for (String dk : drivingKeyNames) {
+        if (Utils.isEmpty(dk)) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(PKG, "DvLink.CheckResult.DrivingKeyNoName"),
+                  this));
+        }
+      }
+    }
+
+    if (hasDescriptiveAttributes) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(PKG, "DvLink.CheckResult.HasDescriptiveAttributes"),
+              this));
+    }
   }
 
   @Override
@@ -283,12 +330,19 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       }
       pipelineMeta.addPipelineHop(new PipelineHopMeta(prev, linkHashCalc));
 
-      // Sort on the link hash (required for MergeRows)
-      TransformMeta sortTransform =
-          addSortRows(pipelineMeta, linkHashCalc, ctx, ctx.linkHashKeyFieldName);
-
       // Target side for diff (on the link hash)
       TransformMeta targetTransform = addTargetTableInput(ctx, pipelineMeta);
+
+      TransformMeta selectTransform = null;
+      TransformMeta sortTransform = null;
+      if (targetTransform != null) {
+        // Select only the calculated hash key fields (link hash + hub hashes) + record source
+        // so that the row layout matches exactly what the target side provides to MergeRows.
+        selectTransform = addSelectRows(ctx, pipelineMeta, linkHashCalc);
+
+        // Sort on the link hash (required for MergeRows)
+        sortTransform = addSortRows(pipelineMeta, selectTransform, ctx, ctx.linkHashKeyFieldName);
+      }
 
       // MergeRows on the link hash
       TransformMeta mergeTransform =
@@ -311,6 +365,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
           mergeTransform,
           filterTransform,
           linkHashCalc,
+          selectTransform,
           sortTransform,
           constantTransform,
           tableOutputTransform);
@@ -542,6 +597,34 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     return tm;
   }
 
+  private TransformMeta addSelectRows(
+      LinkUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor) {
+    List<String> fieldsToSelect = new ArrayList<>();
+    fieldsToSelect.add(ctx.linkHashKeyFieldName);
+    fieldsToSelect.addAll(ctx.hubHashFieldNames);
+    fieldsToSelect.add(ctx.recordSourceField);
+
+    SelectValuesMeta selectMeta = new SelectValuesMeta();
+    List<SelectField> selectFields = new ArrayList<>();
+    for (String fieldName : fieldsToSelect) {
+      SelectField sf = new SelectField();
+      sf.setName(fieldName);
+      selectFields.add(sf);
+    }
+    selectMeta.getSelectOption().setSelectFields(selectFields);
+
+    TransformMeta tm =
+        new TransformMeta("SelectValues", "select_values", selectMeta);
+    // Place it on the compare flow after the last checksum, before the sort
+    Point loc =
+        new Point(
+            LOCATION_START_LINE_2.x + SPACING_WIDTH * (ctx.participatingHubs.size() + 2),
+            LOCATION_START_LINE_2.y);
+    tm.setLocation(loc);
+    pipelineMeta.addTransform(tm);
+    return tm;
+  }
+
   private TransformMeta addTargetTableInput(LinkUpdateContext ctx, PipelineMeta pipelineMeta) {
     if (ctx.targetDatabaseMeta == null) {
       return null;
@@ -561,6 +644,19 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     for (String h : ctx.hubHashFieldNames) {
       sql.append(", ").append(ctx.targetDatabaseMeta.quoteField(h));
     }
+
+    // Project the record source field on the target side as well (using NULL) so that
+    // the input row meta to MergeRows is compatible when we passthrough the indicator
+    // value from the source/compare leg.
+    String rsFieldName = ctx.recordSourceField;
+    if (Utils.isEmpty(rsFieldName)) {
+      rsFieldName = "RECORD_SOURCE";
+    }
+    rsFieldName = ctx.variables.resolve(rsFieldName);
+    if (Utils.isEmpty(rsFieldName)) {
+      rsFieldName = "RECORD_SOURCE";
+    }
+    sql.append(", NULL AS ").append(ctx.targetDatabaseMeta.quoteField(rsFieldName));
 
     sql.append(" FROM ");
     sql.append(
@@ -652,7 +748,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     sortRowsMeta.getSortFields().add(sf);
 
     TransformMeta tm = new TransformMeta("SortRows", "sort_" + sortFieldName, sortRowsMeta);
-    Point loc = new Point(LOCATION_START_LINE_2.x + SPACING_WIDTH*(ctx.participatingHubs.size()+2), LOCATION_START_LINE_2.y);
+    Point loc = new Point(LOCATION_START_LINE_2.x + SPACING_WIDTH*(ctx.participatingHubs.size()+3), LOCATION_START_LINE_2.y);
     tm.setLocation(loc);
     pipelineMeta.addTransform(tm);
     return tm;
@@ -724,22 +820,25 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       TransformMeta mergeTransform,
       TransformMeta filterTransform,
       TransformMeta linkHashCalc,
+      TransformMeta selectTransform,
       TransformMeta sortTransform,
       TransformMeta constantTransform,
       TransformMeta tableOutputTransform) {
 
-    // source -> hub hashes -> link hash calc -> sort
+    // source -> hub hashes -> link hash calc -> select -> sort
     if (sourceTransform != null && linkHashCalc != null) {
       // The intermediate hub hashes are chained inside the creation; we only need the final hop to
       // the link calc if not already
       // For simplicity we rely on the creation order for intermediate; here we ensure the last calc
-      // to sort
+      // to select
     }
 
-    if (sortTransform != null && linkHashCalc != null) {
-      // The chain from source to linkHashCalc is built sequentially in generate; we add the final
-      // sort hop
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(linkHashCalc, sortTransform));
+    if (selectTransform != null && linkHashCalc != null) {
+      pipelineMeta.addPipelineHop(new PipelineHopMeta(linkHashCalc, selectTransform));
+    }
+
+    if (sortTransform != null && selectTransform != null) {
+      pipelineMeta.addPipelineHop(new PipelineHopMeta(selectTransform, sortTransform));
     }
 
     if (mergeTransform != null) {

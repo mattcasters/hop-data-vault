@@ -843,7 +843,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     if (model == null) {
       return;
     }
-    List<ICheckResult> remarks = model.check();
+    List<ICheckResult> remarks = model.check(hopGui.getMetadataProvider(), hopGui.getVariables());
     CheckResultDialog dialog = new CheckResultDialog(hopGui.getShell(), remarks);
     dialog.open();
   }

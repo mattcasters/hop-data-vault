@@ -85,14 +85,11 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_HUB_DIALOG";
 
-  private static final Point LOCATION_EXEC_SQL = new Point(160, 48);
-  private static final Point LOCATION_SOURCE_TABLE_INPUT = new Point(160, 160);
-  private static final Point LOCATION_TARGET_TABLE_INPUT = new Point(160, 320);
-  private static final Point LOCATION_MERGE_ROWS = new Point(240, 240);
-  private static final Point LOCATION_FILTER_ROWS = new Point(368, 240);
-  private static final Point LOCATION_CHECK_SUM = new Point(496, 240);
-  private static final Point LOCATION_ADD_CONSTANT = new Point(624, 240);
-  private static final Point LOCATION_TABLE_OUTPUT = new Point(752, 240);
+  private static final Point LOCATION_START_LINE_1 = new Point(160, 48);
+  private static final Point LOCATION_START_LINE_2 = new Point(160, 160);
+  private static final Point LOCATION_START_LINE_3 = new Point(160, 320);
+
+  public static final int SPACING_WIDTH = 160;
 
   /**
    * The business keys that uniquely identify the hub instance. Composite keys are supported by
@@ -175,6 +172,43 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,
               BaseMessages.getString(PKG, "DvHub.CheckResult.HasBusinessKeys", businessKeys.size()),
+              this));
+      for (BusinessKey bk : businessKeys) {
+        if (Utils.isEmpty(bk.getName())) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(PKG, "DvHub.CheckResult.BusinessKeyNoName"),
+                  this));
+        }
+      }
+    }
+
+    if (Utils.isEmpty(hashKeyFieldName)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(PKG, "DvHub.CheckResult.NoHashKeyFieldName"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvHub.CheckResult.HasHashKeyFieldName", hashKeyFieldName),
+              this));
+    }
+
+    if (Utils.isEmpty(recordSourceFieldName)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(PKG, "DvHub.CheckResult.NoRecordSourceFieldName"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvHub.CheckResult.HasRecordSourceFieldName", recordSourceFieldName),
               this));
     }
   }
@@ -275,7 +309,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       TransformMeta execSqlTransformMeta =
           new TransformMeta(
               "ExecSql", "Create/update target table " + ctx.targetTableName, execSqlMeta);
-      execSqlTransformMeta.setLocation(LOCATION_EXEC_SQL);
+      execSqlTransformMeta.setLocation(LOCATION_START_LINE_1);
       pipelineMeta.addTransform(execSqlTransformMeta);
     }
   }
@@ -343,7 +377,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
 
     TransformMeta tm = new TransformMeta("TableInput", ctx.sourceTransformName, tableInputMeta);
-    tm.setLocation(LOCATION_SOURCE_TABLE_INPUT);
+    tm.setLocation(LOCATION_START_LINE_2);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -390,7 +424,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
     TransformMeta tm =
         new TransformMeta("TableInput", ctx.targetTransformName, targetTableInputMeta);
-    tm.setLocation(LOCATION_TARGET_TABLE_INPUT);
+    tm.setLocation(LOCATION_START_LINE_3);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -438,7 +472,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     mergeRowsMeta.setPassThroughFields(passThroughFields);
 
     TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
-    tm.setLocation(LOCATION_MERGE_ROWS);
+    tm.setLocation(LOCATION_START_LINE_3.x+SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -464,7 +498,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
 
     TransformMeta tm = new TransformMeta("FilterRows", "filter_new", filterRowsMeta);
-    tm.setLocation(LOCATION_FILTER_ROWS);
+    tm.setLocation(LOCATION_START_LINE_3.x+2*SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -502,7 +536,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
 
     TransformMeta tm = new TransformMeta("CheckSum", "calc_" + resultFieldName, checkSumMeta);
-    tm.setLocation(LOCATION_CHECK_SUM);
+    tm.setLocation(LOCATION_START_LINE_3.x+3*SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -527,7 +561,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     constantMeta.getFields().add(cf);
 
     TransformMeta tm = new TransformMeta("Constant", "add_" + loadDateField, constantMeta);
-    tm.setLocation(LOCATION_ADD_CONSTANT);
+    tm.setLocation(LOCATION_START_LINE_3.x+4*SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -558,7 +592,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       }
 
       TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
-      tm.setLocation(LOCATION_TABLE_OUTPUT);
+      tm.setLocation(LOCATION_START_LINE_3.x+5*SPACING_WIDTH, LOCATION_START_LINE_3.y);
       pipelineMeta.addTransform(tm);
       return tm;
     } catch (Exception e) {

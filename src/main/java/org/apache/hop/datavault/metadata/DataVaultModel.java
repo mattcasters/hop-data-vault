@@ -18,20 +18,31 @@
 package org.apache.hop.datavault.metadata;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.base.AbstractMeta;
+import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.changed.ChangedFlag;
 import org.apache.hop.core.changed.IChanged;
+import org.apache.hop.core.file.IHasFilename;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadata;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /**
  * A named Data Vault 2.0 model.
@@ -52,7 +63,9 @@ import org.apache.hop.metadata.api.IHopMetadata;
 @GuiPlugin
 @Getter
 @Setter
-public class DataVaultModel extends HopMetadataBase implements IHopMetadata, IChanged, IHasName {
+public class DataVaultModel extends HopMetadataBase implements IHopMetadata, IChanged, IHasName, IHasFilename {
+
+  private static final Class<?> PKG = DataVaultModel.class;
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_MODEL_DIALOG";
 
@@ -101,14 +114,6 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
   @HopMetadataProperty(key = "table", groupKey = "tables")
   private List<IDvTable> tables = new ArrayList<>();
 
-  /**
-   * Source systems feeding this Data Vault model. Each source (Database today) references a
-   * connection by name and declares the expected row layout via its list of {@link SourceField}s.
-   */
-  @Getter
-  @HopMetadataProperty(key = "source", groupKey = "sources")
-  private List<IDvSource> sources = new ArrayList<>();
-
   protected final ChangedFlag changedFlag = new ChangedFlag();
 
   public DataVaultModel() {
@@ -129,14 +134,14 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
 
   @Override
   public void setName(String name) {
-    if (!java.util.Objects.equals(this.name, name)) {
+    if (!Objects.equals(this.name, name)) {
       setChanged();
     }
     this.name = name;
   }
 
   public void setFilename(String filename) {
-    if (!java.util.Objects.equals(this.filename, filename)) {
+    if (!Objects.equals(this.filename, filename)) {
       setChanged();
     }
     this.filename = filename;
@@ -150,31 +155,24 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
   }
 
   public void setDescription(String description) {
-    if (!java.util.Objects.equals(this.description, description)) {
+    if (!Objects.equals(this.description, description)) {
       setChanged();
     }
     this.description = description;
   }
 
   public void setConfigurationName(String configurationName) {
-    if (!java.util.Objects.equals(this.configurationName, configurationName)) {
+    if (!Objects.equals(this.configurationName, configurationName)) {
       setChanged();
     }
     this.configurationName = configurationName;
   }
 
   public void setTables(List<IDvTable> tables) {
-    if (!java.util.Objects.equals(this.tables, tables)) {
+    if (!Objects.equals(this.tables, tables)) {
       setChanged();
     }
     this.tables = tables;
-  }
-
-  public void setSources(List<IDvSource> sources) {
-    if (!java.util.Objects.equals(this.sources, sources)) {
-      setChanged();
-    }
-    this.sources = sources;
   }
 
   /**
@@ -182,13 +180,164 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
    *
    * @return list of check results (errors, warnings, ok)
    */
-  public List<ICheckResult> check() {
+  public List<ICheckResult> check(IHopMetadataProvider metadataProvider, IVariables variables) {
     List<ICheckResult> remarks = new ArrayList<>();
+
+    List<DataVaultSource> sources = new ArrayList<>();
+    try {
+      sources = metadataProvider.getSerializer(DataVaultSource.class).loadAll();
+    } catch (Exception e) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "DataVaultModel.CheckResult.ErrorLoadingMetadata"),
+              null));
+    }
+
+    // Top-level model checks
+    if (Utils.isEmpty(configurationName)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_WARNING,
+              BaseMessages.getString(PKG, "DataVaultModel.CheckResult.NoConfiguration"),
+              null));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(
+                  PKG, "DataVaultModel.CheckResult.HasConfiguration", configurationName),
+              null));
+    }
+
+    if (Utils.isEmpty(tables)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_WARNING,
+              BaseMessages.getString(PKG, "DataVaultModel.CheckResult.NoTables"),
+              null));
+    }
+
+    // Collect defined names for reference validation
+    Set<String> definedSourceNames = new HashSet<>();
+    if (sources != null) {
+      for (DataVaultSource s : sources) {
+        if (!Utils.isEmpty(s.getName())) {
+          definedSourceNames.add(s.getName());
+        }
+      }
+    }
+
+    Set<String> definedHubNames = new HashSet<>();
+    Set<String> definedLinkNames = new HashSet<>();
+    if (tables != null) {
+      for (IDvTable t : tables) {
+        if (!Utils.isEmpty(t.getName())) {
+          if (t.getTableType() == DvTableType.HUB) {
+            definedHubNames.add(t.getName());
+          } else if (t.getTableType() == DvTableType.LINK) {
+            definedLinkNames.add(t.getName());
+          }
+        }
+      }
+    }
+
+    // Per-table reference validation + delegate to table checks
     if (tables != null) {
       for (IDvTable table : tables) {
         table.check(remarks);
+
+        // Record source must be defined in the model
+        if (!Utils.isEmpty(table.getRecordSource())) {
+          if (!definedSourceNames.contains(table.getRecordSource())) {
+            remarks.add(
+                new CheckResult(
+                    ICheckResult.TYPE_RESULT_ERROR,
+                    BaseMessages.getString(
+                        PKG,
+                        "DataVaultModel.CheckResult.MissingRecordSource",
+                        table.getRecordSource()),
+                    table));
+          }
+        }
+
+        // Cross references for satellites and links
+        if (table instanceof DvSatellite) {
+          DvSatellite sat = (DvSatellite) table;
+          if (!Utils.isEmpty(sat.getHubName())) {
+            if (!definedHubNames.contains(sat.getHubName())) {
+              remarks.add(
+                  new CheckResult(
+                      ICheckResult.TYPE_RESULT_ERROR,
+                      BaseMessages.getString(
+                          PKG, "DataVaultModel.CheckResult.MissingHub", sat.getHubName()),
+                      table));
+            }
+          }
+          if (!Utils.isEmpty(sat.getLinkName())) {
+            if (!definedLinkNames.contains(sat.getLinkName())) {
+              remarks.add(
+                  new CheckResult(
+                      ICheckResult.TYPE_RESULT_ERROR,
+                      BaseMessages.getString(
+                          PKG, "DataVaultModel.CheckResult.MissingLink", sat.getLinkName()),
+                      table));
+            }
+          }
+        }
+
+        if (table instanceof DvLink) {
+          DvLink lnk = (DvLink) table;
+          for (String hn : lnk.getHubNames()) {
+            if (!Utils.isEmpty(hn) && !definedHubNames.contains(hn)) {
+              remarks.add(
+                  new CheckResult(
+                      ICheckResult.TYPE_RESULT_ERROR,
+                      BaseMessages.getString(PKG, "DataVaultModel.CheckResult.MissingHub", hn),
+                      table));
+            }
+          }
+        }
       }
     }
+
+    // Duplicate name checks
+    Map<String, Integer> nameCount = new HashMap<>();
+    if (tables != null) {
+      for (IDvTable t : tables) {
+        if (!Utils.isEmpty(t.getName())) {
+          nameCount.put(t.getName(), nameCount.getOrDefault(t.getName(), 0) + 1);
+        }
+      }
+    }
+    for (Map.Entry<String, Integer> e : nameCount.entrySet()) {
+      if (e.getValue() > 1) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG, "DataVaultModel.CheckResult.DuplicateTableName", e.getKey()),
+                null));
+      }
+    }
+
+    nameCount.clear();
+    for (DataVaultSource s : sources) {
+      if (!Utils.isEmpty(s.getName())) {
+        nameCount.put(s.getName(), nameCount.getOrDefault(s.getName(), 0) + 1);
+      }
+    }
+    for (Map.Entry<String, Integer> e : nameCount.entrySet()) {
+      if (e.getValue() > 1) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG, "DataVaultModel.CheckResult.DuplicateSourceName", e.getKey()),
+                null));
+      }
+    }
+
     return remarks;
   }
 
@@ -204,13 +353,6 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
     if (tables != null) {
       for (IDvTable table : tables) {
         if (table.hasChanged()) {
-          return true;
-        }
-      }
-    }
-    if (sources != null) {
-      for (IDvSource source : sources) {
-        if (source.hasChanged()) {
           return true;
         }
       }
@@ -236,11 +378,6 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
         table.clearChanged();
       }
     }
-    if (sources != null) {
-      for (IDvSource source : sources) {
-        source.clearChanged();
-      }
-    }
   }
 
   /**
@@ -260,6 +397,7 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
 
   /**
    * Count the number of selected tables in the model.
+   *
    * @return The number of selected tables
    */
   public int nrSelectedTables() {

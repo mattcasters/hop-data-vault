@@ -222,6 +222,43 @@ public class DvSatellite extends DvTableBase
               BaseMessages.getString(PKG, "DvSatellite.CheckResult.LinkedToLink", linkName),
               this));
     }
+
+    if (Utils.isEmpty(attributes)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.NoAttributes"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.HasAttributes", attributes.size()),
+              this));
+      for (SatelliteAttribute attr : attributes) {
+        if (Utils.isEmpty(attr.getName())) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(PKG, "DvSatellite.CheckResult.AttributeNoName"),
+                  this));
+        }
+      }
+    }
+
+    if (Utils.isEmpty(drivingKey)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.NoDrivingKey"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.HasDrivingKey", drivingKey),
+              this));
+    }
   }
 
   @Override
