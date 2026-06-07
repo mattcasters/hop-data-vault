@@ -19,6 +19,7 @@ package org.apache.hop.datavault.hopgui.file.vault;
 
 import java.io.OutputStream;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -29,6 +30,7 @@ import org.apache.hop.core.gui.plugin.action.GuiAction;
 import org.apache.hop.core.gui.plugin.action.GuiActionType;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
+import org.apache.hop.core.xml.XmlFormatter;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.i18n.BaseMessages;
@@ -61,6 +63,7 @@ public class HopVaultFileType extends HopFileTypeBase {
   public static final Class<?> PKG = HopVaultFileType.class; // for i18n
   public static final String VAULT_FILE_TYPE_DESCRIPTION = "Data Vault Model";
   public static final String VAULT_FILE_EXTENSION = ".hdv";
+  public static final String XML_TAG = "data-vault-model";
 
   public HopVaultFileType() {
     // nothing
@@ -125,7 +128,8 @@ public class HopVaultFileType extends HopFileTypeBase {
       XmlMetadataUtil.deSerializeFromXml(rootNode, DataVaultModel.class, model, provider);
       model.clearChanged(); // freshly loaded is not changed
 
-      // Set the (current) filename on the model so that getName() can derive from basename if synchronized,
+      // Set the (current) filename on the model so that getName() can derive from basename if
+      // synchronized,
       // using same logic as PipelineMeta / AbstractMeta. (overriding any stale value from xml)
       model.setFilename(filename);
 
@@ -262,7 +266,8 @@ public class HopVaultFileType extends HopFileTypeBase {
       saveFileAs(hopGui, graph, null);
       return;
     }
-    saveModelToFile(graph.getModel(), filename, hopGui.getMetadataProvider());
+    saveModelToFile(
+        graph.getModel(), filename, hopGui.getVariables(), hopGui.getMetadataProvider());
     graph.clearChanged();
   }
 
@@ -272,24 +277,26 @@ public class HopVaultFileType extends HopFileTypeBase {
       // TODO: show file dialog for .hdv
       filename = "/tmp/new-model.hdv"; // placeholder, use HopGuiFileDialog
     }
-    saveModelToFile(graph.getModel(), filename, hopGui.getMetadataProvider());
+    saveModelToFile(
+        graph.getModel(), filename, hopGui.getVariables(), hopGui.getMetadataProvider());
     graph.setFilename(filename);
     graph.clearChanged();
   }
 
   private void saveModelToFile(
-      DataVaultModel model, String filename, IHopMetadataProvider metadataProvider)
+      DataVaultModel model,
+      String filename,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
       throws HopException {
     try {
-      String xml = XmlMetadataUtil.serializeObjectToXml(model);
-      String fullXml =
-          "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-              + "<data-vault-model>\n"
-              + xml
-              + "\n</data-vault-model>";
+      String xml =
+          XmlHandler.getLicenseHeader(variables)
+              + XmlFormatter.format(
+                  XmlHandler.aroundTag(XML_TAG, XmlMetadataUtil.serializeObjectToXml(model)));
 
       try (OutputStream out = HopVfs.getOutputStream(filename, false)) {
-        out.write(fullXml.getBytes("UTF-8"));
+        out.write(xml.getBytes(StandardCharsets.UTF_8));
       }
       // register audit etc if wanted
     } catch (Exception e) {

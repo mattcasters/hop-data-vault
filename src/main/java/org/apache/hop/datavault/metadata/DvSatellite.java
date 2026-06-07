@@ -81,15 +81,11 @@ public class DvSatellite extends DvTableBase
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_SATELLITE_DIALOG";
 
-  private static final Point LOCATION_EXEC_SQL = new Point(50, 50);
-  private static final Point LOCATION_SOURCE_TABLE_INPUT = new Point(160, 160);
-  private static final Point LOCATION_CHECK_SUM = new Point(496, 160);
-  private static final Point LOCATION_SORT_ROWS = new Point(620, 160);
-  private static final Point LOCATION_TARGET_TABLE_INPUT = new Point(160, 320);
-  private static final Point LOCATION_MERGE_ROWS = new Point(368, 240);
-  private static final Point LOCATION_FILTER_ROWS = new Point(496, 240);
-  private static final Point LOCATION_ADD_CONSTANT = new Point(624, 240);
-  private static final Point LOCATION_TABLE_OUTPUT = new Point(752, 240);
+  private static final Point LOCATION_START_LINE_1 = new Point(160, 48);
+  private static final Point LOCATION_START_LINE_2 = new Point(160, 160);
+  private static final Point LOCATION_START_LINE_3 = new Point(160, 320);
+
+  public static final int SPACING_WIDTH = 160;
 
   /**
    * The Hub this satellite describes (if hub satellite). Use either hubName or linkName, not both.
@@ -512,7 +508,7 @@ public class DvSatellite extends DvTableBase
       TransformMeta execSqlTransformMeta =
           new TransformMeta(
               "ExecSql", "Create/update target table " + ctx.targetTableName, execSqlMeta);
-      execSqlTransformMeta.setLocation(LOCATION_EXEC_SQL);
+      execSqlTransformMeta.setLocation(LOCATION_START_LINE_1);
       pipelineMeta.addTransform(execSqlTransformMeta);
     }
   }
@@ -570,7 +566,7 @@ public class DvSatellite extends DvTableBase
     }
 
     TransformMeta tm = new TransformMeta("TableInput", ctx.sourceTransformName, tableInputMeta);
-    tm.setLocation(LOCATION_SOURCE_TABLE_INPUT);
+    tm.setLocation(LOCATION_START_LINE_2);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -600,7 +596,7 @@ public class DvSatellite extends DvTableBase
     }
 
     TransformMeta tm = new TransformMeta("CheckSum", "calc_" + resultFieldName, checkSumMeta);
-    tm.setLocation(LOCATION_CHECK_SUM);
+    tm.setLocation(LOCATION_START_LINE_2.x + SPACING_WIDTH, LOCATION_START_LINE_2.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -618,7 +614,7 @@ public class DvSatellite extends DvTableBase
 
     String sortTransformName = "sort_" + ctx.hashKeyFieldName;
     TransformMeta tm = new TransformMeta("SortRows", sortTransformName, sortRowsMeta);
-    tm.setLocation(LOCATION_SORT_ROWS);
+    tm.setLocation(LOCATION_START_LINE_2.x+2*SPACING_WIDTH, LOCATION_START_LINE_2.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -663,7 +659,7 @@ public class DvSatellite extends DvTableBase
 
     TransformMeta tm =
         new TransformMeta("TableInput", ctx.targetTransformName, targetTableInputMeta);
-    tm.setLocation(LOCATION_TARGET_TABLE_INPUT);
+    tm.setLocation(LOCATION_START_LINE_3);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -707,7 +703,7 @@ public class DvSatellite extends DvTableBase
     mergeRowsMeta.setPassThroughFields(passThroughFields);
 
     TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
-    tm.setLocation(LOCATION_MERGE_ROWS);
+    tm.setLocation(LOCATION_START_LINE_3.x+2*SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -735,7 +731,7 @@ public class DvSatellite extends DvTableBase
     }
 
     TransformMeta tm = new TransformMeta("FilterRows", "filter_not_identical", filterRowsMeta);
-    tm.setLocation(LOCATION_FILTER_ROWS);
+    tm.setLocation(LOCATION_START_LINE_3.x+3*SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -760,7 +756,7 @@ public class DvSatellite extends DvTableBase
     constantMeta.getFields().add(cf);
 
     TransformMeta tm = new TransformMeta("Constant", "add_" + loadDateField, constantMeta);
-    tm.setLocation(LOCATION_ADD_CONSTANT);
+    tm.setLocation(LOCATION_START_LINE_3.x+4*SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -792,7 +788,7 @@ public class DvSatellite extends DvTableBase
       }
 
       TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
-      tm.setLocation(LOCATION_TABLE_OUTPUT);
+      tm.setLocation(LOCATION_START_LINE_3.x+5*SPACING_WIDTH, LOCATION_START_LINE_3.y);
       pipelineMeta.addTransform(tm);
       return tm;
     } catch (Exception e) {

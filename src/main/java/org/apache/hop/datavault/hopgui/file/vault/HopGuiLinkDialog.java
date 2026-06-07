@@ -20,12 +20,16 @@ package org.apache.hop.datavault.hopgui.file.vault;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.widget.ColumnInfo;
+import org.apache.hop.ui.core.widget.MetaSelectionLine;
 import org.apache.hop.ui.core.widget.TableView;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
@@ -47,6 +51,7 @@ public class HopGuiLinkDialog {
   private static final Class<?> PKG = HopGuiLinkDialog.class;
 
   private final Shell parent;
+  private final HopGui hopGui;
   private final IVariables variables;
   private final DvLink input;
   private Shell shell;
@@ -55,6 +60,8 @@ public class HopGuiLinkDialog {
   private Text wName;
   private Text wTableName;
   private Text wDescription;
+  private MetaSelectionLine<DataVaultSource> wRecordSource;
+  private Text wLinkHashKeyFieldName;
   private TableView wHubNames;
   private TableView wDrivingKeyNames;
   private Button wHasDescriptiveAttributes;
@@ -63,6 +70,7 @@ public class HopGuiLinkDialog {
 
   public HopGuiLinkDialog(Shell parent, HopGui hopGui, DvLink link) {
     this.parent = parent;
+    this.hopGui = hopGui;
     this.variables = hopGui.getVariables();
     this.input = link;
   }
@@ -147,6 +155,42 @@ public class HopGuiLinkDialog {
     wDescription.setLayoutData(fdDescription);
     wDescription.addModifyListener(e -> input.setChanged());
 
+    // Record source (reference to DataVaultSource metadata)
+    wRecordSource =
+        new MetaSelectionLine<>(
+            variables,
+            hopGui.getMetadataProvider(),
+            DataVaultSource.class,
+            shell,
+            SWT.SINGLE | SWT.LEFT | SWT.BORDER,
+            BaseMessages.getString(PKG, "HopGuiLinkDialog.RecordSource.Label"),
+            BaseMessages.getString(PKG, "HopGuiLinkDialog.RecordSource.ToolTip"));
+    FormData fdRecordSource = new FormData();
+    fdRecordSource.left = new FormAttachment(0, 0);
+    fdRecordSource.top = new FormAttachment(wDescription, margin);
+    fdRecordSource.right = new FormAttachment(100, 0);
+    wRecordSource.setLayoutData(fdRecordSource);
+    wRecordSource.addModifyListener(e -> input.setChanged());
+
+    // Link hash key field name (optional override)
+    Label wlLinkHashKey = new Label(shell, SWT.RIGHT);
+    wlLinkHashKey.setText(BaseMessages.getString(PKG, "HopGuiLinkDialog.LinkHashKeyFieldName.Label"));
+    PropsUi.setLook(wlLinkHashKey);
+    FormData fdlLinkHashKey = new FormData();
+    fdlLinkHashKey.left = new FormAttachment(0, 0);
+    fdlLinkHashKey.top = new FormAttachment(wRecordSource, margin);
+    fdlLinkHashKey.right = new FormAttachment(middle, -margin);
+    wlLinkHashKey.setLayoutData(fdlLinkHashKey);
+
+    wLinkHashKeyFieldName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wLinkHashKeyFieldName);
+    FormData fdLinkHashKey = new FormData();
+    fdLinkHashKey.left = new FormAttachment(middle, 0);
+    fdLinkHashKey.top = new FormAttachment(wRecordSource, margin);
+    fdLinkHashKey.right = new FormAttachment(100, 0);
+    wLinkHashKeyFieldName.setLayoutData(fdLinkHashKey);
+    wLinkHashKeyFieldName.addModifyListener(e -> input.setChanged());
+
     // Has descriptive attributes
     Label wlHasDescriptive = new Label(shell, SWT.RIGHT);
     wlHasDescriptive.setText(
@@ -154,7 +198,7 @@ public class HopGuiLinkDialog {
     PropsUi.setLook(wlHasDescriptive);
     FormData fdlHasDescriptive = new FormData();
     fdlHasDescriptive.left = new FormAttachment(0, 0);
-    fdlHasDescriptive.top = new FormAttachment(wDescription, margin);
+    fdlHasDescriptive.top = new FormAttachment(wLinkHashKeyFieldName, margin);
     fdlHasDescriptive.right = new FormAttachment(middle, -margin);
     wlHasDescriptive.setLayoutData(fdlHasDescriptive);
 
@@ -180,6 +224,10 @@ public class HopGuiLinkDialog {
         new ColumnInfo[] {
           new ColumnInfo(
               BaseMessages.getString(PKG, "HopGuiLinkDialog.HubName.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "HopGuiLinkDialog.HubSourceKeyFields.Column"),
               ColumnInfo.COLUMN_TYPE_TEXT,
               false),
         };
@@ -249,13 +297,32 @@ public class HopGuiLinkDialog {
     if (input.getName() != null) wName.setText(input.getName());
     if (input.getTableName() != null) wTableName.setText(input.getTableName());
     if (input.getDescription() != null) wDescription.setText(input.getDescription());
+    try {
+      wRecordSource.fillItems();
+      wRecordSource.setText(Const.NVL(input.getRecordSource(), ""));
+    } catch (HopException e) {
+      wRecordSource.setText(Const.NVL(input.getRecordSource(), ""));
+    }
+    if (input.getLinkHashKeyFieldName() != null) wLinkHashKeyFieldName.setText(input.getLinkHashKeyFieldName());
 
     wHasDescriptiveAttributes.setSelection(input.isHasDescriptiveAttributes());
 
     if (input.getHubNames() != null) {
+      List<DvLink.HubSourceKeyField> keyFields = input.getHubSourceKeyFields();
       for (int i = 0; i < input.getHubNames().size(); i++) {
+        String hubName = input.getHubNames().get(i);
         TableItem item = wHubNames.table.getItem(i);
-        item.setText(1, Const.NVL(input.getHubNames().get(i), ""));
+        item.setText(1, Const.NVL(hubName, ""));
+        String keysStr = "";
+        if (keyFields != null) {
+          for (DvLink.HubSourceKeyField field : keyFields) {
+            if (hubName.equals(field.getHubName()) && field.getSourceBusinessKeyFields() != null) {
+              keysStr = String.join(",", field.getSourceBusinessKeyFields());
+              break;
+            }
+          }
+        }
+        item.setText(2, keysStr);
       }
     }
     if (input.getDrivingKeyNames() != null) {
@@ -270,13 +337,30 @@ public class HopGuiLinkDialog {
     input.setName(wName.getText());
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
+    input.setRecordSource(wRecordSource.getText());
+    input.setLinkHashKeyFieldName(wLinkHashKeyFieldName.getText());
     input.setHasDescriptiveAttributes(wHasDescriptiveAttributes.getSelection());
 
     List<String> hubs = new ArrayList<>();
+    List<DvLink.HubSourceKeyField> hubKeyFields = new ArrayList<>();
     for (TableItem item : wHubNames.getNonEmptyItems()) {
-      hubs.add(item.getText(1));
+      String hubName = item.getText(1);
+      hubs.add(hubName);
+      String keysText = item.getText(2);
+      List<String> keys = new ArrayList<>();
+      if (!Utils.isEmpty(keysText)) {
+        for (String k : keysText.split(",")) {
+          String trimmed = k.trim();
+          if (!trimmed.isEmpty()) keys.add(trimmed);
+        }
+      }
+      DvLink.HubSourceKeyField field = new DvLink.HubSourceKeyField();
+      field.setHubName(hubName);
+      field.setSourceBusinessKeyFields(keys);
+      hubKeyFields.add(field);
     }
     input.setHubNames(hubs);
+    input.setHubSourceKeyFields(hubKeyFields);
 
     List<String> drives = new ArrayList<>();
     for (TableItem item : wDrivingKeyNames.getNonEmptyItems()) {

@@ -21,17 +21,15 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.hop.core.CheckResult;
+import org.apache.hop.base.AbstractMeta;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.changed.ChangedFlag;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
-import org.apache.hop.base.AbstractMeta;
 import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
-import org.apache.hop.metadata.api.HopMetadataWrapper;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadata;
 
@@ -247,6 +245,7 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
 
   /**
    * Find the Hub with the given name in the model
+   *
    * @param hubName The name of the hub to look for.
    * @return The Hub or null if not found.
    */
@@ -257,5 +256,19 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
       }
     }
     return null;
+  }
+
+  /**
+   * Count the number of selected tables in the model.
+   * @return The number of selected tables
+   */
+  public int nrSelectedTables() {
+    int nr = 0;
+    for (IDvTable table : tables) {
+      if (table.isSelected()) {
+        nr++;
+      }
+    }
+    return nr;
   }
 }
