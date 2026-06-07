@@ -1,0 +1,79 @@
+= Data Vault Source – DataVaultSource
+
+`DataVaultSource` (Hop metadata key `data-vault-source`) is the logical source system definition used by a Data Vault model. It sits between the concrete physical sources (`DvDatabaseSource` today) and the Hubs, Links and Satellites that consume data from them.
+
+Tables reference a `DataVaultSource` by name in their "Default record source" field. This indirection keeps the model independent of the concrete transport (database, file, message queue, etc.).
+
+== Options
+
+[cols="1,3", options="header"]
+|===
+|Field |Description
+
+|`Name`
+|Unique name of the source. Referenced from `DvHub`, `DvSatellite`, `DvLink`, and validated by `DataVaultModel.check(...)`.
+
+|`Source type` (`sourceType`)
+|Discriminated type of the underlying source. Currently only `DATABASE` (`DataVaultSourceType.DATABASE`) is implemented. The type selects how `getFields(...)` and the physical details are resolved.
+
+|`Source table name` (`sourceTableName`)
+|For DATABASE sources this is the name of the `DvDatabaseSource` metadata object that contains the connection, schema, table, and column layout details.
+
+The label in the dialog is "Source table name" because from the `DataVaultSource` point of view you are selecting the (logical) table definition that will feed the DV table.
+
+|`Source indicator field` (`sourceIndicatorField`)
+|Optional name of a column that exists in the referenced source table and that contains, for each row, the source system / feed code that should be written into the Data Vault `RECORD_SOURCE` (or equivalent) column.
+
+This field is only used when no static `Source indicator` value is supplied.
+
+The field supports variables (the resolved column name is quoted and aliased in the generated source SQL).
+
+|`Source indicator` (`sourceIndicator`)
+|Static value for the record source / source system indicator that will be written for every row coming from this source (e.g. `'ERP'`, `'CRM'`, `'ORDERS-2024-Q3'`).
+
+When a non-empty value is present (after variable resolution via `IVariables.resolve(...)`), it takes precedence over any `sourceIndicatorField`. The value is emitted as a SQL string literal in the source TableInput (`'value' AS "RECORD_SOURCE"` with proper escaping of embedded quotes).
+
+This is the most common way to inject a constant record source when the source system does not carry the indicator in a column.
+|===
+
+== Record Source Indicator Precedence (Runtime)
+
+The resolution logic (exposed via `DataVaultSource.getResolvedSourceIndicator(IVariables)`) is:
+
+1. If `sourceIndicator` is non-empty after variable resolution → use that static string as the record source value for all rows from this source.
+2. Otherwise, if `sourceIndicatorField` is non-empty, the generated pipeline will include the named source column (aliased to the effective record source field name) so that the per-row value flows through.
+3. If neither is supplied, no record source indicator column is added by the source query (tables may still define a per-table record source field name override, in which case a `NULL AS` may appear on the target side for MergeRows layout compatibility).
+
+In the generated pipelines this logic appears in `addSourceTableInput(...)` (and the equivalent methods in `DvSatellite` and `DvLink`).
+
+== Fields Delegation
+
+`DataVaultSource.getFields(IHopMetadataProvider)` delegates to the concrete source:
+
+* For DATABASE: loads the referenced `DvDatabaseSource` and returns its `List<SourceField>`.
+* Other types (future) will implement their own strategy.
+
+These fields are used heavily during pipeline generation and target layout construction:
+
+* Primary-key-flagged fields → business keys for hubs and input to hub-hash checksums for satellites/links.
+* All fields (or the explicitly listed satellite attributes) → columns read from the source and written (after diff) to satellites.
+* Length / precision / Hop type from `SourceField` → propagated into the final `IRowMeta` returned by `getTargetTableLayout(...)` so that DDL and TableOutput produce correct column definitions.
+
+== Validation
+
+`DataVaultModel.check(...)` loads all `DataVaultSource` objects and verifies that every table's `recordSource` name actually exists among them. A missing reference produces an ERROR check result and (by default) will cause the Data Vault Update action to abort before generating pipelines.
+
+== Editor
+
+A custom `DataVaultSourceEditor` renders the four fields above using the standard Hop metadata widget infrastructure (`GuiCompositeWidgets` + the `@GuiWidgetElement` annotations on the class). The source table name is presented as a `METADATA` picker for `DvDatabaseSource`.
+
+== Future Extensibility
+
+Because `DataVaultSource` holds the type discriminator and the pointer to the physical definition (`sourceTableName`), new source kinds (CSV, JSON, Kafka, REST, etc.) can be added by:
+
+* Creating new `*Source` classes that extend `DvSourceBase` (or implement `IDvSource`).
+* Registering them with `@HopMetadata`.
+* Implementing the corresponding physical reader / field importer.
+* Updating the source type combo and the delegation in `DataVaultSource`.
+
+The Hubs, Links and Satellites (and the update action) will continue to work unchanged because they only ever talk to the logical `DataVaultSource` and ask it for its fields and indicator.

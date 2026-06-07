@@ -1,0 +1,91 @@
+= Data Vault Satellite (DvSatellite)
+
+A Satellite holds the time-variant descriptive attributes for a parent Hub or Link. In classic Data Vault 2.0, satellites are insert-only: every time a change is detected in any of the tracked attributes for a given parent key, a new row is inserted with the new values and the current load date.
+
+== Role in Generated Pipelines
+
+`DvSatellite.generateUpdatePipeline(...)` produces a pipeline that implements the "new or changed" detection pattern:
+
+* Source TableInput reads the hub business keys (needed to compute the parent hash), the satellite attributes, and the record source indicator from the attached `DataVaultSource`. No `DISTINCT` or `ORDER BY` is added on the source side (performance).
+* A CheckSum transform computes the parent (hub) hash key from the business keys.
+* A SortRows transform sorts the compare leg on the hash key (MergeRows requirement).
+* Target TableInput selects the parent hash key + all satellite attributes + record source from the existing satellite table (again with `ORDER BY` on the hash).
+* MergeRows is configured with the parent hash as the key field and the satellite attributes as value fields. This allows it to distinguish "identical" (same key + same attribute values) from "changed".
+* FilterRows keeps only rows that are *not* 'identical' (condition is created for "identical" and then negated).
+* Constant adds the batch load date.
+* TableOutput writes the new/changed versions (`specifyFields`, no "flag").
+
+Because value comparison happens on the attributes, satellites correctly emit a new row only when descriptive data actually changed for that parent instance.
+
+== Options
+
+[cols="1,3", options="header"]
+|===
+|Option |Description
+
+|`Name`
+|Logical metadata name of the satellite. Used as the default physical table name.
+
+|`Physical table name`
+|Actual table in the target database.
+
+|`Description`
+|Business description of the satellite / the attributes it historizes.
+
+|`Default record source`
+|Reference to the `DataVaultSource` that feeds this satellite.
+
+|`Parent hub` (`hubName`)
+|Metadata reference (by name) to the `DvHub` this satellite describes. Use either hub or link, not both. The hub is looked up via `DataVaultModel.findHub(...)` during pipeline generation and checking (hubs live inside the model, not as top-level metadata).
+
+|`Parent link` (`linkName`)
+|Metadata reference to a `DvLink` (for link satellites).
+
+|`Attributes`
+|List of `SatelliteAttribute` entries describing the columns to historize.
+
+Each attribute has:
+- Name (column name in source and target)
+- Description
+- Data Type (fallback)
+- Length / Precision
+- Include in Change Data Capture (`includeInChangeDataCapture`, formerly "includeInHashDiff")
+
+The "Get Attributes" button in the satellite dialog populates the list from the referenced source, excluding primary key fields and any driving key.
+
+If the attributes list is empty at generation time, the pipeline will include all non-PK / non-driving-key fields from the record source (the plugin signals this situation via a COMMENT check result).
+
+|`Multi-active satellite` (`multiActive`)
+|Check when multiple active records can exist for the same parent key at the same point in time (e.g. multiple current phone numbers for a customer). Requires a driving key.
+
+|`Driving key` (`drivingKey`)
+|Column that, together with the parent hash key and load date, makes a record unique in a multi-active satellite. Only relevant when Multi-active is checked. Appears in checks and can be used by consuming processes.
+
+|`Configuration`
+|Optional per-satellite Data Vault Configuration override.
+|===
+
+== Checks Performed
+
+In addition to base checks:
+
+* ERROR if neither a hub nor a link is referenced ("This satellite is not linked to a hub or a link").
+* OK result indicating which parent it is attached to.
+* COMMENT if no attributes are defined (all non-PK/non-driving fields from the source will be used).
+* ERROR if any attribute lacks a name.
+* COMMENT / OK for the driving key (only meaningful for multi-active).
+
+Model-level checks also verify that a referenced hub or link actually exists inside the same `DataVaultModel`.
+
+== Target Table Layout and Attribute Handling
+
+`getTargetTableLayout(...)` produces:
+
+1. The parent hub's hash key column (name taken from the linked hub's `hashKeyFieldName` or synthesized; length computed from configuration hash settings exactly as for hubs).
+2. The satellite attribute columns.
+   - When attributes are explicitly listed: each `SatelliteAttribute` becomes a column. Length/precision are taken from the attribute, but if missing or zero the code looks up the matching `SourceField` (by name) on the record source and copies its length/precision. This ensures that `getDDL` and TableOutput see realistic types (e.g. `VARCHAR(80)`, `DECIMAL(15,2)`).
+   - When no attributes are listed: all non-PK/non-driving fields from the source `SourceField` list are included (using the source field definitions directly).
+3. Record source column (name and length from configuration, variable support).
+4. Load date (Timestamp).
+
+The same logic that decides which attributes participate in the MergeRows value comparison also determines the columns written to the target.

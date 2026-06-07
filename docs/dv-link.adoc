@@ -1,0 +1,103 @@
+= Data Vault Link (DvLink)
+
+A Link represents a relationship or association between two or more Hubs (many-to-many, factless facts, etc.). The link table itself typically contains the hash keys of the participating hubs (plus driving keys when the same hub appears multiple times with different roles) together with its own surrogate link hash key, record source and load date.
+
+Links can optionally carry their own descriptive attributes; when they do, you normally attach a `DvSatellite` to the link (the "Has descriptive attributes" flag is a modeling hint that a link satellite is expected).
+
+== Role in Generated Pipelines
+
+`DvLink.generateUpdatePipeline(...)` builds a pipeline that:
+
+* Reads the raw business key values (and any driving keys) from the link's `DataVaultSource`.
+* For each participating hub, runs a CheckSum transform to compute that hub's hash key from the (mapped) source business key fields.
+* Runs a final CheckSum to compute the link's own hash key from the just-computed hub hashes + driving keys.
+* Uses a `SelectValues` transform ("select_values") to project exactly the calculated hash fields + record source. This guarantees that the compare leg has an identical row layout to the target leg before the subsequent SortRows.
+* Sorts the compare leg on the link hash key (SortRows).
+* Target TableInput selects the link hash + the stored hub hash columns + a `NULL AS <record-source>` so MergeRows receives compatible input.
+* MergeRows keys on the link hash key.
+* FilterRows keeps only "new" rows (flag = 'new').
+* Adds the batch load date and writes via TableOutput (specifyFields).
+
+The `NULL AS` record source on the target side plus the SelectValues step on the compare side are deliberate techniques to make the two inputs to MergeRows have identical layouts without extra pain.
+
+== Options
+
+[cols="1,3", options="header"]
+|===
+|Option |Description
+
+|`Name`
+|Logical name of the link. Defaults the physical table name and the link hash key suffix when no explicit link hash key field name is given.
+
+|`Physical table name`
+|Target table name in the Data Vault database.
+
+|`Description`
+|Description of the business relationship this link represents.
+
+|`Default record source`
+|The `DataVaultSource` that supplies the relationship rows (the "driving" source for this link).
+
+|`Participating hubs` (`hubNames`)
+|Ordered list of hub metadata names (references into the same Data Vault Model). At least two hubs are required. Order can affect hashing in some conventions; the list order also determines the order of the hub hash columns both in the generated pipelines and in the target table layout.
+
+|`Driving key names` (`drivingKeyNames`)
+|When the same hub participates more than once (role-playing), list the column names that distinguish the roles (e.g. `FROM_LOCATION_HK`, `TO_LOCATION_HK`). These values are fed into the final link hash checksum and stored in the link table. Empty list = no driving keys.
+
+Each driving key name is validated (non-empty strings required when the list is non-empty).
+
+|`Link hash key field name` (`linkHashKeyFieldName`)
+|Name of the surrogate hash key column for the link itself. If empty, defaults to the link name + "_LK".
+
+|`Hub source key fields` (`hubSourceKeyFields` / `HubSourceKeyField`)
+|Explicit mapping of source business key columns for each participating hub.
+
+Because the table/view that feeds a link often uses different column names than the hubs themselves (e.g. `customer_id` in the customer hub source vs. `cust_fk` or `customer_id` in an order source), you can specify, per hub in the link, the exact list of source columns (in the same order as the hub's business keys) that should be used to compute that hub's hash.
+
+Internally this is modeled with a serializable static inner class:
+
+[source,java]
+----
+public static class HubSourceKeyField {
+    @HopMetadataProperty private String hubName;
+    @HopMetadataProperty(key = "sourceBusinessKeyField", groupKey = "sourceBusinessKeyFields")
+    private List<String> sourceBusinessKeyFields = new ArrayList<>();
+}
+----
+
+The dialog presents this as a table (hub name + source business key fields column). When a mapping is present and non-empty for a hub position, it is preferred over simply taking the hub's own business key names.
+
+If no mapping (or an empty list) is supplied for a hub, the generator falls back to the hub definition's business key names (resolved via `model.findHub(...)`).
+
+|`Has descriptive attributes (link satellite)` (`hasDescriptiveAttributes`)
+|Modeling flag. When checked, a COMMENT check result is emitted reminding you that a satellite attached to this link is expected. The flag itself does not change pipeline generation for the link table.
+
+|`Configuration`
+|Optional per-link configuration override.
+|===
+
+== Checks Performed
+
+* ERROR if fewer than two participating hubs are listed.
+* OK result reporting how many hubs the link connects.
+* COMMENT if no explicit link hash key field name (default synthesized).
+* For driving keys: COMMENT when none are defined; ERROR for any empty name inside the list.
+* COMMENT when "Has descriptive attributes" is true.
+* Plus base checks and model-level cross-reference / duplicate detection (every listed hub must exist in the model via `findHub`).
+
+== Target Table Layout
+
+`getTargetTableLayout(...)` returns, in order:
+
+1. The link's own hash key column (name from `linkHashKeyFieldName` or `<name>_LK`; length computed from hash algorithm + data type exactly as for hubs).
+2. One column for each participating hub's hash key (names taken from the linked `DvHub` objects via `model.findHub(...)`, or synthesized; same length rules).
+3. Record source column (name/length from configuration with variable support).
+4. Load date (Timestamp).
+
+Note that driving key *values* are not part of the minimal target layout for the link table itself (they participate in the link hash calculation and may be stored if you choose to include them via other means or in a satellite).
+
+== Record Source Handling in Links
+
+The source query for a link includes the mapped business key fields + driving keys + the record source indicator (either a static literal or the column named by `sourceIndicatorField` on the `DataVaultSource`, aliased to the effective record source field name).
+
+The target side always projects `NULL AS "<record source field>"` (properly quoted) so that the passthrough of the indicator value from the compare leg works cleanly with MergeRows.

@@ -1,0 +1,84 @@
+= Data Vault Hub (DvHub)
+
+A Hub is a core business concept in a Data Vault 2.0 model (Customer, Product, Order, Account, etc.). It stores the natural business key(s) that uniquely identify an instance of that concept and a surrogate hash key derived from those business keys.
+
+== Role in Generated Pipelines
+
+When `DvHub.generateUpdatePipeline(...)` is called (by the Data Vault Update action or the visual Debug toolbar), the plugin produces a pipeline that:
+
+* Optionally executes DDL to create or alter the target hub table (driven by `getTargetTableLayout`).
+* Reads the business keys (and record source indicator) from the configured `DataVaultSource`.
+* Compares them against the existing hub rows using a `MergeRows` transform (source side is the compare leg via a direct hop).
+* Keeps only "new" rows (FilterRows on flag = 'new').
+* Calculates the hub hash key (CheckSum) only for the new rows.
+* Adds the batch load date (Constant).
+* Writes the new rows to the target (TableOutput with `specifyFields`, excluding the internal "flag" column).
+
+The target query is deliberately constructed with the (first) business key first and the hash key last so that the two inputs to MergeRows have compatible layouts when passthrough fields are applied.
+
+== Options
+
+[cols="1,3", options="header"]
+|===
+|Option |Description
+
+|`Name`
+|Logical name of the hub metadata object. Used as the default physical table name if no explicit Table Name is given. Must be unique within a Data Vault Model.
+
+|`Physical table name` (`tableName`)
+|The actual table name created/loaded in the target database (from the referenced Data Vault Configuration's target database connection). Can differ from the metadata name.
+
+|`Description`
+|Free-text business description of the hub.
+
+|`Default record source` (`recordSource`)
+|Reference (by name) to a `DataVaultSource` metadata object. Supplies the data for this hub and the default record source indicator value (static or column-based). Required for pipeline generation.
+
+|`Business keys`
+|One or more `BusinessKey` entries that form the natural key of the hub. Composite keys are fully supported; order is significant because it determines the order of fields fed to the CheckSum transform.
+
+Each BusinessKey has:
+- Name (the column name in the hub table and usually the source)
+- Optional Description
+- Optional Data Type (used as fallback)
+- Optional Length
+- Optional Source Field Name (allows the source column to have a different name than the hub column)
+
+The plugin's "Get Keys" button (in the hub dialog) can populate this list from the primary key fields declared on the referenced source.
+
+|`Hash key field name` (`hashKeyFieldName`)
+|Name of the surrogate hash key column that will be stored in the hub (and referenced by satellites and links). If left empty it defaults to the first business key name + "_HK".
+
+This value is also used as the result field name of the CheckSum transform in the generated pipeline and appears first in the target table layout.
+
+|`Record source field name` (`recordSourceFieldName`)
+|Optional per-hub override for the name of the `RECORD_SOURCE` (or equivalent) column in the target hub table. Supports variables. When empty, the value from the Data Vault Configuration is used. The resolved name is used both for the alias in the source query and for the passthrough field into MergeRows.
+
+|`Configuration`
+|Optional reference to a specific `DataVaultConfiguration`. When present it overrides the model-level default for this hub only (hash algorithm, data type, naming, target database, etc.).
+|===
+
+== Checks Performed
+
+`DvHub.check(...)` (called by the model and by the update action) reports:
+
+* ERROR if no business keys are defined or if any business key lacks a name.
+* COMMENT if no explicit hash key field name (a default will be synthesized).
+* COMMENT if no per-hub record source field name override (the configuration value will be used).
+* Plus the common base checks (no name, no record source, no physical table name → uses metadata name).
+
+Cross-reference validation (record source exists, no duplicate names) happens at the `DataVaultModel` level.
+
+== Target Table Layout
+
+`getTargetTableLayout(...)` returns (in order):
+
+1. The hub hash key column (type and length derived from the chosen `HashKeyDataType` + `HashAlgorithm.getDigestLength()`):
+   - BINARY → length = digest bytes (e.g. 16 for MD5)
+   - HEX → length = digest bytes * 2 (e.g. 32 for MD5)
+   - STRING → length = digest*3 + (digest-1) (e.g. 63 for MD5)
+2. The business key columns (in definition order). Length/precision are taken preferentially from the matching `SourceField` on the Data Vault Source, falling back to the BusinessKey metadata.
+3. The record source column (name resolved with per-hub override precedence, length from configuration's `recordSourceFieldLength` with variable support, default 100).
+4. The load date column (Timestamp, name from configuration or `LOAD_DATE`).
+
+This layout drives both the ExecSql DDL step (when the table does not yet exist) and the fields listed in the final TableOutput.

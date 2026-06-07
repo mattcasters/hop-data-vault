@@ -1,0 +1,79 @@
+= Data Vault Update Action
+
+The **Data Vault Update** workflow action (`DATA_VAULT_UPDATE`) is the primary production mechanism for executing a model-driven Data Vault load.
+
+It loads a persisted `.hdv` Data Vault Model, optionally validates it, generates the incremental update pipeline for every table in the model, and executes those pipelines under a chosen Pipeline Run Configuration.
+
+== Options
+
+[cols="1,3", options="header"]
+|===
+|Option |Description
+
+|`Action name`
+|Standard Hop action name.
+
+|`Data Vault Model file` (`dataVaultModelFile`)
+|Path (supports variables) to the `.hdv` file that contains the Data Vault Model. The action uses VFS (`HopVfs`) + `XmlHandler` + `XmlMetadataUtil.deSerializeFromXml` to load the model (similar to how PipelineMeta loads `.hpl` files). The model is given its filename so that name synchronization (if enabled) works.
+
+|`Pipeline run configuration` (`pipelineRunConfiguration`)
+|Name of a registered `PipelineRunConfiguration` metadata object. Every generated update pipeline is executed with an engine created via `PipelineEngineFactory.createPipelineEngine(..., realRunConfig, ...)`.
+
+This is a required field; the action will error early if it is empty after variable resolution.
+
+|`Log model check failures` (`logModelCheckFailures`)
+|When checked (default: true), before generating any pipelines the action calls `model.check(getMetadataProvider(), this)` and logs every `WARNING` or `ERROR` result using `logBasic()` with the message key `ActionDataVaultUpdate.Log.ModelCheckResult` (format: "Model check: {type} - {text}").
+
+Results of type `OK` are not logged by this path. This gives you visibility into structural problems (missing hubs, undefined record sources, duplicate names, incomplete business keys, etc.) without necessarily stopping the load.
+
+|`Abort on model check failures` (`abortOnModelCheckFailures`)
+|When checked (default: true), the same check is performed. If any result has type `TYPE_RESULT_ERROR`, the action logs an error ("Aborting due to model check failures. No update pipelines were executed."), sets result to false / nrErrors=1 and returns immediately without generating or running any pipelines.
+
+This is a safety net so that obviously broken models do not produce partial or incorrect Data Vault loads.
+|===
+
+== Execution Flow (in `execute(...)`)
+
+1. Resolve the run configuration name. Error if empty.
+2. Load the referenced `DataVaultModel` from the `.hdv` file (XML round-trip via `XmlMetadataUtil`).
+3. If either log or abort checkbox is enabled:
+   - Call `model.check(metadataProvider, variables)`.
+   - For every non-OK remark, `logBasic(...)` the type description + text.
+   - If abort is enabled and any remark is an ERROR → log the abort message, fail the action and return.
+4. If the model contains no tables → log and succeed (no work to do).
+5. Capture a single `java.util.Date loadDate = new Date();` – this static value is passed to every table's `generateUpdatePipeline(...)` call so the whole batch shares one load timestamp.
+6. For each `IDvTable` in the model (order as stored):
+   - Log "Generating update pipeline for table: <name>"
+   - Call `table.generateUpdatePipeline(getMetadataProvider(), getVariables(), model, loadDate)`
+   - If null is returned, count an error and continue.
+   - Call `pipelineMeta.lookupReferencesAfterLoading()`.
+   - Create an engine with the chosen run configuration.
+   - Set log level, parent action/workflow, execute, wait until finished.
+   - Accumulate row counters (read/written/input/output/updated/deleted) and error counts from the pipeline result.
+   - On pipeline errors or !result, log and mark overall success false.
+7. Set final action result / nrErrors based on whether any table failed.
+
+The action implements the usual Hop action contracts (`isEvaluation()`, `isUnconditional()`, `supportsDrillDown()`, `getReferencedObjectDescriptions()`, `loadReferencedObject(...)`) so it participates correctly in workflows, logging, and the "Open referenced object" UI.
+
+== Model Checking Integration
+
+Both the log and abort options delegate to the same rich `DataVaultModel.check(...)` implementation that is also used by the visual "Check model" toolbar button. That method:
+
+* Loads all `DataVaultSource` objects (for reference validation).
+* Verifies a configuration is referenced (WARNING otherwise).
+* Verifies that tables exist (WARNING).
+* For every table: calls `table.check(remarks)` (delegated structural checks).
+* Validates that every table's record source name actually exists among the loaded sources (ERROR if not).
+* For satellites: verifies referenced hub / link names exist in the model (ERROR).
+* For links: verifies every listed hub name exists (ERROR).
+* Detects duplicate table names and duplicate source names across the model (ERROR).
+
+These checks are deliberately thorough so that users do not chase runtime ghosts (missing metadata, broken cross-references, incomplete business key lists, etc.).
+
+== Typical Usage
+
+* Place the action in a workflow after any prerequisite "load staging" or "prepare sources" steps.
+* Use a dedicated Pipeline Run Configuration tuned for the Data Vault load (parallelism, rowset size, database connections, etc.).
+* Usually leave both model-check options enabled in production so that a broken model change fails the workflow early with clear logging rather than producing a partially updated vault.
+
+The action is the counterpart to the visual model's "Debug" functionality: the same `generateUpdatePipeline` code path is used, only the execution context (run configuration, single batch load date, aggregated results, model-check gate) differs.

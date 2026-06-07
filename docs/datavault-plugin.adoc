@@ -1,0 +1,65 @@
+= Apache Hop Data Vault 2.0 Plugin
+
+The Data Vault 2.0 plugin for Apache Hop enables model-driven design and loading of Data Vault 2.0 enterprise data warehouses.
+
+== Aim
+
+The goal of the plugin is to let data engineers capture a complete logical Data Vault 2.0 model (Hubs, Links, Satellites and their sources) together with physical implementation and loading strategy details, and then automatically generate correct, repeatable update pipelines for those structures.
+
+Instead of hand-crafting dozens of similar "staging → hub / satellite / link" pipelines, you:
+
+* Model your Hubs, Links and Satellites once (with business keys, attributes, participating hubs, driving keys, etc.).
+* Attach Data Vault Sources that describe where the raw data comes from (currently relational database tables/views).
+* Define a Data Vault Configuration that controls hashing algorithm, hash key storage format, naming conventions, record source / load date column names, etc.
+* Group everything into a Data Vault Model (`.hdv` file).
+* Use the visual modeler inside Hop GUI (with Check model and Debug toolbars) or execute the **Data Vault Update** workflow action to generate and run the actual load pipelines.
+
+The generated pipelines follow the classic Data Vault 2.0 insert-only pattern:
+
+* For Hubs and Links: only truly new business keys / relationships are inserted (detected via MergeRows on the business key or link hash key).
+* For Satellites: new or changed attribute combinations are inserted (MergeRows on the parent hash key + value comparison of the descriptive attributes, filtering out "identical" rows).
+
+All pipelines use a single static load date for the whole batch/run (supplied by the caller) so that every row loaded in one execution shares the same `LOAD_DATE`.
+
+== Key Concepts
+
+* **Data Vault Model** (`.hdv`): The persisted artifact. Contains references to Hubs/Links/Satellites and a default configuration. Supports visual layout (positions are stored) and implements Hop's `IChanged` contract for dirty tracking.
+* **IDvTable** / `DvHub`, `DvSatellite`, `DvLink`: The three core table types. They implement a common interface so generic code (model checks, pipeline generation, the update action) can treat them uniformly. Each table type knows how to generate its own update pipeline via `generateUpdatePipeline(...)`.
+* **Data Vault Configuration**: Reusable strategy (hash algorithm + result type, target database, column naming, record source length, unknown record generation, etc.). Individual tables can override selected settings (e.g. per-hub hash key field name or record source field name).
+* **Data Vault Sources**: Describe the incoming feeds. `DataVaultSource` is the logical wrapper; `DvDatabaseSource` is the current concrete implementation (references a `DatabaseMeta` + schema/table + expected column layout with PK flags and length/precision).
+* **Model-driven pipeline generation**: `DvHub`, `DvSatellite` and `DvLink` each implement `generateUpdatePipeline(IHopMetadataProvider, IVariables, DataVaultModel, Date)` (the `Date` is the batch load date). The action and the visual "Debug" toolbar both call this method, serialize the resulting `PipelineMeta` to XML and back (classloader safety), and execute it. Target table layouts (`getTargetTableLayout(...)`) drive both conditional DDL (ExecSql) and the final TableOutput (with `specifyFields`).
+* **Thorough validation**: Every table and the model itself implement rich `check(...)` methods returning `ICheckResult` entries. These are shown by the "Check model" toolbar button and are also used by the Data Vault Update action when "Log model check failures" or "Abort on model check failures" are enabled.
+
+== Visual Modeling and Tooling
+
+The plugin registers a Hop file type (`.hdv`) with a full `HopGuiVaultGraph` editor (mouse state machine, lasso, drag, context menus, AreaOwner-based tooltips for info icons, etc.). The toolbar provides:
+
+* **Check model**: Runs `DataVaultModel.check(...)` (plus delegated per-table checks) and shows results in the standard Hop CheckResultsDialog.
+* **Debug**: Generates the update pipeline for selected table(s) (or all), performs the XML round-trip, adds the pipeline to the current HopGui perspective, and selects it so you can inspect or run it manually.
+
+== Workflow Integration
+
+The **Data Vault Update** action (`@Action`) is the production execution vehicle:
+
+* Points at a `.hdv` model file.
+* Chooses a Pipeline Run Configuration.
+* Optionally logs or aborts on model check failures before any pipelines are generated.
+* For every table in the model it calls `generateUpdatePipeline(...)` with a single `java.util.Date` load date for the batch, executes the resulting pipeline under the chosen run configuration, and aggregates row/error counters.
+
+This gives you repeatable, auditable, model-driven Data Vault loads inside normal Hop workflows.
+
+== Current Scope and Patterns
+
+* Hubs, Links and Satellites are fully supported for incremental update.
+* Hash algorithms: MD5, SHA1, SHA256, SHA512 (algorithm also drives CheckSum type and dynamic target column lengths).
+* Hash key storage: STRING (decimal-dash), HEX, BINARY (recommended for production).
+* Satellites correctly handle "not identical" detection (value fields on MergeRows for attributes, negated FilterRows on "identical").
+* Links support explicit per-hub source business key field mappings (`HubSourceKeyField`) because FK column names in the source often differ from the hub's business key names (`_id` / `_fk` conventions, role playing, etc.).
+* Record source values can be static (on the `DataVaultSource`) or taken from a source column; per-table overrides for the target column name are supported on Hubs.
+* Source column length/precision (from `SourceField`) are propagated into target `IRowMeta` layouts so that DDL and TableOutput produce sensible types (e.g. `VARCHAR(50)` instead of `TEXT`).
+* "Get Keys" / "Get Attributes" buttons in the dialogs help populate business keys and satellite attributes from the referenced source.
+* Extensive cross-reference and duplicate detection in model checks (missing hubs for satellites/links, missing record sources, duplicate names, etc.).
+
+The plugin follows standard Apache Hop patterns throughout: `@HopMetadata` / `@HopMetadataProperty`, `@GuiPlugin` + `@GuiWidgetElement`, `MetadataEditor` + `TableView` / `MetaSelectionLine` where needed, `BaseDialog`, `IChanged`, Jandex plugin indexing, provided-scope transform dependencies, `dependencies.xml`, i18n bundles in the conventional locations, etc.
+
+Future directions often discussed include PIT tables, more source types, declarative DDL generation outside the update pipelines, and tighter integration with the Metadata perspective.

@@ -1,0 +1,130 @@
+= Data Vault Configuration
+
+A `DataVaultConfiguration` (metadata key `data-vault-configuration`) captures the physical implementation choices and loading strategy that are shared across a Data Vault model (or overridden at the individual table level).
+
+Keeping configuration separate from the logical model (Hubs/Links/Satellites) allows the same conceptual model to be realized with different hash algorithms, column naming standards, or target platforms.
+
+== Options
+
+=== Target Database
+
+[cols="1,3", options="header"]
+|===
+|Field |Description
+
+|`Target database` (`targetDatabase`)
+|Reference to a Hop `DatabaseMeta` (RDBMS connection metadata object). This connection is used for:
+- Reading the source system (via the Data Vault Sources that point at `DvDatabaseSource` entries).
+- Writing to the target Data Vault tables (TableOutput).
+- Generating conditional DDL (ExecSql) via `Database.getDDL(...)` using the live target `IRowMeta` layout.
+
+All quoting of identifiers in the generated pipelines uses this database's dialect (`quoteField`, `getQuotedSchemaTableCombination`).
+|===
+
+=== Hashing Strategy
+
+[cols="1,3", options="header"]
+|===
+|Field |Description
+
+|`Hash algorithm` (`hashAlgorithm`)
+|The algorithm used to compute deterministic surrogate hash keys.
+
+Supported values (see `HashAlgorithm` enum):
+- `MD5` (default) – 128-bit, fast, ubiquitous. Digest length = 16 bytes.
+- `SHA1` – 160-bit.
+- `SHA256` – 256-bit, lower collision probability for very large data sets.
+- `SHA512` – 512-bit, maximum strength.
+
+The chosen algorithm drives:
+- The `CheckSumMeta.CheckSumType` used in generated pipelines.
+- Dynamic maximum lengths in target table layouts (via `HashAlgorithm.getDigestLength()`).
+
+|`Hash key data type` (`hashKeyDataType`)
+|Physical storage format for hash key columns (hubs, link hashes, hub hash columns inside links, parent hash in satellites).
+
+Values (`HashKeyDataType`):
+- `BINARY` (default, recommended for production) – raw bytes. Storage = digest length (16/20/32/64). Best performance and smallest footprint; avoids collation/collation-sensitive join problems.
+- `HEX` – lowercase hexadecimal string. Storage = digest*2 (32/40/64/128). Easy to debug and transport.
+- `STRING` – decimal numbers 0-255 separated by dashes (the format produced by CheckSum `ResultType.STRING`). Storage ≈ digest*3+(digest-1) (63 for MD5, larger for SHA*).
+
+The data type also selects the `CheckSumMeta.ResultType` (BINARY / HEXADECIMAL / STRING) in the generated CheckSum transforms.
+
+|`Hash content casing` (`hashContentCasing`)
+|Normalization applied to business key values before they are fed to the checksum (UPPER, LOWER, NONE). UPPER is the most common choice in Data Vault practice for consistent keys across source systems that may differ in case.
+
+|`Business key delimiter` (`businessKeyDelimiter`)
+|String used to concatenate multiple business key parts when building the input for composite hub hashes and when constructing link hash inputs. Choose a value that is extremely unlikely to appear in your actual key data (classic choices: `||`, `|`, `~`, `^`).
+
+|`Null placeholder` (`nullPlaceholder`)
+|Value substituted for NULL or missing business key parts during hashing. Guarantees deterministic, platform-independent hash results even when source data contains nulls. Common default: `^^`.
+
+|`Trim business keys` (`trimBusinessKeys`)
+|When true (default), leading and trailing whitespace is removed from business key values before hashing. Strongly recommended.
+|===
+
+=== Unknown / Ghost Record Handling
+
+[cols="1,3", options="header"]
+|===
+|Field |Description
+
+|`Generate unknown record` (`generateUnknownRecord`)
+|When enabled, a special "unknown" / "ghost" record is expected in hubs (and corresponding entries in links) for missing or unmapped business keys. This is a very common Data Vault pattern.
+
+|`Unknown business key value` (`unknownBusinessKeyValue`)
+|The business key value that represents "unknown" (e.g. `N/A`, `-1`, `UNKNOWN`). Used when generating the special unknown hash key record.
+|===
+
+=== Naming Conventions
+
+[cols="1,3", options="header"]
+|===
+|Field |Description
+
+|`Link hash key suffix` (`linkHashKeySuffix`)
+|Suffix appended when synthesizing a link hash key column name (used only as a fallback; the modern approach is the per-link `linkHashKeyFieldName` setting).
+
+|`Load date field name` (`loadDateField`)
+|Standard column name for the load timestamp / datetime written into every Data Vault table. Default: `LOAD_DATE`. Used by the Constant transform in every generated update pipeline.
+
+|`Load end date field name` (`loadEndDateField`)
+|Column name for the load end date (used by teams that prefer an end-dating / current-flag satellite pattern instead of or in addition to pure insert-only + hashdiff). Not currently emitted by the core generated pipelines (which are insert-only).
+
+|`Record source field name` (`recordSourceField`)
+|Name of the column that identifies the original source system / feed that produced the record. Default: `RECORD_SOURCE`.
+
+This name is used for:
+- The alias in source TableInput SQL.
+- Passthrough fields into MergeRows.
+- The column written to target tables.
+- The `NULL AS ...` projection on target-side queries (for layout compatibility).
+
+|`Record source field length` (`recordSourceFieldLength`)
+|Length (in characters) for the record source column in target tables. The field supports variables. Resolved at runtime with `IVariables.resolve(...)` + `Const.toInt(..., 100)`. Default 100 when not specified or unparseable.
+
+This length is applied in `getTargetTableLayout` for hubs, satellites and links.
+
+|`Source field name` (`sourceField`)
+|Optional additional source identifier column (sometimes used for a second level of source granularity).
+|===
+
+=== Satellite Loading Pattern
+
+[cols="1,3", options="header"]
+|===
+|Field |Description
+
+|`Use load end date pattern` (`useLoadEndDate`)
+|Signals that satellites in this configuration should use an end-dating approach. The current generated update pipelines for satellites are pure insert-only ("not identical" detection via MergeRows value fields + negated FilterRows). This flag is available for documentation / future generator branches.
+|===
+
+== Overriding Configuration
+
+Most tables (`DvHub`, `DvSatellite`, `DvLink`) have their own "Configuration" reference field. When set, that specific configuration is loaded instead of (or in addition to) the model-level default during `generateUpdatePipeline` and `getTargetTableLayout`. This allows, for example, a particular hub to use a longer record source column or a different hash key field name while the rest of the model uses the shared configuration.
+
+== Usage in Checks and Generation
+
+The Data Vault Update action and the visual modeler call `DataVaultModel.check(...)`, which in turn delegates to each table's `check(...)`. Several checks emit warnings when no configuration is referenced at the model level ("Default settings will be used").
+
+During pipeline generation the configuration is loaded early in the `*UpdateContext.create(...)` factory methods. Missing critical pieces (target database connection, etc.) cause `HopException` so that problems surface before any pipeline is executed.
