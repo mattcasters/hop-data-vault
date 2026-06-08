@@ -619,7 +619,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     // Do double buffering to prevent flickering on Windows
     //
     boolean needsDoubleBuffering =
-            Const.isWindows() && "GUI".equalsIgnoreCase(Const.getHopPlatformRuntime());
+        Const.isWindows() && "GUI".equalsIgnoreCase(Const.getHopPlatformRuntime());
     Image image = null;
     if (needsDoubleBuffering) {
       image = new Image(hopGui.getDisplay(), width, height);
@@ -630,18 +630,25 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     SwtGc gc = null;
     try {
       gc = new SwtGc(swtGc, width, height, PropsUi.getInstance().getIconSize());
+      PropsUi propsUi = PropsUi.getInstance();
 
       areaOwners.clear();
       DataVaultModelPainter painter =
           new DataVaultModelPainter(
               model,
               gc,
+              variables,
               width,
               height,
+              propsUi.isShowCanvasGridEnabled() ? propsUi.getCanvasGridSize() : 1,
               (float) (magnification * PropsUi.getNativeZoomFactor()),
               offset,
+              selectionRegion,
               areaOwners,
               mouseOverTableName);
+      painter.setShowingNavigationView(!PropsUi.getInstance().isHideViewportEnabled());
+      painter.setMaximum(model.getMaximum());
+
       // Pass current (if any) relationship drag state so painter can render the candidate line
       // (in logical coords, before tables).
       painter.setRelationshipDragInfo(
@@ -881,7 +888,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     for (IDvTable table : model.getTables()) {
       // Only show the pipelines of the selected tables if one or more tables are selected.
       //
-      if (!table.isSelected() && model.nrSelectedTables()>0) {
+      if (!table.isSelected() && model.nrSelectedTables() > 0) {
         continue;
       }
       openUpdatePipeline(table);
@@ -915,10 +922,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       HopGui.getExplorerPerspective().addPipeline(reloaded);
     } catch (Exception e) {
       new ErrorDialog(
-          hopGui.getShell(),
-          "Error",
-          "Error generating debug pipeline for '" + tableName + "'",
-          e);
+          hopGui.getShell(), "Error", "Error generating debug pipeline for '" + tableName + "'", e);
     }
   }
 
@@ -1061,14 +1065,14 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
   }
 
   @GuiContextAction(
-          id = "vault-graph-show-table-pipeline",
-          parentId = HopGuiVaultTableContext.CONTEXT_ID,
-          type = GuiActionType.Info,
-          name = "Show update pipeline",
-          tooltip = "Generate and show the pipeline used to update this table",
-          image = "ui/images/debug.svg",
-          category = "Data Vault",
-          categoryOrder = "3")
+      id = "vault-graph-show-table-pipeline",
+      parentId = HopGuiVaultTableContext.CONTEXT_ID,
+      type = GuiActionType.Info,
+      name = "Show update pipeline",
+      tooltip = "Generate and show the pipeline used to update this table",
+      image = "ui/images/debug.svg",
+      category = "Data Vault",
+      categoryOrder = "3")
   public void debugTablePipeline(HopGuiVaultTableContext context) {
     IDvTable t = context.getTable();
     HopGuiVaultGraph realGraph = context.getVaultGraph();

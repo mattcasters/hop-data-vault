@@ -17,19 +17,21 @@
 
 package org.apache.hop.datavault.hopgui.file.vault;
 
-import org.apache.hop.core.gui.AreaOwner;
+import org.apache.hop.core.gui.*;
 import org.apache.hop.core.gui.AreaOwner.AreaType;
-import org.apache.hop.core.gui.DPoint;
-import org.apache.hop.core.gui.IGc;
-import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.svg.SvgFile;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.pipeline.PipelineHopMeta;
+import org.apache.hop.pipeline.transform.TransformMeta;
+import org.apache.hop.ui.core.PropsUi;
+import org.w3c.dom.css.Rect;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,16 +39,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Basic painter for a Data Vault model using IGc.
- * Draws tables (hubs, links, satellites) at their locations with icons and names.
- * Draws simple lines from links to their participating hubs.
- * Draws simple lines from satellites to their parent hubs (or links).
- * Supports mouse-over underline on table names (for hyperlink style) and populates AreaOwners
- * for name (TRANSFORM_NAME) vs body (TRANSFORM_ICON) to support differentiated clicks.
- * If a table has a non-empty description, draws a small INFO_DISABLED icon at top-left and
- * registers a TRANSFORM_INFO_ICON area (for tooltip on hover).
+ * Basic painter for a Data Vault model using IGc. Draws tables (hubs, links, satellites) at their
+ * locations with icons and names. Draws simple lines from links to their participating hubs. Draws
+ * simple lines from satellites to their parent hubs (or links). Supports mouse-over underline on
+ * table names (for hyperlink style) and populates AreaOwners for name (TRANSFORM_NAME) vs body
+ * (TRANSFORM_ICON) to support differentiated clicks. If a table has a non-empty description, draws
+ * a small INFO_DISABLED icon at top-left and registers a TRANSFORM_INFO_ICON area (for tooltip on
+ * hover).
  */
-public class DataVaultModelPainter {
+public class DataVaultModelPainter extends BasePainter<IDvTable> {
 
   private final DataVaultModel model;
   private final IGc gc;
@@ -59,7 +60,8 @@ public class DataVaultModelPainter {
   private final String mouseOverTableName;
 
   // Transient drag state for drawing candidate relationship line (middle-btn or shift+left drag)
-  // while creating hub<->satellite or hub<->link. These are set by the owning graph before each draw.
+  // while creating hub<->satellite or hub<->link. These are set by the owning graph before each
+  // draw.
   private IDvTable startRelationshipTable;
   private Point relationshipDragEndLocation; // screen coords from mouse
   private IDvTable candidateRelationshipTarget;
@@ -67,28 +69,46 @@ public class DataVaultModelPainter {
   private static final int ICON_SIZE = 32;
   private static final int MARGIN = 5;
   private static final int MINI_ICON_SIZE = 16;
+
   // Note: TABLE_* removed in favor of per-table dynamic sizes based on textExtent()
 
   public DataVaultModelPainter(
       DataVaultModel model,
       IGc gc,
+      IVariables variables,
       int width,
       int height,
+      int gridSize,
       float magnification,
       Point offset,
+      Rectangle selectionRectangle,
       List<AreaOwner> areaOwners,
       String mouseOverTableName) {
+    super(
+        gc,
+        variables,
+        model,
+        new Point(width, height),
+        new DPoint(offset.x, offset.y),
+        selectionRectangle,
+        areaOwners,
+        PropsUi.getInstance().getIconSize(),
+        PropsUi.getInstance().getLineWidth(),
+        gridSize,
+        PropsUi.getInstance().getNoteFont().getName(),
+        PropsUi.getInstance().getNoteFont().getHeight(),
+        magnification,
+        false,
+        null);
     this.model = model;
     this.gc = gc;
     this.width = width;
     this.height = height;
     this.magnification = magnification;
-    this.offset = offset != null ? offset : new Point(0, 0);
+    this.offset = offset;
     this.tableByName = new HashMap<>();
     this.areaOwners = areaOwners != null ? areaOwners : new ArrayList<>();
     this.mouseOverTableName = mouseOverTableName;
-
-    this.gc.setAntialias(true);
 
     if (model != null && model.getTables() != null) {
       for (IDvTable table : model.getTables()) {
@@ -100,9 +120,9 @@ public class DataVaultModelPainter {
   }
 
   /**
-   * Set (or clear) the transient relationship drag state used to render a candidate line
-   * from a source table center to the current mouse position (screen coords). Called by
-   * HopGuiVaultGraph before each paint during a drag operation.
+   * Set (or clear) the transient relationship drag state used to render a candidate line from a
+   * source table center to the current mouse position (screen coords). Called by HopGuiVaultGraph
+   * before each paint during a drag operation.
    */
   public void setRelationshipDragInfo(
       IDvTable startRelationshipTable,
@@ -120,6 +140,7 @@ public class DataVaultModelPainter {
     if (areaOwners != null) {
       areaOwners.clear();
     }
+
     // reset the transform before clearing the background
     gc.setTransform(0.0f, 0.0f, 1.0f);
 
@@ -129,6 +150,10 @@ public class DataVaultModelPainter {
 
     // set the appropriate transform before drawing the tables and relations
     gc.setTransform(offset.x, offset.y, magnification);
+
+    if (gridSize > 1) {
+      drawGrid();
+    }
 
     // Draw connections first (behind tables)
     gc.setForeground(IGc.EColor.BLACK);
@@ -156,6 +181,11 @@ public class DataVaultModelPainter {
       // Use raw model coordinates; the gc.setTransform() handles magnification and panning (offset)
       drawTable(table, loc.x, loc.y);
     }
+
+    // Draw the navigation view in native pixels to make calculation a bit easier.
+    //
+    gc.setTransform(0.0f, 0.0f, 1.0f);
+    drawNavigationView();
   }
 
   private void drawLinkConnections(DvLink link) {
@@ -222,7 +252,7 @@ public class DataVaultModelPainter {
     gc.setBackground(IGc.EColor.WHITE);
     gc.setForeground(IGc.EColor.BLACK);
     gc.fillRectangle(x, y, w, h);
-    gc.setLineWidth( table.isSelected() ? 2 : 1 );
+    gc.setLineWidth(table.isSelected() ? 2 : 1);
     gc.drawRectangle(x, y, w, h);
     gc.setLineWidth(1);
 
@@ -252,7 +282,8 @@ public class DataVaultModelPainter {
     String name = table.getName() != null ? table.getName() : "?";
     gc.drawText(name, x + MARGIN + ICON_SIZE + MARGIN, y + MARGIN, true);
 
-    // Compute name position/extent for hover underline and area registration (name part for edit click)
+    // Compute name position/extent for hover underline and area registration (name part for edit
+    // click)
     int nameLogX = x + MARGIN + ICON_SIZE + MARGIN;
     int nameLogY = y + MARGIN;
     Point nameExtent = gc.textExtent(name);
@@ -264,7 +295,8 @@ public class DataVaultModelPainter {
           nameLogX, nameLogY + nameExtent.y, nameLogX + nameExtent.x, nameLogY + nameExtent.y);
     }
 
-    // Register AreaOwners for sub-hit detection (screen coords, using 0 offset so contains works with screen mouse)
+    // Register AreaOwners for sub-hit detection (screen coords, using 0 offset so contains works
+    // with screen mouse)
     if (areaOwners != null) {
       // Whole table body/icon for context menu
       int sx = (int) (x * magnification) + offset.x;
@@ -272,15 +304,7 @@ public class DataVaultModelPainter {
       int sw = (int) (box.x * magnification);
       int sh = (int) (box.y * magnification);
       areaOwners.add(
-          new AreaOwner(
-              AreaType.TRANSFORM_ICON,
-              sx,
-              sy,
-              sw,
-              sh,
-              new DPoint(0, 0),
-              null,
-              table));
+          new AreaOwner(AreaType.TRANSFORM_ICON, sx, sy, sw, sh, new DPoint(0, 0), null, table));
 
       // Name sub-area (slightly padded) for underline hover + click-to-edit
       int nsx = (int) (nameLogX * magnification) + offset.x;
@@ -299,7 +323,8 @@ public class DataVaultModelPainter {
 
     // If the table has a description, draw a small info icon at the top-left corner (slightly
     // protruding) and register a TRANSFORM_INFO_ICON area owner (screen coords) so that mouse-over
-    // can show the description as a tooltip (modeled after PipelinePainter.drawTransformInformationIndicator).
+    // can show the description as a tooltip (modeled after
+    // PipelinePainter.drawTransformInformationIndicator).
     if (!Utils.isEmpty(table.getDescription())) {
       int xInfo = x - (MINI_ICON_SIZE / 2) - 1;
       int yInfo = y - (MINI_ICON_SIZE / 2) - 1;
@@ -315,14 +340,7 @@ public class DataVaultModelPainter {
         int ish = (int) (MINI_ICON_SIZE * magnification);
         areaOwners.add(
             new AreaOwner(
-                AreaType.TRANSFORM_INFO_ICON,
-                isx,
-                isy,
-                isw,
-                ish,
-                new DPoint(0, 0),
-                null,
-                table));
+                AreaType.TRANSFORM_INFO_ICON, isx, isy, isw, ish, new DPoint(0, 0), null, table));
       }
     }
 
@@ -359,10 +377,10 @@ public class DataVaultModelPainter {
   }
 
   /**
-   * Compute the box size (in logical/model units) for the table card.
-   * Uses textExtent() for the name width. Height based on icon + type label below.
-   * Also caches the size on the table for use in hit tests etc.
-   * The gc.setTransform() will apply magnification and panning to these logical sizes/positions.
+   * Compute the box size (in logical/model units) for the table card. Uses textExtent() for the
+   * name width. Height based on icon + type label below. Also caches the size on the table for use
+   * in hit tests etc. The gc.setTransform() will apply magnification and panning to these logical
+   * sizes/positions.
    */
   private Point calculateTableBoxSize(IDvTable table) {
     String name = table.getName() != null ? table.getName() : "?";
@@ -402,11 +420,11 @@ public class DataVaultModelPainter {
   }
 
   /**
-   * Draw the temporary candidate relationship line (dashed) from the center of the source table
-   * to the current drag end location (mouse). The end is provided in screen coords and converted
-   * to logical here so the line draws correctly under the active gc transform (offset + mag).
-   * This is invoked before drawing tables (after connections) so the line appears behind/under
-   * the table visuals.
+   * Draw the temporary candidate relationship line (dashed) from the center of the source table to
+   * the current drag end location (mouse). The end is provided in screen coords and converted to
+   * logical here so the line draws correctly under the active gc transform (offset + mag). This is
+   * invoked before drawing tables (after connections) so the line appears behind/under the table
+   * visuals.
    */
   private void drawRelationshipCandidateLine() {
     if (startRelationshipTable == null || relationshipDragEndLocation == null) {
@@ -417,7 +435,8 @@ public class DataVaultModelPainter {
       return;
     }
 
-    // Ensure box size is computed for the source (in case this is before its drawTable call this frame)
+    // Ensure box size is computed for the source (in case this is before its drawTable call this
+    // frame)
     Point box = calculateTableBoxSize(startRelationshipTable);
     int tw = box.x;
     int th = box.y;
@@ -460,6 +479,35 @@ public class DataVaultModelPainter {
       gc.setLineWidth(1);
       gc.setLineStyle(IGc.ELineStyle.SOLID);
       gc.setForeground(IGc.EColor.BLACK);
+    }
+  }
+
+  @Override
+  protected void drawNavigationViewContent(
+          double graphX, double graphY, double scaleX, double scaleY) {
+    if (model == null || maximum == null) {
+      return;
+    }
+    // Minimum size in viewport pixels so transforms remain visible
+    int minSize = 2;
+    // Draw hops as lines first (behind transforms)
+    gc.setForeground(IGc.EColor.DARKGRAY);
+    gc.setLineWidth(1);
+
+    // Draw tables as small rectangles
+    gc.setForeground(IGc.EColor.BLACK);
+    gc.setBackground(IGc.EColor.WHITE);
+    for (IDvTable table : model.getTables()) {
+      Point loc = table.getLocation();
+      if (loc == null) {
+        continue;
+      }
+      int w = Math.max(minSize, (int) Math.ceil(iconSize * scaleX*2));
+      int h = Math.max(minSize, (int) Math.ceil(iconSize * scaleY));
+      int x = (int) (graphX + loc.x * scaleX);
+      int y = (int) (graphY + loc.y * scaleY);
+      gc.fillRectangle(x, y, w, h);
+      gc.drawRectangle(x, y, w, h);
     }
   }
 }

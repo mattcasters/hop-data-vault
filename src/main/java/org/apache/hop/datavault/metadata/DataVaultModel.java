@@ -29,9 +29,11 @@ import lombok.Setter;
 import org.apache.hop.base.AbstractMeta;
 import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.NotePadMeta;
 import org.apache.hop.core.changed.ChangedFlag;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.file.IHasFilename;
+import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
@@ -43,6 +45,7 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadata;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.transform.TransformMeta;
 
 /**
  * A named Data Vault 2.0 model.
@@ -63,7 +66,8 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 @GuiPlugin
 @Getter
 @Setter
-public class DataVaultModel extends HopMetadataBase implements IHopMetadata, IChanged, IHasName, IHasFilename {
+public class DataVaultModel extends HopMetadataBase
+    implements IHopMetadata, IChanged, IHasName, IHasFilename {
 
   private static final Class<?> PKG = DataVaultModel.class;
 
@@ -408,5 +412,20 @@ public class DataVaultModel extends HopMetadataBase implements IHopMetadata, ICh
       }
     }
     return nr;
+  }
+
+  public Point getMaximum() {
+    int maxx = 0;
+    int maxy = 0;
+    for (IDvTable table : tables) {
+      Point loc = table.getLocation();
+      if (loc.x > maxx) {
+        maxx = loc.x;
+      }
+      if (loc.y > maxy) {
+        maxy = loc.y;
+      }
+    }
+    return new Point(maxx + 100, maxy + 100);
   }
 }
