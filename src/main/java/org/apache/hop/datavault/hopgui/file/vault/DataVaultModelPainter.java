@@ -88,6 +88,8 @@ public class DataVaultModelPainter {
     this.areaOwners = areaOwners != null ? areaOwners : new ArrayList<>();
     this.mouseOverTableName = mouseOverTableName;
 
+    this.gc.setAntialias(true);
+
     if (model != null && model.getTables() != null) {
       for (IDvTable table : model.getTables()) {
         if (table.getName() != null) {
