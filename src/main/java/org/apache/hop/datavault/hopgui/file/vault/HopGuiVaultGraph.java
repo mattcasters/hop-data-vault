@@ -24,6 +24,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.hop.core.Const;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.action.GuiContextAction;
@@ -70,6 +72,7 @@ import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseMoveListener;
 import org.eclipse.swt.events.MouseTrackAdapter;
 import org.eclipse.swt.graphics.GC;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
@@ -604,13 +607,24 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     }
   }
 
-  private void drawVaultModel(GC swtGc) {
+  private void drawVaultModel(GC eventGc) {
     if (model == null) {
       return;
     }
 
     int width = canvas.getBounds().width;
     int height = canvas.getBounds().height;
+    GC swtGc = eventGc;
+
+    // Do double buffering to prevent flickering on Windows
+    //
+    boolean needsDoubleBuffering =
+            Const.isWindows() && "GUI".equalsIgnoreCase(Const.getHopPlatformRuntime());
+    Image image = null;
+    if (needsDoubleBuffering) {
+      image = new Image(hopGui.getDisplay(), width, height);
+      swtGc = new GC(image);
+    }
 
     // Use SwtGc wrapper for IGc
     SwtGc gc = null;
@@ -641,9 +655,16 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
         drawLasso(swtGc);
       }
 
+      if (needsDoubleBuffering) {
+        // Draw the image onto the canvas and get rid of the resources
+        //
+        eventGc.drawImage(image, 0, 0);
+        swtGc.dispose();
+        image.dispose();
+      }
     } catch (Exception e) {
       // Log error, draw message
-      swtGc.drawText("Error drawing model: " + e.getMessage(), 10, 10);
+      eventGc.drawText("Error drawing model: " + e.getMessage(), 10, 10);
     } finally {
       if (gc != null) {
         gc.dispose();
