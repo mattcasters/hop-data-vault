@@ -477,7 +477,6 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
 
     // Draw tables as small rectangles
     gc.setForeground(IGc.EColor.BLACK);
-    gc.setBackground(IGc.EColor.WHITE);
     for (IDvTable table : model.getTables()) {
       Point loc = table.getLocation();
       if (loc == null) {
@@ -487,8 +486,14 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
       int h = Math.max(minSize, (int) Math.ceil(iconSize * scaleY));
       int x = (int) (graphX + loc.x * scaleX);
       int y = (int) (graphY + loc.y * scaleY);
+      switch(table.getTableType()) {
+        case HUB: gc.setBackground(IGc.EColor.GREEN); break;
+        case SATELLITE: gc.setBackground(IGc.EColor.RED); break;
+        case LINK: gc.setBackground(IGc.EColor.YELLOW); break;
+      }
       gc.fillRectangle(x, y, w, h);
       gc.drawRectangle(x, y, w, h);
     }
+    gc.setBackground(IGc.EColor.WHITE);
   }
 }
