@@ -17,26 +17,24 @@
 
 package org.apache.hop.datavault.hopgui.file.vault;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.hop.core.gui.*;
 import org.apache.hop.core.gui.AreaOwner.AreaType;
 import org.apache.hop.core.svg.SvgFile;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvLink;
+import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
-import org.apache.hop.datavault.metadata.DvLink;
-import org.apache.hop.datavault.metadata.DvSatellite;
-import org.apache.hop.pipeline.PipelineHopMeta;
-import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.ui.core.PropsUi;
-import org.w3c.dom.css.Rect;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Basic painter for a Data Vault model using IGc. Draws tables (hubs, links, satellites) at their
@@ -47,16 +45,12 @@ import java.util.Map;
  * a small INFO_DISABLED icon at top-left and registers a TRANSFORM_INFO_ICON area (for tooltip on
  * hover).
  */
+@Getter
+@Setter
 public class DataVaultModelPainter extends BasePainter<IDvTable> {
 
   private final DataVaultModel model;
-  private final IGc gc;
-  private final int width;
-  private final int height;
-  private final float magnification;
-  private final Point offset;
   private final Map<String, IDvTable> tableByName;
-  private final List<AreaOwner> areaOwners;
   private final String mouseOverTableName;
 
   // Transient drag state for drawing candidate relationship line (middle-btn or shift+left drag)
@@ -79,6 +73,7 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
       int width,
       int height,
       int gridSize,
+      float zoomFactor,
       float magnification,
       Point offset,
       Rectangle selectionRectangle,
@@ -97,17 +92,13 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
         gridSize,
         PropsUi.getInstance().getNoteFont().getName(),
         PropsUi.getInstance().getNoteFont().getHeight(),
+        zoomFactor,
         magnification,
         false,
         null);
     this.model = model;
     this.gc = gc;
-    this.width = width;
-    this.height = height;
-    this.magnification = magnification;
-    this.offset = offset;
     this.tableByName = new HashMap<>();
-    this.areaOwners = areaOwners != null ? areaOwners : new ArrayList<>();
     this.mouseOverTableName = mouseOverTableName;
 
     if (model != null && model.getTables() != null) {
@@ -146,10 +137,10 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
 
     // Simple light gray background
     gc.setBackground(IGc.EColor.BACKGROUND);
-    gc.fillRectangle(0, 0, width, height);
+    gc.fillRectangle(0, 0, area.x, area.y);
 
     // set the appropriate transform before drawing the tables and relations
-    gc.setTransform(offset.x, offset.y, magnification);
+    gc.setTransform((float) offset.x, (float) offset.y, magnification);
 
     if (gridSize > 1) {
       drawGrid();
@@ -220,8 +211,7 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
     int sx = satLoc.x + satBox.x / 2;
     int sy = satLoc.y + satBox.y / 2;
 
-    if (sat instanceof DvSatellite) {
-      DvSatellite satellite = (DvSatellite) sat;
+    if (sat instanceof DvSatellite satellite) {
       // Prefer hub, as per standard DV2.0; fall back to link if no hub
       String parentName = satellite.getHubName();
       if (parentName == null || parentName.isEmpty()) {
@@ -259,11 +249,9 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
     // Draw icon using SVG  top-left + margin
     try {
       String imagePath = getImagePath(table.getTableType());
-      if (imagePath != null) {
-        ClassLoader classLoader = this.getClass().getClassLoader();
-        SvgFile svgFile = new SvgFile(imagePath, classLoader);
-        gc.drawImage(svgFile, x + MARGIN, y + MARGIN, ICON_SIZE, ICON_SIZE, magnification, 0);
-      }
+      ClassLoader classLoader = this.getClass().getClassLoader();
+      SvgFile svgFile = new SvgFile(imagePath, classLoader);
+      gc.drawImage(svgFile, x + MARGIN, y + MARGIN, ICON_SIZE, ICON_SIZE, magnification, 0);
     } catch (Exception e) {
       // Fallback: just draw a small rect if image fails
       gc.setBackground(IGc.EColor.BLUE);
@@ -299,16 +287,16 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
     // with screen mouse)
     if (areaOwners != null) {
       // Whole table body/icon for context menu
-      int sx = (int) (x * magnification) + offset.x;
-      int sy = (int) (y * magnification) + offset.y;
+      int sx = (int) (x * magnification) + (int) offset.x;
+      int sy = (int) (y * magnification) + (int) offset.y;
       int sw = (int) (box.x * magnification);
       int sh = (int) (box.y * magnification);
       areaOwners.add(
           new AreaOwner(AreaType.TRANSFORM_ICON, sx, sy, sw, sh, new DPoint(0, 0), null, table));
 
       // Name sub-area (slightly padded) for underline hover + click-to-edit
-      int nsx = (int) (nameLogX * magnification) + offset.x;
-      int nsy = (int) (nameLogY * magnification) + offset.y;
+      int nsx = (int) (nameLogX * magnification) + (int) offset.x;
+      int nsy = (int) (nameLogY * magnification) + (int) offset.y;
       int nsw = (int) (nameExtent.x * magnification);
       int nsh = (int) (nameExtent.y * magnification);
       // padding to make clickable
@@ -334,8 +322,8 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
         // optional decoration; ignore draw failure
       }
       if (areaOwners != null) {
-        int isx = (int) (xInfo * magnification) + offset.x;
-        int isy = (int) (yInfo * magnification) + offset.y;
+        int isx = (int) (xInfo * magnification) + (int) offset.x;
+        int isy = (int) (yInfo * magnification) + (int) offset.y;
         int isw = (int) (MINI_ICON_SIZE * magnification);
         int ish = (int) (MINI_ICON_SIZE * magnification);
         areaOwners.add(
@@ -348,32 +336,24 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
   }
 
   private String getImagePath(DvTableType type) {
-    switch (type) {
-      case HUB:
-        return "datavault_hub.svg";
-      case LINK:
-        return "datavault_link.svg";
-      case SATELLITE:
-        return "datavault_satellite.svg";
-      default:
-        return "datavault_model.svg";
-    }
+    return switch (type) {
+      case HUB -> "datavault_hub.svg";
+      case LINK -> "datavault_link.svg";
+      case SATELLITE -> "datavault_satellite.svg";
+      default -> "datavault_model.svg";
+    };
   }
 
   private String getTypeLabel(DvTableType type) {
     if (type == null) {
       return "";
     }
-    switch (type) {
-      case HUB:
-        return "Hub";
-      case SATELLITE:
-        return "Satellite";
-      case LINK:
-        return "Link";
-      default:
-        return type.name();
-    }
+    return switch (type) {
+      case HUB -> "Hub";
+      case SATELLITE -> "Satellite";
+      case LINK -> "Link";
+      default -> type.name();
+    };
   }
 
   /**
@@ -450,7 +430,8 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
     if (magnification <= 0) {
       logEnd =
           new Point(
-              relationshipDragEndLocation.x - offset.x, relationshipDragEndLocation.y - offset.y);
+              (int) (relationshipDragEndLocation.x - offset.x),
+              (int) (relationshipDragEndLocation.y - offset.y));
     } else {
       logEnd =
           new Point(
@@ -484,7 +465,7 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
 
   @Override
   protected void drawNavigationViewContent(
-          double graphX, double graphY, double scaleX, double scaleY) {
+      double graphX, double graphY, double scaleX, double scaleY) {
     if (model == null || maximum == null) {
       return;
     }
@@ -502,7 +483,7 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
       if (loc == null) {
         continue;
       }
-      int w = Math.max(minSize, (int) Math.ceil(iconSize * scaleX*2));
+      int w = Math.max(minSize, (int) Math.ceil(iconSize * scaleX * 2));
       int h = Math.max(minSize, (int) Math.ceil(iconSize * scaleY));
       int x = (int) (graphX + loc.x * scaleX);
       int y = (int) (graphY + loc.y * scaleY);

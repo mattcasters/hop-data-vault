@@ -101,7 +101,7 @@ public abstract class BasePainter<P extends IBaseMeta> {
             String noteFontName,
             int noteFontHeight,
             double zoomFactor,
-            boolean drawingBorderAroundName,
+            float magnification, boolean drawingBorderAroundName,
             String mouseOverName) {
         this.gc = gc;
         this.variables = variables;
@@ -119,7 +119,7 @@ public abstract class BasePainter<P extends IBaseMeta> {
         this.lineWidth = lineWidth;
         this.gridSize = gridSize;
 
-        this.magnification = 1.0f;
+        this.magnification = magnification;
         this.zoomFactor = zoomFactor;
         this.drawingBorderAroundName = drawingBorderAroundName;
 
