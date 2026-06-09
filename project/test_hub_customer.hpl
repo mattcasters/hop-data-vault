@@ -11,13 +11,13 @@
     <name_sync_with_filename>Y</name_sync_with_filename>
     <created_user>-</created_user>
     <modified_user>-</modified_user>
-    <created_date>2026/06/06 20:51:06.929</created_date>
-    <modified_date>2026/06/06 20:51:06.929</modified_date>
+    <created_date>2026/06/08 22:23:22.616</created_date>
+    <modified_date>2026/06/08 22:23:22.616</modified_date>
   </info>
   <transform>
     <type>TableInput</type>
     <name>CRM-customer</name>
-    <sql>SELECT DISTINCT customer_id, record_source AS x_record_source FROM customer ORDER BY customer_id</sql>
+    <sql>SELECT DISTINCT "customer_id", "record_source" AS "x_record_source" FROM "customer" ORDER BY "customer_id"</sql>
     <execute_each_row>N</execute_each_row>
     <variables_active>N</variables_active>
     <connection>CRM</connection>
@@ -36,7 +36,7 @@
   <transform>
     <type>TableInput</type>
     <name>target_hub_customer</name>
-    <sql>SELECT DISTINCT customer_id, NULL AS x_record_source FROM hub_customer ORDER BY customer_id</sql>
+    <sql>SELECT DISTINCT "customer_id", NULL AS "x_record_source" FROM "hub_customer" ORDER BY "customer_id"</sql>
     <execute_each_row>N</execute_each_row>
     <variables_active>N</variables_active>
     <connection>Vault</connection>
@@ -75,8 +75,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>240</xloc>
-      <yloc>240</yloc>
+      <xloc>320</xloc>
+      <yloc>320</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -107,8 +107,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>368</xloc>
-      <yloc>240</yloc>
+      <xloc>480</xloc>
+      <yloc>320</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -130,8 +130,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>496</xloc>
-      <yloc>240</yloc>
+      <xloc>640</xloc>
+      <yloc>320</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -144,7 +144,7 @@
     <name>add_x_load_ts</name>
     <fields>
       <field>
-        <nullif>2026/06/06 20:51:06.918</nullif>
+        <nullif>2026/06/08 22:23:22.614</nullif>
         <name>x_load_ts</name>
         <type>Date</type>
         <format>yyyy/MM/dd HH:mm:ss.SSS</format>
@@ -156,8 +156,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>624</xloc>
-      <yloc>240</yloc>
+      <xloc>800</xloc>
+      <yloc>320</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -208,8 +208,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>752</xloc>
-      <yloc>240</yloc>
+      <xloc>960</xloc>
+      <yloc>320</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
