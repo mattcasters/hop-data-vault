@@ -30,11 +30,155 @@
     <action>
       <dataVaultModelFile>${PROJECT_HOME}/vault1.hdv</dataVaultModelFile>
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
+      <logModelCheckFailures>N</logModelCheckFailures>
+      <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
       <name>update vault1.hdv</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>272</xloc>
+      <xloc>656</xloc>
+      <yloc>48</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <sql>DROP TABLE IF EXISTS "customer"
+;
+CREATE TABLE customer
+(
+  customer_id INTEGER
+, "name" VARCHAR(50)
+, email VARCHAR(50)
+, address VARCHAR(50)
+, city VARCHAR(50)
+, load_date TIMESTAMP
+, record_source VARCHAR(20)
+)
+;
+
+DROP TABLE IF EXISTS "product"
+;
+CREATE TABLE product
+(
+  product_id VARCHAR(7)
+, product_name VARCHAR(50)
+, category VARCHAR(50)
+, unit_price NUMERIC(9, 2)
+, load_date TIMESTAMP
+, record_source VARCHAR(20)
+)
+;
+
+DROP TABLE IF EXISTS "order"
+;
+CREATE TABLE "order"
+(
+  order_id VARCHAR(7)
+, customer_id INTEGER
+, product_id VARCHAR(7)
+, quantity INTEGER
+, unit_price NUMERIC(9, 2)
+, order_date TIMESTAMP
+, load_date TIMESTAMP
+, record_source VARCHAR(20)
+)
+;
+</sql>
+      <connection>CRM</connection>
+      <useVariableSubstitution>N</useVariableSubstitution>
+      <sqlfromfile>N</sqlfromfile>
+      <sqlfilename/>
+      <sqlfilename_encoding/>
+      <sendOneStatement>N</sendOneStatement>
+      <name>Create CRM tables</name>
+      <description/>
+      <type>SQL</type>
+      <attributes/>
+      <xloc>208</xloc>
+      <yloc>48</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <filename>${PROJECT_HOME}/load1.hpl</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <clear_rows>N</clear_rows>
+      <clear_files>N</clear_files>
+      <create_parent_folder>N</create_parent_folder>
+      <set_logfile>N</set_logfile>
+      <set_append_logfile>N</set_append_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <loglevel>Basic</loglevel>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>load1</name>
+      <description/>
+      <type>PIPELINE</type>
+      <attributes/>
+      <xloc>336</xloc>
+      <yloc>48</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <sql>DROP TABLE IF EXISTS "hub_customer";
+DROP TABLE IF EXISTS "sat_customer";
+DROP TABLE IF EXISTS "hub_product";
+DROP TABLE IF EXISTS "sat_product";
+DROP TABLE IF EXISTS "hub_order";
+DROP TABLE IF EXISTS "sat_order";
+DROP TABLE IF EXISTS "lnk_customer_order";
+DROP TABLE IF EXISTS "lnk_product_order";
+
+
+
+</sql>
+      <connection>Vault</connection>
+      <useVariableSubstitution>N</useVariableSubstitution>
+      <sqlfromfile>N</sqlfromfile>
+      <sqlfilename/>
+      <sqlfilename_encoding/>
+      <sendOneStatement>N</sendOneStatement>
+      <name>Drop Vault tables</name>
+      <description/>
+      <type>SQL</type>
+      <attributes/>
+      <xloc>464</xloc>
+      <yloc>48</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <test_names>
+        <test_name>
+          <name>validate-hub-customer UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-hub-order UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-hub-product UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-sat-customer UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-sat-order UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-sat-product UNIT</name>
+        </test_name>
+      </test_names>
+      <name>Test hubs and sats</name>
+      <description/>
+      <type>RunPipelineTests</type>
+      <attributes/>
+      <xloc>848</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -43,9 +187,37 @@
   <hops>
     <hop>
       <from>Start</from>
+      <to>Create CRM tables</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Create CRM tables</from>
+      <to>load1</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>load1</from>
+      <to>Drop Vault tables</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Drop Vault tables</from>
       <to>update vault1.hdv</to>
       <evaluation>Y</evaluation>
       <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>update vault1.hdv</from>
+      <to>Test hubs and sats</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
   </hops>
