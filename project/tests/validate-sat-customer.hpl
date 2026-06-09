@@ -20,7 +20,7 @@
     <sql>SELECT
   customer_hk
 , customer_id
-, "NAME"
+, "name"
 , email
 , address
 , city
