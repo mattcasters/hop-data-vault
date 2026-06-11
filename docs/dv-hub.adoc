@@ -1,84 +1,108 @@
-= Data Vault Hub (DvHub)
+= Data Vault Hub
 
-A Hub is a core business concept in a Data Vault 2.0 model (Customer, Product, Order, Account, etc.). It stores the natural business key(s) that uniquely identify an instance of that concept and a surrogate hash key derived from those business keys.
+A Hub represents a core business concept that you want to track over time, such as Customer, Product, Supplier, Order, or Account. In Data Vault terms, the hub stores the natural business key(s) that uniquely identify an instance of that concept, plus a surrogate hash key that is derived from those business keys.
 
-== Role in Generated Pipelines
+Hubs are the foundation of the model. Links and Satellites refer back to them.
 
-When `DvHub.generateUpdatePipeline(...)` is called (by the Data Vault Update action or the visual Debug toolbar), the plugin produces a pipeline that:
+== How hub updates work
 
-* Optionally executes DDL to create or alter the target hub table (driven by `getTargetTableLayout`).
-* Reads the business keys (and record source indicator) from the configured `DataVaultSource`.
-* Compares them against the existing hub rows using a `MergeRows` transform (source side is the compare leg via a direct hop).
-* Keeps only "new" rows (FilterRows on flag = 'new').
-* Calculates the hub hash key (CheckSum) only for the new rows.
-* Adds the batch load date (Constant).
-* Writes the new rows to the target (TableOutput with `specifyFields`, excluding the internal "flag" column).
+When you load data into a hub (either from the visual model editor's Debug button or from the Data Vault Update action), Hop generates a pipeline that:
 
-The target query is deliberately constructed with the (first) business key first and the hash key last so that the two inputs to MergeRows have compatible layouts when passthrough fields are applied.
+* Makes sure the target hub table exists (it can create or alter it for you).
+* Reads the business key values (and the record source indicator) from the source you attached to the hub.
+* Compares the incoming keys against what is already in the hub.
+* Inserts only the rows that represent genuinely new business keys.
+* Calculates the hash key for those new rows.
+* Writes the new rows together with the current load date and the record source value.
 
-== Options
+Only new keys are inserted. Existing keys are left untouched. This is the classic Data Vault 2.0 "insert-only" pattern for hubs.
+
+== Options in the Hub dialog
+
+The Hub dialog is organized into three tabs: **Options**, **Keys**, and **Record sources**.
 
 [cols="1,3", options="header"]
 |===
 |Option |Description
 
-|`Name`
-|Logical name of the hub metadata object. Used as the default physical table name if no explicit Table Name is given. Must be unique within a Data Vault Model.
+|Name
+|The name of this hub definition inside your Data Vault Model. It is also used as the default physical table name if you do not specify an explicit table name. The name must be unique within the model.
 
-|`Physical table name` (`tableName`)
-|The actual table name created/loaded in the target database (from the referenced Data Vault Configuration's target database connection). Can differ from the metadata name.
+|Physical table name
+|The actual name of the table that will be created or loaded in your target Data Vault database. Leave this empty to use the Name above. This is useful when your metadata name is more business-friendly while the physical table follows a different naming convention.
 
-|`Description`
-|Free-text business description of the hub.
+|Description
+|A short business description of what this hub represents. Helpful for documentation and for anyone who later maintains the model.
 
-|`Default record source` (`recordSource`)
-|Reference (by name) to a `DataVaultSource` metadata object. Supplies the data for this hub and the default record source indicator value (static or column-based). Required for pipeline generation.
+|Hash key field name (Options tab)
+|The name of the surrogate hash key column that will be stored in the hub table. Satellites and Links that attach to this hub will normally reference this column.
 
-|`Business keys`
-|One or more `BusinessKey` entries that form the natural key of the hub. Composite keys are fully supported; order is significant because it determines the order of fields fed to the CheckSum transform.
+If you leave it empty, the plugin will derive a name from the first business key (for example CUSTOMER_ID becomes CUSTOMER_ID_HK). Most teams prefer to set an explicit, consistent name such as CUSTOMER_HK.
 
-Each BusinessKey has:
-- Name (the column name in the hub table and usually the source)
-- Optional Description
-- Optional Data Type (used as fallback)
-- Optional Length
-- Optional Source Field Name (allows the source column to have a different name than the hub column)
+|Record source field name (Options tab)
+|Optional. Use this when you want the record source column in this particular hub to have a different name than the one defined in the Data Vault Configuration (for example you want HUB_CUSTOMER_SOURCE instead of the global RECORD_SOURCE).
 
-The plugin's "Get Keys" button (in the hub dialog) can populate this list from the primary key fields declared on the referenced source.
+The field supports variables. If left empty, the value from the active Data Vault Configuration is used.
 
-|`Hash key field name` (`hashKeyFieldName`)
-|Name of the surrogate hash key column that will be stored in the hub (and referenced by satellites and links). If left empty it defaults to the first business key name + "_HK".
+|Business keys (Keys tab)
+|One or more business key definitions that together uniquely identify an instance of the hub. Composite (multi-part) keys are fully supported. The order of the keys matters because it affects how the hash key is calculated.
 
-This value is also used as the result field name of the CheckSum transform in the generated pipeline and appears first in the target table layout.
+For each business key you can specify:
+* The name of the column in the hub table.
+* An optional description.
+* Data type and length (used when the source definition does not provide them).
+* An optional "Source field name" if the column has a different name in a particular source than the hub column name.
+* **Source system** – the name of the Data Vault Source this business key mapping applies to. This column is the key to supporting multiple sources on one hub. When the same logical key (for example `CUSTOMER_ID`) comes from different source systems under different physical column names, you create separate rows in the business keys table and tag each with its Source system.
 
-|`Record source field name` (`recordSourceFieldName`)
-|Optional per-hub override for the name of the `RECORD_SOURCE` (or equivalent) column in the target hub table. Supports variables. When empty, the value from the Data Vault Configuration is used. The resolved name is used both for the alias in the source query and for the passthrough field into MergeRows.
+Use the **Get Keys** button (available when you are on the Keys tab) to populate business keys automatically. Before using Get Keys, make sure you have added at least one source in the **Record sources** tab. The button reads the primary key fields from the first source listed in the Record sources tab, creates business key rows for them, and automatically fills the Source system column with that source's name. You can then repeat the process after selecting a different source (or manually adjust the Source system values) if you need different source field names per system.
 
-|`Configuration`
-|Optional reference to a specific `DataVaultConfiguration`. When present it overrides the model-level default for this hub only (hash algorithm, data type, naming, target database, etc.).
+|Record sources (Record sources tab)
+|A hub can be fed by one or more Data Vault Sources. List every source system or feed that will supply business keys for this hub.
+
+You can attach as many sources as you need. The generated load process will handle each source (typically producing one pipeline per source) but all of them write into the same physical hub table. This is the recommended way to handle a single business concept that receives data from multiple upstream systems (for example a Customer hub that is populated from both a CRM system and an ERP system).
+
+|Configuration
+|Optional. Select a specific Data Vault Configuration to use for this hub only. This lets you override the default hashing algorithm, hash key data type, column names, etc. for just this hub while the rest of the model uses the model-level configuration.
 |===
 
-== Checks Performed
+== Using the Check model feature with hubs
 
-`DvHub.check(...)` (called by the model and by the update action) reports:
+When you click **Check model** on the model editor toolbar, the plugin validates every hub. Common issues it will report include:
 
-* ERROR if no business keys are defined or if any business key lacks a name.
-* COMMENT if no explicit hash key field name (a default will be synthesized).
-* COMMENT if no per-hub record source field name override (the configuration value will be used).
-* Plus the common base checks (no name, no record source, no physical table name → uses metadata name).
+* No business keys have been defined.
+* One or more business keys have no name.
+* The hub has no record sources listed in the Record sources tab.
+* One or more of the listed record sources do not exist in the project.
+* Business keys that reference a Source system that is not present in the Record sources list.
 
-Cross-reference validation (record source exists, no duplicate names) happens at the `DataVaultModel` level.
+These checks run before any pipelines are generated, so you catch problems early.
 
-== Target Table Layout
+== What gets created in the target database
 
-`getTargetTableLayout(...)` returns (in order):
+The plugin builds a target table layout that typically contains (in this order):
 
-1. The hub hash key column (type and length derived from the chosen `HashKeyDataType` + `HashAlgorithm.getDigestLength()`):
-   - BINARY → length = digest bytes (e.g. 16 for MD5)
-   - HEX → length = digest bytes * 2 (e.g. 32 for MD5)
-   - STRING → length = digest*3 + (digest-1) (e.g. 63 for MD5)
-2. The business key columns (in definition order). Length/precision are taken preferentially from the matching `SourceField` on the Data Vault Source, falling back to the BusinessKey metadata.
-3. The record source column (name resolved with per-hub override precedence, length from configuration's `recordSourceFieldLength` with variable support, default 100).
-4. The load date column (Timestamp, name from configuration or `LOAD_DATE`).
+1. The hash key column (its type and length depend on the hash algorithm and hash key data type chosen in the configuration: BINARY is compact and recommended for production; HEX and STRING are easier when people need to read the values directly).
+2. The business key columns, in the order you defined them. Length and precision are taken from the source definition when available, so you get sensible column types (VARCHAR(50), DECIMAL(15,2), etc.) instead of generic large types.
+3. The record source column (name and length come from the configuration or the per-hub override; variables are supported).
+4. The load date column (usually a timestamp, named LOAD_DATE or whatever you configured).
 
-This layout drives both the ExecSql DDL step (when the table does not yet exist) and the fields listed in the final TableOutput.
+If the table does not exist yet, the generated pipeline will first run the necessary DDL to create it (or alter it if columns are missing). The final load step only writes the fields that belong in the hub (the internal "flag" column used during comparison is excluded).
+
+== Multi-source hubs
+
+A powerful feature of the plugin is that a single hub definition can receive data from multiple independent sources. All sources contribute rows to the same hub table. 
+
+To use this:
+1. On the **Record sources** tab, add every Data Vault Source that will feed the hub.
+2. On the **Keys** tab, define your business keys. Use the **Source system** column (last column in the business keys table) to indicate which source a particular mapping belongs to.
+3. Use **Get Keys** once per source (after ensuring the desired source appears in the Record sources list) to pull the correct source column names for that system.
+
+This approach keeps your hub modeling clean: one logical hub table, many places it can be populated from, with explicit control over which source columns map to which business keys.
+
+== Tips for hubs
+
+* Start with good source definitions (Data Vault Database Source) that accurately declare primary keys and column lengths. This makes "Get Keys" work well and produces better target tables.
+* When a hub has multiple sources, add them all on the Record sources tab first, then use Get Keys for each source in turn so the Source system column is populated correctly.
+* Be consistent with hash key naming across the model (either rely on the default suffix or set explicit names on every hub).
+* Use the per-hub record source field name override sparingly; most of the time the global setting in the Data Vault Configuration is sufficient.
+* If you need different hashing rules for one particular hub, create a dedicated Data Vault Configuration for it and reference it from the hub.

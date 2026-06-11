@@ -13,6 +13,8 @@ import org.apache.hop.datavault.metadata.BusinessKey;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
+import org.apache.hop.datavault.metadata.DvLink;
+import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSourcePipelineBuilder;
 import org.apache.hop.datavault.metadata.IDvSource;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -60,8 +62,9 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
     // We can generate a Table Input transform for this.
     //
     Point location = new Point(startPoint.x, startPoint.y);
-    String sourceTransformName = calculateTransformName("source ",  source);
-    TransformMeta sourceTransformMeta = createTableInput(sourceTransformName, sourceDbMeta, querySql, location);
+    String sourceTransformName = calculateTransformName("source ", source);
+    TransformMeta sourceTransformMeta =
+        createTableInput(sourceTransformName, sourceDbMeta, querySql, location);
     pipelineMeta.addTransform(sourceTransformMeta);
 
     // We're done with this part for the database table source.
@@ -111,12 +114,12 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
     sql.append(schemaTable);
   }
 
-  protected void appendSourceField(DvHub hub, StringBuilder sql, DatabaseMeta sourceDbMeta)
+  protected void appendSourceField(IDvTable table, StringBuilder sql, DatabaseMeta sourceDbMeta)
       throws HopException {
     // Add source indicator (record source) column.
     // First we need to determine the target name of this record source column.
     //
-    String targetSourceFieldName = findTargetSourceFieldName(hub);
+    String targetSourceFieldName = findTargetSourceFieldName(table);
 
     // Now we need to determine the actual value of the source
     //
@@ -143,8 +146,13 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
     sql.append(" AS ").append(sourceDbMeta.quoteField(targetSourceFieldName));
   }
 
-  protected @NonNull String findTargetSourceFieldName(DvHub hub) throws HopException {
-    String targetSourceFieldName = hub.getRecordSourceFieldName();
+  protected @NonNull String findTargetSourceFieldName(IDvTable table) throws HopException {
+    String targetSourceFieldName =
+        switch (table.getTableType()) {
+          case HUB -> ((DvHub) table).getRecordSourceFieldName();
+          case SATELLITE -> null; // TODO: should we add a record source column to satellites?
+          case LINK -> ((DvLink) table).getRecordSourceFieldName();
+        };
     if (StringUtils.isEmpty(targetSourceFieldName)) {
       // If we didn't find it in the table we need to look in the configuration.
       targetSourceFieldName = configuration.getRecordSourceField();
@@ -152,7 +160,7 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
     if (StringUtils.isEmpty(targetSourceFieldName)) {
       throw new HopException(
           "Please specify a source field name in either the table or the configuration for Hub "
-              + hub.getName());
+              + table.getName());
     }
     return targetSourceFieldName;
   }
@@ -172,12 +180,14 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
     return name.toString();
   }
 
-  protected TransformMeta createTableInput(String sourceTransformName, DatabaseMeta sourceDbMeta, String querySql, Point location) {
+  protected TransformMeta createTableInput(
+      String sourceTransformName, DatabaseMeta sourceDbMeta, String querySql, Point location) {
     TableInputMeta tableInputMeta = new TableInputMeta();
     tableInputMeta.setConnection(sourceDbMeta.getName());
     tableInputMeta.setSql(querySql);
 
-    TransformMeta transformMeta = new TransformMeta("TableInput", sourceTransformName, tableInputMeta);
+    TransformMeta transformMeta =
+        new TransformMeta("TableInput", sourceTransformName, tableInputMeta);
     transformMeta.setLocation(location.x, location.y);
 
     return transformMeta;

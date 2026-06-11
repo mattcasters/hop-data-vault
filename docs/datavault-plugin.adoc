@@ -1,65 +1,114 @@
 = Apache Hop Data Vault 2.0 Plugin
 
-The Data Vault 2.0 plugin for Apache Hop enables model-driven design and loading of Data Vault 2.0 enterprise data warehouses.
+The Data Vault 2.0 plugin helps you design and load a Data Vault 2.0 data warehouse using Apache Hop. Instead of writing many similar pipelines by hand, you create a visual model of your Hubs, Links, and Satellites. Hop then generates the pipelines needed to load data into those structures.
 
-== Aim
+== What the plugin is for
 
-The goal of the plugin is to let data engineers capture a complete logical Data Vault 2.0 model (Hubs, Links, Satellites and their sources) together with physical implementation and loading strategy details, and then automatically generate correct, repeatable update pipelines for those structures.
+Data Vault 2.0 is a modeling technique for building scalable, auditable enterprise data warehouses. It uses three main building blocks:
 
-Instead of hand-crafting dozens of similar "staging → hub / satellite / link" pipelines, you:
+* **Hubs** – Core business concepts (Customer, Product, Order, etc.) identified by their natural business keys.
+* **Links** – The relationships between Hubs.
+* **Satellites** – The time-varying descriptive details that hang off Hubs and Links.
 
-* Model your Hubs, Links and Satellites once (with business keys, attributes, participating hubs, driving keys, etc.).
-* Attach Data Vault Sources that describe where the raw data comes from (currently relational database tables/views).
-* Define a Data Vault Configuration that controls hashing algorithm, hash key storage format, naming conventions, record source / load date column names, etc.
-* Group everything into a Data Vault Model (`.hdv` file).
-* Use the visual modeler inside Hop GUI (with Check model and Debug toolbars) or execute the **Data Vault Update** workflow action to generate and run the actual load pipelines.
+The plugin lets you capture this model once, together with the rules for hashing, naming, and loading. You can then:
 
-The generated pipelines follow the classic Data Vault 2.0 insert-only pattern:
+* Visually design the model inside Hop GUI.
+* Automatically generate and run the pipelines that keep the Data Vault up to date.
+* Use a single workflow action to load an entire model in a controlled, repeatable way.
 
-* For Hubs and Links: only truly new business keys / relationships are inserted (detected via MergeRows on the business key or link hash key).
-* For Satellites: new or changed attribute combinations are inserted (MergeRows on the parent hash key + value comparison of the descriptive attributes, filtering out "identical" rows).
+The generated load processes follow the standard Data Vault 2.0 "insert-only" approach:
 
-All pipelines use a single static load date for the whole batch/run (supplied by the caller) so that every row loaded in one execution shares the same `LOAD_DATE`.
+* New business keys or relationships are added to Hubs and Links.
+* For Satellites, a new row is added only when descriptive attributes actually change for a given parent key.
+* Every row loaded in one run receives the same load date, making it easy to know what was processed together.
 
-== Key Concepts
+== Typical workflow
 
-* **Data Vault Model** (`.hdv`): The persisted artifact. Contains references to Hubs/Links/Satellites and a default configuration. Supports visual layout (positions are stored) and implements Hop's `IChanged` contract for dirty tracking.
-* **IDvTable** / `DvHub`, `DvSatellite`, `DvLink`: The three core table types. They implement a common interface so generic code (model checks, pipeline generation, the update action) can treat them uniformly. Each table type knows how to generate its own update pipeline via `generateUpdatePipeline(...)`.
-* **Data Vault Configuration**: Reusable strategy (hash algorithm + result type, target database, column naming, record source length, unknown record generation, etc.). Individual tables can override selected settings (e.g. per-hub hash key field name or record source field name).
-* **Data Vault Sources**: Describe the incoming feeds. `DataVaultSource` is the logical wrapper; `DvDatabaseSource` is the current concrete implementation (references a `DatabaseMeta` + schema/table + expected column layout with PK flags and length/precision).
-* **Model-driven pipeline generation**: `DvHub`, `DvSatellite` and `DvLink` each implement `generateUpdatePipeline(IHopMetadataProvider, IVariables, DataVaultModel, Date)` (the `Date` is the batch load date). The action and the visual "Debug" toolbar both call this method, serialize the resulting `PipelineMeta` to XML and back (classloader safety), and execute it. Target table layouts (`getTargetTableLayout(...)`) drive both conditional DDL (ExecSql) and the final TableOutput (with `specifyFields`).
-* **Thorough validation**: Every table and the model itself implement rich `check(...)` methods returning `ICheckResult` entries. These are shown by the "Check model" toolbar button and are also used by the Data Vault Update action when "Log model check failures" or "Abort on model check failures" are enabled.
+1. Create a **Data Vault Configuration** that defines your hashing rules, column names (LOAD_DATE, RECORD_SOURCE, etc.), and the target database.
+2. Define **Data Vault Sources** that describe where your raw data lives (usually database tables or views, including which columns are keys and their data types/lengths).
+3. Create **Hub**, **Link**, and **Satellite** definitions.
+4. Group them into a **Data Vault Model** (saved as a `.hdv` file). You can lay the objects out visually, just like a pipeline.
+5. Use the **Check model** button on the model editor toolbar to catch missing pieces or broken references early.
+6. Use the **Debug** button to quickly generate and open a sample update pipeline for one or more tables so you can inspect what will happen.
+7. In a workflow, add the **Data Vault Update** action, point it at your `.hdv` model, choose a pipeline run configuration, and (optionally) have it validate the model and stop if problems are found before loading anything.
 
-== Visual Modeling and Tooling
+This approach gives you consistent, maintainable Data Vault loads that stay in sync with your model.
 
-The plugin registers a Hop file type (`.hdv`) with a full `HopGuiVaultGraph` editor (mouse state machine, lasso, drag, context menus, AreaOwner-based tooltips for info icons, etc.). The toolbar provides:
+== Visual model editor
 
-* **Check model**: Runs `DataVaultModel.check(...)` (plus delegated per-table checks) and shows results in the standard Hop CheckResultsDialog.
-* **Debug**: Generates the update pipeline for selected table(s) (or all), performs the XML round-trip, adds the pipeline to the current HopGui perspective, and selects it so you can inspect or run it manually.
+When you open a `.hdv` file you get a graphical editor where you can:
 
-== Workflow Integration
+* Drag and position Hubs, Links, and Satellites.
+* Double-click any object to edit its details.
+* Use the toolbar buttons **Check model** and **Debug**.
+* Right-click for context actions (add, edit, delete, check, debug).
 
-The **Data Vault Update** action (`@Action`) is the production execution vehicle:
+The Check model feature runs a set of validations and shows the results in a familiar Hop dialog. It will warn you about missing business keys, satellites that are not attached to anything, links with fewer than two hubs, duplicate names, references to sources or hubs that don't exist, and many other common problems.
 
-* Points at a `.hdv` model file.
-* Chooses a Pipeline Run Configuration.
-* Optionally logs or aborts on model check failures before any pipelines are generated.
-* For every table in the model it calls `generateUpdatePipeline(...)` with a single `java.util.Date` load date for the batch, executes the resulting pipeline under the chosen run configuration, and aggregates row/error counters.
+The Debug feature generates the actual update pipeline(s) for the selected table(s) and opens them in Hop so you can review or run them manually.
 
-This gives you repeatable, auditable, model-driven Data Vault loads inside normal Hop workflows.
+== The Data Vault Update action
 
-== Current Scope and Patterns
+For production use you normally drive loads from a workflow using the **Data Vault Update** action. It:
 
-* Hubs, Links and Satellites are fully supported for incremental update.
-* Hash algorithms: MD5, SHA1, SHA256, SHA512 (algorithm also drives CheckSum type and dynamic target column lengths).
-* Hash key storage: STRING (decimal-dash), HEX, BINARY (recommended for production).
-* Satellites correctly handle "not identical" detection (value fields on MergeRows for attributes, negated FilterRows on "identical").
-* Links support explicit per-hub source business key field mappings (`HubSourceKeyField`) because FK column names in the source often differ from the hub's business key names (`_id` / `_fk` conventions, role playing, etc.).
-* Record source values can be static (on the `DataVaultSource`) or taken from a source column; per-table overrides for the target column name are supported on Hubs.
-* Source column length/precision (from `SourceField`) are propagated into target `IRowMeta` layouts so that DDL and TableOutput produce sensible types (e.g. `VARCHAR(50)` instead of `TEXT`).
-* "Get Keys" / "Get Attributes" buttons in the dialogs help populate business keys and satellite attributes from the referenced source.
-* Extensive cross-reference and duplicate detection in model checks (missing hubs for satellites/links, missing record sources, duplicate names, etc.).
+* Loads the model from the `.hdv` file.
+* Optionally runs the same model checks that the visual editor uses.
+* Can be configured to simply log any issues or to abort the whole action if errors are found.
+* Generates an update pipeline for every table in the model.
+* Runs all of them using the pipeline run configuration you specify.
+* Uses one consistent load date for the entire batch.
+* Collects row counts and error information from the generated pipelines.
 
-The plugin follows standard Apache Hop patterns throughout: `@HopMetadata` / `@HopMetadataProperty`, `@GuiPlugin` + `@GuiWidgetElement`, `MetadataEditor` + `TableView` / `MetaSelectionLine` where needed, `BaseDialog`, `IChanged`, Jandex plugin indexing, provided-scope transform dependencies, `dependencies.xml`, i18n bundles in the conventional locations, etc.
+This makes it easy to integrate Data Vault loading into larger ETL workflows, with proper logging, error handling, and restartability.
 
-Future directions often discussed include PIT tables, more source types, declarative DDL generation outside the update pipelines, and tighter integration with the Metadata perspective.
+== What you can configure
+
+A **Data Vault Configuration** controls the technical details that affect the physical tables and the load behavior:
+
+* Which database the Data Vault lives in.
+* Hash algorithm (MD5, SHA-256, etc.) and how hash keys are stored (BINARY is usually best for production; HEX and STRING are easier when you need to look at the values directly).
+* Names for standard columns such as LOAD_DATE and RECORD_SOURCE.
+* Whether business keys should be trimmed and upper-cased before hashing.
+* A placeholder to use for NULL values during hashing.
+* Whether to support "unknown" / ghost records for missing keys.
+
+Most of these settings can be overridden on individual Hubs, Links, or Satellites when you need something different for one table.
+
+== Sources
+
+Before you can load a Hub, Link, or Satellite you need to tell the model where the data comes from. You do this with **Data Vault Source** definitions.
+
+* A Data Vault Source gives the data a logical name and lets you specify a static record source value (for example "ERP" or "ORDERS-FEED") or point to a column in the source that contains the value.
+* For database sources you also create a **Data Vault Database Source** that points at a Hop database connection, optionally a schema and table, and lists the expected columns (including which ones form the natural/primary key and their lengths and data types).
+
+The "Import" button in the database source editor can read the live column list from the database, which saves a lot of typing and helps ensure the lengths and types are accurate. Accurate source definitions power the "Get Keys" and "Get Attributes" helpers and produce realistic target column definitions.
+
+Hubs are special: they have a dedicated **Record sources** tab where you can attach multiple sources to a single hub table. Business keys on the hub can then be tagged with a Source system so each source can use its own column names. Links and satellites continue to reference a single (default) record source.
+
+== Hubs, Links, and Satellites
+
+Each definition has its own dialog with the fields that are relevant for that type:
+
+* **Hubs** need one or more business keys. A hub can be fed by multiple record sources (listed on the Record sources tab). Use the "Get Keys" button (after adding sources) to pull business keys from a chosen source; the Source system column on each business key row lets you map different source columns per originating system. You can also give the hash key column a specific name and override the record source column name for that hub.
+* **Satellites** are attached to a Hub or a Link. You list the attributes you want to historize. The "Get Attributes" button helps populate the list. Satellites automatically detect real changes in the attribute values.
+* **Links** connect two or more Hubs. You can define driving keys when the same hub participates more than once with different roles. When the source columns for a link have different names than the business keys in the hubs, you can map them explicitly in the "Hub source key fields" section of the link dialog.
+
+All three table types support an optional reference to a specific Data Vault Configuration so you can vary hashing or naming rules for individual tables.
+
+== Current capabilities
+
+Today the plugin fully supports modeling and incremental loading of Hubs, Links, and Satellites, including:
+
+* Composite business keys.
+* Multi-active satellites.
+* Role-playing hubs in links via driving keys.
+* Explicit source-to-hub key mappings for links.
+* Static or column-based record source indicators.
+* Choice of hash algorithm and hash key storage format.
+* Automatic creation or alteration of target tables (DDL) before loading.
+* Model validation that catches many problems before you run a load.
+* Both visual debugging and production execution via workflow actions.
+
+The plugin is designed to grow. Future additions may include more source types, point-in-time (PIT) tables, bridge tables, and more declarative DDL options.
+
+If you are new to Data Vault 2.0, the plugin encourages good practices by making the key decisions (hashing, naming, source tracking, change detection) explicit and reusable through the configuration and source metadata objects.

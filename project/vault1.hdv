@@ -12,14 +12,18 @@
         <dataType>Integer</dataType>
         <length>9</length>
         <sourceFieldName>customer_id</sourceFieldName>
+        <recordSourceName>CRM-customer</recordSourceName>
       </businessKeys>
       <hashKeyFieldName>customer_hk</hashKeyFieldName>
+      <recordSourceFieldName/>
+      <recordSources>
+        <recordSource>CRM-customer</recordSource>
+      </recordSources>
       <tableName>hub_customer</tableName>
-      <description/>
-      <recordSources/>
+      <description>Bla bla bla</description>
       <tableType>HUB</tableType>
-      <xloc>48</xloc>
-      <yloc>32</yloc>
+      <xloc>96</xloc>
+      <yloc>64</yloc>
       <name>hub_customer</name>
       <virtualPath/>
     </table>
@@ -68,12 +72,12 @@
       </attributes>
       <multiActive>N</multiActive>
       <drivingKey/>
+      <recordSource>CRM-customer</recordSource>
       <tableName>sat_customer</tableName>
-      <description/>
-      <recordSources/>
+      <description>Satellite customer</description>
       <tableType>SATELLITE</tableType>
       <xloc>352</xloc>
-      <yloc>32</yloc>
+      <yloc>64</yloc>
       <name>sat_customer</name>
       <virtualPath/>
     </table>
@@ -84,14 +88,18 @@
         <dataType>String</dataType>
         <length>7</length>
         <sourceFieldName>product_id</sourceFieldName>
+        <recordSourceName>CRM-product</recordSourceName>
       </businessKeys>
       <hashKeyFieldName>product_hk</hashKeyFieldName>
+      <recordSourceFieldName/>
+      <recordSources>
+        <recordSource>CRM-product</recordSource>
+      </recordSources>
       <tableName>hub_product</tableName>
       <description/>
-      <recordSources/>
       <tableType>HUB</tableType>
-      <xloc>352</xloc>
-      <yloc>528</yloc>
+      <xloc>624</xloc>
+      <yloc>400</yloc>
       <name>hub_product</name>
       <virtualPath/>
     </table>
@@ -132,12 +140,12 @@
       </attributes>
       <multiActive>N</multiActive>
       <drivingKey/>
+      <recordSource>CRM-product</recordSource>
       <tableName>sat_product</tableName>
-      <description/>
-      <recordSources/>
+      <description>PRODUCT!</description>
       <tableType>SATELLITE</tableType>
-      <xloc>656</xloc>
-      <yloc>528</yloc>
+      <xloc>912</xloc>
+      <yloc>400</yloc>
       <name>sat_product</name>
       <virtualPath/>
     </table>
@@ -148,20 +156,23 @@
         <dataType>String</dataType>
         <length>7</length>
         <sourceFieldName>order_id</sourceFieldName>
+        <recordSourceName>CRM-order</recordSourceName>
       </businessKeys>
       <hashKeyFieldName>order_hk</hashKeyFieldName>
+      <recordSourceFieldName/>
+      <recordSources>
+        <recordSource>CRM-order</recordSource>
+      </recordSources>
       <tableName>hub_order</tableName>
       <description/>
-      <recordSources/>
       <tableType>HUB</tableType>
-      <xloc>208</xloc>
-      <yloc>256</yloc>
+      <xloc>368</xloc>
+      <yloc>240</yloc>
       <name>hub_order</name>
       <virtualPath/>
     </table>
     <table>
       <hub>hub_order</hub>
-      <link/>
       <attributes>
         <name>customer_id</name>
         <description/>
@@ -212,68 +223,96 @@
       </attributes>
       <multiActive>N</multiActive>
       <drivingKey/>
+      <recordSource>CRM-order</recordSource>
       <tableName>sat_order</tableName>
       <description/>
-      <recordSources/>
       <tableType>SATELLITE</tableType>
-      <xloc>512</xloc>
-      <yloc>256</yloc>
+      <xloc>624</xloc>
+      <yloc>240</yloc>
       <name>sat_order</name>
       <virtualPath/>
     </table>
     <table>
       <hubNames>hub_customer</hubNames>
       <hubNames>hub_order</hubNames>
-      <linkHashKeyFieldName>customer_order_hk</linkHashKeyFieldName>
-      <hubSourceKeyFields>
-        <hubSourceKeyField>
-          <hubName>hub_customer</hubName>
-          <sourceBusinessKeyFields>
-            <sourceBusinessKeyField>customer_id</sourceBusinessKeyField>
-          </sourceBusinessKeyFields>
-        </hubSourceKeyField>
-        <hubSourceKeyField>
-          <hubName>hub_order</hubName>
-          <sourceBusinessKeyFields>
-            <sourceBusinessKeyField>order_id</sourceBusinessKeyField>
-          </sourceBusinessKeyFields>
-        </hubSourceKeyField>
-      </hubSourceKeyFields>
+      <linkSources>
+        <linkSource>
+          <source>CRM-order</source>
+          <hubSourceKeyFields>
+            <hubSourceKeyField>
+              <hubName>hub_customer</hubName>
+              <businessKeySources>
+                <businessKeySource>
+                  <businessKeyField>customer_id</businessKeyField>
+                  <sourceFieldName>customer_id</sourceFieldName>
+                </businessKeySource>
+              </businessKeySources>
+              <drivingKeySources/>
+            </hubSourceKeyField>
+            <hubSourceKeyField>
+              <hubName>hub_order</hubName>
+              <businessKeySources>
+                <businessKeySource>
+                  <businessKeyField>order_id</businessKeyField>
+                  <sourceFieldName>order_id</sourceFieldName>
+                </businessKeySource>
+              </businessKeySources>
+              <drivingKeySources/>
+            </hubSourceKeyField>
+          </hubSourceKeyFields>
+        </linkSource>
+      </linkSources>
+      <linkHashKeyFieldName>lnk_customer_order_hk</linkHashKeyFieldName>
+      <hubSourceKeyFields/>
       <hasDescriptiveAttributes>N</hasDescriptiveAttributes>
+      <recordSourceFieldName/>
       <tableName>lnk_customer_order</tableName>
       <description/>
-      <recordSources/>
       <tableType>LINK</tableType>
-      <xloc>112</xloc>
-      <yloc>144</yloc>
+      <xloc>80</xloc>
+      <yloc>240</yloc>
       <name>lnk_customer_order</name>
       <virtualPath/>
     </table>
     <table>
       <hubNames>hub_product</hubNames>
       <hubNames>hub_order</hubNames>
-      <linkHashKeyFieldName>product_order_hk</linkHashKeyFieldName>
-      <hubSourceKeyFields>
-        <hubSourceKeyField>
-          <hubName>hub_product</hubName>
-          <sourceBusinessKeyFields>
-            <sourceBusinessKeyField>product_id</sourceBusinessKeyField>
-          </sourceBusinessKeyFields>
-        </hubSourceKeyField>
-        <hubSourceKeyField>
-          <hubName>hub_order</hubName>
-          <sourceBusinessKeyFields>
-            <sourceBusinessKeyField>order_id</sourceBusinessKeyField>
-          </sourceBusinessKeyFields>
-        </hubSourceKeyField>
-      </hubSourceKeyFields>
+      <linkSources>
+        <linkSource>
+          <source>CRM-order</source>
+          <hubSourceKeyFields>
+            <hubSourceKeyField>
+              <hubName>hub_order</hubName>
+              <businessKeySources>
+                <businessKeySource>
+                  <businessKeyField>order_id</businessKeyField>
+                  <sourceFieldName>order_id</sourceFieldName>
+                </businessKeySource>
+              </businessKeySources>
+              <drivingKeySources/>
+            </hubSourceKeyField>
+            <hubSourceKeyField>
+              <hubName>hub_product</hubName>
+              <businessKeySources>
+                <businessKeySource>
+                  <businessKeyField>product_id</businessKeyField>
+                  <sourceFieldName>product_id</sourceFieldName>
+                </businessKeySource>
+              </businessKeySources>
+              <drivingKeySources/>
+            </hubSourceKeyField>
+          </hubSourceKeyFields>
+        </linkSource>
+      </linkSources>
+      <linkHashKeyFieldName>lnk_product_order_hk</linkHashKeyFieldName>
+      <hubSourceKeyFields/>
       <hasDescriptiveAttributes>N</hasDescriptiveAttributes>
+      <recordSourceFieldName/>
       <tableName>lnk_product_order</tableName>
       <description/>
-      <recordSources/>
       <tableType>LINK</tableType>
-      <xloc>256</xloc>
-      <yloc>384</yloc>
+      <xloc>352</xloc>
+      <yloc>400</yloc>
       <name>lnk_product_order</name>
       <virtualPath/>
     </table>

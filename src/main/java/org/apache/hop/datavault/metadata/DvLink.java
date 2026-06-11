@@ -109,7 +109,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
   /**
    * Optional driving key(s) - used when the same Hub appears more than once in a link (e.g. "from
-   * location" vs "to location" in a route).
+   * location" vs "to location" in a route). To know where these key names are sourced from, we need
+   * to look in the source data.
    */
   @HopMetadataProperty private List<String> drivingKeyNames = new ArrayList<>();
 
@@ -125,13 +126,6 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String linkHashKeyFieldName;
-
-  /**
-   * List of referenced {@link DataVaultSource} metadata elements (by name) that can feed this
-   * table. A Link can have multiple sources.
-   */
-  @HopMetadataProperty(key = "recordSource", groupKey = "recordSources")
-  private List<String> recordSources = new ArrayList<>();
 
   /**
    * Per-hub source field mappings for computing the hub hashes from this link's record source. Used
@@ -279,7 +273,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
         addExecSqlIfNeeded(ctx, pipelineMeta);
 
-        TransformMeta sourceInputTransform = addSourceTableInput(ctx, pipelineMeta);
+        TransformMeta sourceInputTransform = addSourceTableInput(ctx, pipelineMeta, linkSource);
         TransformMeta predecessorTransform = sourceInputTransform;
 
         // Compute hub hashes for each participating hub (from their BKs in the source)
@@ -492,7 +486,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     }
   }
 
-  private TransformMeta addSourceTableInput(LinkUpdateContext ctx, PipelineMeta pipelineMeta)
+  private TransformMeta addSourceTableInput(
+      LinkUpdateContext ctx, PipelineMeta pipelineMeta, DvLinkSource linkSource)
       throws HopException {
 
     DvDatabaseLinkSourcePipelineBuilder builder =
@@ -505,6 +500,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
             ctx.dvSource,
             this,
             new Point(LOCATION_START_LINE_2.x, LOCATION_START_LINE_2.y));
+    builder.setDvLinkSource(linkSource);
     builder.build();
     return builder.getResultTransform();
   }
@@ -712,6 +708,12 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     // from the "compare"
     // data stream.
     //
+    // The link table hash key
+    mergeRowsMeta
+        .getPassThroughFields()
+        .add(new PassThroughField(linkHashKeyFieldName, null, false));
+
+    // The hash keys of the hubs
     for (String hubName : hubNames) {
       DvHub hub = ctx.model.findHub(hubName);
       mergeRowsMeta
@@ -912,14 +914,15 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
      * business keys.
      */
     @HopMetadataProperty(key = "businessKeySource", groupKey = "businessKeySources")
-    private List<BusinessKeySource> sourceBusinessKeyFields = new ArrayList<>();
+    private List<BusinessKeySource> sourceBusinessKeyFields;
 
     /** We need to know the sources of the driving key fields in the target table. */
     @HopMetadataProperty(key = "drivingKeySource", groupKey = "drivingKeySources")
-    private List<DrivingKeySource> drivingKeySources = new ArrayList<>();
+    private List<DrivingKeySource> drivingKeySources;
 
     public HubSourceKeyField() {
-      // Empty by design
+      sourceBusinessKeyFields = new ArrayList<>();
+      drivingKeySources = new ArrayList<>();
     }
   }
 
@@ -1071,8 +1074,10 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
      * (order must match the hub's business keys).
      */
     @HopMetadataProperty(key = "hubSourceKeyField", groupKey = "hubSourceKeyFields")
-    private List<HubSourceKeyField> hubSourceKeyFields = new ArrayList<>();
+    private List<HubSourceKeyField> hubSourceKeyFields;
 
-    public DvLinkSource() {}
+    public DvLinkSource() {
+      hubSourceKeyFields = new ArrayList<>();
+    }
   }
 }

@@ -1,85 +1,80 @@
-= Data Vault Source (Database) – DvDatabaseSource
+= Data Vault Source (Database)
 
-`DvDatabaseSource` (Hop metadata key `data-vault-source-database`) is the concrete implementation of a relational source for a Data Vault model. It describes a table, view, or queryable object in a source system from which business keys, attributes or relationship rows will be read.
+A Data Vault Database Source describes a table, view, or queryable object in a source system. It tells the Data Vault model what columns are available, which of them form the natural or primary key, and what their data types and lengths are.
 
-== Inheritance and Shared Concepts
+This information is used in several important ways:
 
-`DvDatabaseSource` extends `DvSourceBase`, which provides:
-
-* `description`
-* `List<SourceField> fields` – the expected column layout coming from this source (name, description, source data type, length, precision, Hop type, primary key flag).
-* `sourceType` discriminator for polymorphic (de)serialization.
-
-The list of `SourceField` entries is the "source schema" used by generators when they need to know which columns are primary keys (for hub business keys and satellite hash calculations), what their data types/lengths are (for realistic target layouts and DDL), and which columns to project in source TableInput SQL.
+* The "Get Keys" button in the hub dialog (Keys tab) and the "Get Attributes" button in the satellite dialog use it to populate business keys and attributes. For hubs with multiple sources, Get Keys reads from the source currently selected in the hub's Record sources list.
+* Pipeline generation uses the primary key flags to decide which columns to read for hash calculations.
+* Target table layouts (and therefore the DDL that creates your Data Vault tables) use the length and precision information so you get realistic column definitions instead of overly generic ones.
 
 == Options
 
 [cols="1,3", options="header"]
 |===
-|Field |Description
+|Option |Description
 
-|`Name`
-|Unique name of this source definition within the project. Referenced by `DataVaultSource` and by tables (via their record source field).
+|Name
+|The name you give this source definition inside your project. Other objects (Data Vault Sources, Hubs, Links, Satellites) will refer to it by this name.
 
-|`Description`
-|Free text description of the source system or feed.
+|Description
+|Optional free-text description of the source system or data feed. Useful for documentation.
 
-|`Database connection` (`databaseName`)
-|Name of a registered Hop `DatabaseMeta` (RDBMS connection). This is the connection used at generation time to:
-- Import field metadata (via the "Import" button in the editor).
-- Build the source TableInput SQL in the generated update pipelines (the connection name is written into `TableInputMeta.setConnection(...)`).
+|Database connection
+|The Hop database connection (DatabaseMeta) that points to the source system. This is required for the Import button and for the generated pipelines to know where to read data from.
 
-|`Schema` (`schemaName`)
-|Optional schema / catalog qualifier. Used when building `getQuotedSchemaTableCombination(...)` for the source query.
+|Schema
+|Optional schema or catalog name that qualifies the table in the source database.
 
-|`Source table / view` (`tableName`)
-|Physical table or view name in the source database. Can be left empty if the consuming process will supply a full query or if the table name is provided at runtime via variables / parameters.
+|Source table / view
+|The physical table or view name in the source database. Can be left empty if the actual table name will be supplied at runtime (via variables or a parameter) or if you only use this source definition for its column layout.
 
-The "Import" button in `DvDatabaseSourceEditor` uses the selected database connection + schema + table to read the live column list (names, types, lengths, precision, nullability) and populates the Fields grid. It also attempts to detect primary key columns.
+|Fields (row layout)
+|The list of columns that you expect to come from this source. Each field includes:
 
-|`Fields` (row layout)
-|List of `SourceField` objects. Each field captures:
+* Field name (exactly as it appears in the source).
+* Optional description.
+* Source data type (the database type such as VARCHAR, NUMBER, DATE, etc.).
+* Length and precision.
+* "Part of source primary key" flag – this is the most important piece of information for hubs and satellites. Fields marked as primary key become the business keys for hubs and the input used to calculate parent hashes for satellites and links.
+* Hop data type (used internally when building row layouts).
 
-- Name (as it appears in the source)
-- Description (optional)
-- Source Data Type (the RDBMS type string, e.g. VARCHAR, NUMBER, TIMESTAMP)
-- Length / Precision
-- Primary Key flag (`isPrimaryKey()`) – critical: these fields become the business keys for hubs and the input to hub-hash calculations for satellites and links.
-- Hop Type (internal integer code used to construct the correct `IValueMeta` via `ValueMetaFactory` when building target layouts).
-
-The Fields grid is the single source of truth for column metadata that flows into:
-- "Get Keys" / "Get Attributes" population in the Hub and Satellite dialogs.
-- Length/precision propagation in `getTargetTableLayout(...)` (so generated DDL and TableOutput use `VARCHAR(50)` etc. instead of generic TEXT or unlimited strings).
-- Construction of the SELECT list in source TableInput transforms (only PK fields for hubs, PK + attributes for satellites, mapped BK fields + driving keys for links).
+The Fields grid is the single source of truth for column metadata that flows through the entire model.
 |===
 
-== How It Is Used at Runtime (Generation Time)
+== The Import button
 
-When a `DvHub`, `DvSatellite` or `DvLink` needs its source data it:
+The easiest way to fill in the Fields list is to use the **Import** button in the editor.
 
-1. Resolves its `recordSource` (a `DataVaultSource` name).
-2. Loads that `DataVaultSource`, which points at a `DvDatabaseSource` name (via `sourceTableName`).
-3. Loads the `DvDatabaseSource` to obtain the `DatabaseMeta` name, schema, table, and the list of `SourceField`s.
-4. Uses the PK-flagged `SourceField`s (or the explicit `HubSourceKeyField` mappings for links) to decide which columns to read and how to compute hashes.
-5. Uses `SourceField` length/precision when constructing the final target `IRowMeta` for satellites and hubs (and therefore for DDL and TableOutput).
+1. Select or enter a database connection.
+2. Optionally enter a schema and table name.
+3. Click Import.
 
-== Editor Features
+The editor connects to the database, reads the column metadata (names, types, lengths, precision), and tries to detect the primary key columns. It then replaces the current Fields list with the imported information.
 
-The custom `DvDatabaseSourceEditor` provides a convenient "Import" button that:
+You can still edit the grid afterwards. Any manual changes you make are saved with the metadata object and become the authoritative definition for the model, even if the underlying source table changes later.
 
-* Requires a database connection to be selected first.
-* Connects using the resolved `DatabaseMeta`.
-* Reads the table metadata (columns + primary key information).
-* Replaces the current Fields list with the imported definitions (preserving Hop type codes and marking PK columns).
+== How the source definition is used during loading
 
-Any subsequent manual edits to the Fields grid are persisted and become the authoritative definition for the model even if the underlying source table later changes.
+When a hub, link, or satellite needs to read data:
 
-== Relationship to DataVaultSource
+* It follows the chain from its "Default record source" → the Data Vault Source → the Data Vault Database Source.
+* Primary-key fields declared here are used to build the SELECT list for the source query and to decide what goes into hash calculations.
+* Length and precision values are copied into the target table layout. This is why you often see proper VARCHAR(50) or DECIMAL(15,2) columns created in your Data Vault instead of TEXT or unlimited strings.
 
-A `DvDatabaseSource` is the physical detail. A `DataVaultSource` is the logical wrapper that:
+Keeping the source definitions accurate and up to date is one of the highest-leverage things you can do when working with the plugin.
 
-* Chooses the source type (currently only DATABASE).
-* Points at the `DvDatabaseSource` by name.
-* Adds the record source indicator mechanism (`sourceIndicator` static value or `sourceIndicatorField` column name, both support variables).
+== Relationship with Data Vault Source
 
-Tables (Hubs, Links, Satellites) reference the logical `DataVaultSource` (the "Default record source" field), not the `DvDatabaseSource` directly. This indirection allows future source types (flat files, messages, APIs, ...) to be added without changing the table metadata.
+A Data Vault Database Source contains the physical connection and column details.
+
+A (logical) Data Vault Source wraps it, adds the record source indicator settings (static value or source column), and is what hubs, links, and satellites actually reference in their dialogs.
+
+This separation keeps the model independent of the concrete source technology. Today only database sources are supported, but the structure allows other source types to be added later without changing your hub, link, and satellite definitions.
+
+== Tips
+
+* Import early and review the primary key flags. Incorrect primary key information is the most common cause of wrong hash keys or missing business keys.
+* Adjust lengths and precisions in the source definition if the live database metadata is not quite what you want in the target Data Vault (for example you may want to be more conservative on string lengths).
+* Use meaningful names for your Data Vault Database Source objects. They often correspond to source tables or subject areas and will be referenced from many places.
+* If the same physical table is used by multiple logical feeds that need different record source values, create one Database Source for the column layout and multiple (logical) Data Vault Sources that point to it with different indicator settings.

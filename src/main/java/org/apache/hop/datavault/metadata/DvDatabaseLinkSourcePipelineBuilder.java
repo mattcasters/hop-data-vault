@@ -88,10 +88,21 @@ public class DvDatabaseLinkSourcePipelineBuilder extends DvDatabaseSourcePipelin
     //
     List<String> quotedFields = new ArrayList<>();
     for (String hubName : link.getHubNames()) {
-      quotedFields.addAll(hubKeyFields.get(hubName));
-      quotedFields.addAll(hubDrivingKeyFields.get(hubName));
+      List<String> keyFields = hubKeyFields.get(hubName);
+      if (keyFields != null) {
+        quotedFields.addAll(keyFields);
+      }
+      List<String> drivingKeys = hubDrivingKeyFields.get(hubName);
+      if (drivingKeys != null) {
+        quotedFields.addAll(drivingKeys);
+      }
     }
+
     appendFields(sql, quotedFields);
+
+    // Append the source field as well
+    appendComma(sql);
+    appendSourceField(link, sql, sourceDbMeta);
 
     // FROM
     appendFrom(sourceDbMeta, source, sql);
