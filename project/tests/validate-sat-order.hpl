@@ -19,14 +19,12 @@
     <name>sat_order</name>
     <sql>SELECT
   order_hk
-, order_id
 , customer_id
 , product_id
 , quantity
 , unit_price
 , order_date
 , load_date
-, record_source
 , x_record_source
 , x_load_ts
 FROM sat_order

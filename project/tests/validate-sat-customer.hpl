@@ -19,13 +19,11 @@
     <name>sat_customer</name>
     <sql>SELECT
   customer_hk
-, customer_id
 , "name"
 , email
 , address
 , city
 , load_date
-, record_source
 , x_record_source
 , x_load_ts
 FROM sat_customer

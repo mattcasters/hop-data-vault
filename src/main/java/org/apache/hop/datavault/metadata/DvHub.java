@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import lombok.Getter;
+import lombok.Setter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hop.base.IBaseMeta;
 import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.Condition;
@@ -54,6 +56,7 @@ import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.metadata.api.IHopMetadataSerializer;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
@@ -70,6 +73,7 @@ import org.apache.hop.pipeline.transforms.sql.ExecSqlMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Data Vault 2.0 Hub metadata definition.
@@ -77,10 +81,10 @@ import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
  * <p>A Hub represents a core business concept (e.g. Customer, Product, Order). It contains the
  * business key(s) and the surrogate hash key derived from them.
  */
-@Getter
 @GuiPlugin
+@Getter
+@Setter
 public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseMeta, IHasName {
-
   private static final Class<?> PKG = DvHub.class;
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_HUB_DIALOG";
@@ -126,6 +130,13 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String recordSourceFieldName;
+
+  /**
+   * List of referenced {@link DataVaultSource} metadata elements (stored by name) that can feed
+   * this table. A Hub can have multiple sources.
+   */
+  @HopMetadataProperty(key = "recordSource", groupKey = "recordSources")
+  protected List<String> recordSources = new ArrayList<>();
 
   public DvHub() {
     super();
@@ -194,7 +205,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,
-              BaseMessages.getString(PKG, "DvHub.CheckResult.HasHashKeyFieldName", hashKeyFieldName),
+              BaseMessages.getString(
+                  PKG, "DvHub.CheckResult.HasHashKeyFieldName", hashKeyFieldName),
               this));
     }
 
@@ -208,77 +220,104 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,
-              BaseMessages.getString(PKG, "DvHub.CheckResult.HasRecordSourceFieldName", recordSourceFieldName),
+              BaseMessages.getString(
+                  PKG, "DvHub.CheckResult.HasRecordSourceFieldName", recordSourceFieldName),
               this));
     }
   }
 
   @Override
-  public PipelineMeta generateUpdatePipeline(
+  public List<PipelineMeta> generateUpdatePipelines(
       IHopMetadataProvider metadataProvider,
       IVariables variables,
       DataVaultModel model,
       Date loadDate)
       throws HopException {
+    List<PipelineMeta> result = new ArrayList<>();
     try {
       if (metadataProvider == null || model == null) {
-        return null;
+        return result;
       }
 
-      HubUpdateContext ctx = HubUpdateContext.create(metadataProvider, variables, model, this);
-      if (ctx == null) {
-        return null;
+      List<DataVaultSource> sources = loadRecordSources(variables, metadataProvider);
+      if (sources.isEmpty()) {
+        throw new HopException("Please specify one or more record sources in Hub " + getName());
       }
 
-      PipelineMeta pipelineMeta = new PipelineMeta();
-      pipelineMeta.setName(ctx.pipelineName);
+      for (DataVaultSource src : sources) {
+        HubUpdateContext ctx =
+            HubUpdateContext.create(metadataProvider, variables, model, this, src);
+        if (ctx == null) continue;
 
-      // Add the optional DDL transform first (not wired into the main flow)
-      addExecSqlIfNeeded(ctx, pipelineMeta);
+        PipelineMeta pipelineMeta = new PipelineMeta();
+        String baseName = ctx.pipelineName;
+        if (sources.size() > 1 && src.getName() != null) {
+          pipelineMeta.setName(baseName + "_" + src.getName());
+        } else {
+          pipelineMeta.setName(baseName);
+        }
 
-      // Source TableInput (from record source)
-      TransformMeta sourceTransform = addSourceTableInput(ctx, pipelineMeta);
+        // Add the optional DDL transform first (not wired into the main flow)
+        addExecSqlIfNeeded(ctx, pipelineMeta);
 
-      // Target TableInput (from target DB, for diff). Includes business key at start and
-      // hash at end (per request) so that when combined with passthroughs the layouts align
-      // as much as possible.
-      TransformMeta targetTransform = addTargetTableInput(ctx, pipelineMeta);
+        // Source TableInput (from record source)
+        TransformMeta sourceInputTransform = addSourceTableInput(ctx, src, pipelineMeta);
 
-      // MergeRows (diff) if we have a target side. The source table input is the compare leg
-      // (direct hop, per request).
-      TransformMeta mergeTransform =
-          addMergeRowsIfNeeded(ctx, pipelineMeta, sourceTransform, targetTransform);
+        // Target TableInput (from target DB, for diff). Includes business key at start and
+        // hash at end (per request) so that when combined with passthroughs the layouts align
+        // as much as possible.
+        TransformMeta targetInputTransform = addTargetTableInput(ctx, pipelineMeta);
 
-      // Filter Rows: keep only "new" rows coming out of the diff (for insert into target hub)
-      TransformMeta filterTransform = addFilterNewRowsIfNeeded(pipelineMeta, mergeTransform);
+        // MergeRows (diff) if we have a target side. The source table input is the compare leg
+        // (direct hop, per request).
+        TransformMeta mergeTransform =
+            addMergeRowsIfNeeded(ctx, pipelineMeta, sourceInputTransform, targetInputTransform);
 
-      // CheckSum after the filter (only for new rows). The result type (STRING/HEX/BINARY) and
-      // length in the final layout still reflect the HashKeyDataType choice from configuration.
-      TransformMeta checkSumTransform = addCheckSum(ctx, pipelineMeta);
+        // Filter Rows: keep only "new" rows coming out of the diff (for insert into target hub)
+        TransformMeta filterTransform = addFilterNewRowsIfNeeded(pipelineMeta, mergeTransform);
 
-      // Add Constant transform for the static load date (provided to the method)
-      TransformMeta constantTransform = addConstantForLoadDate(ctx, pipelineMeta, loadDate);
+        // CheckSum after the filter (only for new rows). The result type (STRING/HEX/BINARY) and
+        // length in the final layout still reflect the HashKeyDataType choice from configuration.
+        TransformMeta checkSumTransform = addCheckSum(ctx, pipelineMeta);
 
-      // Add Table Output at the end to write new rows (all target fields except "flag")
-      IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
-      TransformMeta tableOutputTransform = addTableOutput(ctx, pipelineMeta, targetLayout);
+        // Add Constant transform for the static load date (provided to the method)
+        TransformMeta constantTransform = addConstantForLoadDate(ctx, pipelineMeta, loadDate);
 
-      // Wire the hops: direct from source table input to MergeRows (compare leg), target to
-      // MergeRows (reference), then filter -> checksum (new rows) -> constant -> table output.
-      addPipelineHops(
-          pipelineMeta,
-          sourceTransform,
-          targetTransform,
-          mergeTransform,
-          filterTransform,
-          checkSumTransform,
-          constantTransform,
-          tableOutputTransform);
+        // Add Table Output at the end to write new rows (all target fields except "flag")
+        IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
+        TransformMeta tableOutputTransform = addTableOutput(ctx, pipelineMeta, targetLayout);
 
-      return pipelineMeta;
+        // Wire the hops: direct from source table input to MergeRows (compare leg), target to
+        // MergeRows (reference), then filter -> checksum (new rows) -> constant -> table output.
+        addPipelineHops(
+            pipelineMeta,
+            sourceInputTransform,
+            targetInputTransform,
+            mergeTransform,
+            filterTransform,
+            checkSumTransform,
+            constantTransform,
+            tableOutputTransform);
+
+        result.add(pipelineMeta);
+      }
+      return result;
     } catch (Exception e) {
-      throw new HopException("Error generating update pipeline for Hub target " + getName(), e);
+      throw new HopException("Error generating update pipeline(s) for Hub target " + getName(), e);
     }
+  }
+
+  private List<DataVaultSource> loadRecordSources(
+      IVariables variables, IHopMetadataProvider metadataProvider) throws HopException {
+    List<DataVaultSource> sources = new ArrayList<>();
+
+    IHopMetadataSerializer<DataVaultSource> serializer =
+        metadataProvider.getSerializer(DataVaultSource.class);
+
+    for (String recordSource : recordSources) {
+      sources.add(serializer.load(variables.resolve(recordSource)));
+    }
+    return sources;
   }
 
   // --- Small methods, each adding one transform and referencing the shared context ---
@@ -314,75 +353,28 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
   }
 
-  private TransformMeta addSourceTableInput(HubUpdateContext ctx, PipelineMeta pipelineMeta)
+  private TransformMeta addSourceTableInput(
+      HubUpdateContext ctx, DataVaultSource dataVaultSource, PipelineMeta pipelineMeta)
       throws HopException {
-    TableInputMeta tableInputMeta = new TableInputMeta();
+    // Let's ask our source to provide the needed Hop transforms.
+    //
+    DvDatabaseHubSourcePipelineBuilder builder =
+        new DvDatabaseHubSourcePipelineBuilder(
+            ctx.variables,
+            ctx.metadataProvider,
+            ctx.model,
+            pipelineMeta,
+            dataVaultSource,
+            ctx.dvSource,
+            this,
+            new Point(LOCATION_START_LINE_2.x, LOCATION_START_LINE_2.y));
+    builder.build();
 
-    if (ctx.sourceDatabaseMeta != null) {
-      tableInputMeta.setConnection(ctx.sourceDbName);
-
-      List<String> pkQuotedFields = new ArrayList<>();
-      for (String fieldName : ctx.pkSourceFieldNames) {
-        pkQuotedFields.add(ctx.sourceDatabaseMeta.quoteField(fieldName));
-      }
-
-      StringBuilder sql = new StringBuilder("SELECT DISTINCT ");
-      if (pkQuotedFields.isEmpty()) {
-        sql.append("*");
-      } else {
-        sql.append(String.join(", ", pkQuotedFields));
-      }
-
-      // Add source indicator (record source) column.
-      // - If static sourceIndicator on the DataVaultSource: use resolved constant value, aliased.
-      // - Else if sourceIndicatorField: include the source column, aliased to the (per-hub or
-      // config) record source field name.
-      // The alias name is determined preferring DvHub.recordSourceFieldName (resolved), else from
-      // config.
-      String rsFieldName = ctx.hub.getRecordSourceFieldName();
-      if (Utils.isEmpty(rsFieldName)) {
-        rsFieldName = ctx.recordSourceField;
-      }
-      rsFieldName = ctx.variables.resolve(rsFieldName);
-      if (Utils.isEmpty(rsFieldName)) {
-        rsFieldName = "RECORD_SOURCE";
-      }
-      if (!Utils.isEmpty(ctx.sourceIndicator)) {
-        String resolved = ctx.variables.resolve(ctx.sourceIndicator);
-        // Build a safe SQL string literal + AS alias (identifier quoted for the dialect)
-        String literal = "'" + resolved.replace("'", "''") + "'";
-        sql.append(", ")
-            .append(literal)
-            .append(" AS ")
-            .append(ctx.sourceDatabaseMeta.quoteField(rsFieldName));
-      } else if (!Utils.isEmpty(ctx.sourceIndicatorField)) {
-        String resolvedField = ctx.variables.resolve(ctx.sourceIndicatorField);
-        String qField = ctx.sourceDatabaseMeta.quoteField(resolvedField);
-        sql.append(", ")
-            .append(qField)
-            .append(" AS ")
-            .append(ctx.sourceDatabaseMeta.quoteField(rsFieldName));
-      }
-
-      sql.append(" FROM ");
-      sql.append(
-          ctx.sourceDatabaseMeta.getQuotedSchemaTableCombination(
-              ctx.variables, ctx.sourceSchema, ctx.sourceTable));
-
-      if (!pkQuotedFields.isEmpty()) {
-        sql.append(" ORDER BY ").append(String.join(", ", pkQuotedFields));
-      }
-
-      tableInputMeta.setSql(sql.toString());
-    }
-
-    TransformMeta tm = new TransformMeta("TableInput", ctx.sourceTransformName, tableInputMeta);
-    tm.setLocation(LOCATION_START_LINE_2);
-    pipelineMeta.addTransform(tm);
-    return tm;
+    return builder.getResultTransform();
   }
 
-  private TransformMeta addTargetTableInput(HubUpdateContext ctx, PipelineMeta pipelineMeta) {
+  private TransformMeta addTargetTableInput(HubUpdateContext ctx, PipelineMeta pipelineMeta)
+      throws HopException {
     if (ctx.targetDatabaseMeta == null) {
       return null;
     }
@@ -390,27 +382,23 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     TableInputMeta targetTableInputMeta = new TableInputMeta();
     targetTableInputMeta.setConnection(ctx.targetDbName);
 
-    // business key name from the hub definition (first one)
-    String businessKeyName = "id";
-    if (!Utils.isEmpty(ctx.hub.getBusinessKeys())) {
-      businessKeyName = ctx.hub.getBusinessKeys().get(0).getName();
-    }
-
+    // Generate the SQL to read from the Hub target table.
+    //
     StringBuilder sql = new StringBuilder("SELECT DISTINCT ");
-    String quotedBK = ctx.targetDatabaseMeta.quoteField(ctx.variables.resolve(businessKeyName));
-    sql.append(quotedBK);
 
-    // Project the record source field on the target side as well (using NULL) so that
-    // the input row meta to MergeRows is compatible when we passthrough the indicator
-    // value from the source/compare leg.
-    String rsFieldName = ctx.hub.getRecordSourceFieldName();
-    if (Utils.isEmpty(rsFieldName)) {
-      rsFieldName = ctx.recordSourceField;
+    // First add all the business key(s)
+    List<String> bkQuotedBkFields = new ArrayList<>();
+    for (BusinessKey key : businessKeys) {
+      String quotedBkField =
+          ctx.targetDatabaseMeta.quoteField(ctx.variables.resolve(key.getName()));
+      bkQuotedBkFields.add(quotedBkField);
     }
-    rsFieldName = ctx.variables.resolve(rsFieldName);
-    if (Utils.isEmpty(rsFieldName)) {
-      rsFieldName = "RECORD_SOURCE";
-    }
+    sql.append(StringUtils.join(bkQuotedBkFields, ","));
+
+    // The source indicator field is called recordSourceFieldName
+    // If it's nog specified we look at the global configuration.
+    //
+    String rsFieldName = calculateRecordSourceFieldName(ctx);
     sql.append(", NULL AS ").append(ctx.targetDatabaseMeta.quoteField(rsFieldName));
 
     sql.append(" FROM ");
@@ -418,7 +406,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         ctx.targetDatabaseMeta.getQuotedSchemaTableCombination(
             ctx.variables, null, ctx.targetTableName));
     sql.append(" ORDER BY ");
-    sql.append(quotedBK);
+    sql.append(StringUtils.join(bkQuotedBkFields, ","));
 
     targetTableInputMeta.setSql(sql.toString());
 
@@ -429,51 +417,56 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     return tm;
   }
 
+  private @NonNull String calculateRecordSourceFieldName(HubUpdateContext ctx) throws HopException {
+    String rsFieldName = ctx.variables.resolve(recordSourceFieldName);
+    if (StringUtils.isEmpty(rsFieldName)) {
+      rsFieldName = ctx.variables.resolve(ctx.config.getRecordSourceField());
+    }
+    if (StringUtils.isEmpty(rsFieldName)) {
+      throw new HopException(
+          "No source field is specified for the target table in either the Hub or the data vault configuration.");
+    }
+    return rsFieldName;
+  }
+
   private TransformMeta addMergeRowsIfNeeded(
       HubUpdateContext ctx,
       PipelineMeta pipelineMeta,
-      TransformMeta sourceTransform,
-      TransformMeta targetTransform) {
-    if (targetTransform == null || sourceTransform == null) {
+      TransformMeta sourceInputTransform,
+      TransformMeta targetInputTransform)
+      throws HopException {
+    if (targetInputTransform == null || sourceInputTransform == null) {
       return null;
     }
 
     MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
-    mergeRowsMeta.setReferenceTransform(ctx.targetTransformName); // target as reference
-    // Direct hop from source table input as the compare leg (per request).
-    mergeRowsMeta.setCompareTransform(sourceTransform.getName());
+    mergeRowsMeta.setReferenceTransform(targetInputTransform.getName());
+    mergeRowsMeta.setCompareTransform(sourceInputTransform.getName());
     mergeRowsMeta.setFlagField("flag");
 
     List<String> keyFields = new ArrayList<>();
-    for (BusinessKey bk : ctx.hub.getBusinessKeys()) {
+    for (BusinessKey bk : businessKeys) {
       keyFields.add(bk.getName());
     }
     mergeRowsMeta.setKeyFields(keyFields);
 
-    List<PassThroughField> passThroughFields = new ArrayList<>();
-    if (!Utils.isEmpty(ctx.hub.getBusinessKeys())) {
-      String bkField = ctx.hub.getBusinessKeys().get(0).getName();
-      passThroughFields.add(new PassThroughField(bkField, null, false));
+    List<PassThroughField> passThroughFields = mergeRowsMeta.getPassThroughFields();
+    for (BusinessKey bk : businessKeys) {
+      passThroughFields.add(new PassThroughField(bk.getName(), null, false));
     }
+
     // Pass through the record source indicator from the source (compare) side.
-    // It was added (as constant or source column) and aliased in the source TableInput.
-    // We use referenceField=false so the value is taken from the "new" / compare leg.
-    // Note: hash is not passed through here (it is not present in the source TI); it is
-    // added by the post-filter CheckSum on new rows only. The target query includes the
-    // hash (at end) for layout compatibility where possible.
-    String rsFieldName = ctx.hub.getRecordSourceFieldName();
-    if (Utils.isEmpty(rsFieldName)) {
-      rsFieldName = ctx.recordSourceField;
-    }
-    rsFieldName = ctx.variables.resolve(rsFieldName);
-    if (!Utils.isEmpty(rsFieldName)) {
-      passThroughFields.add(new PassThroughField(rsFieldName, null, false));
-    }
-    mergeRowsMeta.setPassThroughFields(passThroughFields);
+    //
+    String rsFieldName = calculateRecordSourceFieldName(ctx);
+    passThroughFields.add(new PassThroughField(rsFieldName, null, false));
 
     TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x+SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    tm.setLocation(LOCATION_START_LINE_3.x + SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
+
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(sourceInputTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(targetInputTransform, tm));
+
     return tm;
   }
 
@@ -498,7 +491,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
 
     TransformMeta tm = new TransformMeta("FilterRows", "filter_new", filterRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x+2*SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    tm.setLocation(LOCATION_START_LINE_3.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -507,11 +500,11 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     CheckSumMeta checkSumMeta = new CheckSumMeta();
     checkSumMeta.setCheckSumType(ctx.checkSumType);
 
-    List<Field> checkFields = new ArrayList<>();
-    for (String fieldName : ctx.pkSourceFieldNames) {
-      checkFields.add(new Field(fieldName));
+    // A hash key is calculated over all the business key field
+    //
+    for (BusinessKey bk : businessKeys) {
+      checkSumMeta.getFields().add(new Field(bk.getName()));
     }
-    checkSumMeta.setFields(checkFields);
 
     // Result field name = the hub's configured hash key field name (or fallback computed from first
     // BK)
@@ -525,7 +518,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
     checkSumMeta.setResultFieldName(resultFieldName);
 
-    HashKeyDataType hdt = (ctx.config != null) ? ctx.config.getHashKeyDataType() : HashKeyDataType.BINARY;
+    HashKeyDataType hdt =
+        (ctx.config != null) ? ctx.config.getHashKeyDataType() : HashKeyDataType.BINARY;
     if (hdt == HashKeyDataType.BINARY) {
       checkSumMeta.setResultType(ResultType.BINARY);
     } else if (hdt == HashKeyDataType.HEX) {
@@ -536,7 +530,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
 
     TransformMeta tm = new TransformMeta("CheckSum", "calc_" + resultFieldName, checkSumMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x+3*SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    tm.setLocation(LOCATION_START_LINE_3.x + 3 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -561,7 +555,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     constantMeta.getFields().add(cf);
 
     TransformMeta tm = new TransformMeta("Constant", "add_" + loadDateField, constantMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x+4*SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    tm.setLocation(LOCATION_START_LINE_3.x + 4 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -592,7 +586,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       }
 
       TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
-      tm.setLocation(LOCATION_START_LINE_3.x+5*SPACING_WIDTH, LOCATION_START_LINE_3.y);
+      tm.setLocation(LOCATION_START_LINE_3.x + 5 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
       pipelineMeta.addTransform(tm);
       return tm;
     } catch (Exception e) {
@@ -645,6 +639,29 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
   }
 
+  /**
+   * Find the business key with the given name.
+   *
+   * @param keyName The name of the key to look for.
+   * @return The key or null if it couldn't be found.
+   */
+  public BusinessKey findBusinessKey(String keyName) {
+    for (BusinessKey key : businessKeys) {
+      if (key.getName().equalsIgnoreCase(keyName)) {
+        return key;
+      }
+    }
+    return null;
+  }
+
+  public List<String> getBusinessKeyFieldNames() {
+    List<String> names = new ArrayList<>();
+    for (BusinessKey key : businessKeys) {
+      names.add(key.getName());
+    }
+    return names;
+  }
+
   /** Context object holding all loaded / derived objects for the hub update pipeline generation. */
   private static class HubUpdateContext {
     final DvHub hub;
@@ -656,6 +673,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     final HashAlgorithm hashAlgorithm;
     final CheckSumType checkSumType;
 
+    final DataVaultSource dataVaultSource;
+    final IDvSource dvSource;
     final DatabaseMeta targetDatabaseMeta;
     final String targetDbName;
     final String targetTableName;
@@ -664,16 +683,6 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     final String sourceTransformName;
     final String targetTransformName;
     final String hashKeyFieldName;
-    final DatabaseMeta sourceDatabaseMeta;
-    final String sourceDbName;
-    final String sourceSchema;
-    final String sourceTable;
-    final List<String> pkSourceFieldNames;
-
-    // Record source indicator support (from DataVaultSource + DataVaultConfiguration)
-    final String sourceIndicator;
-    final String sourceIndicatorField;
-    final String recordSourceField;
 
     HubUpdateContext(
         DvHub hub,
@@ -682,21 +691,15 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         IVariables variables,
         DataVaultConfiguration config,
         CheckSumType checkSumType,
+        DataVaultSource dataVaultSource,
         DatabaseMeta targetDatabaseMeta,
         String targetDbName,
         String targetTableName,
         String pipelineName,
         String sourceTransformName,
         String targetTransformName,
-        String hashKeyFieldName,
-        DatabaseMeta sourceDatabaseMeta,
-        String sourceDbName,
-        String sourceSchema,
-        String sourceTable,
-        List<String> pkSourceFieldNames,
-        String sourceIndicator,
-        String sourceIndicatorField,
-        String recordSourceField) {
+        String hashKeyFieldName)
+        throws HopException {
       this.hub = hub;
       this.model = model;
       this.metadataProvider = metadataProvider;
@@ -704,6 +707,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       this.config = config;
       this.hashAlgorithm = (config != null) ? config.getHashAlgorithm() : HashAlgorithm.MD5;
       this.checkSumType = checkSumType;
+      this.dataVaultSource = dataVaultSource;
       this.targetDatabaseMeta = targetDatabaseMeta;
       this.targetDbName = targetDbName;
       this.targetTableName = targetTableName;
@@ -711,14 +715,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       this.sourceTransformName = sourceTransformName;
       this.targetTransformName = targetTransformName;
       this.hashKeyFieldName = hashKeyFieldName != null ? hashKeyFieldName : "hashkey_HK";
-      this.sourceDatabaseMeta = sourceDatabaseMeta;
-      this.sourceDbName = sourceDbName;
-      this.sourceSchema = sourceSchema;
-      this.sourceTable = sourceTable;
-      this.pkSourceFieldNames = pkSourceFieldNames != null ? pkSourceFieldNames : new ArrayList<>();
-      this.sourceIndicator = sourceIndicator;
-      this.sourceIndicatorField = sourceIndicatorField;
-      this.recordSourceField = recordSourceField != null ? recordSourceField : "RECORD_SOURCE";
+
+      this.dvSource = dataVaultSource.getDvSource(metadataProvider);
     }
 
     /**
@@ -730,10 +728,15 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         IHopMetadataProvider metadataProvider,
         IVariables variables,
         DataVaultModel model,
-        DvHub hub)
+        DvHub hub,
+        DataVaultSource specificSource)
         throws HopException {
       if (metadataProvider == null || model == null || hub == null) {
         return null;
+      }
+
+      if (specificSource == null) {
+        throw new HopException("Please specify a specific data vault source");
       }
 
       // Load DataVaultConfiguration
@@ -783,7 +786,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
           !Utils.isEmpty(hub.getTableName()) ? hub.getTableName() : hub.getName();
       String pipelineName = "hub-" + targetTableName;
 
-      String sourceTransformName = hub.getRecordSource();
+      String sourceTransformName;
+      sourceTransformName = specificSource.getName();
       if (Utils.isEmpty(sourceTransformName)) {
         sourceTransformName = hub.getName();
       }
@@ -799,8 +803,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         }
       }
 
-      // Source side loads (recordSource -> DataVaultSource -> DvDatabaseSource -> DatabaseMeta + PK
-      // fields)
+      // Source side loads (using specificSource or first from hub's recordSources)
       DatabaseMeta sourceDatabaseMeta = null;
       String sourceDbName = null;
       String sourceSchema = null;
@@ -808,40 +811,6 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       List<String> pkSourceFieldNames = new ArrayList<>();
       String sourceIndicator = null;
       String sourceIndicatorField = null;
-      String recordSourceName = hub.getRecordSource();
-      if (!Utils.isEmpty(recordSourceName)) {
-        DataVaultSource dataVaultSource =
-            metadataProvider.getSerializer(DataVaultSource.class).load(recordSourceName);
-        if (dataVaultSource != null
-            && dataVaultSource.getSourceType() == DataVaultSourceType.DATABASE
-            && !Utils.isEmpty(dataVaultSource.getSourceTableName())) {
-          DvDatabaseSource dbSource =
-              metadataProvider
-                  .getSerializer(DvDatabaseSource.class)
-                  .load(dataVaultSource.getSourceTableName());
-          if (dbSource != null) {
-            sourceDbName = dbSource.getDatabaseName();
-            sourceSchema = dbSource.getSchemaName();
-            sourceTable = dbSource.getTableName();
-            sourceDatabaseMeta =
-                metadataProvider.getSerializer(DatabaseMeta.class).load(sourceDbName);
-            if (sourceDatabaseMeta == null) {
-              throw new HopException("Database connection not found in metadata: " + sourceDbName);
-            }
-
-            sourceIndicator = dataVaultSource.getSourceIndicator();
-            sourceIndicatorField = dataVaultSource.getSourceIndicatorField();
-
-            List<SourceField> sourceFields = dataVaultSource.getFields(metadataProvider);
-            for (SourceField sf : sourceFields) {
-              if (sf.isPrimaryKey()) {
-                String fieldName = variables.resolve(sf.getName());
-                pkSourceFieldNames.add(fieldName);
-              }
-            }
-          }
-        }
-      }
 
       // Basic validation example inside context (more can be added; serious ones throw above)
       // e.g. we could collect warnings but for now the critical loads already validated via throws.
@@ -853,21 +822,14 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
           variables,
           config,
           checkSumType,
+          specificSource,
           targetDatabaseMeta,
           targetDbName,
           targetTableName,
           pipelineName,
           sourceTransformName,
           targetTransformName,
-          hashKeyFieldName,
-          sourceDatabaseMeta,
-          sourceDbName,
-          sourceSchema,
-          sourceTable,
-          pkSourceFieldNames,
-          sourceIndicator,
-          sourceIndicatorField,
-          recordSourceField);
+          hashKeyFieldName);
     }
   }
 
@@ -925,57 +887,26 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       }
       rowMeta.addValueMeta(hashMeta);
 
-      // Load source for business key types
-      List<SourceField> sourceFields = null;
-      String recordSourceName = getRecordSource();
-      if (!Utils.isEmpty(recordSourceName)) {
-        DataVaultSource dataVaultSource =
-            metadataProvider.getSerializer(DataVaultSource.class).load(recordSourceName);
-        if (dataVaultSource != null) {
-          sourceFields = dataVaultSource.getFields(metadataProvider);
-        }
-      }
-
-      // 2. Then business key source names (type from the source)
+      // 2. Then business keys (type from the metadata)
+      //
       for (BusinessKey bk : businessKeys) {
         String srcFieldName = bk.getSourceFieldName();
         if (Utils.isEmpty(srcFieldName)) {
           srcFieldName = bk.getName();
         }
 
-        IValueMeta bkMeta = null;
-        if (sourceFields != null) {
-          for (SourceField sf : sourceFields) {
-            if (srcFieldName.equals(sf.getName())) {
-              int hopType = sf.getHopType();
-              if (hopType > 0) {
-                bkMeta = ValueMetaFactory.createValueMeta(srcFieldName, hopType);
-                // Prefer length/precision declared on the Data Vault Source's SourceField
-                // (the actual source column definition) over the BusinessKey metadata.
-                String len = !Utils.isEmpty(sf.getLength()) ? sf.getLength() : bk.getLength();
-                String prec = !Utils.isEmpty(sf.getPrecision()) ? sf.getPrecision() : null;
-                bkMeta.setLength(Const.toInt(len, -1));
-                bkMeta.setPrecision(Const.toInt(prec, -1));
-                if (!Utils.isEmpty(bk.getDataType()) && bkMeta.getType() == IValueMeta.TYPE_NONE) {
-                  throw new HopException(
-                      "Please specify a data type for business key " + bk.getName());
-                }
-              }
-              break;
-            }
-          }
-        }
-        if (bkMeta == null) {
-          // fallback using bk dataType or string (no SourceField available to take length/precision from)
-          String dt = bk.getDataType();
-          int typeId = IValueMeta.TYPE_STRING;
-          if (!Utils.isEmpty(dt)) {
-            typeId = ValueMetaFactory.getIdForValueMeta(dt);
-            if (typeId <= 0) typeId = IValueMeta.TYPE_STRING;
-          }
-          bkMeta = ValueMetaFactory.createValueMeta(srcFieldName, typeId);
-          bkMeta.setLength(Const.toInt(bk.getLength(), 15));
-          bkMeta.setPrecision(-1);
+        int type = ValueMetaFactory.getIdForValueMeta(variables.resolve(bk.getDataType()));
+        int length = Const.toInt(variables.resolve(bk.getLength()), -1);
+        int precision = Const.toInt(variables.resolve(bk.getPrecision()), -1);
+
+        IValueMeta bkMeta = ValueMetaFactory.createValueMeta(srcFieldName, type, length, precision);
+
+        if (bkMeta == null || bkMeta.getType() == IValueMeta.TYPE_NONE) {
+          throw new HopException(
+              "Please specify a valid data type for business key "
+                  + bk.getName()
+                  + " in Hub "
+                  + getName());
         }
         rowMeta.addValueMeta(bkMeta);
       }

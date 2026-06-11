@@ -29,14 +29,15 @@ import lombok.Setter;
 import org.apache.hop.base.AbstractMeta;
 import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.ICheckResult;
-import org.apache.hop.core.NotePadMeta;
 import org.apache.hop.core.changed.ChangedFlag;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.file.IHasFilename;
+import org.apache.hop.core.gui.IUndo;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.undo.ChangeAction;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
@@ -45,7 +46,6 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadata;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
-import org.apache.hop.pipeline.transform.TransformMeta;
 
 /**
  * A named Data Vault 2.0 model.
@@ -67,7 +67,7 @@ import org.apache.hop.pipeline.transform.TransformMeta;
 @Getter
 @Setter
 public class DataVaultModel extends HopMetadataBase
-    implements IHopMetadata, IChanged, IHasName, IHasFilename {
+    implements IHopMetadata, IChanged, IHasName, IHasFilename, IUndo {
 
   private static final Class<?> PKG = DataVaultModel.class;
 
@@ -105,8 +105,25 @@ public class DataVaultModel extends HopMetadataBase
       label = "i18n::DataVaultModel.Configuration.Label",
       toolTip = "i18n::DataVaultModel.Configuration.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty(key = "configuration")
+  @HopMetadataProperty(key = "configuration", storeWithName = true)
+  private DataVaultConfiguration configuration;
+
+  // Legacy name-based access for dialogs and older code
   private String configurationName;
+
+  public String getConfigurationName() {
+    if (configuration != null && !Utils.isEmpty(configuration.getName())) {
+      return configuration.getName();
+    }
+    return configurationName;
+  }
+
+  public void setConfigurationName(String configurationName) {
+    if (!Objects.equals(this.configurationName, configurationName)) {
+      setChanged();
+    }
+    this.configurationName = configurationName;
+  }
 
   /**
    * All tables (Hubs, Links and Satellites) that belong to this Data Vault model. Each table knows
@@ -136,49 +153,6 @@ public class DataVaultModel extends HopMetadataBase
         nameSynchronizedWithFilename, name, filename, ".hdv");
   }
 
-  @Override
-  public void setName(String name) {
-    if (!Objects.equals(this.name, name)) {
-      setChanged();
-    }
-    this.name = name;
-  }
-
-  public void setFilename(String filename) {
-    if (!Objects.equals(this.filename, filename)) {
-      setChanged();
-    }
-    this.filename = filename;
-  }
-
-  public void setNameSynchronizedWithFilename(boolean nameSynchronizedWithFilename) {
-    if (this.nameSynchronizedWithFilename != nameSynchronizedWithFilename) {
-      setChanged();
-    }
-    this.nameSynchronizedWithFilename = nameSynchronizedWithFilename;
-  }
-
-  public void setDescription(String description) {
-    if (!Objects.equals(this.description, description)) {
-      setChanged();
-    }
-    this.description = description;
-  }
-
-  public void setConfigurationName(String configurationName) {
-    if (!Objects.equals(this.configurationName, configurationName)) {
-      setChanged();
-    }
-    this.configurationName = configurationName;
-  }
-
-  public void setTables(List<IDvTable> tables) {
-    if (!Objects.equals(this.tables, tables)) {
-      setChanged();
-    }
-    this.tables = tables;
-  }
-
   /**
    * Perform a series of validation checks on this Data Vault model and return the results.
    *
@@ -187,7 +161,7 @@ public class DataVaultModel extends HopMetadataBase
   public List<ICheckResult> check(IHopMetadataProvider metadataProvider, IVariables variables) {
     List<ICheckResult> remarks = new ArrayList<>();
 
-    List<DataVaultSource> sources = new ArrayList<>();
+    List<DataVaultSource> sources = null;
     try {
       sources = metadataProvider.getSerializer(DataVaultSource.class).loadAll();
     } catch (Exception e) {
@@ -198,8 +172,12 @@ public class DataVaultModel extends HopMetadataBase
               null));
     }
 
+    if (sources == null) {
+      sources = new ArrayList<>();
+    }
+
     // Top-level model checks
-    if (Utils.isEmpty(configurationName)) {
+    if (configuration == null) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_WARNING,
@@ -210,7 +188,7 @@ public class DataVaultModel extends HopMetadataBase
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,
               BaseMessages.getString(
-                  PKG, "DataVaultModel.CheckResult.HasConfiguration", configurationName),
+                  PKG, "DataVaultModel.CheckResult.HasConfiguration", configuration.getName()),
               null));
     }
 
@@ -251,47 +229,28 @@ public class DataVaultModel extends HopMetadataBase
       for (IDvTable table : tables) {
         table.check(remarks);
 
-        // Record source must be defined in the model
-        if (!Utils.isEmpty(table.getRecordSource())) {
-          if (!definedSourceNames.contains(table.getRecordSource())) {
+        // Cross-references for satellites and links
+        if (table instanceof DvSatellite sat) {
+          if (!Utils.isEmpty(sat.getHubName()) && !definedHubNames.contains(sat.getHubName())) {
             remarks.add(
                 new CheckResult(
                     ICheckResult.TYPE_RESULT_ERROR,
                     BaseMessages.getString(
-                        PKG,
-                        "DataVaultModel.CheckResult.MissingRecordSource",
-                        table.getRecordSource()),
+                        PKG, "DataVaultModel.CheckResult.MissingHub", sat.getHubName()),
+                    table));
+          }
+
+          if (!Utils.isEmpty(sat.getLinkName()) && !definedLinkNames.contains(sat.getLinkName())) {
+            remarks.add(
+                new CheckResult(
+                    ICheckResult.TYPE_RESULT_ERROR,
+                    BaseMessages.getString(
+                        PKG, "DataVaultModel.CheckResult.MissingLink", sat.getLinkName()),
                     table));
           }
         }
 
-        // Cross references for satellites and links
-        if (table instanceof DvSatellite) {
-          DvSatellite sat = (DvSatellite) table;
-          if (!Utils.isEmpty(sat.getHubName())) {
-            if (!definedHubNames.contains(sat.getHubName())) {
-              remarks.add(
-                  new CheckResult(
-                      ICheckResult.TYPE_RESULT_ERROR,
-                      BaseMessages.getString(
-                          PKG, "DataVaultModel.CheckResult.MissingHub", sat.getHubName()),
-                      table));
-            }
-          }
-          if (!Utils.isEmpty(sat.getLinkName())) {
-            if (!definedLinkNames.contains(sat.getLinkName())) {
-              remarks.add(
-                  new CheckResult(
-                      ICheckResult.TYPE_RESULT_ERROR,
-                      BaseMessages.getString(
-                          PKG, "DataVaultModel.CheckResult.MissingLink", sat.getLinkName()),
-                      table));
-            }
-          }
-        }
-
-        if (table instanceof DvLink) {
-          DvLink lnk = (DvLink) table;
+        if (table instanceof DvLink lnk) {
           for (String hn : lnk.getHubNames()) {
             if (!Utils.isEmpty(hn) && !definedHubNames.contains(hn)) {
               remarks.add(
@@ -427,5 +386,50 @@ public class DataVaultModel extends HopMetadataBase
       }
     }
     return new Point(maxx + 100, maxy + 100);
+  }
+
+  // TODO: implement undo
+
+  @Override
+  public void addUndo(
+      Object[] from,
+      Object[] to,
+      int[] pos,
+      Point[] prev,
+      Point[] curr,
+      int typeOfChange,
+      boolean nextAlso) {}
+
+  @Override
+  public int getMaxUndo() {
+    return 0;
+  }
+
+  @Override
+  public void setMaxUndo(int mu) {}
+
+  @Override
+  public ChangeAction previousUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction viewThisUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction viewPreviousUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction nextUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction viewNextUndo() {
+    return null;
   }
 }

@@ -19,7 +19,6 @@
     <name>hub_product</name>
     <sql>SELECT
   product_hk
-, product_id
 , x_record_source
 , x_load_ts
 FROM hub_product

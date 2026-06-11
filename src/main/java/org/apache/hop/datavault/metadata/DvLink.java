@@ -18,8 +18,12 @@
 package org.apache.hop.datavault.metadata;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hop.base.IBaseMeta;
 import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.Condition;
@@ -70,6 +74,7 @@ import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Data Vault 2.0 Link metadata definition.
@@ -79,8 +84,9 @@ import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
  * descriptors for the relationship).
  */
 @GuiPlugin
+@Getter
+@Setter
 public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBaseMeta, IHasName {
-
   private static final Class<?> PKG = DvLink.class;
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_LINK_DIALOG";
@@ -96,14 +102,15 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
    * implementations). These are references by metadata name (storeWithName behavior when used in a
    * model).
    */
-  // Participating hubs (references by name). Gui list widget omitted (no LIST in GuiElementType).
   @HopMetadataProperty private List<String> hubNames = new ArrayList<>();
+
+  @HopMetadataProperty(key = "linkSource", groupKey = "linkSources")
+  private List<DvLinkSource> linkSources = new ArrayList<>();
 
   /**
    * Optional driving key(s) - used when the same Hub appears more than once in a link (e.g. "from
    * location" vs "to location" in a route).
    */
-  // Driving keys list - Gui annotation omitted for same reason.
   @HopMetadataProperty private List<String> drivingKeyNames = new ArrayList<>();
 
   /**
@@ -118,6 +125,13 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String linkHashKeyFieldName;
+
+  /**
+   * List of referenced {@link DataVaultSource} metadata elements (by name) that can feed this
+   * table. A Link can have multiple sources.
+   */
+  @HopMetadataProperty(key = "recordSource", groupKey = "recordSources")
+  private List<String> recordSources = new ArrayList<>();
 
   /**
    * Per-hub source field mappings for computing the hub hashes from this link's record source. Used
@@ -137,6 +151,20 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   @HopMetadataProperty
   private boolean hasDescriptiveAttributes;
 
+  /**
+   * Optional per-link name for the record source column (overrides the global one from
+   * DataVaultConfiguration). Supports variables.
+   */
+  @GuiWidgetElement(
+      order = "0510",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DvLink.RecordSourceFieldName.Label",
+      toolTip = "i18n::DvLink.RecordSourceFieldName.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String recordSourceFieldName;
+
   public DvLink() {
     super();
     this.tableType = DvTableType.LINK;
@@ -145,61 +173,6 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   public DvLink(String name) {
     super(name);
     this.tableType = DvTableType.LINK;
-  }
-
-  public List<String> getHubNames() {
-    return hubNames;
-  }
-
-  public void setHubNames(List<String> hubNames) {
-    if (!java.util.Objects.equals(this.hubNames, hubNames)) {
-      setChanged();
-    }
-    this.hubNames = hubNames;
-  }
-
-  public List<String> getDrivingKeyNames() {
-    return drivingKeyNames;
-  }
-
-  public void setDrivingKeyNames(List<String> drivingKeyNames) {
-    if (!java.util.Objects.equals(this.drivingKeyNames, drivingKeyNames)) {
-      setChanged();
-    }
-    this.drivingKeyNames = drivingKeyNames;
-  }
-
-  public String getLinkHashKeyFieldName() {
-    return linkHashKeyFieldName;
-  }
-
-  public void setLinkHashKeyFieldName(String linkHashKeyFieldName) {
-    if (!java.util.Objects.equals(this.linkHashKeyFieldName, linkHashKeyFieldName)) {
-      setChanged();
-    }
-    this.linkHashKeyFieldName = linkHashKeyFieldName;
-  }
-
-  public List<HubSourceKeyField> getHubSourceKeyFields() {
-    return hubSourceKeyFields;
-  }
-
-  public void setHubSourceKeyFields(List<HubSourceKeyField> hubSourceKeyFields) {
-    if (!java.util.Objects.equals(this.hubSourceKeyFields, hubSourceKeyFields)) {
-      setChanged();
-    }
-    this.hubSourceKeyFields = hubSourceKeyFields != null ? hubSourceKeyFields : new ArrayList<>();
-  }
-
-  public boolean isHasDescriptiveAttributes() {
-    return hasDescriptiveAttributes;
-  }
-
-  public void setHasDescriptiveAttributes(boolean hasDescriptiveAttributes) {
-    if (this.hasDescriptiveAttributes != hasDescriptiveAttributes) {
-      setChanged();
-    }
-    this.hasDescriptiveAttributes = hasDescriptiveAttributes;
   }
 
   @Override
@@ -229,7 +202,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,
-              BaseMessages.getString(PKG, "DvLink.CheckResult.HasLinkHashKeyFieldName", linkHashKeyFieldName),
+              BaseMessages.getString(
+                  PKG, "DvLink.CheckResult.HasLinkHashKeyFieldName", linkHashKeyFieldName),
               this));
     }
 
@@ -243,7 +217,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,
-              BaseMessages.getString(PKG, "DvLink.CheckResult.HasDrivingKeys", drivingKeyNames.size()),
+              BaseMessages.getString(
+                  PKG, "DvLink.CheckResult.HasDrivingKeys", drivingKeyNames.size()),
               this));
       for (String dk : drivingKeyNames) {
         if (Utils.isEmpty(dk)) {
@@ -263,10 +238,24 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
               BaseMessages.getString(PKG, "DvLink.CheckResult.HasDescriptiveAttributes"),
               this));
     }
+
+    // New multi-source structure validation
+    if (linkSources != null && !linkSources.isEmpty()) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvLink.CheckResult.HasLinkSources", linkSources.size()),
+              this));
+      for (DvLinkSource ls : linkSources) {
+        if (ls != null && ls.getSource() != null && !Utils.isEmpty(ls.getSource().getName())) {
+          // per source mappings should exist for the hubs
+        }
+      }
+    }
   }
 
   @Override
-  public PipelineMeta generateUpdatePipeline(
+  public List<PipelineMeta> generateUpdatePipelines(
       IHopMetadataProvider metadataProvider,
       IVariables variables,
       DataVaultModel model,
@@ -274,103 +263,98 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       throws HopException {
     try {
       if (metadataProvider == null || model == null) {
-        return null;
+        return Collections.emptyList();
       }
 
-      LinkUpdateContext ctx = LinkUpdateContext.create(metadataProvider, variables, model, this);
-      if (ctx == null) {
-        return null;
-      }
+      List<PipelineMeta> result = new ArrayList<>();
 
-      PipelineMeta pipelineMeta = new PipelineMeta();
-      pipelineMeta.setName(ctx.pipelineName);
+      for (DvLinkSource linkSource : linkSources) {
+        LinkUpdateContext ctx =
+            LinkUpdateContext.create(metadataProvider, variables, model, this, linkSource);
 
-      addExecSqlIfNeeded(ctx, pipelineMeta);
+        PipelineMeta pipelineMeta = new PipelineMeta();
+        String baseName = ctx.pipelineName;
+        String srcName = linkSource.getSource().getName();
+        pipelineMeta.setName(baseName + "_" + srcName);
 
-      TransformMeta sourceTransform = addSourceTableInput(ctx, pipelineMeta);
+        addExecSqlIfNeeded(ctx, pipelineMeta);
 
-      // Compute hub hashes for each participating hub (from their BKs in the source)
-      List<TransformMeta> hubHashTransforms = new ArrayList<>();
-      TransformMeta lastHubHash = sourceTransform;
-      for (int i = 0; i < ctx.participatingHubs.size(); i++) {
-        String hubHashName = ctx.hubHashFieldNames.get(i);
-        // The source fields for this hub's BKs
-        List<String> hubBkFields = ctx.hubBkFieldGroups.get(i);
-        TransformMeta hubHashCalc =
+        TransformMeta sourceInputTransform = addSourceTableInput(ctx, pipelineMeta);
+        TransformMeta predecessorTransform = sourceInputTransform;
+
+        // Compute hub hashes for each participating hub (from their BKs in the source)
+        List<String> hubHashNames = new ArrayList<>();
+        int index = 0;
+        for (String hubName : hubNames) {
+          DvHub hub = model.findHub(hubName);
+          if (hub == null) {
+            throw new HopException(
+                "Unable to find hub '" + hubName + "' in the model for Link table " + getName());
+          }
+
+          String hubHashName = variables.resolve(hub.getHashKeyFieldName());
+          hubHashNames.add(hubHashName);
+          List<String> hubBkFields = hub.getBusinessKeyFieldNames();
+          predecessorTransform =
+              addCheckSumForFields(
+                  pipelineMeta,
+                  predecessorTransform,
+                  ctx.checkSumType,
+                  hubBkFields,
+                  hubHashName,
+                  ctx.config,
+                  index++);
+        }
+
+        // Final checksum for the Link Hash itself
+        TransformMeta linkHashCalc =
             addCheckSumForFields(
                 pipelineMeta,
-                lastHubHash,
+                predecessorTransform,
                 ctx.checkSumType,
-                hubBkFields,
-                hubHashName,
+                hubHashNames,
+                linkHashKeyFieldName,
                 ctx.config,
-                i);
-        hubHashTransforms.add(hubHashCalc);
-        lastHubHash = hubHashCalc;
+                index);
+        predecessorTransform = linkHashCalc;
+
+        TransformMeta selectTransform =
+            addSourceSelectRows(ctx, pipelineMeta, predecessorTransform);
+
+        // Target side
+        TransformMeta targetInputTransform = addTargetTableInput(ctx, pipelineMeta);
+
+        TransformMeta sortTransform = null;
+        if (targetInputTransform != null) {
+
+          sortTransform = addSortRows(pipelineMeta, selectTransform, ctx, linkHashKeyFieldName);
+        }
+
+        TransformMeta mergeTransform =
+            addMergeRows(ctx, pipelineMeta, sortTransform, targetInputTransform);
+
+        TransformMeta filterTransform = addFilterNewRowsIfNeeded(pipelineMeta, mergeTransform);
+        TransformMeta constantTransform = addConstantForLoadDate(ctx, pipelineMeta, loadDate);
+
+        IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
+        TransformMeta tableOutputTransform = addTableOutput(ctx, pipelineMeta, targetLayout);
+
+        addPipelineHops(
+            pipelineMeta,
+            sourceInputTransform,
+            targetInputTransform,
+            mergeTransform,
+            filterTransform,
+            linkHashCalc,
+            selectTransform,
+            sortTransform,
+            constantTransform,
+            tableOutputTransform);
+
+        result.add(pipelineMeta);
       }
 
-      // Final checksum for the Link Hash itself: inputs are the computed hub hashes + driving keys
-      List<String> linkHashInputs = new ArrayList<>(ctx.hubHashFieldNames);
-      linkHashInputs.addAll(ctx.drivingKeyFieldNames);
-      TransformMeta linkHashCalc =
-          addCheckSumForFields(
-              pipelineMeta,
-              lastHubHash,
-              ctx.checkSumType,
-              linkHashInputs,
-              ctx.linkHashKeyFieldName,
-              ctx.config,
-              ctx.participatingHubs.size());
-
-      // Wire the checksum chain (source -> hub hashes -> link hash)
-      TransformMeta prev = sourceTransform;
-      for (TransformMeta h : hubHashTransforms) {
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(prev, h));
-        prev = h;
-      }
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(prev, linkHashCalc));
-
-      // Target side for diff (on the link hash)
-      TransformMeta targetTransform = addTargetTableInput(ctx, pipelineMeta);
-
-      TransformMeta selectTransform = null;
-      TransformMeta sortTransform = null;
-      if (targetTransform != null) {
-        // Select only the calculated hash key fields (link hash + hub hashes) + record source
-        // so that the row layout matches exactly what the target side provides to MergeRows.
-        selectTransform = addSelectRows(ctx, pipelineMeta, linkHashCalc);
-
-        // Sort on the link hash (required for MergeRows)
-        sortTransform = addSortRows(pipelineMeta, selectTransform, ctx, ctx.linkHashKeyFieldName);
-      }
-
-      // MergeRows on the link hash
-      TransformMeta mergeTransform =
-          addMergeRowsIfNeeded(ctx, pipelineMeta, sortTransform, targetTransform);
-
-      // Filter new
-      TransformMeta filterTransform = addFilterNewRowsIfNeeded(pipelineMeta, mergeTransform);
-
-      // Constant load date
-      TransformMeta constantTransform = addConstantForLoadDate(ctx, pipelineMeta, loadDate);
-
-      // Table output
-      IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
-      TransformMeta tableOutputTransform = addTableOutput(ctx, pipelineMeta, targetLayout);
-
-      addPipelineHops(
-          pipelineMeta,
-          sourceTransform,
-          targetTransform,
-          mergeTransform,
-          filterTransform,
-          linkHashCalc,
-          selectTransform,
-          sortTransform,
-          constantTransform,
-          tableOutputTransform);
-
-      return pipelineMeta;
+      return result;
     } catch (Exception e) {
       throw new HopException("Error generating update pipeline for Link target " + getName(), e);
     }
@@ -452,13 +436,13 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
       // 3. Record source
       String rsFieldName = "RECORD_SOURCE";
-      if (config != null && !Utils.isEmpty(config.getRecordSourceField())) {
+      if (!Utils.isEmpty(config.getRecordSourceField())) {
         rsFieldName = config.getRecordSourceField();
       }
       rsFieldName = variables.resolve(rsFieldName);
       if (Utils.isEmpty(rsFieldName)) rsFieldName = "RECORD_SOURCE";
       String lengthString =
-          (config != null && !Utils.isEmpty(config.getRecordSourceFieldLength()))
+          !Utils.isEmpty(config.getRecordSourceFieldLength())
               ? config.getRecordSourceFieldLength()
               : "100";
       lengthString = variables.resolve(lengthString);
@@ -510,58 +494,19 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
   private TransformMeta addSourceTableInput(LinkUpdateContext ctx, PipelineMeta pipelineMeta)
       throws HopException {
-    TableInputMeta tableInputMeta = new TableInputMeta();
 
-    if (ctx.sourceDatabaseMeta != null) {
-      tableInputMeta.setConnection(ctx.sourceDbName);
-
-      List<String> quotedFields = new ArrayList<>();
-      for (String fieldName : ctx.pkSourceFieldNames) {
-        quotedFields.add(ctx.sourceDatabaseMeta.quoteField(fieldName));
-      }
-      for (String fieldName : ctx.drivingKeyFieldNames) {
-        if (!quotedFields.contains(fieldName)) {
-          quotedFields.add(ctx.sourceDatabaseMeta.quoteField(fieldName));
-        }
-      }
-
-      StringBuilder sql = new StringBuilder("SELECT ");
-      if (quotedFields.isEmpty()) {
-        sql.append("*");
-      } else {
-        sql.append(String.join(", ", quotedFields));
-      }
-
-      // RS indicator
-      String rsFieldName = ctx.recordSourceField;
-      if (!Utils.isEmpty(ctx.sourceIndicator)) {
-        String resolved = ctx.variables.resolve(ctx.sourceIndicator);
-        String literal = "'" + resolved.replace("'", "''") + "'";
-        sql.append(", ")
-            .append(literal)
-            .append(" AS ")
-            .append(ctx.sourceDatabaseMeta.quoteField(rsFieldName));
-      } else if (!Utils.isEmpty(ctx.sourceIndicatorField)) {
-        String resolvedField = ctx.variables.resolve(ctx.sourceIndicatorField);
-        String qField = ctx.sourceDatabaseMeta.quoteField(resolvedField);
-        sql.append(", ")
-            .append(qField)
-            .append(" AS ")
-            .append(ctx.sourceDatabaseMeta.quoteField(rsFieldName));
-      }
-
-      sql.append(" FROM ");
-      sql.append(
-          ctx.sourceDatabaseMeta.getQuotedSchemaTableCombination(
-              ctx.variables, ctx.sourceSchema, ctx.sourceTable));
-
-      tableInputMeta.setSql(sql.toString());
-    }
-
-    TransformMeta tm = new TransformMeta("TableInput", ctx.sourceTransformName, tableInputMeta);
-    tm.setLocation(LOCATION_START_LINE_2);
-    pipelineMeta.addTransform(tm);
-    return tm;
+    DvDatabaseLinkSourcePipelineBuilder builder =
+        new DvDatabaseLinkSourcePipelineBuilder(
+            ctx.variables,
+            ctx.metadataProvider,
+            ctx.model,
+            pipelineMeta,
+            ctx.dataVaultSource,
+            ctx.dvSource,
+            this,
+            new Point(LOCATION_START_LINE_2.x, LOCATION_START_LINE_2.y));
+    builder.build();
+    return builder.getResultTransform();
   }
 
   private TransformMeta addCheckSumForFields(
@@ -594,38 +539,97 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         new Point(LOCATION_START_LINE_2.x + (index + 1) * SPACING_WIDTH, LOCATION_START_LINE_2.y);
     tm.setLocation(loc);
     pipelineMeta.addTransform(tm);
+
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+
     return tm;
   }
 
-  private TransformMeta addSelectRows(
-      LinkUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor) {
-    List<String> fieldsToSelect = new ArrayList<>();
-    fieldsToSelect.add(ctx.linkHashKeyFieldName);
-    fieldsToSelect.addAll(ctx.hubHashFieldNames);
-    fieldsToSelect.add(ctx.recordSourceField);
+  private TransformMeta addSourceSelectRows(
+      LinkUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor)
+      throws HopException {
 
     SelectValuesMeta selectMeta = new SelectValuesMeta();
-    List<SelectField> selectFields = new ArrayList<>();
-    for (String fieldName : fieldsToSelect) {
-      SelectField sf = new SelectField();
-      sf.setName(fieldName);
-      selectFields.add(sf);
-    }
-    selectMeta.getSelectOption().setSelectFields(selectFields);
+    List<SelectField> selectFields = selectMeta.getSelectOption().getSelectFields();
 
-    TransformMeta tm =
-        new TransformMeta("SelectValues", "select_values", selectMeta);
+    // Select the link table hash key
+    //
+    String hashKeyField = ctx.variables.resolve(linkHashKeyFieldName);
+    if (StringUtils.isNotEmpty(hashKeyField)) {
+      SelectField selectField = new SelectField();
+      selectField.setName(hashKeyField);
+      selectFields.add(selectField);
+    } else {
+      throw new HopException("Please specify a hash key field name for link " + getName());
+    }
+
+    // We want to keep only the hash keys from the hubs and the one from the link itself.
+    //
+    for (String hubName : hubNames) {
+      DvHub hub = ctx.model.findHub(hubName);
+      SelectField selectField = new SelectField();
+      selectField.setName(ctx.variables.resolve(hub.getHashKeyFieldName()));
+      selectFields.add(selectField);
+    }
+
+    // The driving keys need to be renamed to their target table name
+    //
+    for (String drivingKeyName : drivingKeyNames) {
+      // Look up the source name for the record source in the context.
+      String drivingKeySourceField = findSourceFieldOfDrivingKey(ctx, drivingKeyName);
+      if (drivingKeySourceField == null) {
+        throw new HopException(
+            "Unable to find a source field for driving key "
+                + drivingKeyName
+                + " in Link "
+                + getName()
+                + " when building a pipeline to handle source "
+                + ctx.dataVaultSource.getName());
+      }
+      SelectField selectField = new SelectField();
+      selectField.setName(drivingKeySourceField);
+      selectField.setRename(ctx.variables.resolve(drivingKeyName));
+      selectFields.add(selectField);
+    }
+
+    // Also keep the record source
+    //
+    SelectField sourceField = new SelectField();
+    sourceField.setName(findRecordSourceFieldName(ctx));
+    selectFields.add(sourceField);
+
+    TransformMeta tm = new TransformMeta("SelectValues", "select_values", selectMeta);
     // Place it on the compare flow after the last checksum, before the sort
     Point loc =
         new Point(
-            LOCATION_START_LINE_2.x + SPACING_WIDTH * (ctx.participatingHubs.size() + 2),
+            LOCATION_START_LINE_2.x + SPACING_WIDTH * (hubNames.size() + 2),
             LOCATION_START_LINE_2.y);
     tm.setLocation(loc);
     pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+
     return tm;
   }
 
-  private TransformMeta addTargetTableInput(LinkUpdateContext ctx, PipelineMeta pipelineMeta) {
+  private String findSourceFieldOfDrivingKey(LinkUpdateContext ctx, String drivingKeyName) {
+    for (DvLinkSource linkSource : linkSources) {
+      if (linkSource.source.equals(ctx.dataVaultSource)) {
+        // This is the source we're loading in this pipeline
+        // See if we have the source for the driving key.
+        for (HubSourceKeyField hubSourceKeyField : linkSource.hubSourceKeyFields) {
+          for (DrivingKeySource drivingKeySource : hubSourceKeyField.getDrivingKeySources()) {
+            if (drivingKeyName.equalsIgnoreCase(drivingKeySource.getDrivingKey())) {
+              return drivingKeySource.getSourceField();
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private TransformMeta addTargetTableInput(LinkUpdateContext ctx, PipelineMeta pipelineMeta)
+      throws HopException {
     if (ctx.targetDatabaseMeta == null) {
       return null;
     }
@@ -633,29 +637,22 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     TableInputMeta targetTableInputMeta = new TableInputMeta();
     targetTableInputMeta.setConnection(ctx.targetDbName);
 
-    String linkHashField = ctx.linkHashKeyFieldName;
-    String quotedLinkHash = ctx.targetDatabaseMeta.quoteField(linkHashField);
+    String quotedLinkHash = ctx.targetDatabaseMeta.quoteField(linkHashKeyFieldName);
 
     StringBuilder sql = new StringBuilder("SELECT ");
     sql.append(quotedLinkHash);
 
     // Also select the hub hash columns that are stored in the link (for completeness / potential
     // value compare)
-    for (String h : ctx.hubHashFieldNames) {
-      sql.append(", ").append(ctx.targetDatabaseMeta.quoteField(h));
+    //
+    for (String hubName : hubNames) {
+      DvHub hub = ctx.model.findHub(hubName);
+      sql.append(", ").append(ctx.targetDatabaseMeta.quoteField(hub.getHashKeyFieldName()));
     }
 
-    // Project the record source field on the target side as well (using NULL) so that
-    // the input row meta to MergeRows is compatible when we passthrough the indicator
-    // value from the source/compare leg.
-    String rsFieldName = ctx.recordSourceField;
-    if (Utils.isEmpty(rsFieldName)) {
-      rsFieldName = "RECORD_SOURCE";
-    }
-    rsFieldName = ctx.variables.resolve(rsFieldName);
-    if (Utils.isEmpty(rsFieldName)) {
-      rsFieldName = "RECORD_SOURCE";
-    }
+    // The name of the source is described in the Link itself
+    //
+    String rsFieldName = findRecordSourceFieldName(ctx);
     sql.append(", NULL AS ").append(ctx.targetDatabaseMeta.quoteField(rsFieldName));
 
     sql.append(" FROM ");
@@ -667,48 +664,77 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
     targetTableInputMeta.setSql(sql.toString());
 
-    TransformMeta tm =
-        new TransformMeta("TableInput", ctx.targetTransformName, targetTableInputMeta);
+    String transformName = "target " + ctx.targetDatabaseMeta.getName() + "." + ctx.targetTableName;
+
+    TransformMeta tm = new TransformMeta("TableInput", transformName, targetTableInputMeta);
     tm.setLocation(LOCATION_START_LINE_3);
     pipelineMeta.addTransform(tm);
+
     return tm;
   }
 
-  private TransformMeta addMergeRowsIfNeeded(
+  private @NonNull String findRecordSourceFieldName(LinkUpdateContext ctx) throws HopException {
+    String rsFieldName = recordSourceFieldName;
+    if (StringUtils.isEmpty(rsFieldName)) {
+      rsFieldName = ctx.variables.resolve(ctx.config.getRecordSourceField());
+    }
+    if (StringUtils.isEmpty(rsFieldName)) {
+      throw new HopException(
+          "Please specify a field to contain the record source in Link "
+              + getName()
+              + " or in the data vault configuration.");
+    }
+    return rsFieldName;
+  }
+
+  private TransformMeta addMergeRows(
       LinkUpdateContext ctx,
       PipelineMeta pipelineMeta,
-      TransformMeta sourceToMergeTransform,
-      TransformMeta targetTransform) {
-    if (targetTransform == null || sourceToMergeTransform == null) {
+      TransformMeta sourceInputTransform,
+      TransformMeta targetInputTransform)
+      throws HopException {
+    if (targetInputTransform == null || sourceInputTransform == null) {
       return null;
     }
 
     MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
-    mergeRowsMeta.setReferenceTransform(ctx.targetTransformName);
-    mergeRowsMeta.setCompareTransform(sourceToMergeTransform.getName());
+    mergeRowsMeta.setReferenceTransform(targetInputTransform.getName());
+    mergeRowsMeta.setCompareTransform(sourceInputTransform.getName());
     mergeRowsMeta.setFlagField("flag");
 
+    // We merge on the hash key of this table.
+    //
     List<String> keyFields = new ArrayList<>();
-    keyFields.add(ctx.linkHashKeyFieldName);
+    keyFields.add(linkHashKeyFieldName);
     mergeRowsMeta.setKeyFields(keyFields);
 
-    List<PassThroughField> passThroughFields = new ArrayList<>();
-    passThroughFields.add(new PassThroughField(ctx.linkHashKeyFieldName, null, false));
-    for (String h : ctx.hubHashFieldNames) {
-      passThroughFields.add(new PassThroughField(h, null, false));
+    // We pass through the source business hash keys, the driving keys, and the record source field
+    // from the "compare"
+    // data stream.
+    //
+    for (String hubName : hubNames) {
+      DvHub hub = ctx.model.findHub(hubName);
+      mergeRowsMeta
+          .getPassThroughFields()
+          .add(new PassThroughField(hub.getHashKeyFieldName(), null, false));
     }
-    for (String d : ctx.drivingKeyFieldNames) {
-      passThroughFields.add(new PassThroughField(d, null, false));
+
+    for (String drivingKeyName : drivingKeyNames) {
+      mergeRowsMeta.getPassThroughFields().add(new PassThroughField(drivingKeyName, null, false));
     }
-    String rsFieldName = ctx.recordSourceField;
-    if (!Utils.isEmpty(rsFieldName)) {
-      passThroughFields.add(new PassThroughField(rsFieldName, null, false));
-    }
-    mergeRowsMeta.setPassThroughFields(passThroughFields);
+
+    // We also pass through the record source
+    //
+    String rsFieldName = findRecordSourceFieldName(ctx);
+    mergeRowsMeta.getPassThroughFields().add(new PassThroughField(rsFieldName, null, false));
 
     TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x+2*SPACING_WIDTH,  LOCATION_START_LINE_3.y);
+    tm.setLocation(LOCATION_START_LINE_3.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
+
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(sourceInputTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(targetInputTransform, tm));
+
     return tm;
   }
 
@@ -733,13 +759,13 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     }
 
     TransformMeta tm = new TransformMeta("FilterRows", "filter_new", filterRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x+3*SPACING_WIDTH,  LOCATION_START_LINE_3.y);
+    tm.setLocation(LOCATION_START_LINE_3.x + 3 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
 
   private TransformMeta addSortRows(
-          PipelineMeta pipelineMeta, TransformMeta after, LinkUpdateContext ctx, String sortFieldName) {
+      PipelineMeta pipelineMeta, TransformMeta after, LinkUpdateContext ctx, String sortFieldName) {
     SortRowsMeta sortRowsMeta = new SortRowsMeta();
     SortRowsField sf = new SortRowsField();
     sf.setFieldName(sortFieldName);
@@ -748,7 +774,10 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     sortRowsMeta.getSortFields().add(sf);
 
     TransformMeta tm = new TransformMeta("SortRows", "sort_" + sortFieldName, sortRowsMeta);
-    Point loc = new Point(LOCATION_START_LINE_2.x + SPACING_WIDTH*(ctx.participatingHubs.size()+3), LOCATION_START_LINE_2.y);
+    Point loc =
+        new Point(
+            LOCATION_START_LINE_2.x + SPACING_WIDTH * (hubNames.size() + 3),
+            LOCATION_START_LINE_2.y);
     tm.setLocation(loc);
     pipelineMeta.addTransform(tm);
     return tm;
@@ -774,7 +803,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     constantMeta.getFields().add(cf);
 
     TransformMeta tm = new TransformMeta("Constant", "add_" + loadDateField, constantMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x + 4*SPACING_WIDTH,  LOCATION_START_LINE_3.y);
+    tm.setLocation(LOCATION_START_LINE_3.x + 4 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     return tm;
   }
@@ -805,7 +834,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       }
 
       TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
-      tm.setLocation(LOCATION_START_LINE_3.x + 5*SPACING_WIDTH,  LOCATION_START_LINE_3.y);
+      tm.setLocation(LOCATION_START_LINE_3.x + 5 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
       pipelineMeta.addTransform(tm);
       return tm;
     } catch (Exception e) {
@@ -872,35 +901,25 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
    * the business key fields from the link's record source to the hub's business keys, supporting
    * different naming conventions (e.g. _fk vs _id).
    */
+  @Getter
+  @Setter
   public static class HubSourceKeyField {
-
     /** The name of the hub (matches an entry in hubNames). */
     @HopMetadataProperty private String hubName;
 
     /**
      * The list of source field names in the link's record source that correspond to this hub's
-     * business keys (in the same order).
+     * business keys.
      */
-    @HopMetadataProperty(key = "sourceBusinessKeyField", groupKey = "sourceBusinessKeyFields")
-    private List<String> sourceBusinessKeyFields = new ArrayList<>();
+    @HopMetadataProperty(key = "businessKeySource", groupKey = "businessKeySources")
+    private List<BusinessKeySource> sourceBusinessKeyFields = new ArrayList<>();
 
-    public HubSourceKeyField() {}
+    /** We need to know the sources of the driving key fields in the target table. */
+    @HopMetadataProperty(key = "drivingKeySource", groupKey = "drivingKeySources")
+    private List<DrivingKeySource> drivingKeySources = new ArrayList<>();
 
-    public String getHubName() {
-      return hubName;
-    }
-
-    public void setHubName(String hubName) {
-      this.hubName = hubName;
-    }
-
-    public List<String> getSourceBusinessKeyFields() {
-      return sourceBusinessKeyFields;
-    }
-
-    public void setSourceBusinessKeyFields(List<String> sourceBusinessKeyFields) {
-      this.sourceBusinessKeyFields =
-          sourceBusinessKeyFields != null ? sourceBusinessKeyFields : new ArrayList<>();
+    public HubSourceKeyField() {
+      // Empty by design
     }
   }
 
@@ -914,30 +933,13 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     final DataVaultConfiguration config;
     final CheckSumType checkSumType;
 
+    final DataVaultSource dataVaultSource;
+    final IDvSource dvSource;
+
     final DatabaseMeta targetDatabaseMeta;
     final String targetDbName;
     final String targetTableName;
     final String pipelineName;
-
-    final String sourceTransformName;
-    final String targetTransformName;
-    final DatabaseMeta sourceDatabaseMeta;
-    final String sourceDbName;
-    final String sourceSchema;
-    final String sourceTable;
-
-    final List<String> pkSourceFieldNames; // all raw BK fields from all hubs + driving
-    final List<List<String>> hubBkFieldGroups; // per hub, the BK source fields for its checksum
-    final List<String> hubHashFieldNames; // the result names for each hub hash
-    final List<DvHub> participatingHubs;
-    final List<String> drivingKeyFieldNames;
-
-    final String linkHashKeyFieldName;
-
-    // Record source indicator
-    final String sourceIndicator;
-    final String sourceIndicatorField;
-    final String recordSourceField;
 
     LinkUpdateContext(
         DvLink link,
@@ -946,59 +948,33 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         IVariables variables,
         DataVaultConfiguration config,
         CheckSumType checkSumType,
+        DataVaultSource dataVaultSource,
         DatabaseMeta targetDatabaseMeta,
         String targetDbName,
         String targetTableName,
-        String pipelineName,
-        String sourceTransformName,
-        String targetTransformName,
-        DatabaseMeta sourceDatabaseMeta,
-        String sourceDbName,
-        String sourceSchema,
-        String sourceTable,
-        List<String> pkSourceFieldNames,
-        List<List<String>> hubBkFieldGroups,
-        List<String> hubHashFieldNames,
-        List<DvHub> participatingHubs,
-        List<String> drivingKeyFieldNames,
-        String linkHashKeyFieldName,
-        String sourceIndicator,
-        String sourceIndicatorField,
-        String recordSourceField) {
+        String pipelineName)
+        throws HopException {
       this.link = link;
       this.model = model;
       this.metadataProvider = metadataProvider;
       this.variables = variables;
       this.config = config;
       this.checkSumType = checkSumType;
+      this.dataVaultSource = dataVaultSource;
       this.targetDatabaseMeta = targetDatabaseMeta;
       this.targetDbName = targetDbName;
       this.targetTableName = targetTableName;
       this.pipelineName = pipelineName;
-      this.sourceTransformName = sourceTransformName;
-      this.targetTransformName = targetTransformName;
-      this.sourceDatabaseMeta = sourceDatabaseMeta;
-      this.sourceDbName = sourceDbName;
-      this.sourceSchema = sourceSchema;
-      this.sourceTable = sourceTable;
-      this.pkSourceFieldNames = pkSourceFieldNames != null ? pkSourceFieldNames : new ArrayList<>();
-      this.hubBkFieldGroups = hubBkFieldGroups != null ? hubBkFieldGroups : new ArrayList<>();
-      this.hubHashFieldNames = hubHashFieldNames != null ? hubHashFieldNames : new ArrayList<>();
-      this.participatingHubs = participatingHubs != null ? participatingHubs : new ArrayList<>();
-      this.drivingKeyFieldNames =
-          drivingKeyFieldNames != null ? drivingKeyFieldNames : new ArrayList<>();
-      this.linkHashKeyFieldName =
-          linkHashKeyFieldName != null ? linkHashKeyFieldName : (link.getName() + "_LK");
-      this.sourceIndicator = sourceIndicator;
-      this.sourceIndicatorField = sourceIndicatorField;
-      this.recordSourceField = recordSourceField != null ? recordSourceField : "RECORD_SOURCE";
+
+      this.dvSource = dataVaultSource.getDvSource(metadataProvider);
     }
 
     static LinkUpdateContext create(
         IHopMetadataProvider metadataProvider,
         IVariables variables,
         DataVaultModel model,
-        DvLink link)
+        DvLink link,
+        DvLinkSource linkSource)
         throws HopException {
       if (metadataProvider == null || model == null || link == null) {
         return null;
@@ -1049,115 +1025,22 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
           !Utils.isEmpty(link.getTableName()) ? link.getTableName() : link.getName();
       String pipelineName = "link-" + targetTableName;
 
-      String sourceTransformName = link.getRecordSource();
-      if (Utils.isEmpty(sourceTransformName)) {
-        sourceTransformName = link.getName();
-      }
-      String targetTransformName = "target_" + targetTableName;
+      String targetTransformName = "target " + targetTableName;
 
       String linkHashKeyFieldName = link.getLinkHashKeyFieldName();
       if (Utils.isEmpty(linkHashKeyFieldName)) {
         linkHashKeyFieldName = link.getName() + "_LK";
       }
 
-      // Load participating hubs and collect source fields
-      List<DvHub> participatingHubs = new ArrayList<>();
-      List<String> allPk = new ArrayList<>();
-      List<List<String>> hubBkGroups = new ArrayList<>();
-      List<String> hubHashNames = new ArrayList<>();
-      List<String> drivingKeys = new ArrayList<>();
-
-      String recordSourceName = link.getRecordSource();
-
-      List<HubSourceKeyField> userHubSourceKeyFields = link.getHubSourceKeyFields();
-      for (int i = 0; i < link.getHubNames().size(); i++) {
-        String hubName = link.getHubNames().get(i);
-        DvHub hub = model.findHub(hubName);
-        if (hub == null) {
-          throw new HopException(
-              "Participating hub not found for link " + link.getName() + ": " + hubName);
-        }
-        participatingHubs.add(hub);
-
-        String hubHashName = hub.getHashKeyFieldName();
-        if (Utils.isEmpty(hubHashName)) {
-          if (!Utils.isEmpty(hub.getBusinessKeys())) {
-            hubHashName = hub.getBusinessKeys().get(0).getName() + "_HK";
-          } else {
-            hubHashName = hub.getName() + "_HK";
-          }
-        }
-        hubHashNames.add(hubHashName);
-
-        List<String> thisHubBks = new ArrayList<>();
-
-        // Use user-provided mapping for this hub in the link source, if present and non-empty.
-        // Otherwise fall back to the hub's own business key names (current assumption of name
-        // match).
-        List<String> mappedFields = null;
-        if (userHubSourceKeyFields != null && i < userHubSourceKeyFields.size()) {
-          HubSourceKeyField field = userHubSourceKeyFields.get(i);
-          if (field != null && hubName.equals(field.getHubName())) {
-            mappedFields = field.getSourceBusinessKeyFields();
-          }
-        }
-        if (mappedFields != null && !mappedFields.isEmpty()) {
-          for (String f : mappedFields) {
-            String resolved = variables.resolve(f);
-            if (!thisHubBks.contains(resolved)) thisHubBks.add(resolved);
-            if (!allPk.contains(resolved)) allPk.add(resolved);
-          }
-        } else {
-          // Fallback: use names from the hub definition
-          for (BusinessKey bk : hub.getBusinessKeys()) {
-            String srcField = bk.getSourceFieldName();
-            if (Utils.isEmpty(srcField)) srcField = bk.getName();
-            String resolved = variables.resolve(srcField);
-            if (!thisHubBks.contains(resolved)) thisHubBks.add(resolved);
-            if (!allPk.contains(resolved)) allPk.add(resolved);
-          }
-        }
-        hubBkGroups.add(thisHubBks);
+      if (linkSource == null) {
+        throw new HopException("Please provide a link source to create a DV link");
       }
 
-      // Driving keys
-      for (String dk : link.getDrivingKeyNames()) {
-        String resolved = variables.resolve(dk);
-        if (!drivingKeys.contains(resolved)) drivingKeys.add(resolved);
-        if (!allPk.contains(resolved)) allPk.add(resolved);
-      }
-
-      // Source side DB info (same as sat/hub)
-      DatabaseMeta sourceDatabaseMeta = null;
-      String sourceDbName = null;
-      String sourceSchema = null;
-      String sourceTable = null;
-      String sourceIndicator = null;
-      String sourceIndicatorField = null;
-
-      if (!Utils.isEmpty(recordSourceName)) {
-        DataVaultSource dataVaultSource =
-            metadataProvider.getSerializer(DataVaultSource.class).load(recordSourceName);
-        if (dataVaultSource != null
-            && dataVaultSource.getSourceType() == DataVaultSourceType.DATABASE
-            && !Utils.isEmpty(dataVaultSource.getSourceTableName())) {
-          DvDatabaseSource dbSource =
-              metadataProvider
-                  .getSerializer(DvDatabaseSource.class)
-                  .load(dataVaultSource.getSourceTableName());
-          if (dbSource != null) {
-            sourceDbName = dbSource.getDatabaseName();
-            sourceSchema = dbSource.getSchemaName();
-            sourceTable = dbSource.getTableName();
-            sourceDatabaseMeta =
-                metadataProvider.getSerializer(DatabaseMeta.class).load(sourceDbName);
-            if (sourceDatabaseMeta == null) {
-              throw new HopException("Database connection not found in metadata: " + sourceDbName);
-            }
-            sourceIndicator = dataVaultSource.getSourceIndicator();
-            sourceIndicatorField = dataVaultSource.getSourceIndicatorField();
-          }
-        }
+      // Use per-source data if provided (new multi-source model), else fall back to top-level
+      // legacy fields
+      DataVaultSource effectiveSource = linkSource.getSource();
+      if (effectiveSource == null) {
+        throw new HopException("Please provide a valid record source in Link " + link.getName());
       }
 
       return new LinkUpdateContext(
@@ -1167,25 +1050,29 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
           variables,
           config,
           checkSumType,
+          effectiveSource,
           targetDatabaseMeta,
           targetDbName,
           targetTableName,
-          pipelineName,
-          sourceTransformName,
-          targetTransformName,
-          sourceDatabaseMeta,
-          sourceDbName,
-          sourceSchema,
-          sourceTable,
-          allPk,
-          hubBkGroups,
-          hubHashNames,
-          participatingHubs,
-          drivingKeys,
-          linkHashKeyFieldName,
-          sourceIndicator,
-          sourceIndicatorField,
-          recordSourceField);
+          pipelineName);
     }
+  }
+
+  @Getter
+  @Setter
+  public static class DvLinkSource {
+    /** The Data Vault Source (record source) for this link feed. */
+    @HopMetadataProperty(storeWithName = true)
+    private DataVaultSource source;
+
+    /**
+     * Per-hub source business key field mappings for this specific source. Tells the system, for
+     * each participating hub, which columns in *this* source correspond to the hub's business keys
+     * (order must match the hub's business keys).
+     */
+    @HopMetadataProperty(key = "hubSourceKeyField", groupKey = "hubSourceKeyFields")
+    private List<HubSourceKeyField> hubSourceKeyFields = new ArrayList<>();
+
+    public DvLinkSource() {}
   }
 }

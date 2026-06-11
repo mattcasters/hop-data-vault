@@ -17,7 +17,6 @@
 
 package org.apache.hop.datavault.metadata;
 
-import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -26,6 +25,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.metadata.api.HopMetadata;
 import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
@@ -38,8 +38,7 @@ import org.apache.hop.metadata.api.IHopMetadataSerializer;
 /**
  * A generic Data Vault Source metadata element.
  *
- * <p>Main properties include the type of source (e.g. Database) and the name of the source
- * table.
+ * <p>Main properties include the type of source (e.g. Database) and the name of the source table.
  */
 @GuiPlugin
 @HopMetadata(
@@ -51,7 +50,6 @@ import org.apache.hop.metadata.api.IHopMetadataSerializer;
 @Getter
 @Setter
 public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IHasName {
-
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_SOURCE_DIALOG";
 
   @HopMetadataProperty private String name;
@@ -188,16 +186,34 @@ public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IH
         case DATABASE:
           return getDatabaseSourceFields(metadataProvider);
         default:
-          throw new HopException("Source type fields retrieval is not yet implemented for type "+sourceType);
+          throw new HopException(
+              "Source type fields retrieval is not yet implemented for type " + sourceType);
       }
-    } catch(Exception e) {
-      throw new HopException("Unable to get fields from underlying physical data vault source of type "+sourceType.name(), e);
+    } catch (Exception e) {
+      throw new HopException(
+          "Unable to get fields from underlying physical data vault source of type "
+              + sourceType.name(),
+          e);
     }
   }
 
-  private List<SourceField> getDatabaseSourceFields(IHopMetadataProvider metadataProvider) throws HopException {
-    IHopMetadataSerializer<DvDatabaseSource> serializer = metadataProvider.getSerializer(DvDatabaseSource.class);
-    DvDatabaseSource databaseSource = serializer.load(sourceTableName);
+  private List<SourceField> getDatabaseSourceFields(IHopMetadataProvider metadataProvider)
+      throws HopException {
+    DvDatabaseSource databaseSource = loadDatabaseSource(metadataProvider);
     return databaseSource.getFields();
+  }
+
+  private DvDatabaseSource loadDatabaseSource(IHopMetadataProvider metadataProvider)
+      throws HopException {
+    IHopMetadataSerializer<DvDatabaseSource> serializer =
+        metadataProvider.getSerializer(DvDatabaseSource.class);
+    DvDatabaseSource databaseSource = serializer.load(sourceTableName);
+    return databaseSource;
+  }
+
+  public IDvSource getDvSource(IHopMetadataProvider metadataProvider) throws HopException {
+    return switch (sourceType) {
+      case DATABASE -> loadDatabaseSource(metadataProvider);
+    };
   }
 }

@@ -14,16 +14,12 @@
           "data_set_field": "order_hk"
         },
         {
-          "transform_field": "order_id",
-          "data_set_field": "order_id"
-        },
-        {
           "transform_field": "x_record_source",
           "data_set_field": "x_record_source"
         }
       ],
       "field_order": [
-        "order_id"
+        "order_hk"
       ],
       "data_set_name": "hub-order-golden",
       "transform_name": "Validate"

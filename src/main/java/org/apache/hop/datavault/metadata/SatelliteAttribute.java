@@ -17,17 +17,18 @@
 
 package org.apache.hop.datavault.metadata;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 
-/**
- * A descriptive attribute stored in a Satellite (attached to a Hub or Link).
- */
+/** A descriptive attribute stored in a Satellite (attached to a Hub or Link). */
 @GuiPlugin
+@Getter
+@Setter
 public class SatelliteAttribute {
-
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_SATELLITE_ATTRIBUTE_DIALOG";
 
   @GuiWidgetElement(
@@ -88,53 +89,5 @@ public class SatelliteAttribute {
 
   public SatelliteAttribute(String name) {
     this.name = name;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public void setName(String name) {
-    this.name = name;
-  }
-
-  public String getDescription() {
-    return description;
-  }
-
-  public void setDescription(String description) {
-    this.description = description;
-  }
-
-  public String getDataType() {
-    return dataType;
-  }
-
-  public void setDataType(String dataType) {
-    this.dataType = dataType;
-  }
-
-  public String getLength() {
-    return length;
-  }
-
-  public void setLength(String length) {
-    this.length = length;
-  }
-
-  public String getPrecision() {
-    return precision;
-  }
-
-  public void setPrecision(String precision) {
-    this.precision = precision;
-  }
-
-  public boolean isIncludeInChangeDataCapture() {
-    return includeInChangeDataCapture;
-  }
-
-  public void setIncludeInChangeDataCapture(boolean includeInChangeDataCapture) {
-    this.includeInChangeDataCapture = includeInChangeDataCapture;
   }
 }

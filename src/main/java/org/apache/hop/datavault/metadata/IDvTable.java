@@ -57,10 +57,6 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
   /** Human-readable description of this table / concept. */
   String getDescription();
 
-  /** Name of the {@link DataVaultSource} metadata element providing the default or suggested
-   * record source value for rows loaded into this table. */
-  String getRecordSource();
-
   /** Returns the type of this Data Vault table (HUB, SATELLITE or LINK). */
   DvTableType getTableType();
 
@@ -73,18 +69,21 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
   void check(List<ICheckResult> remarks);
 
   /**
-   * Generate an "update" pipeline for this table (e.g. for debug purposes in the modeler).
-   * The implementation in DvHub contains the full logic (moved from HopGuiVaultGraph.debugPipelines());
-   * empty stubs for DvSatellite / DvLink.
+   * Generate "update" pipeline(s) for this table.
+   *
+   * <p>For Hubs with multiple sources, one pipeline is generated per source (each source can have
+   * its own business key mappings via sourceSystem in BusinessKey, different source queries, etc.).
    *
    * @param metadataProvider for loading configuration, database connections, sources etc.
    * @param variables for variable resolution during SQL generation and quoting.
    * @param model the containing DataVaultModel (for config name etc.)
-   * @param loadDate the static load date (Timestamp) to use for all records in this batch update (added via Constant transform using the load date field name from config)
-   * @return the generated PipelineMeta (or null); caller does the XML roundtrip + HopGui open.
+   * @param loadDate the static load date to use for all records in this batch update
+   * @return list of generated PipelineMeta (one per source for hubs); caller does XML roundtrip etc.
    * @throws HopException on metadata load or other errors during generation
    */
-  PipelineMeta generateUpdatePipeline(IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model, Date loadDate) throws HopException;
+  List<PipelineMeta> generateUpdatePipelines(
+      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model, Date loadDate)
+      throws HopException;
 
   /**
    * Get the target table layout (IRowMeta) for this DV table. Used to define/create the physical

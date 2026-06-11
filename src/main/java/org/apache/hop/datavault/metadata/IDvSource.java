@@ -20,6 +20,7 @@ package org.apache.hop.datavault.metadata;
 import java.util.List;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.metadata.api.HopMetadataObject;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadataObjectFactory;

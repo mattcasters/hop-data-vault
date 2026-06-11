@@ -41,7 +41,6 @@ import org.apache.hop.metadata.api.IHopMetadata;
  * DatabaseMeta to use for DATABASE sources).
  */
 public abstract class DvSourceBase extends HopMetadataBase implements IHopMetadata, IDvSource {
-
   @HopMetadataProperty
   protected String description;
 

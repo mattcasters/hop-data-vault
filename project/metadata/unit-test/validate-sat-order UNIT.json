@@ -30,10 +30,6 @@
           "data_set_field": "load_date"
         },
         {
-          "transform_field": "record_source",
-          "data_set_field": "record_source"
-        },
-        {
           "transform_field": "x_record_source",
           "data_set_field": "x_record_source"
         }

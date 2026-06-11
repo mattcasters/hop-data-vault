@@ -14,16 +14,12 @@
           "data_set_field": "product_hk"
         },
         {
-          "transform_field": "product_id",
-          "data_set_field": "product_id"
-        },
-        {
           "transform_field": "x_record_source",
           "data_set_field": "x_record_source"
         }
       ],
       "field_order": [
-        "product_id"
+        "product_hk"
       ],
       "data_set_name": "hub-product-golden",
       "transform_name": "Validate"

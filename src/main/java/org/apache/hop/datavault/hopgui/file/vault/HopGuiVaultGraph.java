@@ -24,15 +24,20 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.AreaOwner;
+import org.apache.hop.core.gui.DPoint;
+import org.apache.hop.core.gui.IGc;
+import org.apache.hop.core.gui.IRedrawable;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.Rectangle;
+import org.apache.hop.core.gui.SnapAllignDistribute;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.IGuiRefresher;
 import org.apache.hop.core.gui.plugin.action.GuiActionType;
@@ -57,20 +62,22 @@ import org.apache.hop.ui.core.dialog.CheckResultDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.gui.GuiToolbarWidgets;
 import org.apache.hop.ui.core.gui.IToolbarContainer;
+import org.apache.hop.ui.hopgui.CanvasFacade;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.hopgui.ToolbarFacade;
 import org.apache.hop.ui.hopgui.context.GuiContextUtil;
 import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
+import org.apache.hop.ui.hopgui.file.IGraphSnapAlignDistribute;
 import org.apache.hop.ui.hopgui.file.IHopFileType;
 import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
+import org.apache.hop.ui.hopgui.file.shared.HopGuiAbstractGraph;
 import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.hopgui.shared.SwtGc;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
-import org.eclipse.swt.events.MouseMoveListener;
 import org.eclipse.swt.events.MouseTrackAdapter;
+import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FormAttachment;
@@ -80,7 +87,9 @@ import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Node;
 
 /**
@@ -89,9 +98,10 @@ import org.w3c.dom.Node;
  * Implements IHopFileTypeHandler so it can be used as a tab in the explorer perspective.
  */
 @GuiPlugin(id = "HopGuiVaultGraph", description = "i18n::HopGuiVaultGraph.Description")
-public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, IGuiRefresher {
-
-  private static final Class<?> PKG = HopGuiVaultGraph.class;
+@Getter
+@Setter
+public class HopGuiVaultGraph extends HopGuiAbstractGraph
+    implements IHopFileTypeHandler, IGuiRefresher, IGraphSnapAlignDistribute, IRedrawable {
 
   public static final String GUI_PLUGIN_TOOLBAR_PARENT_ID = "HopGuiVaultGraph-Toolbar";
   public static final String TOOLBAR_ITEM_ZOOM_LEVEL = "HopGuiVaultGraph-ToolBar-10500-Zoom-Level";
@@ -111,15 +121,13 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
 
   public static final String TOOLBAR_ITEM_DEBUG = "HopGuiVaultGraph-ToolBar-10070-Debug";
 
-  private final HopGui hopGui;
+  public static final String STATE_MAGNIFICATION = "magnification";
+  public static final String STATE_SCROLL_X_SELECTION = "offset-x";
+  public static final String STATE_SCROLL_Y_SELECTION = "offset-y";
+
   private final ExplorerPerspective perspective;
   private final HopVaultFileType fileType;
   private DataVaultModel model;
-
-  private final IVariables variables;
-  private final Canvas canvas;
-  private float magnification = 1.0f;
-  private Point offset = new Point(0, 0);
 
   private Control toolBar;
   private GuiToolbarWidgets toolBarWidgets;
@@ -141,17 +149,14 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
   private IDvTable candidateRelationshipTarget;
 
   private Point lastClick;
-  private int lastButton;
 
   private static final int ICON_DRAG_THRESHOLD_PX = 3;
 
   // Drag state for moving tables: left-click + drag on table icon body (not the name part).
   // Moves the clicked table + all currently selected tables. Position relative to initial click.
-  private Point iconOffset;
   private Point iconDragStartScreen;
   private boolean iconDragCommitted;
   private boolean dragSelection;
-  private Point[] previousTableLocations;
   private IDvTable currentTable;
 
   // Lasso / rubber-band multi-select: started on background left-click+drag.
@@ -160,13 +165,20 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
   // drawn screen rect overlaps the lasso rect.
   private Rectangle selectionRegion;
 
+  private double lastNavigationScale;
+  private double lastNavigationGraphOriginX;
+  private double lastNavigationGraphOriginY;
+  private boolean navigatingWithViewport;
+  private Point
+      navigationGrabOffset; // mouse offset inside the viewPort rect at drag start (screen px)
+
   public HopGuiVaultGraph(
       Composite parent,
       HopGui hopGui,
       ExplorerPerspective perspective,
       DataVaultModel model,
       HopVaultFileType fileType) {
-    super(parent, SWT.NO_BACKGROUND);
+    super(hopGui, parent, SWT.NO_BACKGROUND);
     this.hopGui = hopGui;
     this.perspective = perspective;
     this.model = model;
@@ -191,358 +203,13 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     canvas.setLayoutData(fdCanvas);
 
     // Paint listener to draw the model
-    canvas.addPaintListener(event -> drawVaultModel(event.gc));
+    canvas.addPaintListener(this::paintControl);
 
     // Mouse listener for context dialog on left click (background) + table edit + relationship drag
     // (middle/shift)
-    canvas.addMouseListener(
-        new MouseAdapter() {
-          @Override
-          public void mouseDown(MouseEvent e) {
-            canvas.setToolTipText(null);
-            Point real = screen2real(e.x, e.y);
-            lastClick = new Point(real.x, real.y);
-            lastButton = e.button;
-            boolean shift = (e.stateMask & SWT.SHIFT) != 0;
-            boolean control = (e.stateMask & SWT.MOD1) != 0;
-
-            AreaOwner areaOwner = getVisibleAreaOwner(e.x, e.y);
-            IDvTable hit = null;
-            if (areaOwner != null) {
-              Object o = areaOwner.getOwner();
-              if (o instanceof IDvTable t) {
-                hit = t;
-              } else if (areaOwner.getParent() instanceof IDvTable t) {
-                hit = t;
-              }
-            }
-            if (hit == null) {
-              hit = findTableAtScreen(e.x, e.y); // fallback e.g. for relationship start
-            }
-
-            if (hit != null) {
-              if (areaOwner != null
-                  && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_INFO_ICON) {
-                // Clicking the info icon (description badge) should not start a drag or open
-                // context menu.
-                // The description is already visible via tooltip on hover.
-                avoidContextDialog = true;
-                clearTableDragState();
-                return;
-              }
-
-              if (e.button == 2 || (e.button == 1 && shift)) {
-                // Middle button or Shift+Left: start dragging a relationship from this table
-                // (hub<->sat or hub<->link). Completion on mouseUp.
-                startRelationshipTable = hit;
-                relationshipDragEndLocation = new Point(e.x, e.y);
-                candidateRelationshipTarget = hit;
-                mouseOverTableName = null;
-                clearTableDragState();
-                clearLasso();
-                avoidContextDialog = true;
-                redraw();
-                return;
-              }
-              if (e.button == 1) {
-                if (areaOwner != null
-                    && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_NAME) {
-                  // Left click on the (underlined) name: open edit dialog (hyperlink behavior)
-                  editTable(hit);
-                  avoidContextDialog = true;
-                  return;
-                } else {
-                  // Left click on table body/icon: setup drag (defer context/select to mouseUp if
-                  // no drag)
-                  currentTable = hit;
-                  iconDragStartScreen = new Point(e.x, e.y);
-                  iconDragCommitted = false;
-                  previousTableLocations = getSelectedTableLocations();
-                  Point p = hit.getLocation() != null ? hit.getLocation() : new Point(0, 0);
-                  iconOffset = new Point(real.x - p.x, real.y - p.y);
-                  clearLasso();
-                  avoidContextDialog = true;
-                  redraw();
-                  return;
-                }
-              }
-            }
-
-            // Background click: cancel active relationship drag or table drag (like hop drag cancel
-            // on bg)
-            if (startRelationshipTable != null
-                || currentTable != null
-                || iconDragStartScreen != null
-                || selectionRegion != null) {
-              cancelRelationshipDrag();
-              clearTableDragState();
-              clearLasso();
-              avoidContextDialog = true;
-              redraw();
-              return;
-            }
-
-            // Start lasso (rubber-band) selection on left-click background drag.
-            // Unless CTRL is held, unselect all tables at start of lasso (per spec).
-            if (e.button == 1) {
-              if (!control) {
-                unselectAllTables();
-              }
-              selectionRegion = new Rectangle(e.x, e.y, 0, 0);
-              mouseOverTableName = null;
-              canvas.setData("mode", "select");
-              setCursor(getDisplay().getSystemCursor(SWT.CURSOR_CROSS));
-              avoidContextDialog = true;
-              redraw();
-              return;
-            }
-
-            redraw();
-          }
-
-          @Override
-          public void mouseUp(MouseEvent e) {
-            canvas.setToolTipText(null);
-            // A single click on the background isn't a selection.
-            // We need to show the context dialog for the model.
-            //
-            if (startRelationshipTable == null
-                && selectionRegion != null
-                && selectionRegion.isEmpty()) {
-              avoidContextDialog = false;
-              selectionRegion = null;
-            }
-
-            if (startRelationshipTable != null) {
-              // Complete relationship drag if dropped on a different valid table
-              IDvTable target = findTableAtScreen(e.x, e.y);
-              if (target != null && target != startRelationshipTable) {
-                createRelationship(startRelationshipTable, target);
-              }
-              cancelRelationshipDrag();
-              clearTableDragState();
-              avoidContextDialog = true;
-              redraw();
-              return;
-            } else if (selectionRegion != null) {
-              // Finish lasso drag: update final size
-              selectionRegion.width = e.x - selectionRegion.x;
-              selectionRegion.height = e.y - selectionRegion.y;
-
-              int absW = Math.abs(selectionRegion.width);
-              int absH = Math.abs(selectionRegion.height);
-
-              if (absW < ICON_DRAG_THRESHOLD_PX && absH < ICON_DRAG_THRESHOLD_PX) {
-                // Essentially a click (not a drag), clear lasso and fall through so pure-click
-                // logic can show the background context dialog if appropriate.
-                selectionRegion = null;
-                canvas.setData("mode", "null");
-                setCursor(null);
-                redraw();
-                // fall through
-              } else {
-                // Real lasso: select tables whose visual (screen) area overlaps the lasso rect.
-                int x1 = selectionRegion.x;
-                int y1 = selectionRegion.y;
-                int x2 = x1 + selectionRegion.width;
-                int y2 = y1 + selectionRegion.height;
-                int minX = Math.min(x1, x2);
-                int maxX = Math.max(x1, x2);
-                int minY = Math.min(y1, y2);
-                int maxY = Math.max(y1, y2);
-
-                if (model != null && model.getTables() != null) {
-                  for (IDvTable table : model.getTables()) {
-                    if (isTableInLassoScreenRect(table, minX, minY, maxX, maxY)) {
-                      table.setSelected(true);
-                    }
-                  }
-                }
-
-                selectionRegion = null;
-                canvas.setData("mode", "null");
-                setCursor(null);
-                avoidContextDialog = true;
-                redraw();
-                updateGui();
-                lastButton = 0;
-                return;
-              }
-            }
-
-            if (e.button == 1) {
-              if (iconDragCommitted || dragSelection) {
-                // end table drag (moves were applied live during mouseMove)
-                if (model != null) {
-                  model.setChanged();
-                }
-                clearTableDragState();
-                avoidContextDialog = false;
-                redraw();
-                return;
-              }
-
-              Point realClick = screen2real(e.x, e.y);
-              if (lastClick != null && lastClick.x == realClick.x && lastClick.y == realClick.y) {
-                // pure click (no drag)
-                IDvTable hit = findTableAtScreen(e.x, e.y);
-                if (hit == null) {
-                  if (!avoidContextDialog) {
-                    Point real = screen2real(e.x, e.y);
-                    showVaultContextDialog(e, real);
-                  } else {
-                    avoidContextDialog = false;
-                  }
-                } else {
-                  AreaOwner areaOwner = getVisibleAreaOwner(e.x, e.y);
-                  if (areaOwner != null
-                      && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_ICON) {
-                    boolean control = (e.stateMask & SWT.MOD1) != 0;
-                    if (control) {
-                      hit.setSelected(!hit.isSelected());
-                      redraw();
-                    } else {
-                      showTableContextDialog(e, hit);
-                    }
-                  }
-                  avoidContextDialog = false;
-                }
-              } else {
-                // moved without committing drag
-                clearTableDragState();
-                avoidContextDialog = false;
-              }
-            } else if (avoidContextDialog) {
-              avoidContextDialog = false;
-            }
-
-            // In case a lasso was left (defensive)
-            if (selectionRegion != null) {
-              selectionRegion = null;
-              setCursor(null);
-            }
-
-            lastButton = 0;
-          }
-
-          @Override
-          public void mouseDoubleClick(MouseEvent e) {
-            IDvTable hit = findTableAtScreen(e.x, e.y);
-            if (hit != null) {
-              editTable(hit);
-            }
-            clearTableDragState();
-            clearLasso();
-          }
-        });
-
-    // Separate move listener (our SWT MouseAdapter only covers MouseListener, not
-    // MouseMoveListener)
-    canvas.addMouseMoveListener(
-        new MouseMoveListener() {
-          @Override
-          public void mouseMove(MouseEvent e) {
-            boolean doRedraw = false;
-            if (startRelationshipTable != null) {
-              relationshipDragEndLocation = new Point(e.x, e.y);
-              candidateRelationshipTarget = findTableAtScreen(e.x, e.y);
-              doRedraw = true;
-            }
-
-            // Table drag move (left button on body after threshold)
-            if (currentTable != null
-                && (e.stateMask & SWT.BUTTON1) != 0
-                && startRelationshipTable == null) {
-              if (iconOffset == null) {
-                iconOffset = new Point(0, 0);
-              }
-              Point real = screen2real(e.x, e.y);
-              Point icon = new Point(real.x - iconOffset.x, real.y - iconOffset.y);
-
-              if (!iconDragCommitted && iconDragStartScreen != null) {
-                int dxs = e.x - iconDragStartScreen.x;
-                int dys = e.y - iconDragStartScreen.y;
-                int threshSq = ICON_DRAG_THRESHOLD_PX * ICON_DRAG_THRESHOLD_PX;
-                if (dxs * dxs + dys * dys > threshSq) {
-                  iconDragCommitted = true;
-                  dragSelection = true;
-                  doRedraw = true;
-                }
-              }
-
-              if (iconDragCommitted) {
-                if (currentTable != null && !currentTable.isSelected()) {
-                  unselectAllTables();
-                  currentTable.setSelected(true);
-                  Point p = currentTable.getLocation();
-                  previousTableLocations =
-                      new Point[] {p != null ? new Point(p.x, p.y) : new Point(0, 0)};
-                  doRedraw = true;
-                }
-                int dx = icon.x - currentTable.getLocation().x;
-                int dy = icon.y - currentTable.getLocation().y;
-                moveSelectedTables(dx, dy);
-                doRedraw = true;
-              }
-            }
-
-            // Update lasso rubber band if active (bg left drag)
-            if (selectionRegion != null
-                && (e.stateMask & SWT.BUTTON1) != 0
-                && startRelationshipTable == null) {
-              selectionRegion.width = e.x - selectionRegion.x;
-              selectionRegion.height = e.y - selectionRegion.y;
-              doRedraw = true;
-            }
-
-            if (selectionRegion != null && mouseOverTableName != null) {
-              mouseOverTableName = null;
-              doRedraw = true;
-            }
-
-            // Update mouse-over for table name underline (only on name area, not during
-            // drag/rel/lasso)
-            AreaOwner areaOwner = getVisibleAreaOwner(e.x, e.y);
-
-            // Show description tooltip when hovering over the info icon (if present for the table)
-            if (areaOwner != null
-                && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_INFO_ICON) {
-              IDvTable t = null;
-              Object o = areaOwner.getOwner();
-              if (o instanceof IDvTable tt) {
-                t = tt;
-              } else if (areaOwner.getParent() instanceof IDvTable tt) {
-                t = tt;
-              }
-              String tip =
-                  (t != null && !Utils.isEmpty(t.getDescription())) ? t.getDescription() : null;
-              if (!java.util.Objects.equals(canvas.getToolTipText(), tip)) {
-                canvas.setToolTipText(tip);
-              }
-            } else if (canvas.getToolTipText() != null) {
-              canvas.setToolTipText(null);
-            }
-
-            String newOver = null;
-            if (areaOwner != null
-                && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_NAME
-                && startRelationshipTable == null
-                && !dragSelection
-                && selectionRegion == null) {
-              newOver = (String) areaOwner.getOwner();
-            }
-            if ((mouseOverTableName == null && newOver != null)
-                || (mouseOverTableName != null && !mouseOverTableName.equals(newOver))) {
-              doRedraw = true;
-            }
-            mouseOverTableName = newOver;
-
-            if (doRedraw) {
-              redraw();
-              updateGui();
-            }
-          }
-        });
+    canvas.addListener(SWT.MouseDown, this::mouseDownEvent);
+    canvas.addListener(SWT.MouseUp, this::mouseUpEvent);
+    canvas.addListener(SWT.MouseMove, this::mouseMoveEvent);
 
     // Track listener to clear tooltips (and hover state) when mouse leaves the canvas area.
     canvas.addMouseTrackListener(
@@ -565,6 +232,436 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
 
     // Ensure layout
     layout(true, true);
+  }
+
+  private void mouseMoveEvent(Event e) {
+    // Live panning via navigation viewport drag (dragging the blue rect in the minimap)
+    if (navigatingWithViewport
+        && (e.stateMask & SWT.BUTTON1) != 0
+        && viewPort != null
+        && graphPort != null
+        && lastNavigationScale > 0.0) {
+      mouseMoveViewport(e);
+      return;
+    }
+
+    boolean doRedraw = false;
+    if (startRelationshipTable != null) {
+      relationshipDragEndLocation = new Point(e.x, e.y);
+      candidateRelationshipTarget = findTableAtScreen(e.x, e.y);
+      doRedraw = true;
+    }
+
+    // Table drag move (left button on body after threshold)
+    if (currentTable != null
+        && (e.stateMask & SWT.BUTTON1) != 0
+        && startRelationshipTable == null) {
+      doRedraw = mouseMoveTable(e, doRedraw);
+    }
+
+    // Update lasso rubber band if active (bg left drag)
+    if (selectionRegion != null
+        && (e.stateMask & SWT.BUTTON1) != 0
+        && startRelationshipTable == null) {
+      selectionRegion.width = e.x - selectionRegion.x;
+      selectionRegion.height = e.y - selectionRegion.y;
+      doRedraw = true;
+    }
+
+    if (selectionRegion != null && mouseOverTableName != null) {
+      mouseOverTableName = null;
+      doRedraw = true;
+    }
+
+    // Update mouse-over for table name underline (only on name area, not during
+    // drag/rel/lasso)
+    AreaOwner areaOwner = getVisibleAreaOwner(e.x, e.y);
+
+    // Show description tooltip when hovering over the info icon (if present for the table)
+    mouseMoveShowInfoTooltip(areaOwner);
+
+    doRedraw = mouseMoveOverTableName(areaOwner, doRedraw);
+
+    if (doRedraw) {
+      redraw();
+      updateGui();
+    }
+  }
+
+  private boolean mouseMoveOverTableName(AreaOwner areaOwner, boolean doRedraw) {
+    String newOver = null;
+    if (areaOwner != null
+        && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_NAME
+        && startRelationshipTable == null
+        && !dragSelection
+        && selectionRegion == null) {
+      newOver = (String) areaOwner.getOwner();
+    }
+    if ((mouseOverTableName == null && newOver != null)
+        || (mouseOverTableName != null && !mouseOverTableName.equals(newOver))) {
+      doRedraw = true;
+    }
+    mouseOverTableName = newOver;
+    return doRedraw;
+  }
+
+  private void mouseMoveShowInfoTooltip(AreaOwner areaOwner) {
+    if (areaOwner != null && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_INFO_ICON) {
+      IDvTable t = null;
+      Object o = areaOwner.getOwner();
+      if (o instanceof IDvTable tt) {
+        t = tt;
+      } else if (areaOwner.getParent() instanceof IDvTable tt) {
+        t = tt;
+      }
+      String tip = (t != null && !Utils.isEmpty(t.getDescription())) ? t.getDescription() : null;
+      if (!java.util.Objects.equals(canvas.getToolTipText(), tip)) {
+        canvas.setToolTipText(tip);
+      }
+    } else if (canvas.getToolTipText() != null) {
+      canvas.setToolTipText(null);
+    }
+  }
+
+  private boolean mouseMoveTable(Event e, boolean doRedraw) {
+    if (iconOffset == null) {
+      iconOffset = new Point(0, 0);
+    }
+    Point real = screen2real(e.x, e.y);
+    Point icon = new Point(real.x - iconOffset.x, real.y - iconOffset.y);
+
+    if (!iconDragCommitted && iconDragStartScreen != null) {
+      int dxs = e.x - iconDragStartScreen.x;
+      int dys = e.y - iconDragStartScreen.y;
+      int threshSq = ICON_DRAG_THRESHOLD_PX * ICON_DRAG_THRESHOLD_PX;
+      if (dxs * dxs + dys * dys > threshSq) {
+        iconDragCommitted = true;
+        dragSelection = true;
+        doRedraw = true;
+      }
+    }
+
+    if (iconDragCommitted && currentTable != null && !currentTable.isSelected()) {
+      unselectAllTables();
+      currentTable.setSelected(true);
+      int dx = icon.x - currentTable.getLocation().x;
+      int dy = icon.y - currentTable.getLocation().y;
+      moveSelectedTables(dx, dy);
+      doRedraw = true;
+    }
+    return doRedraw;
+  }
+
+  private void mouseMoveViewport(Event e) {
+    int desiredLeft = e.x - navigationGrabOffset.x;
+    int desiredTop = e.y - navigationGrabOffset.y;
+
+    Rectangle gp = graphPort;
+    int vw = viewPort.width;
+    int vh = viewPort.height;
+
+    // Clamp the view rect so it stays fully inside the graphPort (minimap content rect)
+    int minL = gp.x;
+    int minT = gp.y;
+    int maxL = gp.x + gp.width - vw;
+    int maxT = gp.y + gp.height - vh;
+    if (maxL < minL) maxL = minL;
+    if (maxT < minT) maxT = minT;
+
+    int clampedLeft = Math.max(minL, Math.min(desiredLeft, maxL));
+    int clampedTop = Math.max(minT, Math.min(desiredTop, maxT));
+
+    // Map the clamped view rect position back to graph visible area using the captured
+    // navigation transform (same math as painter used to place the view rect).
+    double newVisLeft = (clampedLeft - lastNavigationGraphOriginX) / lastNavigationScale;
+    double newVisTop = (clampedTop - lastNavigationGraphOriginY) / lastNavigationScale;
+
+    int newOx = (int) Math.round(-newVisLeft);
+    int newOy = (int) Math.round(-newVisTop);
+
+    if (newOx != offset.x || newOy != offset.y) {
+      offset.x = newOx;
+      offset.y = newOy;
+      redraw();
+      updateGui();
+    }
+    return;
+  }
+
+  private void mouseUpEvent(Event e) {
+    canvas.setToolTipText(null);
+    Point real = screen2real(e.x, e.y);
+
+    if (navigatingWithViewport) {
+      // End viewport drag panning. State is cleared; the final offset was already applied
+      // live during mouseMove (and will be reflected on next paint's port recompute).
+      navigatingWithViewport = false;
+      navigationGrabOffset = null;
+      avoidContextDialog = true;
+      redraw();
+      return;
+    }
+
+    // A single click on the background isn't a selection.
+    // We need to show the context dialog for the model.
+    //
+    if (startRelationshipTable == null && selectionRegion != null && selectionRegion.isEmpty()) {
+      avoidContextDialog = false;
+      selectionRegion = null;
+    }
+
+    if (startRelationshipTable != null) {
+      mouseUpCreateRelationship(e);
+      return;
+    } else if (selectionRegion != null) {
+      // Finish lasso drag: update final size
+      selectionRegion.width = real.x - selectionRegion.x;
+      selectionRegion.height = real.y - selectionRegion.y;
+
+      int absW = Math.abs(selectionRegion.width);
+      int absH = Math.abs(selectionRegion.height);
+
+      if (absW < ICON_DRAG_THRESHOLD_PX && absH < ICON_DRAG_THRESHOLD_PX) {
+        mouseUpClearSelectionRegion();
+        // fall through
+      } else {
+        mouseUpSelectTablesInRegion();
+        return;
+      }
+    }
+
+    if (e.button == 1) {
+      if (iconDragCommitted || dragSelection) {
+        // end table drag (moves were applied live during mouseMove)
+        if (model != null) {
+          model.setChanged();
+        }
+        clearTableDragState();
+        avoidContextDialog = false;
+        redraw();
+        return;
+      }
+
+      Point realClick = screen2real(e.x, e.y);
+      if (lastClick != null && lastClick.x == realClick.x && lastClick.y == realClick.y) {
+        // pure click (no drag)
+        IDvTable hit = findTableAtScreen(e.x, e.y);
+        if (hit == null) {
+          if (!avoidContextDialog) {
+            showVaultContextDialog(e, real);
+          } else {
+            avoidContextDialog = false;
+          }
+        } else {
+          AreaOwner areaOwner = getVisibleAreaOwner(e.x, e.y);
+          if (areaOwner != null && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_ICON) {
+            boolean control = (e.stateMask & SWT.MOD1) != 0;
+            if (control) {
+              hit.setSelected(!hit.isSelected());
+              redraw();
+            } else {
+              showTableContextDialog(e, hit);
+            }
+          }
+          avoidContextDialog = false;
+        }
+      } else {
+        // moved without committing drag
+        clearTableDragState();
+        avoidContextDialog = false;
+      }
+    } else if (avoidContextDialog) {
+      avoidContextDialog = false;
+    }
+
+    // In case a lasso was left (defensive)
+    if (selectionRegion != null) {
+      selectionRegion = null;
+      setCursor(null);
+    }
+  }
+
+  private void mouseUpClearSelectionRegion() {
+    // Essentially a click (not a drag), clear lasso and fall through so pure-click
+    // logic can show the background context dialog if appropriate.
+    selectionRegion = null;
+    canvas.setData("mode", "null");
+    setCursor(null);
+    redraw();
+  }
+
+  private void mouseUpSelectTablesInRegion() {
+    // Real lasso: select tables whose visual (screen) area overlaps the lasso rect.
+    int x1 = selectionRegion.x;
+    int y1 = selectionRegion.y;
+    int x2 = x1 + selectionRegion.width;
+    int y2 = y1 + selectionRegion.height;
+    int minX = Math.min(x1, x2);
+    int maxX = Math.max(x1, x2);
+    int minY = Math.min(y1, y2);
+    int maxY = Math.max(y1, y2);
+
+    if (model != null && model.getTables() != null) {
+      for (IDvTable table : model.getTables()) {
+        if (isTableInLassoScreenRect(table, minX, minY, maxX, maxY)) {
+          table.setSelected(true);
+        }
+      }
+    }
+
+    selectionRegion = null;
+    canvas.setData("mode", "null");
+    setCursor(null);
+    avoidContextDialog = true;
+    redraw();
+    updateGui();
+  }
+
+  private void mouseUpCreateRelationship(Event e) {
+    // Complete relationship drag if dropped on a different valid table
+    IDvTable target = findTableAtScreen(e.x, e.y);
+    if (target != null && target != startRelationshipTable) {
+      createRelationship(startRelationshipTable, target);
+    }
+    cancelRelationshipDrag();
+    clearTableDragState();
+    avoidContextDialog = true;
+    redraw();
+  }
+
+  private void mouseDownEvent(Event e) {
+    canvas.setToolTipText(null);
+    Point real = screen2real(e.x, e.y);
+    lastClick = new Point(real.x, real.y);
+    boolean shift = (e.stateMask & SWT.SHIFT) != 0;
+    boolean control = (e.stateMask & SWT.MOD1) != 0;
+
+    // Navigation viewport drag takes precedence: click+drag inside the blue viewPort rect
+    // (in the painter's bottom-right minimap) pans the main graph by updating offset.
+    // The painter keeps viewPort inside graphPort; we do the same here during live drag.
+    if (e.button == 1
+        && viewPort != null
+        && graphPort != null
+        && viewPort.contains(e.x, e.y)
+        && lastNavigationScale > 0.0) {
+      mouseDownOnViewport(e);
+      return;
+    }
+
+    AreaOwner areaOwner = getVisibleAreaOwner(real.x, real.y);
+    if (areaOwner!=null) {
+      System.out.println("Area owner mouseDown: " + areaOwner.getAreaType()+" : "+areaOwner.getOwner()+", Area="+areaOwner.getArea());
+    }
+    IDvTable hit = mouseDownFindTable(e, areaOwner);
+
+    if (hit != null) {
+      if (areaOwner != null && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_INFO_ICON) {
+        // Clicking the info icon (description badge) should not start a drag or open
+        // context menu.
+        // The description is already visible via tooltip on hover.
+        avoidContextDialog = true;
+        clearTableDragState();
+        return;
+      }
+
+      if (e.button == 2 || (e.button == 1 && shift)) {
+        // Middle button or Shift+Left: start dragging a relationship from this table
+        // (hub<->sat or hub<->link). Completion on mouseUp.
+        startRelationshipTable = hit;
+        relationshipDragEndLocation = new Point(e.x, e.y);
+        candidateRelationshipTarget = hit;
+        mouseOverTableName = null;
+        clearTableDragState();
+        clearSelectionRegion();
+        avoidContextDialog = true;
+        redraw();
+        return;
+      }
+      if (e.button == 1) {
+        if (areaOwner != null && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_NAME) {
+          // Left click on the (underlined) name: open edit dialog (hyperlink behavior)
+          editTable(hit);
+          avoidContextDialog = true;
+          return;
+        } else {
+          // Left click on table body/icon: setup drag (defer context/select to mouseUp if
+          // no drag)
+          currentTable = hit;
+          iconDragStartScreen = new Point(e.x, e.y);
+          iconDragCommitted = false;
+          Point p = hit.getLocation() != null ? hit.getLocation() : new Point(0, 0);
+          iconOffset = new Point(real.x - p.x, real.y - p.y);
+          clearSelectionRegion();
+          avoidContextDialog = true;
+          redraw();
+          return;
+        }
+      }
+    }
+
+    // Background click: cancel active relationship drag or table drag (like hop drag cancel
+    // on bg)
+    if (startRelationshipTable != null
+        || currentTable != null
+        || iconDragStartScreen != null
+        || selectionRegion != null) {
+      cancelRelationshipDrag();
+      clearTableDragState();
+      clearSelectionRegion();
+      avoidContextDialog = true;
+      redraw();
+      return;
+    }
+
+    // Start lasso (rubber-band) selection on left-click background drag.
+    // Unless CTRL is held, unselect all tables at start of lasso (per spec).
+    if (e.button == 1) {
+      if (!control) {
+        unselectAllTables();
+      }
+
+      selectionRegion = new Rectangle(real.x, real.y, 0, 0);
+      mouseOverTableName = null;
+      canvas.setData("mode", "select");
+      setCursor(getDisplay().getSystemCursor(SWT.CURSOR_CROSS));
+      avoidContextDialog = true;
+      redraw();
+      return;
+    }
+
+    redraw();
+  }
+
+  private @Nullable IDvTable mouseDownFindTable(Event e, AreaOwner areaOwner) {
+    IDvTable hit = null;
+    if (areaOwner != null) {
+      Object o = areaOwner.getOwner();
+      if (o instanceof IDvTable t) {
+        hit = t;
+      } else if (areaOwner.getParent() instanceof IDvTable t) {
+        hit = t;
+      }
+    }
+    if (hit == null) {
+      hit = findTableAtScreen(e.x, e.y); // fallback e.g. for relationship start
+    }
+    return hit;
+  }
+
+  private void mouseDownOnViewport(Event e) {
+    // Clear the other options
+    //
+    avoidContextDialog = true;
+    cancelRelationshipDrag();
+    clearTableDragState();
+    clearSelectionRegion();
+
+    // Retain the viewport and flag
+    //
+    navigatingWithViewport = true;
+    navigationGrabOffset = new Point(e.x - viewPort.x, e.y - viewPort.y);
+
+    redraw();
   }
 
   public static HopGuiVaultGraph getInstance() {
@@ -607,115 +704,74 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     }
   }
 
-  private void drawVaultModel(GC eventGc) {
-    if (model == null) {
-      return;
+  private void paintControl(PaintEvent e) {
+    Point area = getArea();
+    if (area.x == 0 || area.y == 0 || model==null) {
+      return; // nothing to do!
     }
-
-    int width = canvas.getBounds().width;
-    int height = canvas.getBounds().height;
-    GC swtGc = eventGc;
 
     // Do double buffering to prevent flickering on Windows
     //
     boolean needsDoubleBuffering =
         Const.isWindows() && "GUI".equalsIgnoreCase(Const.getHopPlatformRuntime());
+
     Image image = null;
+    GC swtGc = e.gc;
+
     if (needsDoubleBuffering) {
-      image = new Image(hopGui.getDisplay(), width, height);
+      image = new Image(hopGui.getDisplay(), area.x, area.y);
       swtGc = new GC(image);
     }
 
-    // Use SwtGc wrapper for IGc
-    SwtGc gc = null;
-    try {
-      gc = new SwtGc(swtGc, width, height, PropsUi.getInstance().getIconSize());
-      PropsUi propsUi = PropsUi.getInstance();
+    drawVaultModelImage(swtGc, area.x, area.y);
 
-      areaOwners.clear();
+    if (needsDoubleBuffering) {
+      // Draw the image onto the canvas and get rid of the resources
+      //
+      e.gc.drawImage(image, 0, 0);
+      swtGc.dispose();
+      image.dispose();
+    }
+  }
+
+  private void drawVaultModelImage(GC swtGc, int width, int height) {
+    PropsUi propsUi = PropsUi.getInstance();
+    IGc gc = new SwtGc(swtGc, width, height, propsUi.getIconSize());
+    Point area = new Point(canvas.getBounds().width, canvas.getBounds().height);
+    maximum = model.getMaximum();
+
+    try {
       DataVaultModelPainter painter =
-          new DataVaultModelPainter(
-              model,
-              gc,
-              variables,
-              width,
-              height,
-              propsUi.isShowCanvasGridEnabled() ? propsUi.getCanvasGridSize() : 1,
-              (float) PropsUi.getInstance().getZoomFactor(),
-              (float) (magnification * PropsUi.getNativeZoomFactor()),
-              offset,
-              selectionRegion,
-              areaOwners,
-              mouseOverTableName);
-      painter.setShowingNavigationView(!PropsUi.getInstance().isHideViewportEnabled());
+          new DataVaultModelPainter(model, gc, variables, area.x, area.y);
+      painter.setGridSize(propsUi.isShowCanvasGridEnabled() ? propsUi.getCanvasGridSize() : 1);
+      painter.setZoomFactor((float) propsUi.getZoomFactor());
+      painter.setMagnification((float) (magnification * PropsUi.getNativeZoomFactor()));
+      painter.setOffset(offset);
+      painter.setSelectionRegion(selectionRegion);
+      painter.setAreaOwners(areaOwners);
+      painter.setMouseOverTableName(mouseOverTableName);
+      painter.setShowingNavigationView(!propsUi.isHideViewportEnabled());
       painter.setMaximum(model.getMaximum());
 
       // Pass current (if any) relationship drag state so painter can render the candidate line
       // (in logical coords, before tables).
       painter.setRelationshipDragInfo(
           startRelationshipTable, relationshipDragEndLocation, candidateRelationshipTarget);
-      painter.draw();
 
-      // Draw lasso (rubber-band selection rect) if active. Draw directly on the raw SWT GC
-      // in screen coordinates (after resetting transform) so the dashed rect is independent
-      // of current zoom/pan and follows the mouse drag 1:1.
-      if (selectionRegion != null) {
-        drawLasso(swtGc);
-      }
+      painter.drawDataVaultModel();
 
-      if (needsDoubleBuffering) {
-        // Draw the image onto the canvas and get rid of the resources
-        //
-        eventGc.drawImage(image, 0, 0);
-        swtGc.dispose();
-        image.dispose();
-      }
-    } catch (Exception e) {
-      // Log error, draw message
-      eventGc.drawText("Error drawing model: " + e.getMessage(), 10, 10);
+      // Capture navigation view geometry (if enabled) so mouseDown/Move can implement panning by
+      // dragging inside the viewport rectangle of the minimap.
+      graphPort = painter.getGraphPort();
+      viewPort = painter.getViewPort();
+      lastNavigationScale = painter.getNavigationScale();
+      lastNavigationGraphOriginX = painter.getNavigationGraphOriginX();
+      lastNavigationGraphOriginY = painter.getNavigationGraphOriginY();
+
+      CanvasFacade.setData(canvas, magnification, offset, model);
     } finally {
-      if (gc != null) {
-        gc.dispose();
-      }
+      gc.dispose();
     }
-  }
-
-  /**
-   * Draw the current lasso selection rectangle as a dashed rubber-band on the raw SWT GC. Must be
-   * called with screen-space coordinates; resets transform to identity before drawing.
-   */
-  private void drawLasso(GC gc) {
-    if (selectionRegion == null || gc == null || gc.isDisposed()) {
-      return;
-    }
-    // Force identity so coords are absolute screen pixels (lasso is always screen-based)
-    gc.setTransform(null);
-    gc.setLineStyle(SWT.LINE_DASH);
-    gc.setLineWidth(1);
-    if (canvas != null && !canvas.isDisposed()) {
-      gc.setForeground(canvas.getDisplay().getSystemColor(SWT.COLOR_BLACK));
-    } else {
-      gc.setForeground(getDisplay().getSystemColor(SWT.COLOR_BLACK));
-    }
-
-    int x = selectionRegion.x;
-    int y = selectionRegion.y;
-    int w = selectionRegion.width;
-    int h = selectionRegion.height;
-    // Normalize negative extents (user dragged left/up) so drawRectangle gets +w +h
-    if (w < 0) {
-      x = x + w;
-      w = -w;
-    }
-    if (h < 0) {
-      y = y + h;
-      h = -h;
-    }
-    gc.drawRectangle(x, y, w, h);
-
-    // Restore default style/width
-    gc.setLineStyle(SWT.LINE_SOLID);
-    gc.setLineWidth(1);
   }
 
   @Override
@@ -752,12 +808,13 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       id = TOOLBAR_ITEM_ZOOM_IN,
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.ZoomIn.Tooltip",
       image = "ui/images/zoom-in.svg")
+  @Override
   public void zoomIn() {
     magnification += 0.1f;
     if (magnification > 10f) {
       magnification = 10f;
     }
-    clearLasso();
+    clearSelectionRegion();
     setZoomLabel();
     redraw();
   }
@@ -767,12 +824,13 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       id = TOOLBAR_ITEM_ZOOM_OUT,
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.ZoomOut.Tooltip",
       image = "ui/images/zoom-out.svg")
+  @Override
   public void zoomOut() {
     magnification -= 0.1f;
     if (magnification < 0.1f) {
       magnification = 0.1f;
     }
-    clearLasso();
+    clearSelectionRegion();
     setZoomLabel();
     redraw();
   }
@@ -782,9 +840,10 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       id = TOOLBAR_ITEM_ZOOM_100,
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.Zoom100.Tooltip",
       image = "ui/images/zoom-100.svg")
+  @Override
   public void zoom100Percent() {
     magnification = 1.0f;
-    clearLasso();
+    clearSelectionRegion();
     setZoomLabel();
     redraw();
   }
@@ -801,7 +860,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
         || canvas == null
         || canvas.isDisposed()) {
       magnification = 1.0f;
-      clearLasso();
+      clearSelectionRegion();
       setZoomLabel();
       redraw();
       return;
@@ -813,7 +872,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       // not laid out yet, use defaults
       canvasW = 800;
       canvasH = 600;
-      clearLasso();
+      clearSelectionRegion();
     }
 
     int minX = Integer.MAX_VALUE;
@@ -850,7 +909,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       if (magnification < 0.1f) magnification = 0.1f;
     }
     setZoomLabel();
-    clearLasso();
+    clearSelectionRegion();
     redraw();
   }
 
@@ -904,23 +963,27 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       // target)
       Timestamp loadDate = Timestamp.from(Instant.now());
 
-      PipelineMeta pipelineMeta =
-          table.generateUpdatePipeline(
+      List<PipelineMeta> pipelineMetas =
+          table.generateUpdatePipelines(
               hopGui.getMetadataProvider(), hopGui.getVariables(), model, loadDate);
-      if (pipelineMeta == null) {
+      if (pipelineMetas == null || pipelineMetas.isEmpty()) {
         return;
       }
 
-      // Serialize to XML and back before opening.
-      // This ensures the transforms are loaded via the Hop plugin registry / proper classloaders
-      // (instead of direct compile-time classes) which prevents class loading issues when
-      // opening e.g. the Table Input transform dialog in the generated pipeline.
-      String xml = pipelineMeta.getXml(hopGui.getVariables());
-      Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
-      PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
+      for (PipelineMeta pipelineMeta : pipelineMetas) {
+        if (pipelineMeta == null) continue;
 
-      // Open in HopGui (not saved)
-      HopGui.getExplorerPerspective().addPipeline(reloaded);
+        // Serialize to XML and back before opening.
+        // This ensures the transforms are loaded via the Hop plugin registry / proper classloaders
+        // (instead of direct compile-time classes) which prevents class loading issues when
+        // opening e.g. the Table Input transform dialog in the generated pipeline.
+        String xml = pipelineMeta.getXml(hopGui.getVariables());
+        Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
+        PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
+
+        // Open in HopGui (not saved). For multi-source hubs we open one per source.
+        HopGui.getExplorerPerspective().addPipeline(reloaded);
+      }
     } catch (Exception e) {
       new ErrorDialog(
           hopGui.getShell(), "Error", "Error generating debug pipeline for '" + tableName + "'", e);
@@ -997,7 +1060,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       return;
     }
     DvLink link = new DvLink(getUniqueTableNameFromModel("Link", realModel));
-    PropsUi.setLocation(link, click != null ? click.x : 50, click != null ? click.y : 50);
+    PropsUi.setLocation(link, click.x, click.y);
     realModel.getTables().add(link);
     realModel.setChanged();
     realGraph.redraw();
@@ -1132,10 +1195,8 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     }
     String possibleText = zoomLabel.getText().replace("%", "");
 
-    float oldMagnification = magnification;
     try {
-      float possibleFloatMagnification = Float.parseFloat(possibleText) / 100;
-      magnification = possibleFloatMagnification;
+      magnification = Float.parseFloat(possibleText) / 100;
       if (zoomLabel.getText().indexOf('%') < 0) {
         zoomLabel.setText(zoomLabel.getText().concat("%"));
       }
@@ -1144,29 +1205,18 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     }
 
     // factor for future scroll adjustments (not used yet)
-    float factor = magnification / oldMagnification;
-    clearLasso();
+
+    clearSelectionRegion();
     // no-op for now
   }
 
   // --- Context menu / click handling support ---
 
-  private float getCorrectedMagnification() {
-    return (float) (magnification * PropsUi.getInstance().getZoomFactor());
-  }
-
-  private Point screen2real(int x, int y) {
-    float m = getCorrectedMagnification();
-    if (m <= 0) {
-      return new Point(x - offset.x, y - offset.y);
-    }
-    return new Point((int) ((x - offset.x) / m), (int) ((y - offset.y) / m));
-  }
-
   private IDvTable findTableAtScreen(int screenX, int screenY) {
     if (model == null || model.getTables() == null) {
       return null;
     }
+    float cMag = calculateCorrectedMagnification();
     for (IDvTable table : model.getTables()) {
       Point loc = table.getLocation();
       if (loc == null) {
@@ -1174,16 +1224,16 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       }
       // Since setTransform handles mag/pan, visual positions are approx (loc * mag + offset)
       // Box sizes (drawnBox) are now in logical units, so visual size = logical * mag
-      int sx = (int) (loc.x * getCorrectedMagnification()) + offset.x;
-      int sy = (int) (loc.y * getCorrectedMagnification()) + offset.y;
+      int sx = (int) (loc.x * cMag + offset.x);
+      int sy = (int) (loc.y * cMag + offset.y);
       int tw = 140;
       int th = 70;
       if (table instanceof DvTableBase base) {
         if (base.getDrawnBoxWidth() > 0) tw = base.getDrawnBoxWidth();
         if (base.getDrawnBoxHeight() > 0) th = base.getDrawnBoxHeight();
       }
-      int sw = (int) (tw * getCorrectedMagnification());
-      int sh = (int) (th * getCorrectedMagnification());
+      int sw = (int) (tw * cMag);
+      int sh = (int) (th * cMag);
       if (screenX >= sx && screenX < sx + sw && screenY >= sy && screenY < sy + sh) {
         return table;
       }
@@ -1211,15 +1261,13 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
       if (base.getDrawnBoxWidth() > 0) tw = base.getDrawnBoxWidth();
       if (base.getDrawnBoxHeight() > 0) th = base.getDrawnBoxHeight();
     }
-    int sx = (int) (loc.x * getCorrectedMagnification()) + offset.x;
-    int sy = (int) (loc.y * getCorrectedMagnification()) + offset.y;
-    int sw = Math.max(1, (int) (tw * getCorrectedMagnification()));
-    int sh = Math.max(1, (int) (th * getCorrectedMagnification()));
+    int tMinX = (int) (loc.x + offset.x);
+    int tMinY = (int) (loc.y + offset.y);
+    int sw = Math.max(1, tw);
+    int sh = Math.max(1, th);
 
-    int tMinX = sx;
-    int tMaxX = sx + sw;
-    int tMinY = sy;
-    int tMaxY = sy + sh;
+    int tMaxX = tMinX + sw;
+    int tMaxY = tMinY + sh;
 
     // Overlap test (intersection, not strict containment): select the table if its visual area
     // touches the lasso rect at all. This is practical for lasso selection.
@@ -1261,27 +1309,18 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     return list;
   }
 
-  private Point[] getSelectedTableLocations() {
-    List<IDvTable> sel = getSelectedTables();
-    Point[] locs = new Point[sel.size()];
-    for (int i = 0; i < sel.size(); i++) {
-      Point p = sel.get(i).getLocation();
-      locs[i] = (p != null) ? new Point(p.x, p.y) : new Point(0, 0);
-    }
-    return locs;
-  }
-
   private void clearTableDragState() {
     iconDragStartScreen = null;
     iconDragCommitted = false;
     dragSelection = false;
     iconOffset = null;
-    previousTableLocations = null;
     currentTable = null;
-    clearLasso();
+    navigatingWithViewport = false;
+    navigationGrabOffset = null;
+    clearSelectionRegion();
   }
 
-  private void clearLasso() {
+  private void clearSelectionRegion() {
     selectionRegion = null;
     if (canvas != null && !canvas.isDisposed()) {
       canvas.setToolTipText(null);
@@ -1325,14 +1364,14 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     boolean changed = false;
     Shell parentShell = getShell();
     if (table.getTableType() == DvTableType.HUB) {
-      HopGuiHubDialog dialog = new HopGuiHubDialog(parentShell, hopGui, (DvHub) table);
+      DvHubDialog dialog = new DvHubDialog(parentShell, hopGui, (DvHub) table);
       changed = dialog.open();
     } else if (table.getTableType() == DvTableType.SATELLITE) {
-      HopGuiSatelliteDialog dialog =
-          new HopGuiSatelliteDialog(parentShell, hopGui, (DvSatellite) table);
+      DvSatelliteDialog dialog =
+          new DvSatelliteDialog(parentShell, hopGui, (DvSatellite) table);
       changed = dialog.open();
     } else if (table.getTableType() == DvTableType.LINK) {
-      HopGuiLinkDialog dialog = new HopGuiLinkDialog(parentShell, hopGui, (DvLink) table);
+      DvLinkDialog dialog = new DvLinkDialog(parentShell, hopGui, (DvLink) table);
       changed = dialog.open();
     }
     if (changed) {
@@ -1364,8 +1403,10 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     startRelationshipTable = null;
     relationshipDragEndLocation = null;
     candidateRelationshipTarget = null;
+    navigatingWithViewport = false;
+    navigationGrabOffset = null;
     clearTableDragState();
-    clearLasso();
+    clearSelectionRegion();
     if (canvas != null && !canvas.isDisposed()) {
       canvas.setData("mode", "null");
     }
@@ -1447,7 +1488,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
    * Draw a temporary dashed line from the center of the source table to the current mouse position
    * while dragging a relationship. Uses screen coordinates (overlay after painter).
    */
-  private void showVaultContextDialog(MouseEvent e, Point real) {
+  private void showVaultContextDialog(Event e, Point real) {
     try {
       Shell parent = getShell();
       org.eclipse.swt.graphics.Point p = parent.getDisplay().map(canvas, null, e.x, e.y);
@@ -1461,7 +1502,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     }
   }
 
-  private void showTableContextDialog(MouseEvent e, IDvTable table) {
+  private void showTableContextDialog(Event e, IDvTable table) {
     if (table == null) return;
     try {
       Point real = screen2real(e.x, e.y);
@@ -1610,7 +1651,7 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
   @Override
   public void unselectAll() {
     unselectAllTables();
-    clearLasso();
+    clearSelectionRegion();
     redraw();
   }
 
@@ -1693,17 +1734,37 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
 
   @Override
   public void applyStateProperties(Map<String, Object> stateProperties) {
-    Object mag = stateProperties.get("magnification");
-    if (mag != null) {
-      magnification = ((Number) mag).floatValue();
+    Double fMagnification = (Double) stateProperties.get(STATE_MAGNIFICATION);
+    magnification = fMagnification == null ? 1.0f : fMagnification.floatValue();
+    setZoomLabel();
+
+    // Offsets used to be integers so don't automatically map to Double.
+    //
+    Object xOffset = stateProperties.get(STATE_SCROLL_X_SELECTION);
+    if (xOffset != null) {
+      offset.x = Double.parseDouble(xOffset.toString());
     }
-    Object ox = stateProperties.get("offsetX");
-    Object oy = stateProperties.get("offsetY");
-    if (ox != null && oy != null) {
-      offset = new Point(((Number) ox).intValue(), ((Number) oy).intValue());
+    Object yOffset = stateProperties.get(STATE_SCROLL_Y_SELECTION);
+    if (yOffset != null) {
+      offset.y = Double.parseDouble(yOffset.toString());
     }
     redraw();
-    setZoomLabel();
+  }
+
+  int[] getSelectedTableIndices(List<IDvTable> selection) {
+    int[] indices = new int[selection.size()];
+    for (int i = 0; i < indices.length; i++) {
+      indices[i] = model.getTables().indexOf(selection.get(i));
+    }
+    return indices;
+  }
+
+  @Override
+  public SnapAllignDistribute createSnapAlignDistribute() {
+    List<IDvTable> selection = getSelectedTables();
+    int[] indices = getSelectedTableIndices(selection);
+
+    return new SnapAllignDistribute(model, selection, indices, hopGui.undoDelegate, this);
   }
 
   @Override
@@ -1721,22 +1782,16 @@ public class HopGuiVaultGraph extends Composite implements IHopFileTypeHandler, 
     return new ArrayList<>(); // basic, no extra
   }
 
-  // Getters for model etc.
-  public DataVaultModel getModel() {
-    return model;
-  }
-
   public void setModel(DataVaultModel model) {
     cancelRelationshipDrag();
     clearTableDragState();
-    clearLasso();
+    clearSelectionRegion();
     areaOwners.clear();
     mouseOverTableName = null;
     if (canvas != null && !canvas.isDisposed()) {
       canvas.setToolTipText(null);
     }
     lastClick = null;
-    lastButton = 0;
     this.model = model;
     redraw();
   }

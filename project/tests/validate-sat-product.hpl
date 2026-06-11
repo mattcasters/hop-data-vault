@@ -19,12 +19,10 @@
     <name>sat_product</name>
     <sql>SELECT
   product_hk
-, product_id
 , product_name
 , category
 , unit_price
 , load_date
-, record_source
 , x_record_source
 , x_load_ts
 FROM sat_product

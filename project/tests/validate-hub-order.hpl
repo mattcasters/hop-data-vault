@@ -19,7 +19,6 @@
     <name>hub_order</name>
     <sql>SELECT
   order_hk
-, order_id
 , x_record_source
 , x_load_ts
 FROM hub_order

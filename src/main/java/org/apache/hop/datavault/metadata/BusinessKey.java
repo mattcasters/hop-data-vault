@@ -17,16 +17,20 @@
 
 package org.apache.hop.datavault.metadata;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 
 /**
- * Definition of a single business key component within a Hub.
- * Hubs can have composite business keys (multiple parts).
+ * Definition of a single business key component within a Hub. Hubs can have composite business keys
+ * (multiple parts).
  */
 @GuiPlugin
+@Getter
+@Setter
 public class BusinessKey {
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_BUSINESS_KEY_DIALOG";
@@ -68,6 +72,15 @@ public class BusinessKey {
   private String length;
 
   @GuiWidgetElement(
+      order = "0450",
+      type = GuiElementType.TEXT,
+      label = "i18n::BusinessKey.Precision.Label",
+      toolTip = "i18n::BusinessKey.Precision.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String precision;
+
+  @GuiWidgetElement(
       order = "0500",
       type = GuiElementType.TEXT,
       label = "i18n::BusinessKey.SourceFieldName.Label",
@@ -76,49 +89,18 @@ public class BusinessKey {
   @HopMetadataProperty
   private String sourceFieldName;
 
+  @GuiWidgetElement(
+      order = "0600",
+      type = GuiElementType.TEXT,
+      label = "i18n::BusinessKey.SourceSystem.Label",
+      toolTip = "i18n::BusinessKey.SourceSystem.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String recordSourceName;
+
   public BusinessKey() {}
 
   public BusinessKey(String name) {
     this.name = name;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public void setName(String name) {
-    this.name = name;
-  }
-
-  public String getDescription() {
-    return description;
-  }
-
-  public void setDescription(String description) {
-    this.description = description;
-  }
-
-  public String getDataType() {
-    return dataType;
-  }
-
-  public void setDataType(String dataType) {
-    this.dataType = dataType;
-  }
-
-  public String getLength() {
-    return length;
-  }
-
-  public void setLength(String length) {
-    this.length = length;
-  }
-
-  public String getSourceFieldName() {
-    return sourceFieldName;
-  }
-
-  public void setSourceFieldName(String sourceFieldName) {
-    this.sourceFieldName = sourceFieldName;
   }
 }

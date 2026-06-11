@@ -17,6 +17,8 @@
 
 package org.apache.hop.datavault.metadata;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
@@ -24,8 +26,7 @@ import org.apache.hop.core.row.value.ValueMetaBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 
 /**
- * Definition of a single field (column) in the expected row layout coming from a Data Vault
- * Source.
+ * Definition of a single field (column) in the expected row layout coming from a Data Vault Source.
  *
  * <p>This describes the source schema as seen by the Data Vault loading processes. It is
  * independent of the target DV physical model (hubs/sats will derive their columns from these
@@ -34,6 +35,8 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
  * <p>Used for all source types (Database, CSV, Parquet, ...).
  */
 @GuiPlugin
+@Getter
+@Setter
 public class SourceField {
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_SOURCE_FIELD_DIALOG";
@@ -105,61 +108,5 @@ public class SourceField {
 
   public SourceField(String name) {
     this.name = name;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public void setName(String name) {
-    this.name = name;
-  }
-
-  public String getDescription() {
-    return description;
-  }
-
-  public void setDescription(String description) {
-    this.description = description;
-  }
-
-  public String getSourceDataType() {
-    return sourceDataType;
-  }
-
-  public void setSourceDataType(String sourceDataType) {
-    this.sourceDataType = sourceDataType;
-  }
-
-  public String getLength() {
-    return length;
-  }
-
-  public void setLength(String length) {
-    this.length = length;
-  }
-
-  public String getPrecision() {
-    return precision;
-  }
-
-  public void setPrecision(String precision) {
-    this.precision = precision;
-  }
-
-  public boolean isPrimaryKey() {
-    return primaryKey;
-  }
-
-  public void setPrimaryKey(boolean primaryKey) {
-    this.primaryKey = primaryKey;
-  }
-
-  public int getHopType() {
-    return hopType;
-  }
-
-  public void setHopType(int hopType) {
-    this.hopType = hopType;
   }
 }

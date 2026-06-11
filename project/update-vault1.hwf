@@ -28,11 +28,11 @@
       <attributes_hac/>
     </action>
     <action>
-      <dataVaultModelFile>${PROJECT_HOME}/vault1.hdv</dataVaultModelFile>
+      <dataVaultModelFile>${PROJECT_HOME}/vault2.hdv</dataVaultModelFile>
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>N</logModelCheckFailures>
       <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
-      <name>update vault1.hdv</name>
+      <name>update vault2.hdv</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
@@ -208,13 +208,13 @@ DROP TABLE IF EXISTS "lnk_product_order";
     </hop>
     <hop>
       <from>Drop Vault tables</from>
-      <to>update vault1.hdv</to>
+      <to>update vault2.hdv</to>
       <evaluation>Y</evaluation>
       <unconditional>Y</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update vault1.hdv</from>
+      <from>update vault2.hdv</from>
       <to>Test hubs and sats</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>

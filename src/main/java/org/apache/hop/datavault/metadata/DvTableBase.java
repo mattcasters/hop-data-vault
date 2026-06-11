@@ -19,13 +19,16 @@ package org.apache.hop.datavault.metadata;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.changed.ChangedFlag;
-import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataBase;
@@ -38,23 +41,25 @@ import org.apache.hop.pipeline.PipelineMeta;
  * Common abstract base class for Data Vault 2.0 table definitions (Hub, Link, Satellite).
  *
  * <p>Provides shared properties that every DV table has:
+ *
  * <ul>
- *   <li>physical table name</li>
- *   <li>description</li>
- *   <li>record source</li>
+ *   <li>physical table name
+ *   <li>description
+ *   <li>record source
  * </ul>
  *
- * <p>Concrete classes (DvHub, DvLink, DvSatellite) extend this and add their specific
- * attributes (business keys, participating hubs, satellite columns, etc.).
+ * <p>Concrete classes (DvHub, DvLink, DvSatellite) extend this and add their specific attributes
+ * (business keys, participating hubs, satellite columns, etc.).
  *
- * <p>This base also implements {@link IDvTable} so that generic code can work with any
- * DV table type uniformly.
+ * <p>This base also implements {@link IDvTable} so that generic code can work with any DV table
+ * type uniformly.
  *
- * <p>Because IDvTable now extends IGuiPosition, IBaseMeta and IHasName, this
- * base provides the necessary fields and method implementations (including location support
- * via IGuiPosition) so that Hubs, Links and Satellites can be used as positionable elements
- * in a visual Data Vault modeler.
+ * <p>Because IDvTable now extends IGuiPosition, IBaseMeta and IHasName, this base provides the
+ * necessary fields and method implementations (including location support via IGuiPosition) so that
+ * Hubs, Links and Satellites can be used as positionable elements in a visual Data Vault modeler.
  */
+@Getter
+@Setter
 public abstract class DvTableBase extends HopMetadataBase implements IHopMetadata, IDvTable {
 
   private static final Class<?> PKG = DvTableBase.class;
@@ -68,32 +73,25 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
   @HopMetadataProperty(key = "tableName")
   protected String tableName;
 
-  @HopMetadataProperty
-  protected String description;
+  @HopMetadataProperty protected String description;
 
   /**
-   * Name of the referenced {@link DataVaultSource} metadata element (by name) to use as the
-   * default/suggested record source value.
+   * The type of this Data Vault table. Persisted for easy identification when serializing models.
    */
-  @HopMetadataProperty
-  protected String recordSource;
-
-  /** The type of this Data Vault table. Persisted for easy identification when serializing models. */
-  @HopMetadataProperty
-  protected DvTableType tableType;
+  @HopMetadataProperty protected DvTableType tableType;
 
   protected final ChangedFlag changedFlag = new ChangedFlag();
 
   /**
-   * Location (x,y) of this table element when displayed in a visual Data Vault modeler /
-   * graph canvas. Stored inline so that model layouts are persisted with the metadata.
+   * Location (x,y) of this table element when displayed in a visual Data Vault modeler / graph
+   * canvas. Stored inline so that model layouts are persisted with the metadata.
    */
   @HopMetadataProperty(inline = true)
   private Point location;
 
   /**
-   * GUI selection state. This is transient (not persisted) and only meaningful while
-   * interacting with a visual editor.
+   * GUI selection state. This is transient (not persisted) and only meaningful while interacting
+   * with a visual editor.
    */
   private boolean selected;
 
@@ -103,17 +101,32 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
    * using textExtent() based on the table name.
    */
   private int drawnBoxWidth = 140;
+
   private int drawnBoxHeight = 70;
 
-  public DvTableBase() {
+  protected DvTableBase() {
     super();
     this.location = new Point(0, 0);
   }
 
-  public DvTableBase(String name) {
+  protected DvTableBase(String name) {
     super(name);
     this.tableName = name;
     this.location = new Point(0, 0);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof DvTableBase that)) return false;
+    if (!super.equals(o)) {
+      return false;
+    }
+    return Objects.equals(tableName, that.tableName);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(super.hashCode(), tableName);
   }
 
   // --- IDvTable + common accessors ---
@@ -143,18 +156,6 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
   }
 
   @Override
-  public String getRecordSource() {
-    return recordSource;
-  }
-
-  public void setRecordSource(String recordSource) {
-    if (!java.util.Objects.equals(this.recordSource, recordSource)) {
-      setChanged();
-    }
-    this.recordSource = recordSource;
-  }
-
-  @Override
   public void setName(String name) {
     if (!java.util.Objects.equals(getName(), name)) {
       setChanged();
@@ -175,8 +176,8 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
   }
 
   /**
-   * Convenience: if no explicit table name has been set, fall back to the metadata name.
-   * Useful for generators that want a sensible default.
+   * Convenience: if no explicit table name has been set, fall back to the metadata name. Useful for
+   * generators that want a sensible default.
    */
   public String getEffectiveTableName() {
     if (tableName != null && !tableName.isBlank()) {
@@ -227,22 +228,6 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
     this.selected = selected;
   }
 
-  public int getDrawnBoxWidth() {
-    return drawnBoxWidth;
-  }
-
-  public void setDrawnBoxWidth(int drawnBoxWidth) {
-    this.drawnBoxWidth = drawnBoxWidth;
-  }
-
-  public int getDrawnBoxHeight() {
-    return drawnBoxHeight;
-  }
-
-  public void setDrawnBoxHeight(int drawnBoxHeight) {
-    this.drawnBoxHeight = drawnBoxHeight;
-  }
-
   // -------------------------------------------------------------------------------------
   // IChanged implementation (for change detection in visual modeler and serialization)
   // -------------------------------------------------------------------------------------
@@ -283,20 +268,6 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
               this));
     }
 
-    if (Utils.isEmpty(getRecordSource())) {
-      remarks.add(
-          new CheckResult(
-              ICheckResult.TYPE_RESULT_ERROR,
-              BaseMessages.getString(PKG, "DvTableBase.CheckResult.NoRecordSource"),
-              this));
-    } else {
-      remarks.add(
-          new CheckResult(
-              ICheckResult.TYPE_RESULT_OK,
-              BaseMessages.getString(PKG, "DvTableBase.CheckResult.HasRecordSource", getRecordSource()),
-              this));
-    }
-
     if (Utils.isEmpty(getTableName())) {
       remarks.add(
           new CheckResult(
@@ -307,14 +278,21 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
   }
 
   @Override
-  public IRowMeta getTargetTableLayout(IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model) throws HopException {
+  public IRowMeta getTargetTableLayout(
+      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
+      throws HopException {
     // default: no layout in base
     return null;
   }
 
   @Override
-  public PipelineMeta generateUpdatePipeline(IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model, Date loadDate) throws HopException {
+  public List<PipelineMeta> generateUpdatePipelines(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model,
+      Date loadDate)
+      throws HopException {
     // default: no pipeline in base
-    return null;
+    return java.util.Collections.emptyList();
   }
 }

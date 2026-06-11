@@ -191,10 +191,10 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
             BaseMessages.getString(
                 PKG, "ActionDataVaultUpdate.Log.GeneratingForTable", table.getName()));
 
-        PipelineMeta pipelineMeta =
-            table.generateUpdatePipeline(getMetadataProvider(), getVariables(), model, loadDate);
+        List<PipelineMeta> pipelineMetas =
+            table.generateUpdatePipelines(getMetadataProvider(), getVariables(), model, loadDate);
 
-        if (pipelineMeta == null) {
+        if (pipelineMetas == null || pipelineMetas.isEmpty()) {
           logError(
               BaseMessages.getString(
                   PKG, "ActionDataVaultUpdate.Error.GenerateFailed", table.getName()));
@@ -203,37 +203,48 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           continue;
         }
 
-        pipelineMeta.lookupReferencesAfterLoading();
-
-        logBasic(
-            BaseMessages.getString(
-                PKG, "ActionDataVaultUpdate.Log.RunningPipeline", table.getName(), realRunConfig));
-
-        IPipelineEngine<PipelineMeta> engine =
-            PipelineEngineFactory.createPipelineEngine(
-                getVariables(), realRunConfig, getMetadataProvider(), pipelineMeta);
-
-        engine.setLogLevel(getLogLevel());
-        engine.setParent(this);
-        engine.setParentWorkflow(getParentWorkflow());
-        engine.execute();
-        engine.waitUntilFinished();
-
-        Result pipeResult = engine.getResult();
-        if (pipeResult != null) {
-          result.setNrLinesRead(result.getNrLinesRead() + pipeResult.getNrLinesRead());
-          result.setNrLinesWritten(result.getNrLinesWritten() + pipeResult.getNrLinesWritten());
-          result.setNrLinesInput(result.getNrLinesInput() + pipeResult.getNrLinesInput());
-          result.setNrLinesOutput(result.getNrLinesOutput() + pipeResult.getNrLinesOutput());
-          result.setNrLinesUpdated(result.getNrLinesUpdated() + pipeResult.getNrLinesUpdated());
-          result.setNrLinesDeleted(result.getNrLinesDeleted() + pipeResult.getNrLinesDeleted());
-          result.setNrErrors(result.getNrErrors() + pipeResult.getNrErrors());
-
-          if (pipeResult.getNrErrors() > 0 || !pipeResult.getResult()) {
+        for (PipelineMeta pipelineMeta : pipelineMetas) {
+          if (pipelineMeta == null) {
             logError(
                 BaseMessages.getString(
-                    PKG, "ActionDataVaultUpdate.Error.PipelineFailed", table.getName()));
+                    PKG, "ActionDataVaultUpdate.Error.GenerateFailed", table.getName()));
+            totalErrors++;
             success = false;
+            continue;
+          }
+
+          pipelineMeta.lookupReferencesAfterLoading();
+
+          logBasic(
+              BaseMessages.getString(
+                  PKG, "ActionDataVaultUpdate.Log.RunningPipeline", table.getName(), realRunConfig));
+
+          IPipelineEngine<PipelineMeta> engine =
+              PipelineEngineFactory.createPipelineEngine(
+                  getVariables(), realRunConfig, getMetadataProvider(), pipelineMeta);
+
+          engine.setLogLevel(getLogLevel());
+          engine.setParent(this);
+          engine.setParentWorkflow(getParentWorkflow());
+          engine.execute();
+          engine.waitUntilFinished();
+
+          Result pipeResult = engine.getResult();
+          if (pipeResult != null) {
+            result.setNrLinesRead(result.getNrLinesRead() + pipeResult.getNrLinesRead());
+            result.setNrLinesWritten(result.getNrLinesWritten() + pipeResult.getNrLinesWritten());
+            result.setNrLinesInput(result.getNrLinesInput() + pipeResult.getNrLinesInput());
+            result.setNrLinesOutput(result.getNrLinesOutput() + pipeResult.getNrLinesOutput());
+            result.setNrLinesUpdated(result.getNrLinesUpdated() + pipeResult.getNrLinesUpdated());
+            result.setNrLinesDeleted(result.getNrLinesDeleted() + pipeResult.getNrLinesDeleted());
+            result.setNrErrors(result.getNrErrors() + pipeResult.getNrErrors());
+
+            if (pipeResult.getNrErrors() > 0 || !pipeResult.getResult()) {
+              logError(
+                  BaseMessages.getString(
+                      PKG, "ActionDataVaultUpdate.Error.PipelineFailed", table.getName()));
+              success = false;
+            }
           }
         }
       }

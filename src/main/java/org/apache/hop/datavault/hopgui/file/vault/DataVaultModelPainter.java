@@ -18,13 +18,14 @@
 package org.apache.hop.datavault.hopgui.file.vault;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.hop.core.gui.*;
+import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.AreaOwner.AreaType;
+import org.apache.hop.core.gui.DPoint;
+import org.apache.hop.core.gui.IGc;
+import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.svg.SvgFile;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
@@ -34,7 +35,6 @@ import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
-import org.apache.hop.ui.core.PropsUi;
 
 /**
  * Basic painter for a Data Vault model using IGc. Draws tables (hubs, links, satellites) at their
@@ -47,11 +47,10 @@ import org.apache.hop.ui.core.PropsUi;
  */
 @Getter
 @Setter
-public class DataVaultModelPainter extends BasePainter<IDvTable> {
+public class DataVaultModelPainter extends BasePainter {
 
   private final DataVaultModel model;
   private final Map<String, IDvTable> tableByName;
-  private final String mouseOverTableName;
 
   // Transient drag state for drawing candidate relationship line (middle-btn or shift+left drag)
   // while creating hub<->satellite or hub<->link. These are set by the owning graph before each
@@ -67,39 +66,11 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
   // Note: TABLE_* removed in favor of per-table dynamic sizes based on textExtent()
 
   public DataVaultModelPainter(
-      DataVaultModel model,
-      IGc gc,
-      IVariables variables,
-      int width,
-      int height,
-      int gridSize,
-      float zoomFactor,
-      float magnification,
-      Point offset,
-      Rectangle selectionRectangle,
-      List<AreaOwner> areaOwners,
-      String mouseOverTableName) {
-    super(
-        gc,
-        variables,
-        model,
-        new Point(width, height),
-        new DPoint(offset.x, offset.y),
-        selectionRectangle,
-        areaOwners,
-        PropsUi.getInstance().getIconSize(),
-        PropsUi.getInstance().getLineWidth(),
-        gridSize,
-        PropsUi.getInstance().getNoteFont().getName(),
-        PropsUi.getInstance().getNoteFont().getHeight(),
-        zoomFactor,
-        magnification,
-        false,
-        null);
+      DataVaultModel model, IGc gc, IVariables variables, int width, int height) {
+    super(gc, variables, model, new Point(width, height));
     this.model = model;
     this.gc = gc;
     this.tableByName = new HashMap<>();
-    this.mouseOverTableName = mouseOverTableName;
 
     if (model != null && model.getTables() != null) {
       for (IDvTable table : model.getTables()) {
@@ -124,7 +95,7 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
     this.candidateRelationshipTarget = candidateRelationshipTarget;
   }
 
-  public void draw() {
+  public void drawDataVaultModel() {
     if (model == null || model.getTables() == null || gc == null) {
       return;
     }
@@ -139,9 +110,21 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
     gc.setBackground(IGc.EColor.BACKGROUND);
     gc.fillRectangle(0, 0, area.x, area.y);
 
-    // set the appropriate transform before drawing the tables and relations
-    gc.setTransform((float) offset.x, (float) offset.y, magnification);
+    // Set the appropriate transform before drawing the tables and relations
+    // IMPORTANT: offset is not used in Hop 2.18 so we'll need to calculate manually
+    //
+    gc.setTransform((float) (offset.x), (float) (offset.y), magnification);
 
+    drawDataVaultModelImage();
+
+    // Draw the navigation view in native pixels to make calculation a bit easier.
+    //
+    gc.setTransform(0.0f, 0.0f, 1.0f);
+    drawRect(selectionRegion);
+    drawNavigationView();
+  }
+
+  public void drawDataVaultModelImage() {
     if (gridSize > 1) {
       drawGrid();
     }
@@ -165,23 +148,18 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
 
     // Draw the tables
     for (IDvTable table : model.getTables()) {
-      Point loc = table.getLocation();
+      Point loc = real2screen(table.getLocation().x, table.getLocation().y);
       if (loc == null) {
         loc = new Point(50, 50);
       }
-      // Use raw model coordinates; the gc.setTransform() handles magnification and panning (offset)
       drawTable(table, loc.x, loc.y);
     }
-
-    // Draw the navigation view in native pixels to make calculation a bit easier.
-    //
-    gc.setTransform(0.0f, 0.0f, 1.0f);
-    drawNavigationView();
   }
 
   private void drawLinkConnections(DvLink link) {
-    Point linkLoc = link.getLocation();
-    if (linkLoc == null) return;
+    Point linkLocation = link.getLocation();
+    if (linkLocation == null) return;
+    Point linkLoc = real2screen(linkLocation.x, linkLocation.y);
 
     // Raw model coords; transform handles mag + pan
     Point linkBox = calculateTableBoxSize(link);
@@ -191,11 +169,12 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
     for (String hubName : link.getHubNames()) {
       IDvTable hub = tableByName.get(hubName);
       if (hub != null) {
-        Point hloc = hub.getLocation();
-        if (hloc != null) {
+        Point hubLoc = hub.getLocation();
+        if (hubLoc != null) {
+          Point hLoc = real2screen(hubLoc.x, hubLoc.y);
           Point hubBox = calculateTableBoxSize(hub);
-          int hx = hloc.x + hubBox.x / 2;
-          int hy = hloc.y + hubBox.y / 2;
+          int hx = hLoc.x + hubBox.x / 2;
+          int hy = hLoc.y + hubBox.y / 2;
           gc.drawLine(hx, hy, lx, ly);
         }
       }
@@ -203,8 +182,9 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
   }
 
   private void drawSatelliteConnections(IDvTable sat) {
-    Point satLoc = sat.getLocation();
-    if (satLoc == null) return;
+    Point satLocation = sat.getLocation();
+    if (satLocation == null) return;
+    Point satLoc = real2screen(satLocation.x, satLocation.y);
 
     // Raw model coords; transform handles mag + pan
     Point satBox = calculateTableBoxSize(sat);
@@ -220,8 +200,9 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
       if (parentName != null && !parentName.isEmpty()) {
         IDvTable parent = tableByName.get(parentName);
         if (parent != null) {
-          Point pLoc = parent.getLocation();
-          if (pLoc != null) {
+          Point pLocation = parent.getLocation();
+          if (pLocation != null) {
+            Point pLoc = real2screen(pLocation.x, pLocation.y);
             Point pBox = calculateTableBoxSize(parent);
             int px = pLoc.x + pBox.x / 2;
             int py = pLoc.y + pBox.y / 2;
@@ -233,7 +214,6 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
   }
 
   private void drawTable(IDvTable table, int x, int y) {
-    // x, y are raw model coordinates; gc.setTransform handles offset + magnification
     Point box = calculateTableBoxSize(table);
     int w = box.x;
     int h = box.y;
@@ -241,9 +221,9 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
     // Draw rounded rectangle background
     gc.setBackground(IGc.EColor.WHITE);
     gc.setForeground(IGc.EColor.BLACK);
-    gc.fillRectangle(x, y, w, h);
+    gc.fillRoundRectangle(x, y, w, h, CORNER_RADIUS_5, CORNER_RADIUS_5);
     gc.setLineWidth(table.isSelected() ? 2 : 1);
-    gc.drawRectangle(x, y, w, h);
+    gc.drawRoundRectangle(x, y, w, h, CORNER_RADIUS_5, CORNER_RADIUS_5);
     gc.setLineWidth(1);
 
     // Draw icon using SVG  top-left + margin
@@ -306,7 +286,7 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
       nsh += 2;
       areaOwners.add(
           new AreaOwner(
-              AreaType.TRANSFORM_NAME, nsx, nsy, nsw, nsh, new DPoint(0, 0), table, name));
+              AreaType.TRANSFORM_NAME, nsx, nsy, nsw, nsh, offset, table, name));
     }
 
     // If the table has a description, draw a small info icon at the top-left corner (slightly
@@ -359,7 +339,7 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
   /**
    * Compute the box size (in logical/model units) for the table card. Uses textExtent() for the
    * name width. Height based on icon + type label below. Also caches the size on the table for use
-   * in hit tests etc. The gc.setTransform() will apply magnification and panning to these logical
+   * in hit tests etc. The transform will apply magnification and panning to these logical
    * sizes/positions.
    */
   private Point calculateTableBoxSize(IDvTable table) {
@@ -410,7 +390,8 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
     if (startRelationshipTable == null || relationshipDragEndLocation == null) {
       return;
     }
-    Point loc = startRelationshipTable.getLocation();
+    Point startLocation = startRelationshipTable.getLocation();
+    Point loc = real2screen(startLocation.x, startLocation.y);
     if (loc == null) {
       return;
     }
@@ -441,8 +422,6 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
 
     // Save/restore styles like other drawing
     // (note: we don't change bg)
-    int oldWidth = 1; // default
-    IGc.ELineStyle oldStyle = IGc.ELineStyle.SOLID;
     // We can't easily query current, so just set and reset to safe values at end
     try {
       boolean validTarget =
@@ -486,10 +465,16 @@ public class DataVaultModelPainter extends BasePainter<IDvTable> {
       int h = Math.max(minSize, (int) Math.ceil(iconSize * scaleY));
       int x = (int) (graphX + loc.x * scaleX);
       int y = (int) (graphY + loc.y * scaleY);
-      switch(table.getTableType()) {
-        case HUB: gc.setBackground(IGc.EColor.GREEN); break;
-        case SATELLITE: gc.setBackground(IGc.EColor.RED); break;
-        case LINK: gc.setBackground(IGc.EColor.YELLOW); break;
+      switch (table.getTableType()) {
+        case HUB:
+          gc.setBackground(IGc.EColor.GREEN);
+          break;
+        case SATELLITE:
+          gc.setBackground(IGc.EColor.RED);
+          break;
+        case LINK:
+          gc.setBackground(IGc.EColor.YELLOW);
+          break;
       }
       gc.fillRectangle(x, y, w, h);
       gc.drawRectangle(x, y, w, h);

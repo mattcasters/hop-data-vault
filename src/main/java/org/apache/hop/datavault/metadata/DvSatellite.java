@@ -17,9 +17,13 @@
 
 package org.apache.hop.datavault.metadata;
 
+import static java.util.Collections.*;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.hop.base.IBaseMeta;
 import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.Condition;
@@ -45,6 +49,7 @@ import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.row.value.ValueMetaTimestamp;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
@@ -61,6 +66,8 @@ import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
 import org.apache.hop.pipeline.transforms.mergerows.MergeRowsMeta;
 import org.apache.hop.pipeline.transforms.mergerows.PassThroughField;
+import org.apache.hop.pipeline.transforms.selectvalues.DeleteField;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.sort.SortRowsField;
 import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
@@ -74,6 +81,8 @@ import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
  * are captured by inserting new rows (insert-only pattern in DV 2.0).
  */
 @GuiPlugin
+@Getter
+@Setter
 public class DvSatellite extends DvTableBase
     implements IDvTable, IGuiPosition, IBaseMeta, IHasName {
 
@@ -135,6 +144,9 @@ public class DvSatellite extends DvTableBase
   @HopMetadataProperty
   private String drivingKey;
 
+  @HopMetadataProperty(storeWithName = true)
+  private DataVaultSource recordSource;
+
   public DvSatellite() {
     super();
     this.tableType = DvTableType.SATELLITE;
@@ -143,61 +155,6 @@ public class DvSatellite extends DvTableBase
   public DvSatellite(String name) {
     super(name);
     this.tableType = DvTableType.SATELLITE;
-  }
-
-  public String getHubName() {
-    return hubName;
-  }
-
-  public void setHubName(String hubName) {
-    if (!java.util.Objects.equals(this.hubName, hubName)) {
-      setChanged();
-    }
-    this.hubName = hubName;
-  }
-
-  public String getLinkName() {
-    return linkName;
-  }
-
-  public void setLinkName(String linkName) {
-    if (!java.util.Objects.equals(this.linkName, linkName)) {
-      setChanged();
-    }
-    this.linkName = linkName;
-  }
-
-  public List<SatelliteAttribute> getAttributes() {
-    return attributes;
-  }
-
-  public void setAttributes(List<SatelliteAttribute> attributes) {
-    if (!java.util.Objects.equals(this.attributes, attributes)) {
-      setChanged();
-    }
-    this.attributes = attributes;
-  }
-
-  public boolean isMultiActive() {
-    return multiActive;
-  }
-
-  public void setMultiActive(boolean multiActive) {
-    if (this.multiActive != multiActive) {
-      setChanged();
-    }
-    this.multiActive = multiActive;
-  }
-
-  public String getDrivingKey() {
-    return drivingKey;
-  }
-
-  public void setDrivingKey(String drivingKey) {
-    if (!java.util.Objects.equals(this.drivingKey, drivingKey)) {
-      setChanged();
-    }
-    this.drivingKey = drivingKey;
   }
 
   @Override
@@ -233,7 +190,8 @@ public class DvSatellite extends DvTableBase
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,
-              BaseMessages.getString(PKG, "DvSatellite.CheckResult.HasAttributes", attributes.size()),
+              BaseMessages.getString(
+                  PKG, "DvSatellite.CheckResult.HasAttributes", attributes.size()),
               this));
       for (SatelliteAttribute attr : attributes) {
         if (Utils.isEmpty(attr.getName())) {
@@ -262,7 +220,7 @@ public class DvSatellite extends DvTableBase
   }
 
   @Override
-  public PipelineMeta generateUpdatePipeline(
+  public List<PipelineMeta> generateUpdatePipelines(
       IHopMetadataProvider metadataProvider,
       IVariables variables,
       DataVaultModel model,
@@ -270,13 +228,13 @@ public class DvSatellite extends DvTableBase
       throws HopException {
     try {
       if (metadataProvider == null || model == null) {
-        return null;
+        return emptyList();
       }
 
       SatelliteUpdateContext ctx =
           SatelliteUpdateContext.create(metadataProvider, variables, model, this);
       if (ctx == null) {
-        return null;
+        return emptyList();
       }
 
       PipelineMeta pipelineMeta = new PipelineMeta();
@@ -286,53 +244,40 @@ public class DvSatellite extends DvTableBase
       addExecSqlIfNeeded(ctx, pipelineMeta);
 
       // Source TableInput (from record source) - selects hub bks (for hash calc) + sat attrs + rs
-      TransformMeta sourceTransform = addSourceTableInput(ctx, pipelineMeta);
+      TransformMeta sourceInputTransform = addSourceTableInput(ctx, recordSource, pipelineMeta);
 
       // CheckSum to compute the (hub's) hash key from the bks in source
-      TransformMeta checkSumTransform = addCheckSum(ctx, pipelineMeta, sourceTransform);
+      TransformMeta checkSumTransform = addHashKeyCheckSum(ctx, pipelineMeta, sourceInputTransform);
+
+      // CheckSum to compute the (hub's) hash key from the bks in source
+      TransformMeta sourceSelectTransform =
+          addSourceSelectRows(ctx, pipelineMeta, checkSumTransform);
+
+      // Sort the records by hash key
+      TransformMeta sortHkTransform = addSortRows(ctx, pipelineMeta, sourceSelectTransform);
 
       // Target TableInput (hash + attributes from sat table, for diff + value comparison)
-      TransformMeta targetTransform = addTargetTableInput(ctx, pipelineMeta);
+      TransformMeta targetInputTransform = addTargetTableInput(ctx, pipelineMeta);
 
-      // Sort on the hash key after checksum. MergeRows requires both legs to be sorted on the
-      // key fields (the hub hash). We sort the compare leg here (source side); the target leg
-      // keeps an ORDER BY in its SQL.
-      TransformMeta sortTransform = null;
-      TransformMeta mergeTransform = null;
-      if (targetTransform != null) {
-        sortTransform = addSortRows(ctx, pipelineMeta, checkSumTransform);
-        // MergeRows (diff) - compare side now comes from the sort (post-hash, sorted)
-        mergeTransform = addMergeRowsIfNeeded(ctx, pipelineMeta, sortTransform, targetTransform);
-      } else {
-        // No target: no diff, no sort, no merge
-        mergeTransform = null;
-      }
+      // Perform CDC with a merge rows (diff) transform
+      TransformMeta mergeTransform =
+          addMergeRows(ctx, pipelineMeta, sortHkTransform, targetInputTransform);
 
       // Filter Rows: keep rows that are not 'identical' (i.e. new or changed attribute values
       // for an existing hub in the satellite). We achieve this by testing for 'identical' and
       // negating the condition.
-      TransformMeta filterTransform = addFilterNewRowsIfNeeded(pipelineMeta, mergeTransform);
+      TransformMeta filterTransform = addFilterNewRows(pipelineMeta, mergeTransform);
 
       // Add Constant transform for the static load date (provided to the method)
-      TransformMeta constantTransform = addConstantForLoadDate(ctx, pipelineMeta, loadDate);
+      TransformMeta constantTransform =
+          addConstantForLoadDate(ctx, pipelineMeta, loadDate, filterTransform);
 
       // Add Table Output at the end to write new rows (all target fields except "flag")
       IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
-      TransformMeta tableOutputTransform = addTableOutput(ctx, pipelineMeta, targetLayout);
 
-      // Wire the hops
-      addPipelineHops(
-          pipelineMeta,
-          sourceTransform,
-          targetTransform,
-          mergeTransform,
-          filterTransform,
-          checkSumTransform,
-          sortTransform,
-          constantTransform,
-          tableOutputTransform);
+      addTableOutput(ctx, pipelineMeta, targetLayout, constantTransform);
 
-      return pipelineMeta;
+      return List.of(pipelineMeta);
     } catch (Exception e) {
       throw new HopException(
           "Error generating update pipeline for Satellite target " + getName(), e);
@@ -401,13 +346,10 @@ public class DvSatellite extends DvTableBase
 
       // Determine attributes
       List<SourceField> sourceFields = null;
-      String recordSourceName = getRecordSource();
-      if (!Utils.isEmpty(recordSourceName)) {
-        DataVaultSource dataVaultSource =
-            metadataProvider.getSerializer(DataVaultSource.class).load(recordSourceName);
-        if (dataVaultSource != null) {
-          sourceFields = dataVaultSource.getFields(metadataProvider);
-        }
+      if (getRecordSource() != null) {
+        sourceFields = getRecordSource().getFields(metadataProvider);
+      } else {
+        throw new HopException("Please specify a record source for Satellite " + getName());
       }
 
       List<SatelliteAttribute> satAttrs = getAttributes();
@@ -423,8 +365,7 @@ public class DvSatellite extends DvTableBase
           // If the SatelliteAttribute did not specify length/precision, try to take it
           // from the matching SourceField in the Data Vault Source (the source of truth for
           // the originating database column definitions).
-          if (sourceFields != null
-              && (attrMeta.getLength() <= 0 || attrMeta.getPrecision() <= 0)) {
+          if (sourceFields != null && (attrMeta.getLength() <= 0 || attrMeta.getPrecision() <= 0)) {
             for (SourceField sf : sourceFields) {
               if (attr.getName().equals(sf.getName())) {
                 if (attrMeta.getLength() <= 0) {
@@ -550,66 +491,26 @@ public class DvSatellite extends DvTableBase
     }
   }
 
-  private TransformMeta addSourceTableInput(SatelliteUpdateContext ctx, PipelineMeta pipelineMeta)
+  private TransformMeta addSourceTableInput(
+      SatelliteUpdateContext ctx, DataVaultSource dataVaultSource, PipelineMeta pipelineMeta)
       throws HopException {
-    TableInputMeta tableInputMeta = new TableInputMeta();
+    DvDatabaseSatelliteSourcePipelineBuilder builder =
+        new DvDatabaseSatelliteSourcePipelineBuilder(
+            ctx.variables,
+            ctx.metadataProvider,
+            ctx.model,
+            pipelineMeta,
+            dataVaultSource,
+            ctx.dvSource,
+            this,
+            new Point(LOCATION_START_LINE_2.x, LOCATION_START_LINE_2.y));
+    builder.build();
 
-    if (ctx.sourceDatabaseMeta != null) {
-      tableInputMeta.setConnection(ctx.sourceDbName);
-
-      List<String> quotedFields = new ArrayList<>();
-      for (String fieldName : ctx.pkSourceFieldNames) {
-        quotedFields.add(ctx.sourceDatabaseMeta.quoteField(fieldName));
-      }
-      for (String fieldName : ctx.satAttrFieldNames) {
-        quotedFields.add(ctx.sourceDatabaseMeta.quoteField(fieldName));
-      }
-
-      StringBuilder sql = new StringBuilder("SELECT ");
-      if (quotedFields.isEmpty()) {
-        sql.append("*");
-      } else {
-        sql.append(String.join(", ", quotedFields));
-      }
-
-      // Add record source if configured (aliased)
-      String rsFieldName = ctx.recordSourceField;
-      if (!Utils.isEmpty(ctx.sourceIndicator)) {
-        String resolved = ctx.variables.resolve(ctx.sourceIndicator);
-        String literal = "'" + resolved.replace("'", "''") + "'";
-        sql.append(", ")
-                .append(literal)
-                .append(" AS ")
-                .append(ctx.sourceDatabaseMeta.quoteField(rsFieldName));
-      } else if (!Utils.isEmpty(ctx.sourceIndicatorField)) {
-        String resolvedField = ctx.variables.resolve(ctx.sourceIndicatorField);
-        String qField = ctx.sourceDatabaseMeta.quoteField(resolvedField);
-        sql.append(", ")
-                .append(qField)
-                .append(" AS ")
-                .append(ctx.sourceDatabaseMeta.quoteField(rsFieldName));
-      }
-
-      sql.append(" FROM ");
-      sql.append(
-          ctx.sourceDatabaseMeta.getQuotedSchemaTableCombination(
-              ctx.variables, ctx.sourceSchema, ctx.sourceTable));
-
-      // Note: no DISTINCT and no ORDER BY here. We sort the post-checksum stream explicitly
-      // with a SortRows transform (on the hash key) so that MergeRows receives sorted input
-      // from the compare leg (required for correct merge behavior).
-
-      tableInputMeta.setSql(sql.toString());
-    }
-
-    TransformMeta tm = new TransformMeta("TableInput", ctx.sourceTransformName, tableInputMeta);
-    tm.setLocation(LOCATION_START_LINE_2);
-    pipelineMeta.addTransform(tm);
-    return tm;
+    return builder.getResultTransform();
   }
 
-  private TransformMeta addCheckSum(
-      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta sourceTransform) {
+  private TransformMeta addHashKeyCheckSum(
+      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor) {
     CheckSumMeta checkSumMeta = new CheckSumMeta();
     checkSumMeta.setCheckSumType(ctx.checkSumType);
 
@@ -622,7 +523,8 @@ public class DvSatellite extends DvTableBase
     String resultFieldName = ctx.hashKeyFieldName;
     checkSumMeta.setResultFieldName(resultFieldName);
 
-    HashKeyDataType hdt = (ctx.config != null) ? ctx.config.getHashKeyDataType() : HashKeyDataType.BINARY;
+    HashKeyDataType hdt =
+        (ctx.config != null) ? ctx.config.getHashKeyDataType() : HashKeyDataType.BINARY;
     if (hdt == HashKeyDataType.BINARY) {
       checkSumMeta.setResultType(ResultType.BINARY);
     } else if (hdt == HashKeyDataType.HEX) {
@@ -635,24 +537,60 @@ public class DvSatellite extends DvTableBase
     TransformMeta tm = new TransformMeta("CheckSum", "calc_" + resultFieldName, checkSumMeta);
     tm.setLocation(LOCATION_START_LINE_2.x + SPACING_WIDTH, LOCATION_START_LINE_2.y);
     pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private TransformMeta addSourceSelectRows(
+      DvSatellite.SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor)
+      throws HopException {
+
+    SelectValuesMeta selectMeta = new SelectValuesMeta();
+    List<DeleteField> deleteFields = selectMeta.getSelectOption().getDeleteName();
+
+    // We just want to get rid of the business key fields.
+    // These are defined in the attached Hub
+    //
+    DvHub hub = ctx.model.findHub(getHubName());
+    if (hub == null) {
+      throw new HopException(
+          "Unable to find the hub (" + getHubName() + ") to satellite " + getName());
+    }
+
+    for (BusinessKey businessKey : hub.getBusinessKeys()) {
+      DeleteField deleteField = new DeleteField();
+      deleteField.setName(businessKey.getSourceFieldName());
+      deleteFields.add(deleteField);
+    }
+
+    TransformMeta tm = new TransformMeta("SelectValues", "remove_bk", selectMeta);
+    // Place it on the compare flow after the last checksum, before the sort
+    Point loc = new Point(LOCATION_START_LINE_2.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_2.y);
+    tm.setLocation(loc);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+
     return tm;
   }
 
   private TransformMeta addSortRows(
-      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta afterTransform) {
+      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor) {
     SortRowsMeta sortRowsMeta = new SortRowsMeta();
     SortRowsField sortField = new SortRowsField();
     sortField.setFieldName(ctx.hashKeyFieldName);
     sortField.setAscending(true);
-    sortField.setCaseSensitive(true); // hash values (binary or hex strings) should compare case-sensitively
+    sortField.setCaseSensitive(
+        true); // hash values (binary or hex strings) should compare case-sensitively
     sortRowsMeta.getSortFields().add(sortField);
 
-    // Other SortRowsMeta defaults (tmp dir, sort size, no compress, not unique-only) are acceptable.
+    // Other SortRowsMeta defaults (tmp dir, sort size, no compress, not unique-only) are
+    // acceptable.
 
-    String sortTransformName = "sort_" + ctx.hashKeyFieldName;
+    String sortTransformName = "sort " + ctx.hashKeyFieldName;
     TransformMeta tm = new TransformMeta("SortRows", sortTransformName, sortRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_2.x+2*SPACING_WIDTH, LOCATION_START_LINE_2.y);
+    tm.setLocation(LOCATION_START_LINE_2.x + 3 * SPACING_WIDTH, LOCATION_START_LINE_2.y);
     pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
     return tm;
   }
 
@@ -672,11 +610,10 @@ public class DvSatellite extends DvTableBase
     // we see the actual stored attribute combinations for change detection.
     StringBuilder sql = new StringBuilder("SELECT ");
     List<String> selectFields = new ArrayList<>();
-    // Add the business key(s) at the front to align the layout for Merge Rows later on.
+
+    // Query the attributes before the hash key to make it easier to match row layouts
+    // in the merge rows transform.
     //
-    for (String bkFieldName : ctx.pkSourceFieldNames) {
-      selectFields.add(ctx.targetDatabaseMeta.quoteField(bkFieldName));
-    }
     for (String attr : ctx.satAttrFieldNames) {
       selectFields.add(ctx.targetDatabaseMeta.quoteField(attr));
     }
@@ -701,20 +638,18 @@ public class DvSatellite extends DvTableBase
     return tm;
   }
 
-  private TransformMeta addMergeRowsIfNeeded(
+  private TransformMeta addMergeRows(
       SatelliteUpdateContext ctx,
       PipelineMeta pipelineMeta,
-      TransformMeta sourceToMergeTransform, // the sorted transform (SortRows after checksum) providing the compare leg
-      TransformMeta targetTransform) {
-    if (targetTransform == null || sourceToMergeTransform == null) {
+      TransformMeta compareTransform,
+      TransformMeta referenceTransform) {
+    if (referenceTransform == null || compareTransform == null) {
       return null;
     }
 
     MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
-    mergeRowsMeta.setReferenceTransform(ctx.targetTransformName);
-    // The immediate predecessor on the compare leg (now the SortRows after checksum, or
-    // checksum itself in some paths). Must be sorted on the key.
-    mergeRowsMeta.setCompareTransform(sourceToMergeTransform.getName());
+    mergeRowsMeta.setReferenceTransform(referenceTransform.getName());
+    mergeRowsMeta.setCompareTransform(compareTransform.getName());
     mergeRowsMeta.setFlagField("flag");
 
     List<String> keyFields = new ArrayList<>();
@@ -730,9 +665,7 @@ public class DvSatellite extends DvTableBase
     List<PassThroughField> passThroughFields = new ArrayList<>();
     // pass the hash and sat attrs + rs from compare side (the "new/changed" values)
     passThroughFields.add(new PassThroughField(ctx.hashKeyFieldName, null, false));
-    for (String fieldName : ctx.pkSourceFieldNames) {
-      passThroughFields.add(new PassThroughField(fieldName, null, false ));
-    }
+
     for (String attr : ctx.satAttrFieldNames) {
       passThroughFields.add(new PassThroughField(attr, null, false));
     }
@@ -740,13 +673,16 @@ public class DvSatellite extends DvTableBase
     mergeRowsMeta.setPassThroughFields(passThroughFields);
 
     TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x+2*SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    tm.setLocation(LOCATION_START_LINE_3.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareTransform, tm));
+
     return tm;
   }
 
-  private TransformMeta addFilterNewRowsIfNeeded(
-      PipelineMeta pipelineMeta, TransformMeta mergeTransform) throws HopException {
+  private TransformMeta addFilterNewRows(PipelineMeta pipelineMeta, TransformMeta mergeTransform)
+      throws HopException {
     if (mergeTransform == null) {
       return null;
     }
@@ -768,13 +704,19 @@ public class DvSatellite extends DvTableBase
     }
 
     TransformMeta tm = new TransformMeta("FilterRows", "filter_not_identical", filterRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x+3*SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    tm.setLocation(LOCATION_START_LINE_3.x + 3 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(mergeTransform, tm));
+
     return tm;
   }
 
   private TransformMeta addConstantForLoadDate(
-      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, Date loadDate) throws HopException {
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      Date loadDate,
+      TransformMeta predecessor)
+      throws HopException {
     String loadDateField = "LOAD_DATE";
     if (ctx.config != null && !Utils.isEmpty(ctx.config.getLoadDateField())) {
       loadDateField = ctx.config.getLoadDateField();
@@ -793,13 +735,18 @@ public class DvSatellite extends DvTableBase
     constantMeta.getFields().add(cf);
 
     TransformMeta tm = new TransformMeta("Constant", "add_" + loadDateField, constantMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x+4*SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    tm.setLocation(LOCATION_START_LINE_3.x + 4 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+
     return tm;
   }
 
   private TransformMeta addTableOutput(
-      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, IRowMeta targetLayout)
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      IRowMeta targetLayout,
+      TransformMeta predecessor)
       throws HopException {
     if (ctx.targetDatabaseMeta == null || Utils.isEmpty(ctx.targetDbName)) {
       return null;
@@ -825,58 +772,12 @@ public class DvSatellite extends DvTableBase
       }
 
       TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
-      tm.setLocation(LOCATION_START_LINE_3.x+5*SPACING_WIDTH, LOCATION_START_LINE_3.y);
+      tm.setLocation(LOCATION_START_LINE_3.x + 5 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
       pipelineMeta.addTransform(tm);
+      pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
       return tm;
     } catch (Exception e) {
       throw new HopException("Error creating Table Output transform", e);
-    }
-  }
-
-  private void addPipelineHops(
-      PipelineMeta pipelineMeta,
-      TransformMeta sourceTransform,
-      TransformMeta targetTransform,
-      TransformMeta mergeTransform,
-      TransformMeta filterTransform,
-      TransformMeta checkSumTransform,
-      TransformMeta sortTransform,
-      TransformMeta constantTransform,
-      TransformMeta tableOutputTransform) {
-    // source -> checksum (to produce hash)
-    if (sourceTransform != null && checkSumTransform != null) {
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(sourceTransform, checkSumTransform));
-    }
-    // checksum -> sort (required so MergeRows gets sorted input on the hash key from compare leg)
-    if (checkSumTransform != null && sortTransform != null) {
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(checkSumTransform, sortTransform));
-    }
-
-    if (mergeTransform != null) {
-      if (targetTransform != null) {
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(targetTransform, mergeTransform));
-      }
-      if (sortTransform != null) {
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(sortTransform, mergeTransform));
-      } else if (checkSumTransform != null) {
-        // fallback if no sort was inserted (e.g. no target)
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(checkSumTransform, mergeTransform));
-      }
-      if (filterTransform != null) {
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(mergeTransform, filterTransform));
-        if (constantTransform != null) {
-          pipelineMeta.addPipelineHop(new PipelineHopMeta(filterTransform, constantTransform));
-        }
-      } else if (constantTransform != null) {
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(mergeTransform, constantTransform));
-      }
-    } else if (checkSumTransform != null && constantTransform != null) {
-      // no merge: go straight from checksum (sort not needed/created)
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(checkSumTransform, constantTransform));
-    }
-
-    if (constantTransform != null && tableOutputTransform != null) {
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(constantTransform, tableOutputTransform));
     }
   }
 
@@ -893,6 +794,8 @@ public class DvSatellite extends DvTableBase
     final DataVaultConfiguration config;
     final CheckSumType checkSumType;
 
+    final DataVaultSource dataVaultSource;
+    final IDvSource dvSource;
     final DatabaseMeta targetDatabaseMeta;
     final String targetDbName;
     final String targetTableName;
@@ -920,6 +823,7 @@ public class DvSatellite extends DvTableBase
         IVariables variables,
         DataVaultConfiguration config,
         CheckSumType checkSumType,
+        DataVaultSource dataVaultSource,
         DatabaseMeta targetDatabaseMeta,
         String targetDbName,
         String targetTableName,
@@ -935,13 +839,15 @@ public class DvSatellite extends DvTableBase
         String hashKeyFieldName,
         String sourceIndicator,
         String sourceIndicatorField,
-        String recordSourceField) {
+        String recordSourceField)
+        throws HopException {
       this.satellite = satellite;
       this.model = model;
       this.metadataProvider = metadataProvider;
       this.variables = variables;
       this.config = config;
       this.checkSumType = checkSumType;
+      this.dataVaultSource = dataVaultSource;
       this.targetDatabaseMeta = targetDatabaseMeta;
       this.targetDbName = targetDbName;
       this.targetTableName = targetTableName;
@@ -958,6 +864,8 @@ public class DvSatellite extends DvTableBase
       this.sourceIndicator = sourceIndicator;
       this.sourceIndicatorField = sourceIndicatorField;
       this.recordSourceField = recordSourceField != null ? recordSourceField : "RECORD_SOURCE";
+
+      this.dvSource = dataVaultSource.getDvSource(metadataProvider);
     }
 
     static SatelliteUpdateContext create(
@@ -970,6 +878,11 @@ public class DvSatellite extends DvTableBase
         return null;
       }
 
+      if (sat.recordSource == null) {
+        throw new HopException("Please specify a record source for satellite " + sat.getName());
+      }
+      DataVaultSource recordSource = sat.getRecordSource();
+
       // Load DataVaultConfiguration
       DataVaultConfiguration config = null;
       String configName = model.getConfigurationName();
@@ -978,10 +891,8 @@ public class DvSatellite extends DvTableBase
       }
 
       // checksum type from hash algo in config
-      org.apache.hop.datavault.metadata.HashAlgorithm hashAlgorithm =
-          (config != null)
-              ? config.getHashAlgorithm()
-              : org.apache.hop.datavault.metadata.HashAlgorithm.MD5;
+      HashAlgorithm hashAlgorithm =
+          (config != null) ? config.getHashAlgorithm() : HashAlgorithm.MD5;
       CheckSumType checkSumType = CheckSumType.MD5;
       if (hashAlgorithm != null) {
         switch (hashAlgorithm) {
@@ -1017,11 +928,7 @@ public class DvSatellite extends DvTableBase
           !Utils.isEmpty(sat.getTableName()) ? sat.getTableName() : sat.getName();
       String pipelineName = "sat-" + targetTableName;
 
-      String sourceTransformName = sat.getRecordSource();
-      if (Utils.isEmpty(sourceTransformName)) {
-        sourceTransformName = sat.getName();
-      }
-
+      String sourceTransformName = sat.getName();
       String targetTransformName = "target_" + targetTableName;
 
       // Look up linked hub for hash key name + bks to select for hash calc
@@ -1057,55 +964,50 @@ public class DvSatellite extends DvTableBase
       List<String> satAttrFieldNames = new ArrayList<>();
       String sourceIndicator = null;
       String sourceIndicatorField = null;
-      String recordSourceName = sat.getRecordSource();
-      if (!Utils.isEmpty(recordSourceName)) {
-        DataVaultSource dataVaultSource =
-            metadataProvider.getSerializer(DataVaultSource.class).load(recordSourceName);
-        if (dataVaultSource != null
-            && dataVaultSource.getSourceType() == DataVaultSourceType.DATABASE
-            && !Utils.isEmpty(dataVaultSource.getSourceTableName())) {
-          DvDatabaseSource dbSource =
-              metadataProvider
-                  .getSerializer(DvDatabaseSource.class)
-                  .load(dataVaultSource.getSourceTableName());
-          if (dbSource != null) {
-            sourceDbName = dbSource.getDatabaseName();
-            sourceSchema = dbSource.getSchemaName();
-            sourceTable = dbSource.getTableName();
-            sourceDatabaseMeta =
-                metadataProvider.getSerializer(DatabaseMeta.class).load(sourceDbName);
-            if (sourceDatabaseMeta == null) {
-              throw new HopException("Database connection not found in metadata: " + sourceDbName);
-            }
+      String recordSourceName = recordSource.getName();
+      if (recordSource.getSourceType() == DataVaultSourceType.DATABASE
+          && !Utils.isEmpty(recordSource.getSourceTableName())) {
+        DvDatabaseSource dbSource =
+            metadataProvider
+                .getSerializer(DvDatabaseSource.class)
+                .load(recordSource.getSourceTableName());
+        if (dbSource != null) {
+          sourceDbName = dbSource.getDatabaseName();
+          sourceSchema = dbSource.getSchemaName();
+          sourceTable = dbSource.getTableName();
+          sourceDatabaseMeta =
+              metadataProvider.getSerializer(DatabaseMeta.class).load(sourceDbName);
+          if (sourceDatabaseMeta == null) {
+            throw new HopException("Database connection not found in metadata: " + sourceDbName);
+          }
 
-            sourceIndicator = dataVaultSource.getSourceIndicator();
-            sourceIndicatorField = dataVaultSource.getSourceIndicatorField();
+          sourceIndicator = recordSource.getSourceIndicator();
+          sourceIndicatorField = recordSource.getSourceIndicatorField();
 
-            List<SourceField> sourceFields = dataVaultSource.getFields(metadataProvider);
+          List<SourceField> sourceFields = recordSource.getFields(metadataProvider);
 
-            // hub bks (pks for hash calc)
-            for (String hubBk : hubBkNames) {
-              for (SourceField sf : sourceFields) {
-                if (hubBk.equals(sf.getName())) {
-                  String fieldName = variables.resolve(sf.getName());
-                  pkSourceFieldNames.add(fieldName);
-                  break;
-                }
+          // hub bks (pks for hash calc)
+          for (String hubBk : hubBkNames) {
+            for (SourceField sf : sourceFields) {
+              if (hubBk.equals(sf.getName())) {
+                String fieldName = variables.resolve(sf.getName());
+                pkSourceFieldNames.add(fieldName);
+                break;
               }
             }
+          }
 
-            // sat attrs
-            if (Utils.isEmpty(sat.getAttributes())) {
-              // all from source
-              for (SourceField sf : sourceFields) {
-                if (!sf.isPrimaryKey()) {
-                  satAttrFieldNames.add(variables.resolve(sf.getName()));
-                }
+          // sat attrs
+          if (Utils.isEmpty(sat.getAttributes())) {
+            // all from source
+            for (SourceField sf : sourceFields) {
+              if (!sf.isPrimaryKey()) {
+                satAttrFieldNames.add(variables.resolve(sf.getName()));
               }
-            } else {
-              for (SatelliteAttribute sa : sat.getAttributes()) {
-                satAttrFieldNames.add(sa.getName());
-              }
+            }
+          } else {
+            for (SatelliteAttribute sa : sat.getAttributes()) {
+              satAttrFieldNames.add(sa.getName());
             }
           }
         }
@@ -1118,6 +1020,7 @@ public class DvSatellite extends DvTableBase
           variables,
           config,
           checkSumType,
+          recordSource,
           targetDatabaseMeta,
           targetDbName,
           targetTableName,
