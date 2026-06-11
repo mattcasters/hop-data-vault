@@ -20,10 +20,10 @@
         <recordSource>CRM-customer</recordSource>
       </recordSources>
       <tableName>hub_customer</tableName>
-      <description/>
+      <description>Bla bla bla</description>
       <tableType>HUB</tableType>
-      <xloc>48</xloc>
-      <yloc>32</yloc>
+      <xloc>96</xloc>
+      <yloc>64</yloc>
       <name>hub_customer</name>
       <virtualPath/>
     </table>
@@ -74,10 +74,10 @@
       <drivingKey/>
       <recordSource>CRM-customer</recordSource>
       <tableName>sat_customer</tableName>
-      <description/>
+      <description>Satellite customer</description>
       <tableType>SATELLITE</tableType>
-      <xloc>352</xloc>
-      <yloc>32</yloc>
+      <xloc>672</xloc>
+      <yloc>64</yloc>
       <name>sat_customer</name>
       <virtualPath/>
     </table>
@@ -98,8 +98,8 @@
       <tableName>hub_product</tableName>
       <description/>
       <tableType>HUB</tableType>
-      <xloc>352</xloc>
-      <yloc>528</yloc>
+      <xloc>96</xloc>
+      <yloc>320</yloc>
       <name>hub_product</name>
       <virtualPath/>
     </table>
@@ -142,10 +142,10 @@
       <drivingKey/>
       <recordSource>CRM-product</recordSource>
       <tableName>sat_product</tableName>
-      <description/>
+      <description>PRODUCT!</description>
       <tableType>SATELLITE</tableType>
-      <xloc>656</xloc>
-      <yloc>528</yloc>
+      <xloc>672</xloc>
+      <yloc>320</yloc>
       <name>sat_product</name>
       <virtualPath/>
     </table>
@@ -166,14 +166,13 @@
       <tableName>hub_order</tableName>
       <description/>
       <tableType>HUB</tableType>
-      <xloc>192</xloc>
-      <yloc>256</yloc>
+      <xloc>96</xloc>
+      <yloc>192</yloc>
       <name>hub_order</name>
       <virtualPath/>
     </table>
     <table>
       <hub>hub_order</hub>
-      <link/>
       <attributes>
         <name>customer_id</name>
         <description/>
@@ -228,21 +227,9 @@
       <tableName>sat_order</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
-      <xloc>512</xloc>
-      <yloc>256</yloc>
+      <xloc>672</xloc>
+      <yloc>192</yloc>
       <name>sat_order</name>
-      <virtualPath/>
-    </table>
-    <table>
-      <linkSources/>
-      <recordSources/>
-      <hubSourceKeyFields/>
-      <hasDescriptiveAttributes>N</hasDescriptiveAttributes>
-      <tableName>Link 1</tableName>
-      <tableType>LINK</tableType>
-      <xloc>320</xloc>
-      <yloc>336</yloc>
-      <name>Link 1</name>
       <virtualPath/>
     </table>
   </tables>

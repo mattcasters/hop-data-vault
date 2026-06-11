@@ -32,7 +32,6 @@ import org.apache.hop.core.Props;
 import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.AreaOwner;
-import org.apache.hop.core.gui.DPoint;
 import org.apache.hop.core.gui.IGc;
 import org.apache.hop.core.gui.IRedrawable;
 import org.apache.hop.core.gui.Point;
@@ -75,6 +74,7 @@ import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.hopgui.shared.SwtGc;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseTrackAdapter;
 import org.eclipse.swt.events.PaintEvent;
@@ -87,7 +87,6 @@ import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
 import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Node;
@@ -154,7 +153,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
   // Drag state for moving tables: left-click + drag on table icon body (not the name part).
   // Moves the clicked table + all currently selected tables. Position relative to initial click.
-  private Point iconDragStartScreen;
+  private Point iconDragStart;
   private boolean iconDragCommitted;
   private boolean dragSelection;
   private IDvTable currentTable;
@@ -207,9 +206,22 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
     // Mouse listener for context dialog on left click (background) + table edit + relationship drag
     // (middle/shift)
-    canvas.addListener(SWT.MouseDown, this::mouseDownEvent);
-    canvas.addListener(SWT.MouseUp, this::mouseUpEvent);
-    canvas.addListener(SWT.MouseMove, this::mouseMoveEvent);
+    canvas.addMouseListener(
+        new MouseAdapter() {
+          @Override
+          public void mouseDown(MouseEvent e) {
+            mouseDownEvent(e);
+          }
+        });
+    canvas.addMouseListener(
+        new MouseAdapter() {
+          @Override
+          public void mouseUp(MouseEvent e) {
+            mouseUpEvent(e);
+          }
+        });
+    canvas.addMouseMoveListener(e -> mouseMoveEvent(e));
+    canvas.addMouseWheelListener(this::mouseScrolled);
 
     // Track listener to clear tooltips (and hover state) when mouse leaves the canvas area.
     canvas.addMouseTrackListener(
@@ -224,6 +236,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
           }
         });
 
+    hopGui.replaceKeyboardShortcutListeners(this);
+
     // Make sure we can receive focus etc.
     canvas.setFocus();
 
@@ -234,7 +248,18 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     layout(true, true);
   }
 
-  private void mouseMoveEvent(Event e) {
+  private void mouseMoveEvent(MouseEvent e) {
+    Point real = screen2real(e.x, e.y);
+    boolean shift = (e.stateMask & SWT.SHIFT) != 0;
+    boolean control = (e.stateMask & SWT.MOD1) != 0;
+
+    // Drag the view around with middle button on the background?
+    //
+    if (viewDrag && lastClick != null) {
+      dragView(viewDragStart, new Point(e.x, e.y));
+      return;
+    }
+
     // Live panning via navigation viewport drag (dragging the blue rect in the minimap)
     if (navigatingWithViewport
         && (e.stateMask & SWT.BUTTON1) != 0
@@ -256,15 +281,16 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (currentTable != null
         && (e.stateMask & SWT.BUTTON1) != 0
         && startRelationshipTable == null) {
-      doRedraw = mouseMoveTable(e, doRedraw);
+      currentTable.setSelected(true);
+      doRedraw = mouseMoveTable(real, doRedraw);
     }
 
     // Update lasso rubber band if active (bg left drag)
     if (selectionRegion != null
         && (e.stateMask & SWT.BUTTON1) != 0
         && startRelationshipTable == null) {
-      selectionRegion.width = e.x - selectionRegion.x;
-      selectionRegion.height = e.y - selectionRegion.y;
+      selectionRegion.width = real.x + (int) (offset.x) - selectionRegion.x;
+      selectionRegion.height = real.y + (int) (offset.y) - selectionRegion.y;
       doRedraw = true;
     }
 
@@ -273,14 +299,20 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       doRedraw = true;
     }
 
-    // Update mouse-over for table name underline (only on name area, not during
-    // drag/rel/lasso)
-    AreaOwner areaOwner = getVisibleAreaOwner(e.x, e.y);
+    // We're not re-drawing so we're not moving or dragging stuff.
+    //
+    if (!doRedraw) {
+      // Update mouse-over for table name underline (only on name area, not during
+      // drag/rel/lasso)
+      //
+      AreaOwner areaOwner = getVisibleAreaOwner(real.x, real.y);
+      IDvTable hit = getAreaOwnerTable(areaOwner);
 
-    // Show description tooltip when hovering over the info icon (if present for the table)
-    mouseMoveShowInfoTooltip(areaOwner);
+      // Show description tooltip when hovering over the info icon (if present for the table)
+      mouseMoveShowInfoTooltip(areaOwner);
 
-    doRedraw = mouseMoveOverTableName(areaOwner, doRedraw);
+      doRedraw = mouseMoveOverTableName(areaOwner, doRedraw);
+    }
 
     if (doRedraw) {
       redraw();
@@ -323,16 +355,15 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
   }
 
-  private boolean mouseMoveTable(Event e, boolean doRedraw) {
+  private boolean mouseMoveTable(Point real, boolean doRedraw) {
     if (iconOffset == null) {
       iconOffset = new Point(0, 0);
     }
-    Point real = screen2real(e.x, e.y);
     Point icon = new Point(real.x - iconOffset.x, real.y - iconOffset.y);
 
-    if (!iconDragCommitted && iconDragStartScreen != null) {
-      int dxs = e.x - iconDragStartScreen.x;
-      int dys = e.y - iconDragStartScreen.y;
+    if (!iconDragCommitted && iconDragStart != null) {
+      int dxs = real.x - iconDragStart.x;
+      int dys = real.y - iconDragStart.y;
       int threshSq = ICON_DRAG_THRESHOLD_PX * ICON_DRAG_THRESHOLD_PX;
       if (dxs * dxs + dys * dys > threshSq) {
         iconDragCommitted = true;
@@ -341,18 +372,17 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       }
     }
 
-    if (iconDragCommitted && currentTable != null && !currentTable.isSelected()) {
-      unselectAllTables();
-      currentTable.setSelected(true);
+    if (iconDragCommitted && currentTable != null && currentTable.isSelected()) {
       int dx = icon.x - currentTable.getLocation().x;
       int dy = icon.y - currentTable.getLocation().y;
       moveSelectedTables(dx, dy);
+      avoidContextDialog = true;
       doRedraw = true;
     }
     return doRedraw;
   }
 
-  private void mouseMoveViewport(Event e) {
+  private void mouseMoveViewport(MouseEvent e) {
     int desiredLeft = e.x - navigationGrabOffset.x;
     int desiredTop = e.y - navigationGrabOffset.y;
 
@@ -388,7 +418,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     return;
   }
 
-  private void mouseUpEvent(Event e) {
+  private void mouseUpEvent(MouseEvent e) {
     canvas.setToolTipText(null);
     Point real = screen2real(e.x, e.y);
 
@@ -400,6 +430,11 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       avoidContextDialog = true;
       redraw();
       return;
+    }
+
+    if (viewDrag) {
+      viewDrag = false;
+      viewDragStart = null;
     }
 
     // A single click on the background isn't a selection.
@@ -442,24 +477,25 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
         return;
       }
 
-      Point realClick = screen2real(e.x, e.y);
-      if (lastClick != null && lastClick.x == realClick.x && lastClick.y == realClick.y) {
+      if (lastClick != null && lastClick.x == real.x && lastClick.y == real.y) {
         // pure click (no drag)
-        IDvTable hit = findTableAtScreen(e.x, e.y);
+        IDvTable hit = currentTable;
         if (hit == null) {
+          // A single click on the background
           if (!avoidContextDialog) {
             showVaultContextDialog(e, real);
+            avoidContextDialog = true;
           } else {
             avoidContextDialog = false;
           }
         } else {
-          AreaOwner areaOwner = getVisibleAreaOwner(e.x, e.y);
-          if (areaOwner != null && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_ICON) {
-            boolean control = (e.stateMask & SWT.MOD1) != 0;
-            if (control) {
-              hit.setSelected(!hit.isSelected());
-              redraw();
-            } else {
+          // User clicked on a table
+          boolean control = (e.stateMask & SWT.MOD1) != 0;
+          if (control) {
+            hit.setSelected(!hit.isSelected());
+            redraw();
+          } else {
+            if (!avoidContextDialog) {
               showTableContextDialog(e, hit);
             }
           }
@@ -517,7 +553,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     updateGui();
   }
 
-  private void mouseUpCreateRelationship(Event e) {
+  private void mouseUpCreateRelationship(MouseEvent e) {
     // Complete relationship drag if dropped on a different valid table
     IDvTable target = findTableAtScreen(e.x, e.y);
     if (target != null && target != startRelationshipTable) {
@@ -529,7 +565,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     redraw();
   }
 
-  private void mouseDownEvent(Event e) {
+  private void mouseDownEvent(MouseEvent e) {
     canvas.setToolTipText(null);
     Point real = screen2real(e.x, e.y);
     lastClick = new Point(real.x, real.y);
@@ -539,6 +575,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     // Navigation viewport drag takes precedence: click+drag inside the blue viewPort rect
     // (in the painter's bottom-right minimap) pans the main graph by updating offset.
     // The painter keeps viewPort inside graphPort; we do the same here during live drag.
+    //
     if (e.button == 1
         && viewPort != null
         && graphPort != null
@@ -548,23 +585,27 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       return;
     }
 
+    // The stored are owners simply reflect where something was drawn.
+    //
     AreaOwner areaOwner = getVisibleAreaOwner(real.x, real.y);
-    if (areaOwner!=null) {
-      System.out.println("Area owner mouseDown: " + areaOwner.getAreaType()+" : "+areaOwner.getOwner()+", Area="+areaOwner.getArea());
-    }
-    IDvTable hit = mouseDownFindTable(e, areaOwner);
+    IDvTable hit = getAreaOwnerTable(areaOwner);
+    AreaOwner.AreaType areaType = areaOwner == null ? null : areaOwner.getAreaType();
 
     if (hit != null) {
-      if (areaOwner != null && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_INFO_ICON) {
-        // Clicking the info icon (description badge) should not start a drag or open
-        // context menu.
-        // The description is already visible via tooltip on hover.
+      // Clicking the info icon (description badge) should not start a drag or open
+      // context menu.
+      // The description is already visible via tooltip on hover.
+      //
+      if (AreaOwner.AreaType.TRANSFORM_INFO_ICON == areaType) {
         avoidContextDialog = true;
         clearTableDragState();
         return;
       }
 
-      if (e.button == 2 || (e.button == 1 && shift)) {
+      // We start dragging anywhere in the table box
+      //
+      if (AreaOwner.AreaType.TRANSFORM_ICON == areaType && e.button == 2
+          || (e.button == 1 && shift)) {
         // Middle button or Shift+Left: start dragging a relationship from this table
         // (hub<->sat or hub<->link). Completion on mouseUp.
         startRelationshipTable = hit;
@@ -577,33 +618,38 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
         redraw();
         return;
       }
-      if (e.button == 1) {
-        if (areaOwner != null && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_NAME) {
-          // Left click on the (underlined) name: open edit dialog (hyperlink behavior)
-          editTable(hit);
-          avoidContextDialog = true;
-          return;
-        } else {
-          // Left click on table body/icon: setup drag (defer context/select to mouseUp if
-          // no drag)
-          currentTable = hit;
-          iconDragStartScreen = new Point(e.x, e.y);
-          iconDragCommitted = false;
-          Point p = hit.getLocation() != null ? hit.getLocation() : new Point(0, 0);
-          iconOffset = new Point(real.x - p.x, real.y - p.y);
-          clearSelectionRegion();
-          avoidContextDialog = true;
-          redraw();
-          return;
-        }
+      // A left click on the name of the underlined table name
+      //
+      if (e.button == 1 && AreaOwner.AreaType.TRANSFORM_NAME == areaType) {
+        // Left click on the (underlined) name: open edit dialog (hyperlink behavior)
+        avoidContextDialog = true;
+        editTable(hit);
+        return;
+      }
+
+      // A click somewhere in the background
+      //
+      if (hit != null && e.button == 1 && AreaOwner.AreaType.TRANSFORM_ICON == areaType) {
+        // Left click on table body/icon: setup drag (defer context/select to mouseUp if
+        // no drag)
+        //
+        currentTable = hit;
+        iconDragStart = new Point(real.x, real.y);
+        iconDragCommitted = false;
+        Point p = hit.getLocation() != null ? hit.getLocation() : new Point(0, 0);
+        iconOffset = new Point(real.x - p.x, real.y - p.y);
+        clearSelectionRegion();
+        redraw();
+        return;
       }
     }
 
     // Background click: cancel active relationship drag or table drag (like hop drag cancel
     // on bg)
+    //
     if (startRelationshipTable != null
         || currentTable != null
-        || iconDragStartScreen != null
+        || iconDragStart != null
         || selectionRegion != null) {
       cancelRelationshipDrag();
       clearTableDragState();
@@ -615,12 +661,13 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
     // Start lasso (rubber-band) selection on left-click background drag.
     // Unless CTRL is held, unselect all tables at start of lasso (per spec).
-    if (e.button == 1) {
+    //
+    if (e.button == 1 && hit == null) {
       if (!control) {
         unselectAllTables();
       }
 
-      selectionRegion = new Rectangle(real.x, real.y, 0, 0);
+      selectionRegion = new Rectangle((int) (real.x + offset.x), (int) (real.y + offset.y), 0, 0);
       mouseOverTableName = null;
       canvas.setData("mode", "select");
       setCursor(getDisplay().getSystemCursor(SWT.CURSOR_CROSS));
@@ -629,26 +676,27 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       return;
     }
 
+    // Click to drag the background
+    //
+    if (setupDragView(e.button, control, new Point(e.x, e.y))) {
+      return;
+    }
+
     redraw();
   }
 
-  private @Nullable IDvTable mouseDownFindTable(Event e, AreaOwner areaOwner) {
-    IDvTable hit = null;
-    if (areaOwner != null) {
-      Object o = areaOwner.getOwner();
-      if (o instanceof IDvTable t) {
-        hit = t;
-      } else if (areaOwner.getParent() instanceof IDvTable t) {
-        hit = t;
-      }
+  private @Nullable IDvTable getAreaOwnerTable(AreaOwner areaOwner) {
+    if (areaOwner == null) {
+      return null;
     }
-    if (hit == null) {
-      hit = findTableAtScreen(e.x, e.y); // fallback e.g. for relationship start
+
+    if (areaOwner.getParent() instanceof IDvTable hit) {
+      return hit;
     }
-    return hit;
+    return null;
   }
 
-  private void mouseDownOnViewport(Event e) {
+  private void mouseDownOnViewport(MouseEvent e) {
     // Clear the other options
     //
     avoidContextDialog = true;
@@ -706,7 +754,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
   private void paintControl(PaintEvent e) {
     Point area = getArea();
-    if (area.x == 0 || area.y == 0 || model==null) {
+    if (area.x == 0 || area.y == 0 || model == null) {
       return; // nothing to do!
     }
 
@@ -747,6 +795,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       painter.setZoomFactor((float) propsUi.getZoomFactor());
       painter.setMagnification((float) (magnification * PropsUi.getNativeZoomFactor()));
       painter.setOffset(offset);
+      painter.setIconSize(propsUi.getIconSize());
       painter.setSelectionRegion(selectionRegion);
       painter.setAreaOwners(areaOwners);
       painter.setMouseOverTableName(mouseOverTableName);
@@ -842,10 +891,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       image = "ui/images/zoom-100.svg")
   @Override
   public void zoom100Percent() {
-    magnification = 1.0f;
-    clearSelectionRegion();
-    setZoomLabel();
-    redraw();
+    super.zoom100Percent();
   }
 
   @GuiToolbarElement(
@@ -854,63 +900,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.ZoomFit.Tooltip",
       image = "ui/images/zoom-fit.svg")
   public void fitToScreen() {
-    if (model == null
-        || model.getTables() == null
-        || model.getTables().isEmpty()
-        || canvas == null
-        || canvas.isDisposed()) {
-      magnification = 1.0f;
-      clearSelectionRegion();
-      setZoomLabel();
-      redraw();
-      return;
-    }
-
-    int canvasW = canvas.getBounds().width;
-    int canvasH = canvas.getBounds().height;
-    if (canvasW <= 20 || canvasH <= 20) {
-      // not laid out yet, use defaults
-      canvasW = 800;
-      canvasH = 600;
-      clearSelectionRegion();
-    }
-
-    int minX = Integer.MAX_VALUE;
-    int minY = Integer.MAX_VALUE;
-    int maxX = Integer.MIN_VALUE;
-    int maxY = Integer.MIN_VALUE;
-
-    for (IDvTable t : model.getTables()) {
-      Point loc = t.getLocation();
-      if (loc == null) {
-        loc = new Point(50, 50);
-      }
-      int tw = 140;
-      int th = 70;
-      if (t instanceof DvTableBase base) {
-        if (base.getDrawnBoxWidth() > 0) tw = base.getDrawnBoxWidth();
-        if (base.getDrawnBoxHeight() > 0) th = base.getDrawnBoxHeight();
-      }
-      minX = Math.min(minX, loc.x);
-      minY = Math.min(minY, loc.y);
-      maxX = Math.max(maxX, loc.x + tw);
-      maxY = Math.max(maxY, loc.y + th);
-    }
-
-    int contentW = maxX - minX;
-    int contentH = maxY - minY;
-    if (contentW <= 0 || contentH <= 0) {
-      magnification = 1.0f;
-    } else {
-      float zoomW = (float) (canvasW - 40) / contentW; // some padding
-      float zoomH = (float) (canvasH - 40) / contentH;
-      magnification = Math.min(zoomW, zoomH);
-      if (magnification > 3f) magnification = 3f;
-      if (magnification < 0.1f) magnification = 0.1f;
-    }
-    setZoomLabel();
-    clearSelectionRegion();
-    redraw();
+    super.zoomFitToScreen();
   }
 
   @GuiToolbarElement(
@@ -1280,6 +1270,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   public AreaOwner getVisibleAreaOwner(int x, int y) {
     for (int i = areaOwners.size() - 1; i >= 0; i--) {
       AreaOwner areaOwner = areaOwners.get(i);
+      Rectangle area = areaOwner.getArea();
       if (areaOwner.contains(x, y)) {
         return areaOwner;
       }
@@ -1310,7 +1301,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   private void clearTableDragState() {
-    iconDragStartScreen = null;
+    iconDragStart = null;
     iconDragCommitted = false;
     dragSelection = false;
     iconOffset = null;
@@ -1337,9 +1328,6 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     // prevent negative coordinates
     for (IDvTable t : selected) {
       Point loc = t.getLocation();
-      if (loc == null) {
-        loc = new Point(0, 0);
-      }
       if (loc.x + dx < 0) {
         dx = -loc.x;
       }
@@ -1349,9 +1337,6 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
     for (IDvTable t : selected) {
       Point loc = t.getLocation();
-      if (loc == null) {
-        loc = new Point(0, 0);
-      }
       PropsUi.setLocation(t, loc.x + dx, loc.y + dy);
       t.setChanged();
     }
@@ -1367,8 +1352,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       DvHubDialog dialog = new DvHubDialog(parentShell, hopGui, (DvHub) table);
       changed = dialog.open();
     } else if (table.getTableType() == DvTableType.SATELLITE) {
-      DvSatelliteDialog dialog =
-          new DvSatelliteDialog(parentShell, hopGui, (DvSatellite) table);
+      DvSatelliteDialog dialog = new DvSatelliteDialog(parentShell, hopGui, (DvSatellite) table);
       changed = dialog.open();
     } else if (table.getTableType() == DvTableType.LINK) {
       DvLinkDialog dialog = new DvLinkDialog(parentShell, hopGui, (DvLink) table);
@@ -1380,6 +1364,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
         model.setChanged();
       }
       redraw();
+      canvas.setFocus();
     }
   }
 
@@ -1488,7 +1473,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
    * Draw a temporary dashed line from the center of the source table to the current mouse position
    * while dragging a relationship. Uses screen coordinates (overlay after painter).
    */
-  private void showVaultContextDialog(Event e, Point real) {
+  private void showVaultContextDialog(MouseEvent e, Point real) {
     try {
       Shell parent = getShell();
       org.eclipse.swt.graphics.Point p = parent.getDisplay().map(canvas, null, e.x, e.y);
@@ -1499,10 +1484,12 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
               .handleActionSelection(parent, message, new Point(p.x, p.y), contextHandler);
     } catch (Exception ex) {
       System.err.println("Error showing vault context dialog: " + ex.getMessage());
+    } finally {
+      canvas.setFocus();
     }
   }
 
-  private void showTableContextDialog(Event e, IDvTable table) {
+  private void showTableContextDialog(MouseEvent e, IDvTable table) {
     if (table == null) return;
     try {
       Point real = screen2real(e.x, e.y);
@@ -1515,6 +1502,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
               .handleActionSelection(parent, message, new Point(p.x, p.y), contextHandler);
     } catch (Exception ex) {
       System.err.println("Error showing table context dialog: " + ex.getMessage());
+    } finally {
+      canvas.setFocus();
     }
   }
 

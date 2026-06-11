@@ -21,13 +21,12 @@ import java.util.HashMap;
 import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.AreaOwner.AreaType;
-import org.apache.hop.core.gui.DPoint;
 import org.apache.hop.core.gui.IGc;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.svg.SvgFile;
-import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvLink;
@@ -116,11 +115,11 @@ public class DataVaultModelPainter extends BasePainter {
     gc.setTransform((float) (offset.x), (float) (offset.y), magnification);
 
     drawDataVaultModelImage();
+    drawRect(selectionRegion);
 
     // Draw the navigation view in native pixels to make calculation a bit easier.
     //
     gc.setTransform(0.0f, 0.0f, 1.0f);
-    drawRect(selectionRegion);
     drawNavigationView();
   }
 
@@ -215,36 +214,25 @@ public class DataVaultModelPainter extends BasePainter {
 
   private void drawTable(IDvTable table, int x, int y) {
     Point box = calculateTableBoxSize(table);
-    int w = box.x;
-    int h = box.y;
 
     // Draw rounded rectangle background
-    gc.setBackground(IGc.EColor.WHITE);
-    gc.setForeground(IGc.EColor.BLACK);
-    gc.fillRoundRectangle(x, y, w, h, CORNER_RADIUS_5, CORNER_RADIUS_5);
-    gc.setLineWidth(table.isSelected() ? 2 : 1);
-    gc.drawRoundRectangle(x, y, w, h, CORNER_RADIUS_5, CORNER_RADIUS_5);
-    gc.setLineWidth(1);
+    drawTableBox(table, x, y, box);
 
     // Draw icon using SVG  top-left + margin
-    try {
-      String imagePath = getImagePath(table.getTableType());
-      ClassLoader classLoader = this.getClass().getClassLoader();
-      SvgFile svgFile = new SvgFile(imagePath, classLoader);
-      gc.drawImage(svgFile, x + MARGIN, y + MARGIN, ICON_SIZE, ICON_SIZE, magnification, 0);
-    } catch (Exception e) {
-      // Fallback: just draw a small rect if image fails
-      gc.setBackground(IGc.EColor.BLUE);
-      gc.fillRectangle(x + MARGIN, y + MARGIN, ICON_SIZE, ICON_SIZE);
-    }
+    drawTableIcon(table, x, y);
 
     // Type label below the icon, small print
-    String typeLabel = getTypeLabel(table.getTableType());
-    gc.setFont(IGc.EFont.SMALL);
-    gc.setForeground(IGc.EColor.BLACK);
-    gc.drawText(typeLabel, x + MARGIN, y + MARGIN + ICON_SIZE + MARGIN, true);
+    drawTableTypeLabel(table, x, y);
 
     // Name of the table to the right of the icon
+    drawTableName(table, x, y);
+
+    // If the table has a description, draw a small info icon in the top-left corner.
+    //
+    drawTableDescriptionInfoIcon(table, x, y);
+  }
+
+  private void drawTableName(IDvTable table, int x, int y) {
     gc.setFont(IGc.EFont.GRAPH);
     gc.setForeground(IGc.EColor.BLACK);
     String name = table.getName() != null ? table.getName() : "?";
@@ -266,53 +254,77 @@ public class DataVaultModelPainter extends BasePainter {
     // Register AreaOwners for sub-hit detection (screen coords, using 0 offset so contains works
     // with screen mouse)
     if (areaOwners != null) {
-      // Whole table body/icon for context menu
-      int sx = (int) (x * magnification) + (int) offset.x;
-      int sy = (int) (y * magnification) + (int) offset.y;
-      int sw = (int) (box.x * magnification);
-      int sh = (int) (box.y * magnification);
-      areaOwners.add(
-          new AreaOwner(AreaType.TRANSFORM_ICON, sx, sy, sw, sh, new DPoint(0, 0), null, table));
-
       // Name sub-area (slightly padded) for underline hover + click-to-edit
-      int nsx = (int) (nameLogX * magnification) + (int) offset.x;
-      int nsy = (int) (nameLogY * magnification) + (int) offset.y;
-      int nsw = (int) (nameExtent.x * magnification);
-      int nsh = (int) (nameExtent.y * magnification);
+      //
+      int nsx = nameLogX;
+      int nsy = nameLogY;
+      int nsw = nameExtent.x;
+      int nsh = nameExtent.y;
       // padding to make clickable
-      nsx -= 2;
+      nsx -= 1;
       nsy -= 1;
-      nsw += 4;
+      nsw += 2;
       nsh += 2;
       areaOwners.add(
-          new AreaOwner(
-              AreaType.TRANSFORM_NAME, nsx, nsy, nsw, nsh, offset, table, name));
+          new AreaOwner(AreaType.TRANSFORM_NAME, nsx, nsy, nsw, nsh, offset, table, name));
     }
+  }
 
-    // If the table has a description, draw a small info icon at the top-left corner (slightly
-    // protruding) and register a TRANSFORM_INFO_ICON area owner (screen coords) so that mouse-over
-    // can show the description as a tooltip (modeled after
-    // PipelinePainter.drawTransformInformationIndicator).
-    if (!Utils.isEmpty(table.getDescription())) {
-      int xInfo = x - (MINI_ICON_SIZE / 2) - 1;
-      int yInfo = y - (MINI_ICON_SIZE / 2) - 1;
-      try {
-        gc.drawImage(IGc.EImage.INFO_DISABLED, xInfo, yInfo, magnification);
-      } catch (Exception e) {
-        // optional decoration; ignore draw failure
-      }
-      if (areaOwners != null) {
-        int isx = (int) (xInfo * magnification) + (int) offset.x;
-        int isy = (int) (yInfo * magnification) + (int) offset.y;
-        int isw = (int) (MINI_ICON_SIZE * magnification);
-        int ish = (int) (MINI_ICON_SIZE * magnification);
-        areaOwners.add(
-            new AreaOwner(
-                AreaType.TRANSFORM_INFO_ICON, isx, isy, isw, ish, new DPoint(0, 0), null, table));
-      }
+  private void drawTableTypeLabel(IDvTable table, int x, int y) {
+    String typeLabel = getTypeLabel(table.getTableType());
+    gc.setFont(IGc.EFont.SMALL);
+    gc.setForeground(IGc.EColor.BLACK);
+    gc.drawText(typeLabel, x + MARGIN, y + MARGIN + ICON_SIZE + MARGIN, true);
+  }
+
+  private void drawTableBox(IDvTable table, int x, int y, Point box) {
+    gc.setBackground(IGc.EColor.WHITE);
+    gc.setForeground(IGc.EColor.BLACK);
+    gc.fillRoundRectangle(x, y, box.x, box.y, CORNER_RADIUS_5, CORNER_RADIUS_5);
+    gc.setLineWidth(table.isSelected() ? 2 : 1);
+    gc.drawRoundRectangle(x, y, box.x, box.y, CORNER_RADIUS_5, CORNER_RADIUS_5);
+    gc.setLineWidth(1);
+
+    // The TRANSFORM_ICON area type is used to mean the whole box including the icon and 2 texts.
+    //
+    areaOwners.add(
+        new AreaOwner(AreaType.TRANSFORM_ICON, x, y, box.x, box.y, offset, table, table.getName()));
+  }
+
+  private void drawTableIcon(IDvTable table, int x, int y) {
+    try {
+      String imagePath = getImagePath(table.getTableType());
+      ClassLoader classLoader = this.getClass().getClassLoader();
+      SvgFile svgFile = new SvgFile(imagePath, classLoader);
+      gc.drawImage(svgFile, x + MARGIN, y + MARGIN, ICON_SIZE, ICON_SIZE, magnification, 0);
+    } catch (Exception e) {
+      // Fallback: just draw a small rect if image fails
+      gc.setBackground(IGc.EColor.BLUE);
+      gc.fillRectangle(x + MARGIN, y + MARGIN, ICON_SIZE, ICON_SIZE);
     }
+  }
 
-    gc.setFont(IGc.EFont.GRAPH); // reset?
+  private void drawTableDescriptionInfoIcon(IDvTable table, int x, int y) {
+    if (table == null || StringUtils.isEmpty(table.getDescription())) {
+      return;
+    }
+    int xInfo = x - (MINI_ICON_SIZE / 2) - 1;
+    int yInfo = y - (MINI_ICON_SIZE / 2) - 1;
+    try {
+      gc.drawImage(IGc.EImage.INFO_DISABLED, xInfo, yInfo, magnification);
+    } catch (Exception e) {
+      // optional decoration; ignore draw failure
+    }
+    areaOwners.add(
+        new AreaOwner(
+            AreaType.TRANSFORM_INFO_ICON,
+            xInfo,
+            yInfo,
+            MINI_ICON_SIZE,
+            MINI_ICON_SIZE,
+            offset,
+            table,
+            table.getDescription()));
   }
 
   private String getImagePath(DvTableType type) {
@@ -449,7 +461,7 @@ public class DataVaultModelPainter extends BasePainter {
       return;
     }
     // Minimum size in viewport pixels so transforms remain visible
-    int minSize = 2;
+    int minSize = 4;
     // Draw hops as lines first (behind transforms)
     gc.setForeground(IGc.EColor.DARKGRAY);
     gc.setLineWidth(1);
