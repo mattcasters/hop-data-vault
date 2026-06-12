@@ -110,48 +110,6 @@ public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IH
     this.name = name;
   }
 
-  @Override
-  public String getName() {
-    return name;
-  }
-
-  @Override
-  public void setName(String name) {
-    this.name = name;
-  }
-
-  public DataVaultSourceType getSourceType() {
-    return sourceType;
-  }
-
-  public void setSourceType(DataVaultSourceType sourceType) {
-    this.sourceType = sourceType;
-  }
-
-  public String getSourceTableName() {
-    return sourceTableName;
-  }
-
-  public void setSourceTableName(String sourceTableName) {
-    this.sourceTableName = sourceTableName;
-  }
-
-  public String getSourceIndicatorField() {
-    return sourceIndicatorField;
-  }
-
-  public void setSourceIndicatorField(String sourceIndicatorField) {
-    this.sourceIndicatorField = sourceIndicatorField;
-  }
-
-  public String getSourceIndicator() {
-    return sourceIndicator;
-  }
-
-  public void setSourceIndicator(String sourceIndicator) {
-    this.sourceIndicator = sourceIndicator;
-  }
-
   /**
    * Resolve the source indicator (record source value) according to the defined precedence:
    *

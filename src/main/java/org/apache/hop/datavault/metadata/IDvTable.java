@@ -65,8 +65,10 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
    * provided list.
    *
    * @param remarks the list to append CheckResult instances to
+   * @param metadataProvider for loading referenced sources etc to validate fields/attributes etc.
+   * @param variables for variable resolution if needed during checks
    */
-  void check(List<ICheckResult> remarks);
+  void check(List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables);
 
   /**
    * Generate "update" pipeline(s) for this table.

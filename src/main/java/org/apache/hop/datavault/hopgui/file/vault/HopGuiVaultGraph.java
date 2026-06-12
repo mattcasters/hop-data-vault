@@ -923,7 +923,13 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
     List<ICheckResult> remarks = model.check(hopGui.getMetadataProvider(), hopGui.getVariables());
     CheckResultDialog dialog = new CheckResultDialog(hopGui.getShell(), remarks);
-    dialog.open();
+    String tableName = dialog.open();
+    if (tableName != null) {
+      IDvTable table = model.findTable(tableName);
+      if (table != null) {
+        editTable(table);
+      }
+    }
   }
 
   @GuiToolbarElement(

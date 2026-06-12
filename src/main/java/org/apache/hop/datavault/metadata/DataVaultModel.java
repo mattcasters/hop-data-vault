@@ -227,7 +227,7 @@ public class DataVaultModel extends HopMetadataBase
     // Per-table reference validation + delegate to table checks
     if (tables != null) {
       for (IDvTable table : tables) {
-        table.check(remarks);
+        table.check(remarks, metadataProvider, variables);
 
         // Cross-references for satellites and links
         if (table instanceof DvSatellite sat) {
@@ -353,6 +353,21 @@ public class DataVaultModel extends HopMetadataBase
     for (IDvTable table : tables) {
       if (table.getTableType() == DvTableType.HUB && table.getName().equalsIgnoreCase(hubName)) {
         return (DvHub) table;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Find the table with the given name in the model
+   *
+   * @param tableName The name of the table to look for.
+   * @return The table or null if not found.
+   */
+  public IDvTable findTable(String tableName) {
+    for (IDvTable table : tables) {
+      if (table.getName().equalsIgnoreCase(tableName)) {
+        return table;
       }
     }
     return null;

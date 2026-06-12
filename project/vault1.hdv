@@ -31,7 +31,7 @@
       <hub>hub_customer</hub>
       <link/>
       <attributes>
-        <name>NAME</name>
+        <name>name</name>
         <description/>
         <dataType>String</dataType>
         <length>50</length>
@@ -59,14 +59,6 @@
         <description/>
         <dataType>String</dataType>
         <length>50</length>
-        <precision/>
-        <includeInChangeDataCapture>Y</includeInChangeDataCapture>
-      </attributes>
-      <attributes>
-        <name>load_date</name>
-        <description/>
-        <dataType>Timestamp</dataType>
-        <length>6</length>
         <precision/>
         <includeInChangeDataCapture>Y</includeInChangeDataCapture>
       </attributes>
@@ -130,14 +122,6 @@
         <precision>2</precision>
         <includeInChangeDataCapture>Y</includeInChangeDataCapture>
       </attributes>
-      <attributes>
-        <name>load_date</name>
-        <description/>
-        <dataType>Timestamp</dataType>
-        <length>6</length>
-        <precision/>
-        <includeInChangeDataCapture>Y</includeInChangeDataCapture>
-      </attributes>
       <multiActive>N</multiActive>
       <drivingKey/>
       <recordSource>CRM-product</recordSource>
@@ -173,6 +157,7 @@
     </table>
     <table>
       <hub>hub_order</hub>
+      <link/>
       <attributes>
         <name>customer_id</name>
         <description/>
@@ -209,15 +194,7 @@
         <name>order_date</name>
         <description/>
         <dataType>Timestamp</dataType>
-        <length>6</length>
-        <precision/>
-        <includeInChangeDataCapture>Y</includeInChangeDataCapture>
-      </attributes>
-      <attributes>
-        <name>load_date</name>
-        <description/>
-        <dataType>Timestamp</dataType>
-        <length>6</length>
+        <length/>
         <precision/>
         <includeInChangeDataCapture>Y</includeInChangeDataCapture>
       </attributes>

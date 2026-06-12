@@ -26,10 +26,6 @@
           "data_set_field": "order_date"
         },
         {
-          "transform_field": "load_date",
-          "data_set_field": "load_date"
-        },
-        {
           "transform_field": "x_record_source",
           "data_set_field": "x_record_source"
         }

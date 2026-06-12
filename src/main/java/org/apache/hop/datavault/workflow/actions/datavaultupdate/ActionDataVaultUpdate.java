@@ -215,6 +215,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
 
           pipelineMeta.lookupReferencesAfterLoading();
 
+          logBasic("====================================================================");
           logBasic(
               BaseMessages.getString(
                   PKG, "ActionDataVaultUpdate.Log.RunningPipeline", table.getName(), realRunConfig));

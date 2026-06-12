@@ -7,17 +7,17 @@
     <pipeline_type>Normal</pipeline_type>
     <pipeline_status>-1</pipeline_status>
     <parameters/>
-    <name>sat-sat_customer</name>
+    <name>sat-sat_order</name>
     <name_sync_with_filename>Y</name_sync_with_filename>
     <created_user>-</created_user>
     <modified_user>-</modified_user>
-    <created_date>2026/06/12 01:03:36.151</created_date>
-    <modified_date>2026/06/12 01:03:36.151</modified_date>
+    <created_date>2026/06/12 11:54:24.216</created_date>
+    <modified_date>2026/06/12 11:54:24.216</modified_date>
   </info>
   <transform>
     <type>TableInput</type>
-    <name>source  CRM.customer</name>
-    <sql>SELECT customer_id, "name", email, address, city, load_date, record_source AS x_record_source FROM customer</sql>
+    <name>source  CRM.order</name>
+    <sql>SELECT order_id, customer_id, product_id, quantity, unit_price, order_date, record_source AS x_record_source FROM "order"</sql>
     <execute_each_row>N</execute_each_row>
     <variables_active>N</variables_active>
     <connection>CRM</connection>
@@ -35,13 +35,13 @@
   </transform>
   <transform>
     <type>CheckSum</type>
-    <name>calc_customer_hk</name>
+    <name>calc_order_hk</name>
     <fields>
       <field>
-        <name>customer_id</name>
+        <name>order_id</name>
       </field>
     </fields>
-    <resultfieldName>customer_hk</resultfieldName>
+    <resultfieldName>order_hk</resultfieldName>
     <checksumtype>MD5</checksumtype>
     <resultType>string</resultType>
     <distribute>Y</distribute>
@@ -61,32 +61,32 @@
     <name>hk plus attr</name>
     <fields>
       <field>
-        <name>customer_hk</name>
+        <name>order_hk</name>
         <length>-2</length>
         <precision>-2</precision>
       </field>
       <field>
-        <name>name</name>
+        <name>customer_id</name>
         <length>-2</length>
         <precision>-2</precision>
       </field>
       <field>
-        <name>email</name>
+        <name>product_id</name>
         <length>-2</length>
         <precision>-2</precision>
       </field>
       <field>
-        <name>address</name>
+        <name>quantity</name>
         <length>-2</length>
         <precision>-2</precision>
       </field>
       <field>
-        <name>city</name>
+        <name>unit_price</name>
         <length>-2</length>
         <precision>-2</precision>
       </field>
       <field>
-        <name>load_date</name>
+        <name>order_date</name>
         <length>-2</length>
         <precision>-2</precision>
       </field>
@@ -111,10 +111,10 @@
   </transform>
   <transform>
     <type>SortRows</type>
-    <name>sort customer_hk</name>
+    <name>sort order_hk</name>
     <fields>
       <field>
-        <name>customer_hk</name>
+        <name>order_hk</name>
         <ascending>Y</ascending>
         <case_sensitive>Y</case_sensitive>
         <collator_enabled>N</collator_enabled>
@@ -141,8 +141,8 @@
   </transform>
   <transform>
     <type>TableInput</type>
-    <name>target_sat_customer</name>
-    <sql>SELECT "name", email, address, city, load_date, x_record_source, customer_hk FROM sat_customer ORDER BY customer_hk, x_load_ts</sql>
+    <name>target_sat_order</name>
+    <sql>SELECT customer_id, product_id, quantity, unit_price, order_date, x_record_source, order_hk FROM sat_order ORDER BY order_hk, x_load_ts</sql>
     <execute_each_row>N</execute_each_row>
     <variables_active>N</variables_active>
     <connection>Vault</connection>
@@ -160,38 +160,38 @@
   </transform>
   <transform>
     <type>GroupBy</type>
-    <name>group_last_customer_hk</name>
+    <name>group_last_order_hk</name>
     <all_rows>N</all_rows>
     <ignore_aggregate>N</ignore_aggregate>
     <group>
       <field>
-        <name>customer_hk</name>
+        <name>order_hk</name>
       </field>
     </group>
     <fields>
       <field>
-        <aggregate>name</aggregate>
-        <subject>name</subject>
+        <aggregate>customer_id</aggregate>
+        <subject>customer_id</subject>
         <type>LAST_INCL_NULL</type>
       </field>
       <field>
-        <aggregate>email</aggregate>
-        <subject>email</subject>
+        <aggregate>product_id</aggregate>
+        <subject>product_id</subject>
         <type>LAST_INCL_NULL</type>
       </field>
       <field>
-        <aggregate>address</aggregate>
-        <subject>address</subject>
+        <aggregate>quantity</aggregate>
+        <subject>quantity</subject>
         <type>LAST_INCL_NULL</type>
       </field>
       <field>
-        <aggregate>city</aggregate>
-        <subject>city</subject>
+        <aggregate>unit_price</aggregate>
+        <subject>unit_price</subject>
         <type>LAST_INCL_NULL</type>
       </field>
       <field>
-        <aggregate>load_date</aggregate>
-        <subject>load_date</subject>
+        <aggregate>order_date</aggregate>
+        <subject>order_date</subject>
         <type>LAST_INCL_NULL</type>
       </field>
       <field>
@@ -215,26 +215,56 @@
     <attributes/>
   </transform>
   <transform>
-    <type>MergeRows</type>
-    <name>merge_diff</name>
-    <flag_field>flag</flag_field>
-    <keys>
-      <key>customer_hk</key>
-    </keys>
-    <values>
-      <value>name</value>
-      <value>email</value>
-      <value>address</value>
-      <value>city</value>
-      <value>load_date</value>
-    </values>
-    <reference>group_last_customer_hk</reference>
-    <compare>sort customer_hk</compare>
-    <passthrough-fields/>
+    <type>Dummy</type>
+    <name>Merge reference</name>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
       <xloc>480</xloc>
+      <yloc>320</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <attributes/>
+  </transform>
+  <transform>
+    <type>Dummy</type>
+    <name>Merge compare</name>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>800</xloc>
+      <yloc>160</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <attributes/>
+  </transform>
+  <transform>
+    <type>MergeRows</type>
+    <name>merge_diff</name>
+    <flag_field>flag</flag_field>
+    <keys>
+      <key>order_hk</key>
+    </keys>
+    <values>
+      <value>customer_id</value>
+      <value>product_id</value>
+      <value>quantity</value>
+      <value>unit_price</value>
+      <value>order_date</value>
+    </values>
+    <reference>Merge reference</reference>
+    <compare>Merge compare</compare>
+    <passthrough-fields/>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>640</xloc>
       <yloc>320</yloc>
     </GUI>
     <partitioning>
@@ -288,7 +318,7 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>640</xloc>
+      <xloc>800</xloc>
       <yloc>320</yloc>
     </GUI>
     <partitioning>
@@ -302,7 +332,7 @@
     <name>add_x_load_ts</name>
     <fields>
       <field>
-        <nullif>2026/06/12 01:03:36.149</nullif>
+        <nullif>2026/06/12 11:54:24.213</nullif>
         <name>x_load_ts</name>
         <type>Date</type>
         <format>yyyy/MM/dd HH:mm:ss.SSS</format>
@@ -314,7 +344,7 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>800</xloc>
+      <xloc>960</xloc>
       <yloc>320</yloc>
     </GUI>
     <partitioning>
@@ -325,9 +355,9 @@
   </transform>
   <transform>
     <type>TableOutput</type>
-    <name>write_to_sat_customer</name>
+    <name>write_to_sat_order</name>
     <connection>Vault</connection>
-    <table>sat_customer</table>
+    <table>sat_order</table>
     <commit>1000</commit>
     <truncate>N</truncate>
     <only_when_have_rows>N</only_when_have_rows>
@@ -347,28 +377,28 @@
     <change_column_types>N</change_column_types>
     <fields>
       <field>
-        <stream_name>customer_hk</stream_name>
-        <column_name>customer_hk</column_name>
+        <stream_name>order_hk</stream_name>
+        <column_name>order_hk</column_name>
       </field>
       <field>
-        <stream_name>name</stream_name>
-        <column_name>name</column_name>
+        <stream_name>customer_id</stream_name>
+        <column_name>customer_id</column_name>
       </field>
       <field>
-        <stream_name>email</stream_name>
-        <column_name>email</column_name>
+        <stream_name>product_id</stream_name>
+        <column_name>product_id</column_name>
       </field>
       <field>
-        <stream_name>address</stream_name>
-        <column_name>address</column_name>
+        <stream_name>quantity</stream_name>
+        <column_name>quantity</column_name>
       </field>
       <field>
-        <stream_name>city</stream_name>
-        <column_name>city</column_name>
+        <stream_name>unit_price</stream_name>
+        <column_name>unit_price</column_name>
       </field>
       <field>
-        <stream_name>load_date</stream_name>
-        <column_name>load_date</column_name>
+        <stream_name>order_date</stream_name>
+        <column_name>order_date</column_name>
       </field>
       <field>
         <stream_name>x_record_source</stream_name>
@@ -382,7 +412,7 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>960</xloc>
+      <xloc>1120</xloc>
       <yloc>320</yloc>
     </GUI>
     <partitioning>
@@ -393,32 +423,42 @@
   </transform>
   <order>
     <hop>
-      <from>source  CRM.customer</from>
-      <to>calc_customer_hk</to>
+      <from>source  CRM.order</from>
+      <to>calc_order_hk</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>calc_customer_hk</from>
+      <from>calc_order_hk</from>
       <to>hk plus attr</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
       <from>hk plus attr</from>
-      <to>sort customer_hk</to>
+      <to>sort order_hk</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>target_sat_customer</from>
-      <to>group_last_customer_hk</to>
+      <from>target_sat_order</from>
+      <to>group_last_order_hk</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>group_last_customer_hk</from>
+      <from>group_last_order_hk</from>
+      <to>Merge reference</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>sort order_hk</from>
+      <to>Merge compare</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Merge reference</from>
       <to>merge_diff</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>sort customer_hk</from>
+      <from>Merge compare</from>
       <to>merge_diff</to>
       <enabled>Y</enabled>
     </hop>
@@ -434,7 +474,7 @@
     </hop>
     <hop>
       <from>add_x_load_ts</from>
-      <to>write_to_sat_customer</to>
+      <to>write_to_sat_order</to>
       <enabled>Y</enabled>
     </hop>
   </order>

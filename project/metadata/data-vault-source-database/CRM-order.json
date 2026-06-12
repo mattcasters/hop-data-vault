@@ -48,20 +48,11 @@
       "primaryKey": false
     },
     {
-      "sourceDataType": "Timestamp",
-      "hopType": 9,
+      "sourceDataType": "Date",
+      "hopType": 3,
       "precision": "",
       "length": "6",
       "name": "order_date",
-      "description": "",
-      "primaryKey": false
-    },
-    {
-      "sourceDataType": "Timestamp",
-      "hopType": 9,
-      "precision": "",
-      "length": "6",
-      "name": "load_date",
       "description": "",
       "primaryKey": false
     },

@@ -24,7 +24,6 @@
 , quantity
 , unit_price
 , order_date
-, load_date
 , x_record_source
 , x_load_ts
 FROM sat_order

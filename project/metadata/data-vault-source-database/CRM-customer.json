@@ -16,7 +16,7 @@
       "hopType": 2,
       "precision": "",
       "length": "50",
-      "name": "NAME",
+      "name": "name",
       "description": "",
       "primaryKey": false
     },
@@ -44,15 +44,6 @@
       "precision": "",
       "length": "50",
       "name": "city",
-      "description": "",
-      "primaryKey": false
-    },
-    {
-      "sourceDataType": "Timestamp",
-      "hopType": 9,
-      "precision": "",
-      "length": "6",
-      "name": "load_date",
       "description": "",
       "primaryKey": false
     },

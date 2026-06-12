@@ -35,7 +35,11 @@ import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadata;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.pipeline.transform.TransformMeta;
+import org.apache.hop.pipeline.transforms.dummy.DummyMeta;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Common abstract base class for Data Vault 2.0 table definitions (Hub, Link, Satellite).
@@ -253,7 +257,7 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
   }
 
   @Override
-  public void check(List<ICheckResult> remarks) {
+  public void check(List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
     if (Utils.isEmpty(getName())) {
       remarks.add(
           new CheckResult(
@@ -294,5 +298,14 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
       throws HopException {
     // default: no pipeline in base
     return java.util.Collections.emptyList();
+  }
+
+  protected static @NonNull TransformMeta addDummyTransform(PipelineMeta pipelineMeta, TransformMeta referenceTransform, String transformName, int locationX, int locationY) {
+    DummyMeta dummyMeta = new DummyMeta();
+    TransformMeta referenceDummyTransform = new TransformMeta("Dummy", transformName, dummyMeta);
+    referenceDummyTransform.setLocation(locationX, locationY);
+    pipelineMeta.addTransform(referenceDummyTransform);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceTransform, referenceDummyTransform));
+    return referenceDummyTransform;
   }
 }

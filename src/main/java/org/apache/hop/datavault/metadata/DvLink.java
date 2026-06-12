@@ -170,8 +170,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   }
 
   @Override
-  public void check(List<ICheckResult> remarks) {
-    super.check(remarks);
+  public void check(List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
+    super.check(remarks, metadataProvider, variables);
     if (Utils.isEmpty(hubNames) || hubNames.size() < 2) {
       remarks.add(
           new CheckResult(
@@ -242,7 +242,88 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
               this));
       for (DvLinkSource ls : linkSources) {
         if (ls != null && ls.getSource() != null && !Utils.isEmpty(ls.getSource().getName())) {
-          // per source mappings should exist for the hubs
+          DataVaultSource source = ls.getSource();
+          List<SourceField> availableSourceFields;
+          try {
+            availableSourceFields = source.getFields(metadataProvider);
+          } catch (HopException e) {
+            remarks.add(
+                new CheckResult(
+                    ICheckResult.TYPE_RESULT_ERROR,
+                    "Error loading fields from record source '"
+                        + source.getName()
+                        + "': "
+                        + e.getMessage(),
+                    this));
+            continue;
+          }
+          if (availableSourceFields == null) {
+            availableSourceFields = new ArrayList<>();
+          }
+          // loop over the available hubSourceKeyFields and check the source fields
+          if (ls.getHubSourceKeyFields() != null) {
+            for (HubSourceKeyField hkf : ls.getHubSourceKeyFields()) {
+              if (hkf == null) continue;
+              // check sourceBusinessKeyFields
+              if (hkf.getSourceBusinessKeyFields() != null) {
+                for (BusinessKeySource bks : hkf.getSourceBusinessKeyFields()) {
+                  if (bks != null && !Utils.isEmpty(bks.getSourceFieldName())) {
+                    boolean found = false;
+                    for (SourceField sf : availableSourceFields) {
+                      if (bks.getSourceFieldName().equals(sf.getName())) {
+                        found = true;
+                        break;
+                      }
+                    }
+                    if (!found) {
+                      remarks.add(
+                          new CheckResult(
+                              ICheckResult.TYPE_RESULT_ERROR,
+                              "Source field '"
+                                  + bks.getSourceFieldName()
+                                  + "' (for business key '"
+                                  + bks.getBusinessKeyField()
+                                  + "') in hub '"
+                                  + hkf.getHubName()
+                                  + "' not available in record source '"
+                                  + source.getName()
+                                  + "'",
+                              this));
+                    }
+                  }
+                }
+              }
+              // check drivingKeySources
+              if (hkf.getDrivingKeySources() != null) {
+                for (DrivingKeySource dks : hkf.getDrivingKeySources()) {
+                  if (dks != null && !Utils.isEmpty(dks.getSourceField())) {
+                    boolean found = false;
+                    for (SourceField sf : availableSourceFields) {
+                      if (dks.getSourceField().equals(sf.getName())) {
+                        found = true;
+                        break;
+                      }
+                    }
+                    if (!found) {
+                      remarks.add(
+                          new CheckResult(
+                              ICheckResult.TYPE_RESULT_ERROR,
+                              "Source field '"
+                                  + dks.getSourceField()
+                                  + "' (for driving key '"
+                                  + dks.getDrivingKey()
+                                  + "') in hub '"
+                                  + hkf.getHubName()
+                                  + "' not available in record source '"
+                                  + source.getName()
+                                  + "'",
+                              this));
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -289,7 +370,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
           String hubHashName = variables.resolve(hub.getHashKeyFieldName());
           hubHashNames.add(hubHashName);
           List<String> hubBkFields = hub.getBusinessKeyFieldNames();
-          predecessorTransform =
+          TransformMeta checkSumTransform =
               addCheckSumForFields(
                   pipelineMeta,
                   predecessorTransform,
@@ -298,6 +379,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
                   hubHashName,
                   ctx.config,
                   index++);
+          pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessorTransform, checkSumTransform));
+          predecessorTransform = checkSumTransform;
         }
 
         // Final checksum for the Link Hash itself
@@ -310,40 +393,28 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
                 linkHashKeyFieldName,
                 ctx.config,
                 index);
+        pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessorTransform, linkHashCalc));
         predecessorTransform = linkHashCalc;
 
         TransformMeta selectTransform =
             addSourceSelectRows(ctx, pipelineMeta, predecessorTransform);
 
         // Target side
-        TransformMeta targetInputTransform = addTargetTableInput(ctx, pipelineMeta);
+        TransformMeta targetInputTransform =
+            addTargetTableInput(ctx, pipelineMeta);
 
-        TransformMeta sortTransform = null;
-        if (targetInputTransform != null) {
-
-          sortTransform = addSortRows(pipelineMeta, selectTransform, ctx, linkHashKeyFieldName);
-        }
+        TransformMeta sortTransform = addSortRows(pipelineMeta, selectTransform, linkHashKeyFieldName);
 
         TransformMeta mergeTransform =
             addMergeRows(ctx, pipelineMeta, sortTransform, targetInputTransform);
 
-        TransformMeta filterTransform = addFilterNewRowsIfNeeded(pipelineMeta, mergeTransform);
-        TransformMeta constantTransform = addConstantForLoadDate(ctx, pipelineMeta, loadDate);
+        TransformMeta filterTransform = addFilterNewRows(pipelineMeta, mergeTransform);
+        TransformMeta constantTransform =
+            addConstantForLoadDate(ctx, pipelineMeta, loadDate, filterTransform);
 
         IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
-        TransformMeta tableOutputTransform = addTableOutput(ctx, pipelineMeta, targetLayout);
 
-        addPipelineHops(
-            pipelineMeta,
-            sourceInputTransform,
-            targetInputTransform,
-            mergeTransform,
-            filterTransform,
-            linkHashCalc,
-            selectTransform,
-            sortTransform,
-            constantTransform,
-            tableOutputTransform);
+        addTableOutput(ctx, pipelineMeta, targetLayout, constantTransform);
 
         result.add(pipelineMeta);
       }
@@ -624,7 +695,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     return null;
   }
 
-  private TransformMeta addTargetTableInput(LinkUpdateContext ctx, PipelineMeta pipelineMeta)
+  private TransformMeta addTargetTableInput(
+      LinkUpdateContext ctx, PipelineMeta pipelineMeta)
       throws HopException {
     if (ctx.targetDatabaseMeta == null) {
       return null;
@@ -686,16 +758,33 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   private TransformMeta addMergeRows(
       LinkUpdateContext ctx,
       PipelineMeta pipelineMeta,
-      TransformMeta sourceInputTransform,
-      TransformMeta targetInputTransform)
+      TransformMeta compareTransform,
+      TransformMeta referenceTransform)
       throws HopException {
-    if (targetInputTransform == null || sourceInputTransform == null) {
+    if (referenceTransform == null || compareTransform == null) {
       return null;
     }
 
+    // A bug in hop requires an extra dummy to read from both reference and compare transforms
+    //
+    TransformMeta referenceDummyTransform =
+        addDummyTransform(
+            pipelineMeta,
+            referenceTransform,
+            "Merge reference",
+            referenceTransform.getLocation().x + SPACING_WIDTH,
+            referenceTransform.getLocation().y);
+    TransformMeta compareDummyTransform =
+        addDummyTransform(
+            pipelineMeta,
+            compareTransform,
+            "Merge compare",
+            compareTransform.getLocation().x + SPACING_WIDTH,
+            compareTransform.getLocation().y);
+
     MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
-    mergeRowsMeta.setReferenceTransform(targetInputTransform.getName());
-    mergeRowsMeta.setCompareTransform(sourceInputTransform.getName());
+    mergeRowsMeta.setReferenceTransform(referenceDummyTransform.getName());
+    mergeRowsMeta.setCompareTransform(compareDummyTransform.getName());
     mergeRowsMeta.setFlagField("flag");
 
     // We merge on the hash key of this table.
@@ -734,15 +823,15 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     tm.setLocation(LOCATION_START_LINE_3.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
 
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(sourceInputTransform, tm));
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(targetInputTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceDummyTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareDummyTransform, tm));
 
     return tm;
   }
 
-  private TransformMeta addFilterNewRowsIfNeeded(
-      PipelineMeta pipelineMeta, TransformMeta mergeTransform) throws HopException {
-    if (mergeTransform == null) {
+  private TransformMeta addFilterNewRows(PipelineMeta pipelineMeta, TransformMeta predecessor)
+      throws HopException {
+    if (predecessor == null) {
       return null;
     }
 
@@ -763,11 +852,12 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     TransformMeta tm = new TransformMeta("FilterRows", "filter_new", filterRowsMeta);
     tm.setLocation(LOCATION_START_LINE_3.x + 3 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
     return tm;
   }
 
   private TransformMeta addSortRows(
-      PipelineMeta pipelineMeta, TransformMeta after, LinkUpdateContext ctx, String sortFieldName) {
+      PipelineMeta pipelineMeta, TransformMeta predecessor, String sortFieldName) {
     SortRowsMeta sortRowsMeta = new SortRowsMeta();
     SortRowsField sf = new SortRowsField();
     sf.setFieldName(sortFieldName);
@@ -782,11 +872,13 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
             LOCATION_START_LINE_2.y);
     tm.setLocation(loc);
     pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
     return tm;
   }
 
   private TransformMeta addConstantForLoadDate(
-      LinkUpdateContext ctx, PipelineMeta pipelineMeta, Date loadDate) throws HopException {
+      LinkUpdateContext ctx, PipelineMeta pipelineMeta, Date loadDate, TransformMeta predecessor)
+      throws HopException {
     String loadDateField = "LOAD_DATE";
     if (ctx.config != null && !Utils.isEmpty(ctx.config.getLoadDateField())) {
       loadDateField = ctx.config.getLoadDateField();
@@ -807,11 +899,16 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     TransformMeta tm = new TransformMeta("Constant", "add_" + loadDateField, constantMeta);
     tm.setLocation(LOCATION_START_LINE_3.x + 4 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
     return tm;
   }
 
   private TransformMeta addTableOutput(
-      LinkUpdateContext ctx, PipelineMeta pipelineMeta, IRowMeta targetLayout) throws HopException {
+      LinkUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      IRowMeta targetLayout,
+      TransformMeta predecessor)
+      throws HopException {
     if (ctx.targetDatabaseMeta == null || Utils.isEmpty(ctx.targetDbName)) {
       return null;
     }
@@ -838,61 +935,10 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
       tm.setLocation(LOCATION_START_LINE_3.x + 5 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
       pipelineMeta.addTransform(tm);
+      pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
       return tm;
     } catch (Exception e) {
       throw new HopException("Error creating Table Output transform", e);
-    }
-  }
-
-  private void addPipelineHops(
-      PipelineMeta pipelineMeta,
-      TransformMeta sourceTransform,
-      TransformMeta targetTransform,
-      TransformMeta mergeTransform,
-      TransformMeta filterTransform,
-      TransformMeta linkHashCalc,
-      TransformMeta selectTransform,
-      TransformMeta sortTransform,
-      TransformMeta constantTransform,
-      TransformMeta tableOutputTransform) {
-
-    // source -> hub hashes -> link hash calc -> select -> sort
-    if (sourceTransform != null && linkHashCalc != null) {
-      // The intermediate hub hashes are chained inside the creation; we only need the final hop to
-      // the link calc if not already
-      // For simplicity we rely on the creation order for intermediate; here we ensure the last calc
-      // to select
-    }
-
-    if (selectTransform != null && linkHashCalc != null) {
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(linkHashCalc, selectTransform));
-    }
-
-    if (sortTransform != null && selectTransform != null) {
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(selectTransform, sortTransform));
-    }
-
-    if (mergeTransform != null) {
-      if (targetTransform != null) {
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(targetTransform, mergeTransform));
-      }
-      if (sortTransform != null) {
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(sortTransform, mergeTransform));
-      }
-      if (filterTransform != null) {
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(mergeTransform, filterTransform));
-        if (constantTransform != null) {
-          pipelineMeta.addPipelineHop(new PipelineHopMeta(filterTransform, constantTransform));
-        }
-      } else if (constantTransform != null) {
-        pipelineMeta.addPipelineHop(new PipelineHopMeta(mergeTransform, constantTransform));
-      }
-    } else if (linkHashCalc != null && constantTransform != null) {
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(linkHashCalc, constantTransform));
-    }
-
-    if (constantTransform != null && tableOutputTransform != null) {
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(constantTransform, tableOutputTransform));
     }
   }
 
