@@ -30,8 +30,8 @@ import org.apache.hop.core.Const;
 import org.apache.hop.core.DbCache;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
-import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.action.GuiContextAction;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.IGc;
@@ -50,6 +50,7 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
@@ -88,11 +89,11 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.ToolItem;
 import org.jspecify.annotations.Nullable;
@@ -146,8 +147,6 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   private GuiToolbarWidgets toolBarWidgets;
 
   private boolean changed = false;
-
-  private boolean showHashKeyFieldNames;
 
   private boolean avoidContextDialog;
 
@@ -816,7 +815,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       painter.setAreaOwners(areaOwners);
       painter.setMouseOverTableName(mouseOverTableName);
       painter.setShowingNavigationView(!propsUi.isHideViewportEnabled());
-      painter.setShowHashKeyFieldNames(showHashKeyFieldNames);
+      painter.setShowHashKeyFieldNames(
+          DataVaultConfigSingleton.getConfig().isDrawingHashKeysInModel());
       painter.setMaximum(model.getMaximum());
 
       // Pass current (if any) relationship drag state so painter can render the candidate line
@@ -931,28 +931,6 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
   @GuiToolbarElement(
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
-      id = TOOLBAR_ITEM_SHOW_HASH_KEYS,
-      label = "HK",
-      toolTip = "i18n::HopGuiVaultGraph.Toolbar.ShowHashKeyFieldNames.Tooltip",
-      type = GuiToolbarElementType.CHECKBOX)
-  public void toggleShowHashKeyFieldNames() {
-    showHashKeyFieldNames = isShowHashKeyFieldNamesToolbarSelected();
-    redraw();
-  }
-
-  private boolean isShowHashKeyFieldNamesToolbarSelected() {
-    if (toolBarWidgets == null) {
-      return showHashKeyFieldNames;
-    }
-    ToolItem toolItem = toolBarWidgets.findToolItem(TOOLBAR_ITEM_SHOW_HASH_KEYS);
-    if (toolItem == null || !(toolItem.getControl() instanceof Button button)) {
-      return showHashKeyFieldNames;
-    }
-    return button.getSelection();
-  }
-
-  @GuiToolbarElement(
-      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_CHECK_MODEL,
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.CheckModel.Tooltip",
       image = "ui/images/check.svg")
@@ -995,10 +973,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
         String tableName =
             !Utils.isEmpty(table.getTableName()) ? table.getTableName() : table.getName();
         new ErrorDialog(
-            hopGui.getShell(),
-            "Error",
-            "Error generating DDL for table '" + tableName + "'",
-            e);
+            hopGui.getShell(), "Error", "Error generating DDL for table '" + tableName + "'", e);
       }
     }
 
@@ -1012,7 +987,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       for (String ddl : entry.getValue()) {
         if (!Utils.isEmpty(ddl)) {
           ddlStatements.add(ddl);
-          foundDdl=true;
+          foundDdl = true;
         }
       }
       if (ddlStatements.isEmpty()) {

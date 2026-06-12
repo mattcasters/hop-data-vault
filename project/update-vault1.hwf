@@ -33,7 +33,7 @@
       <logModelCheckFailures>Y</logModelCheckFailures>
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <ddlSqlFilename>/tmp/ddl.sql</ddlSqlFilename>
+      <ddlSqlFilename>${java.io.tmpdir}/ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <name>update vault1.hdv</name>

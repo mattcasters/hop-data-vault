@@ -96,7 +96,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty
   private HashKeyDataType hashKeyDataType = HashKeyDataType.BINARY;
 
-  @GuiWidgetElement(
+  /*@GuiWidgetElement(
       order = "0120",
       type = GuiElementType.COMBO,
       label = "i18n::DataVaultConfiguration.HashContentCasing.Label",
@@ -160,7 +160,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String linkHashKeySuffix = "_HK";
-
+*/
   @GuiWidgetElement(
       order = "0330",
       type = GuiElementType.TEXT,
@@ -170,14 +170,14 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty
   private String loadDateField = "LOAD_DATE";
 
-  @GuiWidgetElement(
+ /* @GuiWidgetElement(
       order = "0340",
       type = GuiElementType.TEXT,
       label = "i18n::DataVaultConfiguration.LoadEndDateField.Label",
       toolTip = "i18n::DataVaultConfiguration.LoadEndDateField.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
-  private String loadEndDateField = "LOAD_END_DATE";
+  private String loadEndDateField = "LOAD_END_DATE";*/
 
   @GuiWidgetElement(
       order = "0350",
@@ -198,16 +198,16 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty
   private String recordSourceFieldLength = "100";
 
-  @GuiWidgetElement(
+  /*@GuiWidgetElement(
       order = "0360",
       type = GuiElementType.TEXT,
       label = "i18n::DataVaultConfiguration.SourceField.Label",
       toolTip = "i18n::DataVaultConfiguration.SourceField.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
-  private String sourceField = "SOURCE";
+  private String sourceField = "SOURCE";*/
 
-  // --- Satellite loading pattern ---
+ /* // --- Satellite loading pattern ---
   @GuiWidgetElement(
       order = "0410",
       type = GuiElementType.CHECKBOX,
@@ -215,7 +215,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       toolTip = "i18n::DataVaultConfiguration.UseLoadEndDate.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
-  private boolean useLoadEndDate = false;
+  private boolean useLoadEndDate = false;*/
 
   public DataVaultConfiguration() {
     super();
