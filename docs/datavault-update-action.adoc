@@ -1,84 +1,74 @@
 = Data Vault Update Action
 
-The **Data Vault Update** workflow action is the main way to load a complete Data Vault model in production. You point it at a saved Data Vault Model (`.hdv` file), tell it which pipeline run configuration to use, and it takes care of generating and executing the update pipelines for every hub, link, and satellite in the model.
+== Description
 
-== Options in the action dialog
+The **Data Vault Update** workflow action is the main way to load a complete Data Vault model in Apache Hop. You point it at a saved Data Vault Model (`.hdv` file), choose a pipeline run configuration, and the action takes care of the rest.
 
-[cols="1,3", options="header"]
-|===
-|Option |Description
+At runtime the action:
 
-|Action name
-|The name that appears in the workflow.
+* Loads the model from the `.hdv` file.
+* Optionally validates the model before any work is done.
+* Optionally generates DDL (CREATE/ALTER statements) for the target database tables defined in the model. DDL handling is independent of the data load: you can execute it on the database, write it to a SQL file, require that no DDL is needed, or combine these options.
+* Generates and executes update pipelines for every hub, link, and satellite in the model (unless you choose to skip the data load).
+* Uses a single load date for the entire batch, so every row written during one run of the action receives the same `LOAD_DATE` value.
+* Aggregates row counts and errors from all generated pipelines into the workflow action result.
 
-|Data Vault Model file
-|Path to the `.hdv` file that contains your Data Vault Model. You can use variables. The action loads the model from this file at runtime.
+The action uses the same pipeline generation logic as the **Debug** button in the visual Data Vault model editor. What you inspect in the GUI is what runs in the workflow, with the addition of batch load date, optional model checks, and flexible DDL handling.
 
-|Pipeline run configuration
-|The name of a Pipeline Run Configuration that will be used to execute every generated update pipeline. This setting is required. Choose (or create) a run configuration that has appropriate database connections, parallelism, and logging settings for Data Vault loads.
+== Options
 
-|Log model check failures
-|When enabled (default is on), the action runs the model's validation checks before generating any pipelines. Any warnings or errors are written to the log using logBasic. This gives you visibility into problems without necessarily stopping the load.
+The following options are available in the action dialog.
 
-|Abort on model check failures
-|When enabled (default is on), the action runs the same checks. If any errors are found, it writes an error message and stops immediately without generating or running any update pipelines. This is a safety mechanism so that a broken or incomplete model does not produce a partial or incorrect Data Vault load.
-|===
+=== Action name
 
-== What happens when the action runs
+The name of the action as it appears in the workflow. This is a standard Hop workflow setting and does not affect how the Data Vault is loaded.
 
-1. The model is loaded from the `.hdv` file.
-2. If either of the model check options is turned on, the action performs the same validations that the "Check model" toolbar button uses in the visual editor.
-3. Any warnings or errors are logged (when logging is enabled).
-4. If abort is enabled and errors were found, the action fails and returns without doing any loading.
-5. A single load date (the current date and time) is captured. This same value is used for every table loaded in this execution of the action.
-6. For each table defined in the model the action:
-   * Generates the update pipeline(s) for that table (hubs, links, and satellites that have multiple record sources will produce one pipeline per source).
-   * Executes the pipeline(s) using the chosen run configuration.
-   * Waits for completion of each.
-   * Adds the row counts (read, written, input, output, updated, deleted) and any errors from the pipelines to the overall action result.
-7. At the end, the action succeeds only if every table completed without errors.
+=== Data Vault Model file
 
-Because one load date is used for the whole batch, every row written during this run of the action will have the same LOAD_DATE value. This makes it easy to identify what was processed together and supports restartability and auditing.
+Path to the `.hdv` file that contains your Data Vault Model. Variables are supported (for example `${PROJECT_HOME}/vault1.hdv`). The action loads the model from this file at runtime. This setting is required.
 
-== Model validation inside the action
+=== Pipeline run configuration
 
-The checks performed when "Log model check failures" or "Abort on model check failures" are enabled are the same rich set of validations that the visual model editor provides. They look for:
+The name of a Pipeline Run Configuration used to execute every generated update pipeline. This setting is required whenever the action runs data load pipelines. Choose a run configuration with the appropriate database connections, parallelism, and logging settings for your Data Vault loads.
 
-* Missing or incomplete business keys on hubs.
-* Satellites that are not attached to any hub or link.
-* Links that do not have at least two participating hubs.
-* References to record sources, hubs, or links that do not exist in the model.
-* Duplicate names for tables or sources.
-* Missing Data Vault Configuration on the model (treated as a warning).
+Use the icons next to the field to run, create, or manage pipeline run configurations directly from the dialog.
 
-These checks are deliberately thorough. They surface many problems that would otherwise only appear as confusing runtime errors or incorrect data in the vault.
+=== Log model check failures
 
-You can leave both check options enabled in production. The combination of "log but continue" and "abort on real errors" gives you good visibility while still protecting the vault from obviously broken models.
+When enabled (default: on), the action runs the same validation checks as the **Check model** button in the visual model editor before generating pipelines or DDL. Any warnings or errors are written to the log. This gives you visibility into model problems without necessarily stopping the load.
 
-== Typical usage patterns
+=== Abort on model check failures
 
-* Place the Data Vault Update action after any steps that prepare or land the source data that the model depends on.
-* Use a dedicated pipeline run configuration for Data Vault loads so you can tune database connections, rowset sizes, and parallelism independently of other work.
-* In most cases leave both model-check options enabled. A model that fails its own checks should normally stop the workflow rather than load partial results.
-* If you have a very large model, you can split it across several `.hdv` files and several Data Vault Update actions if you need more granular control or parallel loading.
-* The action participates in normal workflow logging, error handling, and retry logic. You can use workflow variables to parameterize the model file name or run configuration.
+When enabled (default: on), the action runs the same model checks. If any errors are found, it logs an error message and stops immediately without generating DDL or running any update pipelines. Warnings alone do not cause the action to abort.
 
-== Relationship with the visual model editor
+Use this together with **Log model check failures** to protect the vault from obviously broken or incomplete models.
 
-The Debug button in the model editor and the Data Vault Update action use the same underlying generation logic. The main differences are:
+=== Update target database structure
 
-* Debug opens the generated pipeline(s) in the Hop GUI for inspection or manual execution.
-* The action runs the pipelines headlessly under a chosen run configuration and aggregates results.
-* The action adds the optional model-check gate and the single batch load date.
+When enabled (default: on), the action generates CREATE/ALTER DDL for every table in the model and executes it on the target database(s) before running the data load pipelines.
 
-This consistency means that what you see when you debug a table is essentially what will happen when the action loads the whole model.
+Disable this option when you manage target schemas outside of this action—for example with a separate migration tool, hand-written SQL, or pre-provisioned tables. You can still capture the DDL in a file using **DDL SQL filename** without executing it.
 
-== Troubleshooting
+=== DDL SQL filename
 
-If the action fails:
+Optional path to a SQL file where generated DDL is written when schema changes are needed. Variables are supported. When the model spans multiple target databases, the file contains sections headed by `-- Target database: <connection name>` followed by the DDL statements for that database.
 
-* Look at the log for model check messages first (when the check options are on).
-* Individual pipeline errors are logged with the name of the table that failed.
-* Row counts from all pipelines are accumulated even when some tables fail, which can help you see how far the load got.
+DDL is written to this file only when the action determines that schema changes are actually required. You can use this option on its own (without **Update target database structure**) to export DDL for review or for use in an external deployment process.
 
-Because the model file is loaded at runtime, make sure the `.hdv` file is accessible from the environment where the workflow runs (use a relative path inside the project or a variable that points to a stable location).
+=== Fail if DDL is needed
+
+When enabled, the action fails immediately if any DDL would be required to bring the target database structure in line with the model. The failure happens before DDL is executed or written to a file.
+
+Use this as a guard in production or CI/CD workflows to ensure that target schemas are already up to date before data is loaded. If no DDL is needed, the action continues normally.
+
+=== Do not update target database
+
+When enabled, the action skips running the generated data load pipelines. DDL generation, file export, and execution (when those options are configured) still run.
+
+Typical uses include exporting or applying DDL without loading data in the same workflow step, or running schema maintenance separately from the data load.
+
+== Screenshot
+
+The dialog below shows the Data Vault Update action with a model file and pipeline run configuration configured. In this example **Update target database structure** is turned off so that DDL is not executed automatically; the other DDL and data-load options are left at their defaults.
+
+image::images/action-data-vault-update.png[Data Vault Update action dialog,align="center"]

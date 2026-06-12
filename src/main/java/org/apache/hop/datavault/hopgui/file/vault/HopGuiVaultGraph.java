@@ -92,7 +92,9 @@ import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.ToolItem;
 import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Node;
 
@@ -129,6 +131,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   public static final String TOOLBAR_ITEM_GENERATE_DDL =
       "HopGuiVaultGraph-ToolBar-10080-Generate-Ddl";
 
+  public static final String TOOLBAR_ITEM_SHOW_HASH_KEYS =
+      "HopGuiVaultGraph-ToolBar-10090-Show-Hash-Keys";
+
   public static final String STATE_MAGNIFICATION = "magnification";
   public static final String STATE_SCROLL_X_SELECTION = "offset-x";
   public static final String STATE_SCROLL_Y_SELECTION = "offset-y";
@@ -141,6 +146,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   private GuiToolbarWidgets toolBarWidgets;
 
   private boolean changed = false;
+
+  private boolean showHashKeyFieldNames;
 
   private boolean avoidContextDialog;
 
@@ -809,6 +816,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       painter.setAreaOwners(areaOwners);
       painter.setMouseOverTableName(mouseOverTableName);
       painter.setShowingNavigationView(!propsUi.isHideViewportEnabled());
+      painter.setShowHashKeyFieldNames(showHashKeyFieldNames);
       painter.setMaximum(model.getMaximum());
 
       // Pass current (if any) relationship drag state so painter can render the candidate line
@@ -919,6 +927,28 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       image = "datavault_model.svg")
   public void editModelProperties() {
     editModelProperties(model);
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_SHOW_HASH_KEYS,
+      label = "HK",
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.ShowHashKeyFieldNames.Tooltip",
+      type = GuiToolbarElementType.CHECKBOX)
+  public void toggleShowHashKeyFieldNames() {
+    showHashKeyFieldNames = isShowHashKeyFieldNamesToolbarSelected();
+    redraw();
+  }
+
+  private boolean isShowHashKeyFieldNamesToolbarSelected() {
+    if (toolBarWidgets == null) {
+      return showHashKeyFieldNames;
+    }
+    ToolItem toolItem = toolBarWidgets.findToolItem(TOOLBAR_ITEM_SHOW_HASH_KEYS);
+    if (toolItem == null || !(toolItem.getControl() instanceof Button button)) {
+      return showHashKeyFieldNames;
+    }
+    return button.getSelection();
   }
 
   @GuiToolbarElement(

@@ -27,8 +27,11 @@ import org.apache.hop.core.gui.AreaOwner.AreaType;
 import org.apache.hop.core.gui.IGc;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.svg.SvgFile;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.BusinessKey;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
@@ -42,7 +45,8 @@ import org.apache.hop.datavault.metadata.IDvTable;
  * table names (for hyperlink style) and populates AreaOwners for name (TRANSFORM_NAME) vs body
  * (TRANSFORM_ICON) to support differentiated clicks. If a table has a non-empty description, draws
  * a small INFO_DISABLED icon at top-left and registers a TRANSFORM_INFO_ICON area (for tooltip on
- * hover).
+ * hover). Optionally shows the resolved hash key field name in small print below the table name
+ * ({@link #setShowHashKeyFieldNames(boolean)}).
  */
 @Getter
 @Setter
@@ -58,7 +62,11 @@ public class DataVaultModelPainter extends BasePainter {
   private Point relationshipDragEndLocation; // screen coords from mouse
   private IDvTable candidateRelationshipTarget;
 
+  /** When true, render the resolved hash key field name in small print below the table name. */
+  private boolean showHashKeyFieldNames;
+
   private static final int ICON_SIZE = 32;
+  private static final int HASH_KEY_LABEL_GAP = 2;
   private static final int MARGIN = 5;
   private static final int MINI_ICON_SIZE = 16;
 
@@ -224,15 +232,18 @@ public class DataVaultModelPainter extends BasePainter {
     // Type label below the icon, small print
     drawTableTypeLabel(table, x, y);
 
-    // Name of the table to the right of the icon
-    drawTableName(table, x, y);
+    // Name of the table to the right of the icon (and optional hash key field below it)
+    Point nameExtent = drawTableName(table, x, y);
+    if (showHashKeyFieldNames) {
+      drawTableHashKeyFieldName(table, x, y, nameExtent);
+    }
 
     // If the table has a description, draw a small info icon in the top-left corner.
     //
     drawTableDescriptionInfoIcon(table, x, y);
   }
 
-  private void drawTableName(IDvTable table, int x, int y) {
+  private Point drawTableName(IDvTable table, int x, int y) {
     gc.setFont(IGc.EFont.GRAPH);
     gc.setForeground(IGc.EColor.BLACK);
     String name = table.getName() != null ? table.getName() : "?";
@@ -268,6 +279,82 @@ public class DataVaultModelPainter extends BasePainter {
       areaOwners.add(
           new AreaOwner(AreaType.TRANSFORM_NAME, nsx, nsy, nsw, nsh, offset, table, name));
     }
+    return nameExtent;
+  }
+
+  private void drawTableHashKeyFieldName(IDvTable table, int x, int y, Point nameExtent) {
+    String hashKeyFieldName = getHashKeyFieldNameForDisplay(table);
+    if (Utils.isEmpty(hashKeyFieldName)) {
+      return;
+    }
+
+    int nameLogX = x + MARGIN + ICON_SIZE + MARGIN;
+    int nameLogY = y + MARGIN + nameExtent.y + HASH_KEY_LABEL_GAP;
+
+    gc.setFont(IGc.EFont.SMALL);
+    gc.setForeground(IGc.EColor.DARKGRAY);
+    gc.drawText(hashKeyFieldName, nameLogX, nameLogY, true);
+  }
+
+  private String getHashKeyFieldNameForDisplay(IDvTable table) {
+    if (table == null) {
+      return null;
+    }
+
+    String hashKeyFieldName = null;
+    switch (table.getTableType()) {
+      case HUB -> {
+        DvHub hub = (DvHub) table;
+        hashKeyFieldName = hub.getHashKeyFieldName();
+        if (Utils.isEmpty(hashKeyFieldName) && !Utils.isEmpty(hub.getBusinessKeys())) {
+          BusinessKey firstKey = hub.getBusinessKeys().get(0);
+          if (firstKey != null && !Utils.isEmpty(firstKey.getName())) {
+            hashKeyFieldName = firstKey.getName() + "_HK";
+          }
+        }
+        if (Utils.isEmpty(hashKeyFieldName)) {
+          hashKeyFieldName = "hashkey_HK";
+        }
+      }
+      case LINK -> {
+        DvLink link = (DvLink) table;
+        hashKeyFieldName = link.getLinkHashKeyFieldName();
+        if (Utils.isEmpty(hashKeyFieldName)) {
+          hashKeyFieldName = link.getName() + "_LK";
+        }
+      }
+      case SATELLITE -> {
+        DvSatellite satellite = (DvSatellite) table;
+        if (!Utils.isEmpty(satellite.getHubName())) {
+          DvHub linkedHub = model.findHub(satellite.getHubName());
+          if (linkedHub != null) {
+            hashKeyFieldName = linkedHub.getHashKeyFieldName();
+            if (Utils.isEmpty(hashKeyFieldName) && !Utils.isEmpty(linkedHub.getBusinessKeys())) {
+              BusinessKey firstKey = linkedHub.getBusinessKeys().get(0);
+              if (firstKey != null && !Utils.isEmpty(firstKey.getName())) {
+                hashKeyFieldName = firstKey.getName() + "_HK";
+              }
+            }
+          }
+        } else if (!Utils.isEmpty(satellite.getLinkName())) {
+          IDvTable linkedTable = tableByName.get(satellite.getLinkName());
+          if (linkedTable instanceof DvLink linkedLink) {
+            hashKeyFieldName = linkedLink.getLinkHashKeyFieldName();
+            if (Utils.isEmpty(hashKeyFieldName)) {
+              hashKeyFieldName = linkedLink.getName() + "_LK";
+            }
+          }
+        }
+        if (Utils.isEmpty(hashKeyFieldName)) {
+          hashKeyFieldName = "hashkey";
+        }
+      }
+      default -> {
+        return null;
+      }
+    }
+
+    return variables != null ? variables.resolve(hashKeyFieldName) : hashKeyFieldName;
   }
 
   private void drawTableTypeLabel(IDvTable table, int x, int y) {
@@ -362,12 +449,24 @@ public class DataVaultModelPainter extends BasePainter {
     Point nameExtent = gc.textExtent(name);
     gc.setFont(IGc.EFont.SMALL);
     Point typeExtent = gc.textExtent(typeLabel);
+    Point hashKeyExtent = new Point(0, 0);
+    if (showHashKeyFieldNames) {
+      String hashKeyFieldName = getHashKeyFieldNameForDisplay(table);
+      if (!Utils.isEmpty(hashKeyFieldName)) {
+        hashKeyExtent = gc.textExtent(hashKeyFieldName);
+      }
+    }
     gc.setFont(IGc.EFont.GRAPH);
 
     int iconP = ICON_SIZE;
     int margP = MARGIN;
-    int boxW = margP + iconP + margP + nameExtent.x + margP;
-    int boxH = margP + iconP + margP + typeExtent.y + margP;
+    int textColumnWidth = Math.max(nameExtent.x, hashKeyExtent.x);
+    int textColumnHeight =
+        nameExtent.y
+            + (hashKeyExtent.y > 0 ? HASH_KEY_LABEL_GAP + hashKeyExtent.y : 0);
+    int leftColumnHeight = iconP + margP + typeExtent.y;
+    int boxW = margP + iconP + margP + textColumnWidth + margP;
+    int boxH = margP + Math.max(leftColumnHeight, textColumnHeight) + margP;
 
     if (table instanceof DvTableBase base) {
       base.setDrawnBoxWidth(boxW);

@@ -22,8 +22,8 @@
       <tableName>hub_customer</tableName>
       <description/>
       <tableType>HUB</tableType>
-      <xloc>96</xloc>
-      <yloc>64</yloc>
+      <xloc>64</xloc>
+      <yloc>48</yloc>
       <name>hub_customer</name>
       <virtualPath/>
     </table>
@@ -68,8 +68,8 @@
       <tableName>sat_customer</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
-      <xloc>352</xloc>
-      <yloc>64</yloc>
+      <xloc>304</xloc>
+      <yloc>48</yloc>
       <name>sat_customer</name>
       <virtualPath/>
     </table>
@@ -90,8 +90,8 @@
       <tableName>hub_product</tableName>
       <description/>
       <tableType>HUB</tableType>
-      <xloc>176</xloc>
-      <yloc>336</yloc>
+      <xloc>144</xloc>
+      <yloc>320</yloc>
       <name>hub_product</name>
       <virtualPath/>
     </table>
@@ -136,8 +136,8 @@
       <tableName>sat_product</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
-      <xloc>464</xloc>
-      <yloc>336</yloc>
+      <xloc>432</xloc>
+      <yloc>320</yloc>
       <name>sat_product</name>
       <virtualPath/>
     </table>
@@ -158,8 +158,8 @@
       <tableName>hub_order</tableName>
       <description/>
       <tableType>HUB</tableType>
-      <xloc>400</xloc>
-      <yloc>192</yloc>
+      <xloc>368</xloc>
+      <yloc>176</yloc>
       <name>hub_order</name>
       <virtualPath/>
     </table>
@@ -220,8 +220,8 @@
       <tableName>sat_order</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
-      <xloc>608</xloc>
-      <yloc>192</yloc>
+      <xloc>576</xloc>
+      <yloc>176</yloc>
       <name>sat_order</name>
       <virtualPath/>
     </table>
@@ -273,8 +273,8 @@
       <tableName>lnk_customer_order</tableName>
       <description/>
       <tableType>LINK</tableType>
-      <xloc>112</xloc>
-      <yloc>192</yloc>
+      <xloc>80</xloc>
+      <yloc>176</yloc>
       <name>lnk_customer_order</name>
       <virtualPath/>
     </table>

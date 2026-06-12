@@ -33,6 +33,8 @@
       <logModelCheckFailures>N</logModelCheckFailures>
       <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
+      <failIfDdlNeeded>N</failIfDdlNeeded>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <name>update vault1.hdv </name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>

@@ -18,13 +18,11 @@
 package org.apache.hop.datavault.workflow.actions.datavaultupdate;
 
 import org.apache.hop.core.Const;
-import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
-import org.apache.hop.ui.core.gui.GuiCompositeWidgetsAdapter;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.apache.hop.ui.workflow.action.ActionDialog;
 import org.apache.hop.workflow.WorkflowMeta;
@@ -34,8 +32,6 @@ import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
-import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
@@ -45,10 +41,7 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
 
   public static final String PARENT_WIDGET_ID = ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_PARENT_ID;
 
-  private ActionDataVaultUpdate action;
-  private Shell shell;
-
-  private Text wName;
+  private final ActionDataVaultUpdate action;
   private GuiCompositeWidgets widgets;
 
   public ActionDataVaultUpdateDialog(
@@ -103,7 +96,6 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
     fdName.top = new FormAttachment(0, margin);
     fdName.right = new FormAttachment(100, 0);
     wName.setLayoutData(fdName);
-    wName.addModifyListener(e -> action.setChanged());
 
     // Rest of the widgets are created automatically from the @GuiWidgetElement annotations
     widgets = new GuiCompositeWidgets(variables);
@@ -111,17 +103,6 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
 
     // Set content on the widgets
     setWidgetsContent();
-
-    // Add changed listeners
-    wName.addModifyListener(e -> action.setChanged());
-    widgets.setWidgetsListener(
-        new GuiCompositeWidgetsAdapter() {
-          @Override
-          public void widgetModified(
-              GuiCompositeWidgets compositeWidgets, Control changedWidget, String widgetId) {
-            action.setChanged();
-          }
-        });
 
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
@@ -146,11 +127,5 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
 
   private void cancel() {
     dispose();
-  }
-
-  public void dispose() {
-    if (!shell.isDisposed()) {
-      shell.dispose();
-    }
   }
 }
