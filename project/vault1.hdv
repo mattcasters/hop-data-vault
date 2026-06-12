@@ -20,7 +20,7 @@
         <recordSource>CRM-customer</recordSource>
       </recordSources>
       <tableName>hub_customer</tableName>
-      <description>Bla bla bla</description>
+      <description/>
       <tableType>HUB</tableType>
       <xloc>96</xloc>
       <yloc>64</yloc>
@@ -66,7 +66,7 @@
       <drivingKey/>
       <recordSource>CRM-customer</recordSource>
       <tableName>sat_customer</tableName>
-      <description>Satellite customer</description>
+      <description/>
       <tableType>SATELLITE</tableType>
       <xloc>352</xloc>
       <yloc>64</yloc>
@@ -134,7 +134,7 @@
       <drivingKey/>
       <recordSource>CRM-product</recordSource>
       <tableName>sat_product</tableName>
-      <description>PRODUCT!</description>
+      <description/>
       <tableType>SATELLITE</tableType>
       <xloc>464</xloc>
       <yloc>336</yloc>
@@ -220,7 +220,7 @@
       <tableName>sat_order</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
-      <xloc>656</xloc>
+      <xloc>608</xloc>
       <yloc>192</yloc>
       <name>sat_order</name>
       <virtualPath/>

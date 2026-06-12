@@ -21,8 +21,10 @@ import static java.util.Collections.*;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
@@ -39,7 +41,11 @@ import org.apache.hop.core.gui.IGuiPosition;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
+import org.apache.hop.core.database.Database;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.logging.ILoggingObject;
+import org.apache.hop.core.logging.LoggingObjectType;
+import org.apache.hop.core.logging.SimpleLoggingObject;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.row.RowMeta;
@@ -284,9 +290,6 @@ public class DvSatellite extends DvTableBase
       PipelineMeta pipelineMeta = new PipelineMeta();
       pipelineMeta.setName(ctx.pipelineName);
 
-      // Add the optional DDL transform first (not wired into the main flow)
-      addExecSqlIfNeeded(ctx, pipelineMeta);
-
       // Source TableInput (from record source) - selects hub bks (for hash calc) + sat attrs + rs
       TransformMeta sourceInputTransform = addSourceTableInput(ctx, recordSource, pipelineMeta);
 
@@ -460,6 +463,63 @@ public class DvSatellite extends DvTableBase
     }
   }
 
+  @Override
+  public Map<DatabaseMeta, List<String>> generateUpdateDdl(
+      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
+      throws HopException {
+    Map<DatabaseMeta, List<String>> result = new HashMap<>();
+    if (metadataProvider == null || model == null) {
+      return result;
+    }
+
+    // Resolve the effective target configuration (same logic as in context creation)
+    DataVaultConfiguration config = null;
+    String configName = model.getConfigurationName();
+    if (!Utils.isEmpty(configName)) {
+      config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
+    }
+    if (config == null) {
+      config = new DataVaultConfiguration();
+    }
+
+    DatabaseMeta targetDatabaseMeta = null;
+    String targetDbName = (config != null) ? config.getTargetDatabase() : null;
+    if (!Utils.isEmpty(targetDbName)) {
+      targetDatabaseMeta =
+          metadataProvider.getSerializer(DatabaseMeta.class).load(targetDbName);
+      if (targetDatabaseMeta == null) {
+        throw new HopException(
+            "Target database connection not found in metadata: " + targetDbName);
+      }
+    }
+    if (targetDatabaseMeta == null) {
+      return result;
+    }
+
+    String targetTableName =
+        !Utils.isEmpty(getTableName()) ? getTableName() : getName();
+
+    IRowMeta targetFields = getTargetTableLayout(metadataProvider, variables, model);
+    if (targetFields == null) {
+      return result;
+    }
+
+    String ddl = "";
+    ILoggingObject loggingObject =
+        new SimpleLoggingObject(
+            "DvSatellite.generateUpdateDdl", LoggingObjectType.GENERAL, null);
+    try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
+      db.connect();
+      ddl = db.getDDL(targetTableName, targetFields);
+    } catch (Exception e) {
+      throw new HopException("Error getting DDL for target table: " + targetTableName, e);
+    }
+    if (!Utils.isEmpty(ddl)) {
+      result.computeIfAbsent(targetDatabaseMeta, k -> new ArrayList<>()).add(ddl);
+    }
+    return result;
+  }
+
   private IValueMeta createValueMetaFromSourceField(SourceField sf) throws HopException {
     String name = sf.getName();
     int type = sf.getHopType();
@@ -498,42 +558,6 @@ public class DvSatellite extends DvTableBase
   // --- Small methods for pipeline generation, modeled after DvHub but adapted for satellites ---
   // Satellites: hash key is the (linked) hub's hash; "pks" for hash calc are the hub bks from sat's
   // record source; attributes come from sat definition or all source fields.
-
-  private void addExecSqlIfNeeded(SatelliteUpdateContext ctx, PipelineMeta pipelineMeta)
-      throws HopException {
-    if (ctx.targetDatabaseMeta == null) {
-      return;
-    }
-    IRowMeta targetFields = getTargetTableLayout(ctx.metadataProvider, ctx.variables, ctx.model);
-    if (targetFields == null) {
-      return;
-    }
-    String ddl = "";
-    org.apache.hop.core.logging.ILoggingObject loggingObject =
-        new org.apache.hop.core.logging.SimpleLoggingObject(
-            "DvSatellite.generateUpdatePipeline",
-            org.apache.hop.core.logging.LoggingObjectType.GENERAL,
-            null);
-    try (org.apache.hop.core.database.Database db =
-        new org.apache.hop.core.database.Database(
-            loggingObject, ctx.variables, ctx.targetDatabaseMeta)) {
-      db.connect();
-      ddl = db.getDDL(ctx.targetTableName, targetFields);
-    } catch (Exception e) {
-      throw new HopException("Error getting DDL for target table: " + ctx.targetTableName, e);
-    }
-    if (!Utils.isEmpty(ddl)) {
-      org.apache.hop.pipeline.transforms.sql.ExecSqlMeta execSqlMeta =
-          new org.apache.hop.pipeline.transforms.sql.ExecSqlMeta();
-      execSqlMeta.setConnection(ctx.targetDbName);
-      execSqlMeta.setSql(ddl);
-      TransformMeta execSqlTransformMeta =
-          new TransformMeta(
-              "ExecSql", "Create/update target table " + ctx.targetTableName, execSqlMeta);
-      execSqlTransformMeta.setLocation(LOCATION_START_LINE_1);
-      pipelineMeta.addTransform(execSqlTransformMeta);
-    }
-  }
 
   private TransformMeta addSourceTableInput(
       SatelliteUpdateContext ctx, DataVaultSource dataVaultSource, PipelineMeta pipelineMeta)

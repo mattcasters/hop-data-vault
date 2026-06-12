@@ -19,6 +19,7 @@ package org.apache.hop.datavault.metadata;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
@@ -28,6 +29,7 @@ import org.apache.hop.core.changed.ChangedFlag;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
@@ -298,6 +300,14 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
       throws HopException {
     // default: no pipeline in base
     return java.util.Collections.emptyList();
+  }
+
+  @Override
+  public Map<DatabaseMeta, List<String>> generateUpdateDdl(
+      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
+      throws HopException {
+    // default: no DDL in base
+    return java.util.Collections.emptyMap();
   }
 
   protected static @NonNull TransformMeta addDummyTransform(PipelineMeta pipelineMeta, TransformMeta referenceTransform, String transformName, int locationX, int locationY) {

@@ -20,7 +20,9 @@ package org.apache.hop.datavault.metadata;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
@@ -352,8 +354,6 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         String srcName = linkSource.getSource().getName();
         pipelineMeta.setName(baseName + "_" + srcName);
 
-        addExecSqlIfNeeded(ctx, pipelineMeta);
-
         TransformMeta sourceInputTransform = addSourceTableInput(ctx, pipelineMeta, linkSource);
         TransformMeta predecessorTransform = sourceInputTransform;
 
@@ -528,34 +528,63 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     }
   }
 
-  // --- Helper methods and context (modeled after DvSatellite) ---
-
-  private void addExecSqlIfNeeded(LinkUpdateContext ctx, PipelineMeta pipelineMeta)
+  @Override
+  public Map<DatabaseMeta, List<String>> generateUpdateDdl(
+      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
       throws HopException {
-    if (ctx.targetDatabaseMeta == null) return;
-    IRowMeta targetFields = getTargetTableLayout(ctx.metadataProvider, ctx.variables, ctx.model);
-    if (targetFields == null) return;
+    Map<DatabaseMeta, List<String>> result = new HashMap<>();
+    if (metadataProvider == null || model == null) {
+      return result;
+    }
+
+    // Resolve the effective target configuration (same logic as context creation)
+    DataVaultConfiguration config = null;
+    String configName = model.getConfigurationName();
+    if (!Utils.isEmpty(configName)) {
+      config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
+    }
+    if (config == null) {
+      config = new DataVaultConfiguration();
+    }
+
+    DatabaseMeta targetDatabaseMeta = null;
+    String targetDbName = (config != null) ? config.getTargetDatabase() : null;
+    if (!Utils.isEmpty(targetDbName)) {
+      targetDatabaseMeta =
+          metadataProvider.getSerializer(DatabaseMeta.class).load(targetDbName);
+      if (targetDatabaseMeta == null) {
+        throw new HopException(
+            "Target database connection not found in metadata: " + targetDbName);
+      }
+    }
+    if (targetDatabaseMeta == null) {
+      return result;
+    }
+
+    String targetTableName =
+        !Utils.isEmpty(getTableName()) ? getTableName() : getName();
+
+    IRowMeta targetFields = getTargetTableLayout(metadataProvider, variables, model);
+    if (targetFields == null) {
+      return result;
+    }
+
     String ddl = "";
     SimpleLoggingObject loggingObject =
-        new SimpleLoggingObject("DvLink.generateUpdatePipeline", LoggingObjectType.GENERAL, null);
-    try (Database db = new Database(loggingObject, ctx.variables, ctx.targetDatabaseMeta)) {
+        new SimpleLoggingObject("DvLink.generateUpdateDdl", LoggingObjectType.GENERAL, null);
+    try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
       db.connect();
-      ddl = db.getDDL(ctx.targetTableName, targetFields);
+      ddl = db.getDDL(targetTableName, targetFields);
     } catch (Exception e) {
-      throw new HopException("Error getting DDL for target table: " + ctx.targetTableName, e);
+      throw new HopException("Error getting DDL for target table: " + targetTableName, e);
     }
     if (!Utils.isEmpty(ddl)) {
-      org.apache.hop.pipeline.transforms.sql.ExecSqlMeta execSqlMeta =
-          new org.apache.hop.pipeline.transforms.sql.ExecSqlMeta();
-      execSqlMeta.setConnection(ctx.targetDbName);
-      execSqlMeta.setSql(ddl);
-      TransformMeta execSqlTransformMeta =
-          new TransformMeta(
-              "ExecSql", "Create/update target table " + ctx.targetTableName, execSqlMeta);
-      execSqlTransformMeta.setLocation(LOCATION_START_LINE_1);
-      pipelineMeta.addTransform(execSqlTransformMeta);
+      result.computeIfAbsent(targetDatabaseMeta, k -> new ArrayList<>()).add(ddl);
     }
+    return result;
   }
+
+  // --- Helper methods and context (modeled after DvSatellite) ---
 
   private TransformMeta addSourceTableInput(
       LinkUpdateContext ctx, PipelineMeta pipelineMeta, DvLinkSource linkSource)

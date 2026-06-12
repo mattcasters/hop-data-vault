@@ -19,7 +19,9 @@ package org.apache.hop.datavault.metadata;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
@@ -314,9 +316,6 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
           pipelineMeta.setName(baseName);
         }
 
-        // Add the optional DDL transform first (not wired into the main flow)
-        addExecSqlIfNeeded(ctx, pipelineMeta);
-
         // Source TableInput (from record source)
         TransformMeta sourceInputTransform = addSourceTableInput(ctx, src, pipelineMeta);
 
@@ -367,38 +366,62 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     return sources;
   }
 
-  // --- Small methods, each adding one transform and referencing the shared context ---
-
-  private void addExecSqlIfNeeded(HubUpdateContext ctx, PipelineMeta pipelineMeta)
+  @Override
+  public Map<DatabaseMeta, List<String>> generateUpdateDdl(
+      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
       throws HopException {
-    if (ctx.targetDatabaseMeta == null) {
-      return;
+    Map<DatabaseMeta, List<String>> result = new HashMap<>();
+    if (metadataProvider == null || model == null) {
+      return result;
     }
-    IRowMeta targetFields =
-        ctx.hub.getTargetTableLayout(ctx.metadataProvider, ctx.variables, ctx.model);
+
+    // Resolve the effective target configuration (same logic as context creation and getTargetTableLayout)
+    DataVaultConfiguration config = null;
+    String configName = model.getConfigurationName();
+    if (!Utils.isEmpty(configName)) {
+      config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
+    }
+    if (config == null) {
+      config = new DataVaultConfiguration();
+    }
+
+    DatabaseMeta targetDatabaseMeta = null;
+    String targetDbName = (config != null) ? config.getTargetDatabase() : null;
+    if (!Utils.isEmpty(targetDbName)) {
+      targetDatabaseMeta = metadataProvider.getSerializer(DatabaseMeta.class).load(targetDbName);
+      if (targetDatabaseMeta == null) {
+        throw new HopException(
+            "Target database connection not found in metadata: " + targetDbName);
+      }
+    }
+    if (targetDatabaseMeta == null) {
+      return result;
+    }
+
+    String targetTableName =
+        !Utils.isEmpty(getTableName()) ? getTableName() : getName();
+
+    IRowMeta targetFields = getTargetTableLayout(metadataProvider, variables, model);
     if (targetFields == null) {
-      return;
+      return result;
     }
+
     String ddl = "";
     ILoggingObject loggingObject =
-        new SimpleLoggingObject("DvHub.generateUpdatePipeline", LoggingObjectType.GENERAL, null);
-    try (Database db = new Database(loggingObject, ctx.variables, ctx.targetDatabaseMeta)) {
+        new SimpleLoggingObject("DvHub.generateUpdateDdl", LoggingObjectType.GENERAL, null);
+    try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
       db.connect();
-      ddl = db.getDDL(ctx.targetTableName, targetFields);
+      ddl = db.getDDL(targetTableName, targetFields);
     } catch (Exception e) {
-      throw new HopException("Error getting DDL for target table: " + ctx.targetTableName, e);
+      throw new HopException("Error getting DDL for target table: " + targetTableName, e);
     }
     if (!Utils.isEmpty(ddl)) {
-      ExecSqlMeta execSqlMeta = new ExecSqlMeta();
-      execSqlMeta.setConnection(ctx.targetDbName);
-      execSqlMeta.setSql(ddl);
-      TransformMeta execSqlTransformMeta =
-          new TransformMeta(
-              "ExecSql", "Create/update target table " + ctx.targetTableName, execSqlMeta);
-      execSqlTransformMeta.setLocation(LOCATION_START_LINE_1);
-      pipelineMeta.addTransform(execSqlTransformMeta);
+      result.computeIfAbsent(targetDatabaseMeta, k -> new ArrayList<>()).add(ddl);
     }
+    return result;
   }
+
+  // --- Small methods, each adding one transform and referencing the shared context ---
 
   private TransformMeta addSourceTableInput(
       HubUpdateContext ctx, DataVaultSource dataVaultSource, PipelineMeta pipelineMeta)

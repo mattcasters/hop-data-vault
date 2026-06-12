@@ -19,6 +19,8 @@ package org.apache.hop.datavault.metadata;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.base.IBaseMeta;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.ICheckResultSource;
@@ -85,6 +87,24 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
    */
   List<PipelineMeta> generateUpdatePipelines(
       IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model, Date loadDate)
+      throws HopException;
+
+  /**
+   * Generate the DDL (CREATE/ALTER) statements required to prepare or update the target database
+   * structure for this DV table.
+   *
+   * <p>This is separated from {@link #generateUpdatePipelines} so that target schema management can
+   * be controlled independently (e.g. via a workflow action option).
+   *
+   * @param metadataProvider for loading configuration, database connections, etc.
+   * @param variables for variable resolution
+   * @param model the containing DataVaultModel
+   * @return a map from target {@link DatabaseMeta} to the list of DDL scripts (in execution order)
+   *     that should be run against that database. An empty map means no DDL is required.
+   * @throws HopException on errors while determining target layout or connections
+   */
+  Map<DatabaseMeta, List<String>> generateUpdateDdl(
+      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
       throws HopException;
 
   /**

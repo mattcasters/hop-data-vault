@@ -27,8 +27,10 @@ import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.DbCache;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.AreaOwner;
@@ -55,10 +57,13 @@ import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.ui.core.PropsUi;
+import org.apache.hop.ui.core.database.dialog.SqlEditor;
 import org.apache.hop.ui.core.dialog.CheckResultDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
+import org.apache.hop.ui.core.dialog.MessageBox;
 import org.apache.hop.ui.core.gui.GuiToolbarWidgets;
 import org.apache.hop.ui.core.gui.IToolbarContainer;
 import org.apache.hop.ui.hopgui.CanvasFacade;
@@ -101,6 +106,7 @@ import org.w3c.dom.Node;
 @Setter
 public class HopGuiVaultGraph extends HopGuiAbstractGraph
     implements IHopFileTypeHandler, IGuiRefresher, IGraphSnapAlignDistribute, IRedrawable {
+  private static final Class<?> PKG = HopGuiVaultGraph.class;
 
   public static final String GUI_PLUGIN_TOOLBAR_PARENT_ID = "HopGuiVaultGraph-Toolbar";
   public static final String TOOLBAR_ITEM_ZOOM_LEVEL = "HopGuiVaultGraph-ToolBar-10500-Zoom-Level";
@@ -119,6 +125,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       "HopGuiVaultGraph-ToolBar-10060-Check-Model";
 
   public static final String TOOLBAR_ITEM_DEBUG = "HopGuiVaultGraph-ToolBar-10070-Debug";
+
+  public static final String TOOLBAR_ITEM_GENERATE_DDL =
+      "HopGuiVaultGraph-ToolBar-10080-Generate-Ddl";
 
   public static final String STATE_MAGNIFICATION = "magnification";
   public static final String STATE_SCROLL_X_SELECTION = "offset-x";
@@ -929,6 +938,73 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       if (table != null) {
         editTable(table);
       }
+    }
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_GENERATE_DDL,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.GenerateDdl.Tooltip",
+      image = "ui/images/database.svg")
+  public void generateModelDdl() {
+    if (model == null || model.getTables() == null) {
+      return;
+    }
+
+    Map<DatabaseMeta, List<String>> ddlMap = new HashMap<>();
+    for (IDvTable table : model.getTables()) {
+      try {
+        Map<DatabaseMeta, List<String>> tableDdl =
+            table.generateUpdateDdl(hopGui.getMetadataProvider(), hopGui.getVariables(), model);
+        if (tableDdl != null) {
+          for (Map.Entry<DatabaseMeta, List<String>> e : tableDdl.entrySet()) {
+            ddlMap.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).addAll(e.getValue());
+          }
+        }
+      } catch (Exception e) {
+        String tableName =
+            !Utils.isEmpty(table.getTableName()) ? table.getTableName() : table.getName();
+        new ErrorDialog(
+            hopGui.getShell(),
+            "Error",
+            "Error generating DDL for table '" + tableName + "'",
+            e);
+      }
+    }
+
+    boolean foundDdl = false;
+    for (Map.Entry<DatabaseMeta, List<String>> entry : ddlMap.entrySet()) {
+      DatabaseMeta dbMeta = entry.getKey();
+      if (dbMeta == null || entry.getValue() == null) {
+        continue;
+      }
+      List<String> ddlStatements = new ArrayList<>();
+      for (String ddl : entry.getValue()) {
+        if (!Utils.isEmpty(ddl)) {
+          ddlStatements.add(ddl);
+          foundDdl=true;
+        }
+      }
+      if (ddlStatements.isEmpty()) {
+        continue;
+      }
+      String sql = String.join("\n", ddlStatements);
+      SqlEditor sqlEditor =
+          new SqlEditor(
+              hopGui.getShell(),
+              SWT.NONE,
+              hopGui.getVariables(),
+              dbMeta,
+              DbCache.getInstance(),
+              sql);
+      sqlEditor.open();
+    }
+
+    if (!foundDdl) {
+      MessageBox box = new MessageBox(hopGui.getShell(), SWT.OK | SWT.ICON_INFORMATION);
+      box.setText(BaseMessages.getString(PKG, "HopGuiVaultGraph.NoDdlNeeded.Title"));
+      box.setMessage(BaseMessages.getString(PKG, "HopGuiVaultGraph.NoDdlNeeded.Message"));
+      box.open();
     }
   }
 

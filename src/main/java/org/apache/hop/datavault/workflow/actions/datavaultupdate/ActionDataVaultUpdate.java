@@ -17,8 +17,11 @@
 
 package org.apache.hop.datavault.workflow.actions.datavaultupdate;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
@@ -26,11 +29,16 @@ import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.annotations.Action;
+import org.apache.hop.core.database.Database;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.file.IHasFilename;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.logging.ILoggingObject;
+import org.apache.hop.core.logging.LoggingObjectType;
+import org.apache.hop.core.logging.SimpleLoggingObject;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
@@ -104,6 +112,15 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
   @HopMetadataProperty
   private boolean abortOnModelCheckFailures = true;
 
+  @GuiWidgetElement(
+      order = "0500",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionDataVaultUpdate.UpdateTargetStructure.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.UpdateTargetStructure.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean updateTargetDatabaseStructure = true;
+
   public ActionDataVaultUpdate(String name) {
     super(name, "");
     dataVaultModelFile = null;
@@ -120,12 +137,14 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     this.pipelineRunConfiguration = meta.pipelineRunConfiguration;
     this.logModelCheckFailures = meta.logModelCheckFailures;
     this.abortOnModelCheckFailures = meta.abortOnModelCheckFailures;
+    this.updateTargetDatabaseStructure = meta.updateTargetDatabaseStructure;
   }
 
   @Override
-  public Object clone() {
+  public ActionDataVaultUpdate clone() {
     return new ActionDataVaultUpdate(this);
   }
+
 
   @Override
   public String getDialogClassName() {
@@ -185,6 +204,60 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       Date loadDate = new Date(); // static load date for this batch update
       boolean success = true;
       int totalErrors = 0;
+
+      // Optionally generate and apply target DDL (moved out of the per-source data pipelines)
+      if (updateTargetDatabaseStructure) {
+        Map<DatabaseMeta, List<String>> ddlMap = new HashMap<>();
+        for (IDvTable table : tables) {
+          try {
+            Map<DatabaseMeta, List<String>> tableDdl =
+                table.generateUpdateDdl(getMetadataProvider(), getVariables(), model);
+            if (tableDdl != null) {
+              for (Map.Entry<DatabaseMeta, List<String>> e : tableDdl.entrySet()) {
+                ddlMap
+                    .computeIfAbsent(e.getKey(), k -> new ArrayList<>())
+                    .addAll(e.getValue());
+              }
+            }
+          } catch (Exception ex) {
+            logError(
+                BaseMessages.getString(
+                    PKG, "ActionDataVaultUpdate.Error.DdlGenerateFailed", table.getName()),
+                ex);
+            totalErrors++;
+            success = false;
+          }
+        }
+
+        if (!ddlMap.isEmpty()) {
+          ILoggingObject loggingObject =
+              new SimpleLoggingObject("ActionDataVaultUpdate", LoggingObjectType.GENERAL, null);
+          for (Map.Entry<DatabaseMeta, List<String>> entry : ddlMap.entrySet()) {
+            DatabaseMeta dbMeta = entry.getKey();
+            if (dbMeta == null || entry.getValue() == null) continue;
+            try (Database db = new Database(loggingObject, getVariables(), dbMeta)) {
+              db.connect();
+              for (String ddl : entry.getValue()) {
+                if (!Utils.isEmpty(ddl)) {
+                  logBasic(
+                      BaseMessages.getString(
+                          PKG, "ActionDataVaultUpdate.Log.ExecutingDdl", dbMeta.getName()));
+                  db.execStatements(ddl);
+                }
+              }
+            } catch (Exception e) {
+              logError(
+                  BaseMessages.getString(
+                      PKG, "ActionDataVaultUpdate.Error.DdlExecutionFailed", dbMeta.getName()),
+                  e);
+              totalErrors++;
+              success = false;
+            }
+          }
+        }
+      } else {
+        logBasic(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Log.SkippingTargetDdl"));
+      }
 
       for (IDvTable table : tables) {
         logBasic(
