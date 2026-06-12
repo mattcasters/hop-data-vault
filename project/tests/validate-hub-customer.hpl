@@ -19,6 +19,7 @@
     <name>hub_customer</name>
     <sql>SELECT
   customer_hk
+, customer_id
 , x_record_source
 , x_load_ts
 FROM hub_customer

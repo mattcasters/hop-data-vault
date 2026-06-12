@@ -39,6 +39,15 @@
       "primaryKey": false
     },
     {
+      "sourceDataType": "Timestamp",
+      "hopType": 9,
+      "precision": "",
+      "length": "6",
+      "name": "load_date",
+      "description": "",
+      "primaryKey": false
+    },
+    {
       "sourceDataType": "String",
       "hopType": 2,
       "precision": "",

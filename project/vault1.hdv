@@ -90,8 +90,8 @@
       <tableName>hub_product</tableName>
       <description/>
       <tableType>HUB</tableType>
-      <xloc>624</xloc>
-      <yloc>400</yloc>
+      <xloc>176</xloc>
+      <yloc>336</yloc>
       <name>hub_product</name>
       <virtualPath/>
     </table>
@@ -122,14 +122,22 @@
         <precision>2</precision>
         <includeInChangeDataCapture>Y</includeInChangeDataCapture>
       </attributes>
+      <attributes>
+        <name>load_date</name>
+        <description/>
+        <dataType>Timestamp</dataType>
+        <length>6</length>
+        <precision/>
+        <includeInChangeDataCapture>N</includeInChangeDataCapture>
+      </attributes>
       <multiActive>N</multiActive>
       <drivingKey/>
       <recordSource>CRM-product</recordSource>
       <tableName>sat_product</tableName>
       <description>PRODUCT!</description>
       <tableType>SATELLITE</tableType>
-      <xloc>912</xloc>
-      <yloc>400</yloc>
+      <xloc>464</xloc>
+      <yloc>336</yloc>
       <name>sat_product</name>
       <virtualPath/>
     </table>
@@ -150,8 +158,8 @@
       <tableName>hub_order</tableName>
       <description/>
       <tableType>HUB</tableType>
-      <xloc>368</xloc>
-      <yloc>240</yloc>
+      <xloc>400</xloc>
+      <yloc>192</yloc>
       <name>hub_order</name>
       <virtualPath/>
     </table>
@@ -194,9 +202,17 @@
         <name>order_date</name>
         <description/>
         <dataType>Timestamp</dataType>
-        <length/>
+        <length>6</length>
         <precision/>
         <includeInChangeDataCapture>Y</includeInChangeDataCapture>
+      </attributes>
+      <attributes>
+        <name>load_date</name>
+        <description/>
+        <dataType>Timestamp</dataType>
+        <length>6</length>
+        <precision/>
+        <includeInChangeDataCapture>N</includeInChangeDataCapture>
       </attributes>
       <multiActive>N</multiActive>
       <drivingKey/>
@@ -204,14 +220,15 @@
       <tableName>sat_order</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
-      <xloc>624</xloc>
-      <yloc>240</yloc>
+      <xloc>656</xloc>
+      <yloc>192</yloc>
       <name>sat_order</name>
       <virtualPath/>
     </table>
     <table>
       <hubNames>hub_customer</hubNames>
       <hubNames>hub_order</hubNames>
+      <hubNames>hub_product</hubNames>
       <linkSources>
         <linkSource>
           <source>CRM-order</source>
@@ -236,38 +253,6 @@
               </businessKeySources>
               <drivingKeySources/>
             </hubSourceKeyField>
-          </hubSourceKeyFields>
-        </linkSource>
-      </linkSources>
-      <linkHashKeyFieldName>lnk_customer_order_hk</linkHashKeyFieldName>
-      <hubSourceKeyFields/>
-      <hasDescriptiveAttributes>N</hasDescriptiveAttributes>
-      <recordSourceFieldName/>
-      <tableName>lnk_customer_order</tableName>
-      <description/>
-      <tableType>LINK</tableType>
-      <xloc>80</xloc>
-      <yloc>240</yloc>
-      <name>lnk_customer_order</name>
-      <virtualPath/>
-    </table>
-    <table>
-      <hubNames>hub_product</hubNames>
-      <hubNames>hub_order</hubNames>
-      <linkSources>
-        <linkSource>
-          <source>CRM-order</source>
-          <hubSourceKeyFields>
-            <hubSourceKeyField>
-              <hubName>hub_order</hubName>
-              <businessKeySources>
-                <businessKeySource>
-                  <businessKeyField>order_id</businessKeyField>
-                  <sourceFieldName>order_id</sourceFieldName>
-                </businessKeySource>
-              </businessKeySources>
-              <drivingKeySources/>
-            </hubSourceKeyField>
             <hubSourceKeyField>
               <hubName>hub_product</hubName>
               <businessKeySources>
@@ -281,16 +266,16 @@
           </hubSourceKeyFields>
         </linkSource>
       </linkSources>
-      <linkHashKeyFieldName>lnk_product_order_hk</linkHashKeyFieldName>
+      <linkHashKeyFieldName>lnk_customer_order_hk</linkHashKeyFieldName>
       <hubSourceKeyFields/>
       <hasDescriptiveAttributes>N</hasDescriptiveAttributes>
       <recordSourceFieldName/>
-      <tableName>lnk_product_order</tableName>
+      <tableName>lnk_customer_order</tableName>
       <description/>
       <tableType>LINK</tableType>
-      <xloc>352</xloc>
-      <yloc>400</yloc>
-      <name>lnk_product_order</name>
+      <xloc>112</xloc>
+      <yloc>192</yloc>
+      <name>lnk_customer_order</name>
       <virtualPath/>
     </table>
   </tables>

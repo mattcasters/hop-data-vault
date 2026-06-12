@@ -1,0 +1,64 @@
+{
+  "base_filename": "sat-order-golden-load2.csv",
+  "name": "sat-order-golden-load2",
+  "description": "Golden dataset for SAT_ORDER after load2 (derived from expected_SAT_ORDER_after_load2.csv)",
+  "dataset_fields": [
+    {
+      "field_comment": "order_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "order_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "quantity",
+      "field_length": 9,
+      "field_type": 5,
+      "field_precision": 0,
+      "field_name": "quantity",
+      "field_format": "####0;-####0"
+    },
+    {
+      "field_comment": "unit_price",
+      "field_length": 11,
+      "field_type": 1,
+      "field_precision": 2,
+      "field_name": "unit_price",
+      "field_format": "####0.0#########;-####0.0#########"
+    },
+    {
+      "field_comment": "order_date",
+      "field_length": 6,
+      "field_type": 3,
+      "field_precision": -1,
+      "field_name": "order_date",
+      "field_format": "yyyy-MM-dd"
+    },
+    {
+      "field_comment": "load_date",
+      "field_length": 6,
+      "field_type": 3,
+      "field_precision": -1,
+      "field_name": "load_date",
+      "field_format": "yyyy-MM-dd"
+    },
+    {
+      "field_comment": "record_source",
+      "field_length": 20,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "record_source",
+      "field_format": ""
+    },
+    {
+      "field_comment": "x_record_source",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "x_record_source",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}

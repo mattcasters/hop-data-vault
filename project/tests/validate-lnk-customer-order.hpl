@@ -18,9 +18,10 @@
     <type>TableInput</type>
     <name>lnk_customer_order</name>
     <sql>SELECT
-  customer_order_hk
+  lnk_customer_order_hk
 , order_hk
 , customer_hk
+, product_hk
 , x_record_source
 , x_load_ts
 FROM lnk_customer_order
@@ -97,7 +98,7 @@ FROM lnk_customer_order
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>592</xloc>
+      <xloc>560</xloc>
       <yloc>96</yloc>
     </GUI>
     <partitioning>

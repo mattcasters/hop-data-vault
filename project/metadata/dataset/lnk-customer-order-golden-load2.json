@@ -1,10 +1,10 @@
 {
-  "base_filename": "lnk-customer-order-golden.csv",
-  "name": "lnk-customer-order-golden",
-  "description": "Golden dataset for LNK_CUSTOMER_ORDER after load1 (derived from expected_LNK_CUSTOMER_ORDER_after_load1.csv)",
+  "base_filename": "lnk-customer-order-golden-load2.csv",
+  "name": "lnk-customer-order-golden-load2",
+  "description": "Golden dataset for LNK_CUSTOMER_ORDER after load2 (derived from expected_LNK_CUSTOMER_ORDER_after_load2.csv)",
   "dataset_fields": [
     {
-      "field_comment": "lnk_customer_order_hk",
+      "field_comment": "customer_order_hk",
       "field_length": 63,
       "field_type": 2,
       "field_precision": -1,

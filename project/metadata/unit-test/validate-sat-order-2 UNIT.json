@@ -37,12 +37,12 @@
       "field_order": [
         "order_hk"
       ],
-      "data_set_name": "sat-order-golden",
+      "data_set_name": "sat-order-golden-load2",
       "transform_name": "Validate"
     }
   ],
   "input_data_sets": [],
-  "name": "validate-sat-order UNIT",
+  "name": "validate-sat-order-2 UNIT",
   "trans_test_tweaks": [],
   "pipeline_filename": "./tests/validate-sat-order.hpl"
 }

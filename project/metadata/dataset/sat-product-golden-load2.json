@@ -1,0 +1,48 @@
+{
+  "base_filename": "sat-product-golden-load2.csv",
+  "name": "sat-product-golden-load2",
+  "description": "Golden dataset for SAT_PRODUCT after load2 (derived from expected_SAT_PRODUCT_after_load2.csv)",
+  "dataset_fields": [
+    {
+      "field_comment": "product_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "product_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "product_name",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "product_name",
+      "field_format": ""
+    },
+    {
+      "field_comment": "category",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "category",
+      "field_format": ""
+    },
+    {
+      "field_comment": "unit_price",
+      "field_length": 11,
+      "field_type": 1,
+      "field_precision": 2,
+      "field_name": "unit_price",
+      "field_format": "####0.0#########;-####0.0#########"
+    },
+    {
+      "field_comment": "x_record_source",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "x_record_source",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}

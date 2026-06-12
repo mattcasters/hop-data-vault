@@ -10,24 +10,20 @@
     {
       "field_mappings": [
         {
+          "transform_field": "lnk_customer_order_hk",
+          "data_set_field": "lnk_customer_order_hk"
+        },
+        {
           "transform_field": "order_hk",
           "data_set_field": "order_hk"
         },
         {
-          "transform_field": "quantity",
-          "data_set_field": "quantity"
+          "transform_field": "customer_hk",
+          "data_set_field": "customer_hk"
         },
         {
-          "transform_field": "unit_price",
-          "data_set_field": "unit_price"
-        },
-        {
-          "transform_field": "order_date",
-          "data_set_field": "order_date"
-        },
-        {
-          "transform_field": "load_date",
-          "data_set_field": "load_date"
+          "transform_field": "product_hk",
+          "data_set_field": "product_hk"
         },
         {
           "transform_field": "x_record_source",
@@ -35,14 +31,14 @@
         }
       ],
       "field_order": [
-        "order_hk"
+        "lnk_customer_order_hk"
       ],
-      "data_set_name": "sat-order-golden",
+      "data_set_name": "lnk-customer-order-golden-load2",
       "transform_name": "Validate"
     }
   ],
   "input_data_sets": [],
-  "name": "validate-sat-order UNIT",
+  "name": "validate-lnk-customer-order-2 UNIT",
   "trans_test_tweaks": [],
-  "pipeline_filename": "./tests/validate-sat-order.hpl"
+  "pipeline_filename": "./tests/validate-lnk-customer-order.hpl"
 }

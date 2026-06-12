@@ -1,0 +1,32 @@
+{
+  "base_filename": "hub-order-golden-load2.csv",
+  "name": "hub-order-golden-load2",
+  "description": "Golden dataset for HUB_ORDER after load2 (derived from expected_HUB_ORDER_after_load2.csv)",
+  "dataset_fields": [
+    {
+      "field_comment": "order_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "order_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "order_id",
+      "field_length": 7,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "order_id",
+      "field_format": ""
+    },
+    {
+      "field_comment": "x_record_source",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "x_record_source",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}

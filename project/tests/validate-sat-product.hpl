@@ -98,7 +98,7 @@ FROM sat_product
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>576</xloc>
+      <xloc>608</xloc>
       <yloc>112</yloc>
     </GUI>
     <partitioning>

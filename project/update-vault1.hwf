@@ -30,8 +30,8 @@
     <action>
       <dataVaultModelFile>${PROJECT_HOME}/vault1.hdv</dataVaultModelFile>
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>N</logModelCheckFailures>
-      <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
+      <logModelCheckFailures>Y</logModelCheckFailures>
+      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
       <name>update vault1.hdv</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>
@@ -159,22 +159,25 @@ DROP TABLE IF EXISTS "lnk_product_order";
           <name>validate-hub-customer UNIT</name>
         </test_name>
         <test_name>
-          <name>validate-hub-order UNIT</name>
+          <name>validate-sat-customer UNIT</name>
         </test_name>
         <test_name>
           <name>validate-hub-product UNIT</name>
         </test_name>
         <test_name>
-          <name>validate-sat-customer UNIT</name>
+          <name>validate-sat-product UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-hub-order UNIT</name>
         </test_name>
         <test_name>
           <name>validate-sat-order UNIT</name>
         </test_name>
         <test_name>
-          <name>validate-sat-product UNIT</name>
+          <name>validate-lnk-customer-order UNIT</name>
         </test_name>
       </test_names>
-      <name>Test hubs and sats</name>
+      <name>Test after initial load</name>
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
@@ -225,6 +228,49 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
+    <action>
+      <test_names>
+        <test_name>
+          <name>validate-hub-customer-2 UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-sat-customer-2 UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-hub-product-2 UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-sat-product-2 UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-hub-order-2 UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-sat-order-2 UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-lnk-customer-order-2 UNIT</name>
+        </test_name>
+      </test_names>
+      <name>Test after updates</name>
+      <description/>
+      <type>RunPipelineTests</type>
+      <attributes/>
+      <xloc>848</xloc>
+      <yloc>192</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <name>Success</name>
+      <description/>
+      <type>SUCCESS</type>
+      <attributes/>
+      <xloc>1008</xloc>
+      <yloc>192</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
   </actions>
   <hops>
     <hop>
@@ -257,13 +303,13 @@ DROP TABLE IF EXISTS "lnk_product_order";
     </hop>
     <hop>
       <from>update vault1.hdv</from>
-      <to>Test hubs and sats</to>
+      <to>Test after initial load</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Test hubs and sats</from>
+      <from>Test after initial load</from>
       <to>load2</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
@@ -272,6 +318,20 @@ DROP TABLE IF EXISTS "lnk_product_order";
     <hop>
       <from>load2</from>
       <to>update vault1.hdv </to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>update vault1.hdv </from>
+      <to>Test after updates</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Test after updates</from>
+      <to>Success</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

@@ -769,8 +769,10 @@ public class DvSatellite extends DvTableBase
 
     // Value fields: the satellite attributes. MergeRows will compare these (when keys/hash match)
     // to decide between 'identical' and 'changed'.
-    if (!Utils.isEmpty(ctx.satAttrFieldNames)) {
-      mergeRowsMeta.setValueFields(new ArrayList<>(ctx.satAttrFieldNames));
+    for (SatelliteAttribute attribute : attributes) {
+      if (attribute.isIncludeInChangeDataCapture()) {
+        mergeRowsMeta.getValueFields().add(attribute.getName());
+      }
     }
 
     TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
