@@ -1,8 +1,12 @@
-# Hop Data Vault 2.0 Metadata Plugin
+# Hop Data Vault 2.0 Plugin
 
-This plugin provides Hop Metadata types for capturing **Data Vault 2.0** logical models and the associated physical/update strategy configuration.
+Apache Hop plugin for **Data Vault 2.0** modeling, validation, and model-driven loading. Version **0.0.7-SNAPSHOT** targets **Apache Hop 2.18.0** and **Java 21**.
 
-## Provided Metadata Types
+The plugin provides Hop metadata types for logical DV models and physical/update configuration, a visual **`.hdv` model editor**, a **Data Vault Update** workflow action that generates and runs load pipelines, and a sample Hop project under `project/` for end-to-end testing.
+
+## Features
+
+### Metadata types
 
 - **Data Vault Configuration** (`data-vault-configuration`)
   - Hash algorithm: MD5 (default), SHA1, SHA256, SHA512
@@ -15,41 +19,65 @@ This plugin provides Hop Metadata types for capturing **Data Vault 2.0** logical
   - Naming conventions: `_HK` suffixes, `LOAD_DATE`, `RECORD_SOURCE`, `_HASHDIFF`, etc.
   - Satellite patterns: hashdiff vs load-end-date
 
+- **Data Vault Source** (`data-vault-source`, `data-vault-source-database`)
+  - Record source definition with optional **`group`** label for partial model updates (e.g. `hourly`, `daily`)
+  - Database sources with connection, table, and field mappings
+
 - **Data Vault Hub** (`data-vault-hub`)
-  - Extends `DvTableBase` / implements `IDvTable`
-  - Table name, description, record source, configuration reference (from base)
-  - List of Business Keys (composite supported)
+  - Table name, description, record sources, configuration reference
+  - Business keys (composite supported) with source field mapping
 
 - **Data Vault Link** (`data-vault-link`)
-  - Extends `DvTableBase` / implements `IDvTable`
   - Participating hubs (by metadata name)
   - Driving keys (for role-playing / same hub multiple times)
   - Optional link satellite flag
 
 - **Data Vault Satellite** (`data-vault-satellite`)
-  - Extends `DvTableBase` / implements `IDvTable`
   - Attach to Hub **or** Link (via metadata reference)
-  - List of attributes (with include-in-hashdiff flag)
-  - Multi-active satellite support + driving key
-
-A common abstract base `DvTableBase` and `IDvTable` interface were introduced so that generic code can treat Hubs, Links and Satellites uniformly.
-
-`IDvTable` now extends Hop's `IGuiPosition`, `IBaseMeta` and `IHasName` so the DV table objects (Hubs, Links, Satellites) can be used directly as draggable/positionable nodes in a visual Data Vault modeling canvas (just like `TransformMeta` and `ActionMeta` are used in pipelines and workflows). The base class contains the `Point location` (persisted via `@HopMetadataProperty(inline=true)`) and `selected` flag plus all the required method implementations.
+  - Attributes with include-in-hashdiff flag
+  - **Multi-active** satellites via **`drivingKey`** and **`drivingKeySourceField`** (one satellite row per hub key + driving key)
 
 - **Data Vault Model** (`data-vault-model`)
-  - Groups hubs + links + satellites for one EDW / subject area
-  - References a default Data Vault Configuration (separate for strategy reuse)
+  - Groups hubs, links, and satellites for one EDW / subject area
+  - References a default Data Vault Configuration
 
-All model objects can reference a Configuration (via `storeWithName`). Individual objects can override the default.
+`DvTableBase` / `IDvTable` let generic code treat Hubs, Links, and Satellites uniformly. `IDvTable` extends Hop's `IGuiPosition`, `IBaseMeta`, and `IHasName` so DV tables are draggable nodes on the visual modeling canvas.
 
-## @HopMetadataProperty + @GuiWidgetElement
+### Visual modeler (`.hdv` files)
 
-The POJOs use standard Hop annotations so they:
-- Serialize cleanly to JSON in the project `metadata/` folder
-- Appear in the Metadata perspective
-- Get auto-generated (or easily customized) dialogs via the widget annotations
+- Hop file type plugin for **Data Vault Model** files (`.hdv`)
+- Graphical canvas to place and connect hubs, links, and satellites
+- Model validation and editing dialogs for each table type
 
-Lists of sub-POJOs (Business Keys, Satellite Attributes) and reference lists are supported via `@HopMetadataProperty`. Because `GuiElementType` does not yet expose a `LIST` widget type, the collection fields currently rely on the metadata framework / future editor enhancements for rich editing (the scalar fields get nice widgets immediately).
+### Data Vault Update workflow action
+
+The **`DATA_VAULT_UPDATE`** action reads a `.hdv` model and:
+
+- Runs model checks (optional log / abort on failure)
+- Optionally creates or alters target tables in the vault database (DDL generation)
+- Generates update pipelines per hub, link, and satellite (and per record source where applicable)
+- Executes those pipelines using a selected pipeline run configuration
+- Supports optional **`recordSourceGroup`** to load only record sources whose `group` matches (empty = all sources)
+
+### Search
+
+- **`DataVaultModelSearchAnalyser`** indexes Data Vault models for Hop's metadata search (name, description, configuration, tables, and properties).
+
+### Hop configuration option
+
+- **`DataVaultConfigOptionPlugin`** exposes Data Vault-related settings in Hop's configuration system.
+
+## Sample project
+
+The `project/` folder is a self-contained Hop project with metadata, datasets, source CSVs, models, pipelines, and workflows. See **[project/PROJECT.md](project/PROJECT.md)** for prerequisites, layout, and workflow details.
+
+**Quick start:** open the `project/` folder as a Hop project, configure the `CRM` and `Vault` database connections, then run:
+
+```
+project/tests/satellite-multi-active/run-tests.hwf
+```
+
+That orchestrator runs the basic `vault1` end-to-end test (`tests/basic/update-vault1.hwf`) and the multi-active satellite test (`tests/satellite-multi-active/update-customer-phone.hwf`).
 
 ## Building
 
@@ -58,40 +86,42 @@ mvn clean package
 ```
 
 Artifacts:
-- `target/hop-datavault-0.0.1-SNAPSHOT.jar`
-- `target/hop-datavault-0.0.1-SNAPSHOT.zip` (ready-to-unzip plugin layout)
+
+- `target/hop-datavault-0.0.7-SNAPSHOT.jar`
+- `target/hop-datavault-0.0.7-SNAPSHOT.zip` (ready-to-unzip plugin layout)
 
 ## Installation (external plugin)
 
 1. Unzip the assembly zip into your Hop installation, or manually copy the jar to:
    ```
-   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.0.1-SNAPSHOT.jar
+   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.0.7-SNAPSHOT.jar
    ```
-2. (Re)start Hop GUI.
-3. The new metadata types should appear in the Metadata perspective under "Data Vault".
+2. Restart Hop GUI.
+3. New metadata types appear under **Metadata → Data Vault**. The **Data Vault Update** action is available in workflows. `.hdv` files open in the visual modeler.
 
 ## Usage
 
-1. Create a **Data Vault Configuration** first (recommended).
-2. Create Hubs, Links, Satellites.
-3. Create a **Data Vault Model** that references them + the configuration.
-4. Later plugins / transforms / generators can read these via `IHopMetadataProvider` and the standard metadata input transform.
+1. Create a **Data Vault Configuration** (recommended).
+2. Define **Data Vault Sources** (and database source details) for your staging / CRM tables.
+3. Create Hubs, Links, and Satellites (or build them on the `.hdv` canvas).
+4. Assemble a **Data Vault Model** referencing those objects and the configuration.
+5. Add a **Data Vault Update** action to a workflow, point it at the `.hdv` file, and run.
 
-## Common Data Vault 2.0 options included (research-backed)
+For multi-active satellites, set **`drivingKey`** (vault column name) and **`drivingKeySourceField`** (source column mapped into the driving key). For scheduled partial loads, tag record sources with **`group`** and set **`recordSourceGroup`** on the update action.
 
-- Hashing: MD5 / SHA1 / SHA256 / SHA512 (AutomateDV, Scalefree, DV literature)
-- Binary vs String hash keys (widely recommended to use BINARY)
-- Trimming + casing normalization (standard best practice)
-- Delimiter + null placeholder (AutomateDV `concat_string` / `null_placeholder_string`)
-- Unknown record handling (very common "ghost record" / "unknown" hub pattern)
+## Common Data Vault 2.0 options included
+
+- Hashing: MD5 / SHA1 / SHA256 / SHA512
+- Binary vs String hash keys (BINARY recommended)
+- Trimming + casing normalization
+- Delimiter + null placeholder
+- Unknown record / ghost record handling
 - Column naming conventions (LDTS / LOAD_DATE, RSRC, HASHDIFF, HK suffixes)
 - Hashdiff vs end-dating satellite patterns
+- Multi-active satellites via driving keys
 
-## Next steps / ideas for a full plugin
+## Roadmap / ideas
 
-- Pipeline transforms or actions that generate staging → DV loading pipelines from a model + config
-- DDL generation transform using the model
-- Visual modeler perspective (see Hop issue #7077)
-- Support for PIT tables, bridges, reference tables, etc.
-
-This code was generated to be simple, clean POJOs following Hop metadata conventions as closely as possible.
+- PIT tables, bridges, reference tables
+- Additional source types beyond database tables
+- Richer list editing in metadata dialogs
