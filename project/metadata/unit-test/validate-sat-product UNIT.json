@@ -40,5 +40,5 @@
   "input_data_sets": [],
   "name": "validate-sat-product UNIT",
   "trans_test_tweaks": [],
-  "pipeline_filename": "./tests/validate-sat-product.hpl"
+  "pipeline_filename": "./tests/basic/validate-sat-product.hpl"
 }

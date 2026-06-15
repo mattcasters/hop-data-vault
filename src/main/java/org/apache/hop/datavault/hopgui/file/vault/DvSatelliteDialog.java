@@ -64,8 +64,8 @@ public class DvSatelliteDialog {
   private MetaSelectionLine<DataVaultSource> wRecordSource;
   private Text wHubName;
   private Text wLinkName;
-  private Button wMultiActive;
   private Text wDrivingKey;
+  private Text wDrivingKeySourceField;
   private TableView wAttributes;
 
   private boolean ok;
@@ -217,31 +217,13 @@ public class DvSatelliteDialog {
     wLinkName.setLayoutData(fdLinkName);
     wLinkName.addModifyListener(e -> input.setChanged());
 
-    // Multi active
-    Label wlMultiActive = new Label(shell, SWT.RIGHT);
-    wlMultiActive.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.MultiActive.Label"));
-    PropsUi.setLook(wlMultiActive);
-    FormData fdlMultiActive = new FormData();
-    fdlMultiActive.left = new FormAttachment(0, 0);
-    fdlMultiActive.top = new FormAttachment(wLinkName, margin);
-    fdlMultiActive.right = new FormAttachment(middle, -margin);
-    wlMultiActive.setLayoutData(fdlMultiActive);
-
-    wMultiActive = new Button(shell, SWT.CHECK);
-    PropsUi.setLook(wMultiActive);
-    FormData fdMultiActive = new FormData();
-    fdMultiActive.left = new FormAttachment(middle, 0);
-    fdMultiActive.top = new FormAttachment(wLinkName, margin);
-    wMultiActive.setLayoutData(fdMultiActive);
-    wMultiActive.addListener(SWT.Selection, e -> input.setChanged());
-
     // Driving key
     Label wlDrivingKey = new Label(shell, SWT.RIGHT);
     wlDrivingKey.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.DrivingKey.Label"));
     PropsUi.setLook(wlDrivingKey);
     FormData fdlDrivingKey = new FormData();
     fdlDrivingKey.left = new FormAttachment(0, 0);
-    fdlDrivingKey.top = new FormAttachment(wMultiActive, margin);
+    fdlDrivingKey.top = new FormAttachment(wLinkName, margin);
     fdlDrivingKey.right = new FormAttachment(middle, -margin);
     wlDrivingKey.setLayoutData(fdlDrivingKey);
 
@@ -249,10 +231,29 @@ public class DvSatelliteDialog {
     PropsUi.setLook(wDrivingKey);
     FormData fdDrivingKey = new FormData();
     fdDrivingKey.left = new FormAttachment(middle, 0);
-    fdDrivingKey.top = new FormAttachment(wMultiActive, margin);
+    fdDrivingKey.top = new FormAttachment(wLinkName, margin);
     fdDrivingKey.right = new FormAttachment(100, 0);
     wDrivingKey.setLayoutData(fdDrivingKey);
     wDrivingKey.addModifyListener(e -> input.setChanged());
+
+    Label wlDrivingKeySourceField = new Label(shell, SWT.RIGHT);
+    wlDrivingKeySourceField.setText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.DrivingKeySourceField.Label"));
+    PropsUi.setLook(wlDrivingKeySourceField);
+    FormData fdlDrivingKeySourceField = new FormData();
+    fdlDrivingKeySourceField.left = new FormAttachment(0, 0);
+    fdlDrivingKeySourceField.top = new FormAttachment(wDrivingKey, margin);
+    fdlDrivingKeySourceField.right = new FormAttachment(middle, -margin);
+    wlDrivingKeySourceField.setLayoutData(fdlDrivingKeySourceField);
+
+    wDrivingKeySourceField = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wDrivingKeySourceField);
+    FormData fdDrivingKeySourceField = new FormData();
+    fdDrivingKeySourceField.left = new FormAttachment(middle, 0);
+    fdDrivingKeySourceField.top = new FormAttachment(wDrivingKey, margin);
+    fdDrivingKeySourceField.right = new FormAttachment(100, 0);
+    wDrivingKeySourceField.setLayoutData(fdDrivingKeySourceField);
+    wDrivingKeySourceField.addModifyListener(e -> input.setChanged());
 
     // Attributes table
     Label wlAttributes = new Label(shell, SWT.LEFT);
@@ -260,7 +261,7 @@ public class DvSatelliteDialog {
     PropsUi.setLook(wlAttributes);
     FormData fdlAttributes = new FormData();
     fdlAttributes.left = new FormAttachment(0, 0);
-    fdlAttributes.top = new FormAttachment(wDrivingKey, margin);
+    fdlAttributes.top = new FormAttachment(wDrivingKeySourceField, margin);
     wlAttributes.setLayoutData(fdlAttributes);
 
     ColumnInfo[] columns =
@@ -334,8 +335,8 @@ public class DvSatelliteDialog {
     }
     wHubName.setText(Const.NVL(input.getHubName(), ""));
     wLinkName.setText(Const.NVL(input.getLinkName(), ""));
-    wMultiActive.setSelection(input.isMultiActive());
     wDrivingKey.setText(Const.NVL(input.getDrivingKey(), ""));
+    wDrivingKeySourceField.setText(Const.NVL(input.getDrivingKeySourceField(), ""));
 
     for (int i = 0; i < input.getAttributes().size(); i++) {
       SatelliteAttribute attr = input.getAttributes().get(i);
@@ -368,8 +369,8 @@ public class DvSatelliteDialog {
     // If you want full list support for satellites later, change to setRecordSources here.
     input.setHubName(wHubName.getText());
     input.setLinkName(wLinkName.getText());
-    input.setMultiActive(wMultiActive.getSelection());
     input.setDrivingKey(wDrivingKey.getText());
+    input.setDrivingKeySourceField(wDrivingKeySourceField.getText());
 
     List<SatelliteAttribute> attrs = new ArrayList<>();
     for (TableItem item : wAttributes.getNonEmptyItems()) {
@@ -433,12 +434,17 @@ public class DvSatelliteDialog {
     }
 
     String drivingKey = wDrivingKey.getText() != null ? wDrivingKey.getText().trim() : "";
+    String drivingKeySourceField =
+        wDrivingKeySourceField.getText() != null ? wDrivingKeySourceField.getText().trim() : "";
 
     for (SourceField sf : sourceFields) {
       if (sf.isPrimaryKey()) {
         continue;
       }
       if (!Utils.isEmpty(drivingKey) && drivingKey.equals(sf.getName())) {
+        continue;
+      }
+      if (!Utils.isEmpty(drivingKeySourceField) && drivingKeySourceField.equals(sf.getName())) {
         continue;
       }
 

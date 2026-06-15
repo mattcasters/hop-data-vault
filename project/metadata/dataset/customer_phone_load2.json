@@ -1,0 +1,40 @@
+{
+  "base_filename": "customer_phone_load2.csv",
+  "name": "customer_phone_load2",
+  "description": "Source data for incremental update of hub_customer and multi-active sat_customer_phone (load 2)",
+  "dataset_fields": [
+    {
+      "field_comment": "customer_id",
+      "field_length": 9,
+      "field_type": 5,
+      "field_precision": 0,
+      "field_name": "customer_id",
+      "field_format": "####0;-####0"
+    },
+    {
+      "field_comment": "phone_type",
+      "field_length": 10,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "phone_type",
+      "field_format": ""
+    },
+    {
+      "field_comment": "phone_number",
+      "field_length": 20,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "phone_number",
+      "field_format": ""
+    },
+    {
+      "field_comment": "record_source",
+      "field_length": 20,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "record_source",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}

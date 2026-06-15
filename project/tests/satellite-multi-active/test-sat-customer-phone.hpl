@@ -7,25 +7,25 @@
     <pipeline_type>Normal</pipeline_type>
     <pipeline_status>-1</pipeline_status>
     <parameters/>
-    <name>sat-sat_customer</name>
+    <name>sat-sat_customer_phone</name>
     <name_sync_with_filename>Y</name_sync_with_filename>
     <created_user>-</created_user>
     <modified_user>-</modified_user>
-    <created_date>2026/06/12 01:03:36.151</created_date>
-    <modified_date>2026/06/12 01:03:36.151</modified_date>
+    <created_date>2026/06/15 21:27:21.205</created_date>
+    <modified_date>2026/06/15 21:27:21.205</modified_date>
   </info>
   <transform>
     <type>TableInput</type>
-    <name>source  CRM.customer</name>
-    <sql>SELECT customer_id, "name", email, address, city, load_date, record_source AS x_record_source FROM customer</sql>
+    <name>source  CRM.customer_phone</name>
+    <sql>SELECT customer_id, phone_number, phone_type, record_source AS x_record_source FROM customer_phone</sql>
     <execute_each_row>N</execute_each_row>
     <variables_active>N</variables_active>
     <connection>CRM</connection>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>160</xloc>
-      <yloc>160</yloc>
+      <xloc>128</xloc>
+      <yloc>64</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -47,8 +47,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>320</xloc>
-      <yloc>160</yloc>
+      <xloc>288</xloc>
+      <yloc>64</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -66,27 +66,13 @@
         <precision>-2</precision>
       </field>
       <field>
-        <name>name</name>
+        <name>phone_type</name>
+        <rename>phone_type</rename>
         <length>-2</length>
         <precision>-2</precision>
       </field>
       <field>
-        <name>email</name>
-        <length>-2</length>
-        <precision>-2</precision>
-      </field>
-      <field>
-        <name>address</name>
-        <length>-2</length>
-        <precision>-2</precision>
-      </field>
-      <field>
-        <name>city</name>
-        <length>-2</length>
-        <precision>-2</precision>
-      </field>
-      <field>
-        <name>load_date</name>
+        <name>phone_number</name>
         <length>-2</length>
         <precision>-2</precision>
       </field>
@@ -100,8 +86,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>480</xloc>
-      <yloc>160</yloc>
+      <xloc>448</xloc>
+      <yloc>64</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -121,6 +107,14 @@
         <collator_strength>0</collator_strength>
         <presorted>N</presorted>
       </field>
+      <field>
+        <name>phone_type</name>
+        <ascending>Y</ascending>
+        <case_sensitive>Y</case_sensitive>
+        <collator_enabled>N</collator_enabled>
+        <collator_strength>0</collator_strength>
+        <presorted>N</presorted>
+      </field>
     </fields>
     <directory>${java.io.tmpdir}</directory>
     <sort_prefix>out</sort_prefix>
@@ -130,8 +124,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>640</xloc>
-      <yloc>160</yloc>
+      <xloc>608</xloc>
+      <yloc>64</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -141,16 +135,16 @@
   </transform>
   <transform>
     <type>TableInput</type>
-    <name>target_sat_customer</name>
-    <sql>SELECT "name", email, address, city, load_date, x_record_source, customer_hk FROM sat_customer ORDER BY customer_hk, x_load_ts</sql>
+    <name>target_sat_customer_phone</name>
+    <sql>SELECT phone_number, phone_type, x_record_source, customer_hk FROM sat_customer_phone ORDER BY customer_hk, phone_type, x_load_ts</sql>
     <execute_each_row>N</execute_each_row>
     <variables_active>N</variables_active>
     <connection>Vault</connection>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>160</xloc>
-      <yloc>320</yloc>
+      <xloc>128</xloc>
+      <yloc>224</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -167,31 +161,14 @@
       <field>
         <name>customer_hk</name>
       </field>
+      <field>
+        <name>phone_type</name>
+      </field>
     </group>
     <fields>
       <field>
-        <aggregate>name</aggregate>
-        <subject>name</subject>
-        <type>LAST_INCL_NULL</type>
-      </field>
-      <field>
-        <aggregate>email</aggregate>
-        <subject>email</subject>
-        <type>LAST_INCL_NULL</type>
-      </field>
-      <field>
-        <aggregate>address</aggregate>
-        <subject>address</subject>
-        <type>LAST_INCL_NULL</type>
-      </field>
-      <field>
-        <aggregate>city</aggregate>
-        <subject>city</subject>
-        <type>LAST_INCL_NULL</type>
-      </field>
-      <field>
-        <aggregate>load_date</aggregate>
-        <subject>load_date</subject>
+        <aggregate>phone_number</aggregate>
+        <subject>phone_number</subject>
         <type>LAST_INCL_NULL</type>
       </field>
       <field>
@@ -205,8 +182,38 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>320</xloc>
-      <yloc>320</yloc>
+      <xloc>288</xloc>
+      <yloc>224</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <attributes/>
+  </transform>
+  <transform>
+    <type>Dummy</type>
+    <name>Merge reference</name>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>448</xloc>
+      <yloc>224</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <attributes/>
+  </transform>
+  <transform>
+    <type>Dummy</type>
+    <name>Merge compare</name>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>768</xloc>
+      <yloc>64</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -220,22 +227,19 @@
     <flag_field>flag</flag_field>
     <keys>
       <key>customer_hk</key>
+      <key>phone_type</key>
     </keys>
     <values>
-      <value>name</value>
-      <value>email</value>
-      <value>address</value>
-      <value>city</value>
-      <value>load_date</value>
+      <value>phone_number</value>
     </values>
-    <reference>group_last_customer_hk</reference>
-    <compare>sort customer_hk</compare>
+    <reference>Merge reference</reference>
+    <compare>Merge compare</compare>
     <passthrough-fields/>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>480</xloc>
-      <yloc>320</yloc>
+      <xloc>608</xloc>
+      <yloc>224</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -288,8 +292,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>640</xloc>
-      <yloc>320</yloc>
+      <xloc>768</xloc>
+      <yloc>224</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -302,7 +306,7 @@
     <name>add_x_load_ts</name>
     <fields>
       <field>
-        <nullif>2026/06/12 01:03:36.149</nullif>
+        <nullif>2026/06/15 21:51:46.185</nullif>
         <name>x_load_ts</name>
         <type>Date</type>
         <format>yyyy/MM/dd HH:mm:ss.SSS</format>
@@ -314,8 +318,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>800</xloc>
-      <yloc>320</yloc>
+      <xloc>928</xloc>
+      <yloc>224</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -325,9 +329,9 @@
   </transform>
   <transform>
     <type>TableOutput</type>
-    <name>write_to_sat_customer</name>
+    <name>write_to_sat_customer_phone</name>
     <connection>Vault</connection>
-    <table>sat_customer</table>
+    <table>sat_customer_phone</table>
     <commit>1000</commit>
     <truncate>N</truncate>
     <only_when_have_rows>N</only_when_have_rows>
@@ -351,24 +355,12 @@
         <column_name>customer_hk</column_name>
       </field>
       <field>
-        <stream_name>name</stream_name>
-        <column_name>name</column_name>
+        <stream_name>phone_type</stream_name>
+        <column_name>phone_type</column_name>
       </field>
       <field>
-        <stream_name>email</stream_name>
-        <column_name>email</column_name>
-      </field>
-      <field>
-        <stream_name>address</stream_name>
-        <column_name>address</column_name>
-      </field>
-      <field>
-        <stream_name>city</stream_name>
-        <column_name>city</column_name>
-      </field>
-      <field>
-        <stream_name>load_date</stream_name>
-        <column_name>load_date</column_name>
+        <stream_name>phone_number</stream_name>
+        <column_name>phone_number</column_name>
       </field>
       <field>
         <stream_name>x_record_source</stream_name>
@@ -382,8 +374,8 @@
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>960</xloc>
-      <yloc>320</yloc>
+      <xloc>1088</xloc>
+      <yloc>224</yloc>
     </GUI>
     <partitioning>
       <method>none</method>
@@ -393,7 +385,7 @@
   </transform>
   <order>
     <hop>
-      <from>source  CRM.customer</from>
+      <from>source  CRM.customer_phone</from>
       <to>calc_customer_hk</to>
       <enabled>Y</enabled>
     </hop>
@@ -408,17 +400,27 @@
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>target_sat_customer</from>
+      <from>sort customer_hk</from>
+      <to>Merge compare</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>target_sat_customer_phone</from>
       <to>group_last_customer_hk</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
       <from>group_last_customer_hk</from>
+      <to>Merge reference</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Merge reference</from>
       <to>merge_diff</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>sort customer_hk</from>
+      <from>Merge compare</from>
       <to>merge_diff</to>
       <enabled>Y</enabled>
     </hop>
@@ -434,7 +436,7 @@
     </hop>
     <hop>
       <from>add_x_load_ts</from>
-      <to>write_to_sat_customer</to>
+      <to>write_to_sat_customer_phone</to>
       <enabled>Y</enabled>
     </hop>
   </order>

@@ -40,5 +40,5 @@
   "input_data_sets": [],
   "name": "validate-sat-customer UNIT",
   "trans_test_tweaks": [],
-  "pipeline_filename": "./tests/validate-sat-customer.hpl"
+  "pipeline_filename": "./tests/basic/validate-sat-customer.hpl"
 }

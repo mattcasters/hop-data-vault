@@ -44,5 +44,5 @@
   "input_data_sets": [],
   "name": "validate-sat-order-2 UNIT",
   "trans_test_tweaks": [],
-  "pipeline_filename": "./tests/validate-sat-order.hpl"
+  "pipeline_filename": "./tests/basic/validate-sat-order.hpl"
 }

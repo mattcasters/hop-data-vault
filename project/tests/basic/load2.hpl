@@ -17,7 +17,7 @@
   <transform>
     <type>CSVInput</type>
     <name>customer_load2.csv</name>
-    <filename>${PROJECT_HOME}/files/customer_load2.csv</filename>
+    <filename>${PROJECT_HOME}/files/basic/customer_load2.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -249,7 +249,7 @@
     <rootUriNameFieldName/>
     <files>
       <file>
-        <name>${PROJECT_HOME}/files/product_load2.csv</name>
+        <name>${PROJECT_HOME}/files/basic/product_load2.csv</name>
         <filemask/>
         <exclude_filemask/>
         <file_required>N</file_required>
@@ -468,7 +468,7 @@
     <rootUriNameFieldName/>
     <files>
       <file>
-        <name>${PROJECT_HOME}/files/order_load2.csv</name>
+        <name>${PROJECT_HOME}/files/basic/order_load2.csv</name>
         <filemask/>
         <exclude_filemask/>
         <file_required>N</file_required>

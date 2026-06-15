@@ -137,19 +137,12 @@ public class DvSatellite extends DvTableBase
   // GuiElementType.
   @HopMetadataProperty private List<SatelliteAttribute> attributes = new ArrayList<>();
 
-  /** For multi-active satellites (e.g. multiple phone numbers per customer at same time). */
+  /**
+   * Name of the driving key column for multi-active satellites (e.g. multiple phone numbers per
+   * customer). Leave empty for a standard single-active satellite.
+   */
   @GuiWidgetElement(
       order = "0700",
-      type = GuiElementType.CHECKBOX,
-      label = "i18n::DvSatellite.MultiActive.Label",
-      toolTip = "i18n::DvSatellite.MultiActive.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private boolean multiActive;
-
-  /** Name of the driving key column in a multi-active satellite (if applicable). */
-  @GuiWidgetElement(
-      order = "0710",
       type = GuiElementType.TEXT,
       label = "i18n::DvSatellite.DrivingKey.Label",
       toolTip = "i18n::DvSatellite.DrivingKey.ToolTip",
@@ -157,8 +150,26 @@ public class DvSatellite extends DvTableBase
   @HopMetadataProperty
   private String drivingKey;
 
+  /**
+   * Source column name in the record source that supplies the driving key value. Renamed to {@link
+   * #drivingKey} in the update pipeline.
+   */
+  @GuiWidgetElement(
+      order = "0710",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DvSatellite.DrivingKeySourceField.Label",
+      toolTip = "i18n::DvSatellite.DrivingKeySourceField.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String drivingKeySourceField;
+
   @HopMetadataProperty(storeWithName = true)
   private DataVaultSource recordSource;
+
+  public boolean hasDrivingKey() {
+    return !Utils.isEmpty(drivingKey) && !Utils.isEmpty(drivingKeySourceField);
+  }
 
   public DvSatellite() {
     super();
@@ -250,7 +261,7 @@ public class DvSatellite extends DvTableBase
       }
     }
 
-    if (Utils.isEmpty(drivingKey)) {
+    if (!hasDrivingKey()) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_COMMENT,
@@ -261,6 +272,12 @@ public class DvSatellite extends DvTableBase
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,
               BaseMessages.getString(PKG, "DvSatellite.CheckResult.HasDrivingKey", drivingKey),
+              this));
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(
+                  PKG, "DvSatellite.CheckResult.HasDrivingKeySourceField", drivingKeySourceField),
               this));
     }
   }
@@ -403,6 +420,26 @@ public class DvSatellite extends DvTableBase
         sourceFields = getRecordSource().getFields(metadataProvider);
       } else {
         throw new HopException("Please specify a record source for Satellite " + getName());
+      }
+
+      if (hasDrivingKey()) {
+        String drivingKeyName = variables.resolve(drivingKey);
+        IValueMeta drivingKeyMeta = null;
+        for (SourceField sf : sourceFields) {
+          if (drivingKeySourceField.equals(sf.getName())) {
+            drivingKeyMeta = createValueMetaFromSourceField(sf);
+            drivingKeyMeta.setName(drivingKeyName);
+            break;
+          }
+        }
+        if (drivingKeyMeta == null) {
+          throw new HopException(
+              "Driving key source field '"
+                  + drivingKeySourceField
+                  + "' not found in record source for satellite "
+                  + getName());
+        }
+        rowMeta.addValueMeta(drivingKeyMeta);
       }
 
       List<SatelliteAttribute> satAttrs = getAttributes();
@@ -631,18 +668,28 @@ public class DvSatellite extends DvTableBase
           "Unable to find the hub (" + getHubName() + ") to satellite " + getName());
     }
 
-    // We select the hash key and the attributes plus the source field
+    // We select the hash key, attributes, optional driving key and record source field.
     //
-    List<String> fields = new ArrayList<>();
-    fields.add(ctx.hashKeyFieldName);
-    fields.addAll(ctx.satAttrFieldNames);
-    fields.add(ctx.recordSourceField);
+    SelectField hashField = new SelectField();
+    hashField.setName(ctx.hashKeyFieldName);
+    selectFields.add(hashField);
 
-    for (String field : fields) {
+    if (ctx.hasDrivingKey()) {
+      SelectField drivingKeyField = new SelectField();
+      drivingKeyField.setName(ctx.drivingKeySourceFieldName);
+      drivingKeyField.setRename(ctx.drivingKeyFieldName);
+      selectFields.add(drivingKeyField);
+    }
+
+    for (String attrField : ctx.satAttrFieldNames) {
       SelectField selectField = new SelectField();
-      selectField.setName(field);
+      selectField.setName(attrField);
       selectFields.add(selectField);
     }
+
+    SelectField recordSourceSelect = new SelectField();
+    recordSourceSelect.setName(ctx.recordSourceField);
+    selectFields.add(recordSourceSelect);
 
     TransformMeta tm = new TransformMeta("SelectValues", "hk plus attr", selectMeta);
     // Place it on the compare flow after the last checksum, before the sort
@@ -664,6 +711,14 @@ public class DvSatellite extends DvTableBase
         true); // hash values (binary or hex strings) should compare case-sensitively
     sortRowsMeta.getSortFields().add(sortField);
 
+    if (ctx.hasDrivingKey()) {
+      SortRowsField drivingKeySort = new SortRowsField();
+      drivingKeySort.setFieldName(ctx.drivingKeyFieldName);
+      drivingKeySort.setAscending(true);
+      drivingKeySort.setCaseSensitive(true);
+      sortRowsMeta.getSortFields().add(drivingKeySort);
+    }
+
     // Other SortRowsMeta defaults (tmp dir, sort size, no compress, not unique-only) are
     // acceptable.
 
@@ -675,7 +730,7 @@ public class DvSatellite extends DvTableBase
     return tm;
   }
 
-  private TransformMeta addTargetTableInput(SatelliteUpdateContext ctx, PipelineMeta pipelineMeta) {
+    private TransformMeta addTargetTableInput(SatelliteUpdateContext ctx, PipelineMeta pipelineMeta) {
     if (ctx.targetDatabaseMeta == null) {
       return null;
     }
@@ -705,6 +760,9 @@ public class DvSatellite extends DvTableBase
     for (String attr : ctx.satAttrFieldNames) {
       selectFields.add(ctx.targetDatabaseMeta.quoteField(attr));
     }
+    if (ctx.hasDrivingKey()) {
+      selectFields.add(ctx.targetDatabaseMeta.quoteField(ctx.drivingKeyFieldName));
+    }
     selectFields.add(ctx.targetDatabaseMeta.quoteField(ctx.recordSourceField));
     selectFields.add(quotedHash);
 
@@ -716,6 +774,10 @@ public class DvSatellite extends DvTableBase
             ctx.variables, null, ctx.targetTableName));
     sql.append(" ORDER BY ");
     sql.append(quotedHash);
+    if (ctx.hasDrivingKey()) {
+      sql.append(", ");
+      sql.append(ctx.targetDatabaseMeta.quoteField(ctx.drivingKeyFieldName));
+    }
     sql.append(", ");
     sql.append(quotedLoadDate);
 
@@ -732,10 +794,16 @@ public class DvSatellite extends DvTableBase
     GroupByMeta groupByMeta = new GroupByMeta();
     List<GroupingField> groupingFields = new ArrayList<>();
     groupingFields.add(new GroupingField(ctx.hashKeyFieldName));
+    if (ctx.hasDrivingKey()) {
+      groupingFields.add(new GroupingField(ctx.drivingKeyFieldName));
+    }
     groupByMeta.setGroupingFields(groupingFields);
 
     List<Aggregation> aggregations = new ArrayList<>();
     for (String attr : ctx.satAttrFieldNames) {
+      if (ctx.hasDrivingKey() && ctx.drivingKeyFieldName.equals(attr)) {
+        continue;
+      }
       Aggregation agg = new Aggregation();
       agg.setSubject(attr);
       agg.setField(attr);
@@ -795,6 +863,9 @@ public class DvSatellite extends DvTableBase
 
     List<String> keyFields = new ArrayList<>();
     keyFields.add(ctx.hashKeyFieldName);
+    if (ctx.hasDrivingKey()) {
+      keyFields.add(ctx.drivingKeyFieldName);
+    }
     mergeRowsMeta.setKeyFields(keyFields);
 
     // Value fields: the satellite attributes. MergeRows will compare these (when keys/hash match)
@@ -955,6 +1026,8 @@ public class DvSatellite extends DvTableBase
     final String sourceIndicator;
     final String sourceIndicatorField;
     final String recordSourceField;
+    final String drivingKeyFieldName;
+    final String drivingKeySourceFieldName;
 
     SatelliteUpdateContext(
         DvSatellite satellite,
@@ -979,7 +1052,9 @@ public class DvSatellite extends DvTableBase
         String hashKeyFieldName,
         String sourceIndicator,
         String sourceIndicatorField,
-        String recordSourceField)
+        String recordSourceField,
+        String drivingKeyFieldName,
+        String drivingKeySourceFieldName)
         throws HopException {
       this.satellite = satellite;
       this.model = model;
@@ -1004,8 +1079,14 @@ public class DvSatellite extends DvTableBase
       this.sourceIndicator = sourceIndicator;
       this.sourceIndicatorField = sourceIndicatorField;
       this.recordSourceField = recordSourceField != null ? recordSourceField : "RECORD_SOURCE";
+      this.drivingKeyFieldName = drivingKeyFieldName;
+      this.drivingKeySourceFieldName = drivingKeySourceFieldName;
 
       this.dvSource = dataVaultSource.getDvSource(metadataProvider);
+    }
+
+    boolean hasDrivingKey() {
+      return !Utils.isEmpty(drivingKeyFieldName) && !Utils.isEmpty(drivingKeySourceFieldName);
     }
 
     static SatelliteUpdateContext create(
@@ -1153,6 +1234,13 @@ public class DvSatellite extends DvTableBase
         }
       }
 
+      String drivingKeyFieldName = null;
+      String drivingKeySourceFieldName = null;
+      if (sat.hasDrivingKey()) {
+        drivingKeyFieldName = variables.resolve(sat.getDrivingKey());
+        drivingKeySourceFieldName = variables.resolve(sat.getDrivingKeySourceField());
+      }
+
       return new SatelliteUpdateContext(
           sat,
           model,
@@ -1176,7 +1264,9 @@ public class DvSatellite extends DvTableBase
           hashKeyFieldName,
           sourceIndicator,
           sourceIndicatorField,
-          recordSourceField);
+          recordSourceField,
+          drivingKeyFieldName,
+          drivingKeySourceFieldName);
     }
   }
 }

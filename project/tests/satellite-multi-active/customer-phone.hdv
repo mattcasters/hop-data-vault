@@ -1,0 +1,53 @@
+<data-vault-model>
+  <name>customer-phone</name>
+  <filename>${PROJECT_HOME}/tests/satellite-multi-active/customer-phone.hdv</filename>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <description>Multi-active satellite test case: customer phones per customer (driving key phone_type)</description>
+  <configuration>vault-config</configuration>
+  <tables>
+    <table>
+      <businessKeys>
+        <name>customer_id</name>
+        <description>Customer business key</description>
+        <dataType>Integer</dataType>
+        <length>9</length>
+        <sourceFieldName>customer_id</sourceFieldName>
+        <recordSourceName>CRM-customer-phone</recordSourceName>
+      </businessKeys>
+      <hashKeyFieldName>customer_hk</hashKeyFieldName>
+      <recordSourceFieldName/>
+      <recordSources>
+        <recordSource>CRM-customer-phone</recordSource>
+      </recordSources>
+      <tableName>hub_customer_phone</tableName>
+      <description>Hub for customers in the phone multi-active test case</description>
+      <tableType>HUB</tableType>
+      <xloc>64</xloc>
+      <yloc>48</yloc>
+      <name>hub_customer_phone</name>
+      <virtualPath/>
+    </table>
+    <table>
+      <hub>hub_customer_phone</hub>
+      <link/>
+      <attributes>
+        <name>phone_number</name>
+        <description>Phone number</description>
+        <dataType>String</dataType>
+        <length>20</length>
+        <precision/>
+        <includeInChangeDataCapture>Y</includeInChangeDataCapture>
+      </attributes>
+      <drivingKey>phone_type</drivingKey>
+      <drivingKeySourceField>phone_type</drivingKeySourceField>
+      <recordSource>CRM-customer-phone</recordSource>
+      <tableName>sat_customer_phone</tableName>
+      <description>Multi-active satellite: one row per customer and phone type</description>
+      <tableType>SATELLITE</tableType>
+      <xloc>304</xloc>
+      <yloc>48</yloc>
+      <name>sat_customer_phone</name>
+      <virtualPath/>
+    </table>
+  </tables>
+</data-vault-model>

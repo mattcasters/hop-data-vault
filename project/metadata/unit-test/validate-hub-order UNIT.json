@@ -28,5 +28,5 @@
   "input_data_sets": [],
   "name": "validate-hub-order UNIT",
   "trans_test_tweaks": [],
-  "pipeline_filename": "./tests/validate-hub-order.hpl"
+  "pipeline_filename": "./tests/basic/validate-hub-order.hpl"
 }

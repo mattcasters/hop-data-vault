@@ -1,0 +1,40 @@
+{
+  "base_filename": "sat-customer-phone-golden1.csv",
+  "name": "sat-customer-phone-golden1",
+  "description": "",
+  "dataset_fields": [
+    {
+      "field_comment": "customer_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "customer_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "phone_type",
+      "field_length": 10,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "phone_type",
+      "field_format": ""
+    },
+    {
+      "field_comment": "phone_number",
+      "field_length": 20,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "phone_number",
+      "field_format": ""
+    },
+    {
+      "field_comment": "x_record_source",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "x_record_source",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}

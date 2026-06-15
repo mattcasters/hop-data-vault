@@ -62,7 +62,6 @@
         <precision/>
         <includeInChangeDataCapture>Y</includeInChangeDataCapture>
       </attributes>
-      <multiActive>N</multiActive>
       <drivingKey/>
       <recordSource>CRM-customer</recordSource>
       <tableName>sat_customer</tableName>
@@ -130,7 +129,6 @@
         <precision/>
         <includeInChangeDataCapture>N</includeInChangeDataCapture>
       </attributes>
-      <multiActive>N</multiActive>
       <drivingKey/>
       <recordSource>CRM-product</recordSource>
       <tableName>sat_product</tableName>
@@ -214,7 +212,6 @@
         <precision/>
         <includeInChangeDataCapture>N</includeInChangeDataCapture>
       </attributes>
-      <multiActive>N</multiActive>
       <drivingKey/>
       <recordSource>CRM-order</recordSource>
       <tableName>sat_order</tableName>

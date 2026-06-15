@@ -34,6 +34,11 @@ public class DvDatabaseSatelliteSourcePipelineBuilder extends DvDatabaseSourcePi
     appendComma(sql);
     appendFields(sql, quotedSatelliteAttributeFields(satellite, sourceDbMeta));
 
+    if (satellite.hasDrivingKey()) {
+      appendComma(sql);
+      sql.append(sourceDbMeta.quoteField(variables.resolve(satellite.getDrivingKeySourceField())));
+    }
+
     // The source indicator
     appendComma(sql);
     appendSourceField(hub, sql, sourceDbMeta);

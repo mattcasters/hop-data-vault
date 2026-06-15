@@ -40,5 +40,5 @@
   "input_data_sets": [],
   "name": "validate-lnk-customer-order-2 UNIT",
   "trans_test_tweaks": [],
-  "pipeline_filename": "./tests/validate-lnk-customer-order.hpl"
+  "pipeline_filename": "./tests/basic/validate-lnk-customer-order.hpl"
 }

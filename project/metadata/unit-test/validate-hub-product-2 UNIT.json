@@ -28,5 +28,5 @@
   "input_data_sets": [],
   "name": "validate-hub-product-2 UNIT",
   "trans_test_tweaks": [],
-  "pipeline_filename": "./tests/validate-hub-product.hpl"
+  "pipeline_filename": "./tests/basic/validate-hub-product.hpl"
 }
