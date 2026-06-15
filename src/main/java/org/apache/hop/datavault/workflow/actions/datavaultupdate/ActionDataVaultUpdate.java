@@ -152,6 +152,16 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
   @HopMetadataProperty
   private boolean doNotUpdateTargetDatabase;
 
+  @GuiWidgetElement(
+      order = "0650",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::ActionDataVaultUpdate.RecordSourceGroup.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.RecordSourceGroup.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String recordSourceGroup;
+
   public ActionDataVaultUpdate(String name) {
     super(name, "");
     dataVaultModelFile = null;
@@ -172,6 +182,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     this.ddlSqlFilename = meta.ddlSqlFilename;
     this.failIfDdlNeeded = meta.failIfDdlNeeded;
     this.doNotUpdateTargetDatabase = meta.doNotUpdateTargetDatabase;
+    this.recordSourceGroup = meta.recordSourceGroup;
   }
 
   @Override
@@ -238,6 +249,13 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       Date loadDate = new Date(); // static load date for this batch update
       boolean success = true;
       int totalErrors = 0;
+      String realRecordSourceGroup = resolve(recordSourceGroup);
+
+      if (!Utils.isEmpty(realRecordSourceGroup)) {
+        logBasic(
+            BaseMessages.getString(
+                PKG, "ActionDataVaultUpdate.Log.UsingRecordSourceGroup", realRecordSourceGroup));
+      }
 
       String realDdlSqlFilename = resolve(ddlSqlFilename);
       boolean processDdl =
@@ -338,9 +356,23 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                 PKG, "ActionDataVaultUpdate.Log.GeneratingForTable", table.getName()));
 
         List<PipelineMeta> pipelineMetas =
-            table.generateUpdatePipelines(getMetadataProvider(), getVariables(), model, loadDate);
+            table.generateUpdatePipelines(
+                getMetadataProvider(),
+                getVariables(),
+                model,
+                loadDate,
+                realRecordSourceGroup);
 
         if (pipelineMetas == null || pipelineMetas.isEmpty()) {
+          if (!Utils.isEmpty(realRecordSourceGroup)) {
+            logBasic(
+                BaseMessages.getString(
+                    PKG,
+                    "ActionDataVaultUpdate.Log.SkippingTableForGroup",
+                    table.getName(),
+                    realRecordSourceGroup));
+            continue;
+          }
           logError(
               BaseMessages.getString(
                   PKG, "ActionDataVaultUpdate.Error.GenerateFailed", table.getName()));

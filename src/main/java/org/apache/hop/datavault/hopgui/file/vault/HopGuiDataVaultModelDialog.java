@@ -37,16 +37,14 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
-/**
- * Dialog to edit the properties of a DataVaultModel (description, default configuration etc).
- */
+/** Dialog to edit the properties of a DataVaultModel (description, default configuration etc). */
 public class HopGuiDataVaultModelDialog {
   private static final Class<?> PKG = HopGuiDataVaultModelDialog.class;
 
-  private Shell parent;
-  private HopGui hopGui;
-  private IVariables variables;
-  private DataVaultModel input;
+  private final Shell parent;
+  private final HopGui hopGui;
+  private final IVariables variables;
+  private final DataVaultModel input;
   private Shell shell;
 
   // Widgets
@@ -107,7 +105,8 @@ public class HopGuiDataVaultModelDialog {
 
     // Description
     Label wlDescription = new Label(shell, SWT.RIGHT);
-    wlDescription.setText(BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Description.Label"));
+    wlDescription.setText(
+        BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Description.Label"));
     PropsUi.setLook(wlDescription);
     FormData fdlDescription = new FormData();
     fdlDescription.left = new FormAttachment(0, 0);
@@ -163,7 +162,7 @@ public class HopGuiDataVaultModelDialog {
   private void ok() {
     input.setName(wName.getText());
     input.setDescription(wDescription.getText());
-    input.setConfigurationName(wConfigurationName.getText());
+    input.setConfiguration(wConfigurationName.loadSelectedElement());
 
     ok = true;
     dispose();

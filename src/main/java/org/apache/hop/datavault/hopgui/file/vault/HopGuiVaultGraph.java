@@ -1042,7 +1042,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
       List<PipelineMeta> pipelineMetas =
           table.generateUpdatePipelines(
-              hopGui.getMetadataProvider(), hopGui.getVariables(), model, loadDate);
+              hopGui.getMetadataProvider(), hopGui.getVariables(), model, loadDate, null);
       if (pipelineMetas == null || pipelineMetas.isEmpty()) {
         return;
       }

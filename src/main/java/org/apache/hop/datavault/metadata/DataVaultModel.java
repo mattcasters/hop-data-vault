@@ -108,21 +108,11 @@ public class DataVaultModel extends HopMetadataBase
   @HopMetadataProperty(key = "configuration", storeWithName = true)
   private DataVaultConfiguration configuration;
 
-  // Legacy name-based access for dialogs and older code
-  private String configurationName;
-
   public String getConfigurationName() {
     if (configuration != null && !Utils.isEmpty(configuration.getName())) {
       return configuration.getName();
     }
-    return configurationName;
-  }
-
-  public void setConfigurationName(String configurationName) {
-    if (!Objects.equals(this.configurationName, configurationName)) {
-      setChanged();
-    }
-    this.configurationName = configurationName;
+    return null;
   }
 
   /**

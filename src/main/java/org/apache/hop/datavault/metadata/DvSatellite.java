@@ -270,10 +270,16 @@ public class DvSatellite extends DvTableBase
       IHopMetadataProvider metadataProvider,
       IVariables variables,
       DataVaultModel model,
-      Date loadDate)
+      Date loadDate,
+      String recordSourceGroup)
       throws HopException {
     try {
       if (metadataProvider == null || model == null) {
+        return emptyList();
+      }
+
+      if (recordSource != null
+          && !recordSource.matchesRecordSourceGroup(recordSourceGroup, variables)) {
         return emptyList();
       }
 

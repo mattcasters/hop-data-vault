@@ -336,7 +336,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       IHopMetadataProvider metadataProvider,
       IVariables variables,
       DataVaultModel model,
-      Date loadDate)
+      Date loadDate,
+      String recordSourceGroup)
       throws HopException {
     try {
       if (metadataProvider == null || model == null) {
@@ -346,6 +347,11 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       List<PipelineMeta> result = new ArrayList<>();
 
       for (DvLinkSource linkSource : linkSources) {
+        DataVaultSource source = linkSource.getSource();
+        if (source != null && !source.matchesRecordSourceGroup(recordSourceGroup, variables)) {
+          continue;
+        }
+
         LinkUpdateContext ctx =
             LinkUpdateContext.create(metadataProvider, variables, model, this, linkSource);
 

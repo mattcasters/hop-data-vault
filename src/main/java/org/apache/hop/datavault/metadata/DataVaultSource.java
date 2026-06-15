@@ -23,6 +23,7 @@ import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.plugin.GuiElementType;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
@@ -102,6 +103,21 @@ public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IH
   @HopMetadataProperty
   private String sourceIndicator;
 
+  /**
+   * Optional group label for scheduling partial updates (e.g. {@code hourly}, {@code daily}). Used
+   * by {@link org.apache.hop.datavault.workflow.actions.datavaultupdate.ActionDataVaultUpdate} to
+   * limit which record sources are processed in a single run.
+   */
+  @GuiWidgetElement(
+      order = "0500",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultSource.Group.Label",
+      toolTip = "i18n::DataVaultSource.Group.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String group;
+
   public DataVaultSource() {
     super();
   }
@@ -121,6 +137,28 @@ public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IH
    * @return the static indicator value to emit, or {@code null} meaning "use the column named in
    *     sourceIndicatorField from the source table (or no indicator)"
    */
+  /**
+   * Returns {@code true} when this record source should be included for the given group filter.
+   *
+   * <p>An empty or {@code null} filter includes every record source (legacy behaviour). When a
+   * filter is specified, only sources whose {@link #group} matches (after variable resolution) are
+   * included.
+   */
+  public boolean matchesRecordSourceGroup(String groupFilter, IVariables variables) {
+    if (Utils.isEmpty(groupFilter)) {
+      return true;
+    }
+    String resolvedFilter = variables != null ? variables.resolve(groupFilter) : groupFilter;
+    if (Utils.isEmpty(resolvedFilter)) {
+      return true;
+    }
+    String resolvedGroup = group;
+    if (variables != null) {
+      resolvedGroup = variables.resolve(resolvedGroup);
+    }
+    return resolvedFilter.equals(resolvedGroup);
+  }
+
   public String getResolvedSourceIndicator(IVariables variables) {
     String staticValue = sourceIndicator;
     if (variables != null) {

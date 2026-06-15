@@ -82,11 +82,16 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
    * @param variables for variable resolution during SQL generation and quoting.
    * @param model the containing DataVaultModel (for config name etc.)
    * @param loadDate the static load date to use for all records in this batch update
+   * @param recordSourceGroup optional group filter; when empty, all record sources are processed
    * @return list of generated PipelineMeta (one per source for hubs); caller does XML roundtrip etc.
    * @throws HopException on metadata load or other errors during generation
    */
   List<PipelineMeta> generateUpdatePipelines(
-      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model, Date loadDate)
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model,
+      Date loadDate,
+      String recordSourceGroup)
       throws HopException;
 
   /**

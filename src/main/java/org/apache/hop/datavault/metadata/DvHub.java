@@ -290,7 +290,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       IHopMetadataProvider metadataProvider,
       IVariables variables,
       DataVaultModel model,
-      Date loadDate)
+      Date loadDate,
+      String recordSourceGroup)
       throws HopException {
     List<PipelineMeta> result = new ArrayList<>();
     try {
@@ -298,8 +299,12 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         return result;
       }
 
-      List<DataVaultSource> sources = loadRecordSources(variables, metadataProvider);
+      List<DataVaultSource> sources =
+          loadRecordSources(variables, metadataProvider, recordSourceGroup);
       if (sources.isEmpty()) {
+        if (!Utils.isEmpty(recordSourceGroup)) {
+          return result;
+        }
         throw new HopException("Please specify one or more record sources in Hub " + getName());
       }
 
@@ -354,14 +359,18 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
   }
 
   private List<DataVaultSource> loadRecordSources(
-      IVariables variables, IHopMetadataProvider metadataProvider) throws HopException {
+      IVariables variables, IHopMetadataProvider metadataProvider, String recordSourceGroup)
+      throws HopException {
     List<DataVaultSource> sources = new ArrayList<>();
 
     IHopMetadataSerializer<DataVaultSource> serializer =
         metadataProvider.getSerializer(DataVaultSource.class);
 
     for (String recordSource : recordSources) {
-      sources.add(serializer.load(variables.resolve(recordSource)));
+      DataVaultSource source = serializer.load(variables.resolve(recordSource));
+      if (source != null && source.matchesRecordSourceGroup(recordSourceGroup, variables)) {
+        sources.add(source);
+      }
     }
     return sources;
   }

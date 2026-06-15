@@ -296,7 +296,8 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
       IHopMetadataProvider metadataProvider,
       IVariables variables,
       DataVaultModel model,
-      Date loadDate)
+      Date loadDate,
+      String recordSourceGroup)
       throws HopException {
     // default: no pipeline in base
     return java.util.Collections.emptyList();
