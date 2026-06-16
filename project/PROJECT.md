@@ -6,7 +6,7 @@
 > - Testing has only been done with **PostgreSQL**.
 > - Install the **hop-datavault** plugin (0.0.7-SNAPSHOT) in your Hop 2.18.0 environment.
 
-This folder is a sample Hop project demonstrating the Data Vault 2.0 plugin: model-driven DDL, pipeline generation, initial and incremental loads, and golden-dataset unit tests.
+This folder is a sample Hop project demonstrating the Data Vault 2.0 plugin: model-driven DDL, pipeline generation, initial and incremental loads, multi-active satellites, link satellites, and golden-dataset unit tests.
 
 ## Project layout
 
@@ -17,11 +17,14 @@ project/
 ├── datasets/                    # Golden + source CSVs referenced by Hop datasets
 ├── files/
 │   ├── basic/                   # CRM sample CSVs for vault1 (customer, order, product)
-│   └── multi-active-satellite/  # customer_phone source CSVs
+│   ├── multi-active-satellite/  # customer_phone source CSVs
+│   └── link-satellite/          # customer_product source CSVs
 ├── images/                      # Screenshots (model canvas, workflow runs)
 └── tests/
+    ├── run-tests.hwf            # Orchestrator: runs all three test suites in sequence
     ├── basic/                   # vault1 model, loads, validation pipelines, update-vault1.hwf
-    └── satellite-multi-active/  # customer-phone model, loads, update-customer-phone.hwf, run-tests.hwf
+    ├── satellite-multi-active/  # customer-phone model, loads, update-customer-phone.hwf
+    └── link-satellite/          # link-satellite model, loads, update-link-satellite.hwf
 ```
 
 | Path | Purpose |
@@ -33,6 +36,7 @@ project/
 | `metadata/unit-test/` | Pipeline unit test metadata |
 | `tests/basic/vault1.hdv` | Classic hub / link / satellite model (customer, order, product) |
 | `tests/satellite-multi-active/customer-phone.hdv` | Hub + multi-active satellite (`phone_type` driving key) |
+| `tests/link-satellite/link-satellite.hdv` | Hubs + link + link satellite (customer–product relationship attributes) |
 
 `project-config.json` sets `metadataBaseFolder`, `dataSetsCsvFolder`, and `unitTestsBasePath` relative to `${PROJECT_HOME}`.
 
@@ -40,16 +44,17 @@ project/
 
 Open this `project/` folder as a Hop project (so `${PROJECT_HOME}` resolves correctly), then run:
 
-**`tests/satellite-multi-active/run-tests.hwf`**
+**`tests/run-tests.hwf`**
 
 This orchestrator executes, in order:
 
 1. **`tests/basic/update-vault1.hwf`** — full vault1 initial + incremental load with validation
 2. **`tests/satellite-multi-active/update-customer-phone.hwf`** — multi-active satellite initial + incremental load with validation
+3. **`tests/link-satellite/update-link-satellite.hwf`** — link + link satellite initial + incremental load with validation
 
-Both must succeed for the run to complete.
+All three must succeed for the run to complete.
 
-You can also run either child workflow on its own if you only need one scenario.
+You can also run any child workflow on its own if you only need one scenario.
 
 ---
 
@@ -113,15 +118,38 @@ Multi-active behavior: one satellite row per customer **and** phone type (e.g. M
 
 Golden datasets: `hub-customer-phone-golden1/2`, `sat-customer-phone-golden1/2` in `datasets/`.
 
-### Orchestrator: `tests/satellite-multi-active/run-tests.hwf`
+---
 
-Chains `update-vault1.hwf` then `update-customer-phone.hwf`. Use this as the **single entry point** to exercise the full sample project.
+## Test suite: `tests/link-satellite/` (customer–product link satellite)
+
+### Sample model
+
+- **Model file:** `tests/link-satellite/link-satellite.hdv`
+- **Hubs:** `hub_customer_ls` (`customer_id`), `hub_product_ls` (`product_id`)
+- **Link:** `lnk_customer_product` — connects both hubs; `linkSatelliteNames` references `sat_lnk_customer_product`
+- **Link satellite:** `sat_lnk_customer_product` — parent is the link (not a hub); attributes `quantity`, `discount_pct`
+- **Record source:** `CRM-customer-product` → `customer_product` table
+
+Link satellite behavior: descriptive attributes on the relationship (quantity, discount) are stored in a satellite keyed by the **link hash key**, with separate `linkHubSources` and `linkSatelliteSources` mappings on the link table.
+
+### Workflow: `tests/link-satellite/update-link-satellite.hwf`
+
+1. **Create customer_product table** on CRM.
+2. **Drop Vault tables** — `hub_customer_ls`, `hub_product_ls`, `lnk_customer_product`, `sat_lnk_customer_product`.
+3. **load-customer-product1** — `load-customer-product1.hpl` from `files/link-satellite/customer_product_load1.csv`.
+4. **update link-satellite.hdv** — first Data Vault Update (DDL enabled, model checks on).
+5. **Test after initial** — validate-lnk-customer-product UNIT, validate-sat-lnk-customer-product UNIT.
+6. **load-customer-product2** — incremental batch from `customer_product_snapshot_after_updates.csv`.
+7. **update link-satellite.hdv** (second run) — applies deltas only.
+8. **Test after update** — validate-lnk-customer-product2 UNIT, validate-sat-lnk-customer-product2 UNIT.
+
+Golden datasets: `lnk-customer-product-golden1/2`, `sat-lnk-customer-product-golden1/2` in `datasets/`. Validation pipelines are in `tests/link-satellite/validate-*.hpl`.
 
 ---
 
 ## Notes
 
-- Link tables (`lnk_*`) are created and loaded in the vault1 flow; dedicated link unit tests exist (`validate-lnk-customer-order UNIT`) and can be added to workflow test stages as needed.
+- Link tables (`lnk_*`) are created and loaded in the vault1 flow; dedicated link unit tests exist there (`validate-lnk-customer-order UNIT`). The link-satellite suite adds full coverage for link + link satellite loads and change detection.
 - The Data Vault Update action supports **`recordSourceGroup`** on record sources tagged with **`group`** in metadata — useful for partial scheduled loads (not exercised in these sample workflows; all groups are empty).
 - All connections, run configurations, sources, and unit tests are under `metadata/`.
 - Source CSVs under `files/` are inputs to load pipelines; `datasets/` holds expected outputs for Hop unit tests.
