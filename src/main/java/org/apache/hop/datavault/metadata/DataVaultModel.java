@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
@@ -343,6 +342,21 @@ public class DataVaultModel extends HopMetadataBase
     for (IDvTable table : tables) {
       if (table.getTableType() == DvTableType.HUB && table.getName().equalsIgnoreCase(hubName)) {
         return (DvHub) table;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Find the Link with the given name in the model
+   *
+   * @param linkName The name of the link to look for.
+   * @return The Link or null if not found.
+   */
+  public DvLink findLink(String linkName) {
+    for (IDvTable table : tables) {
+      if (table.getTableType() == DvTableType.LINK && table.getName().equalsIgnoreCase(linkName)) {
+        return (DvLink) table;
       }
     }
     return null;

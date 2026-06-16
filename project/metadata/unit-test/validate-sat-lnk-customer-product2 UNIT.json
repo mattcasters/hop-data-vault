@@ -1,0 +1,41 @@
+{
+  "database_replacements": [],
+  "autoOpening": true,
+  "description": "",
+  "persist_filename": "",
+  "test_type": "UNIT_TEST",
+  "variableValues": [],
+  "basePath": "${HOP_UNIT_TESTS_FOLDER}",
+  "golden_data_sets": [
+    {
+      "field_mappings": [
+        {
+          "transform_field": "lnk_customer_product_hk",
+          "data_set_field": "lnk_customer_product_hk"
+        },
+        {
+          "transform_field": "quantity",
+          "data_set_field": "quantity"
+        },
+        {
+          "transform_field": "discount_pct",
+          "data_set_field": "discount_pct"
+        },
+        {
+          "transform_field": "x_record_source",
+          "data_set_field": "x_record_source"
+        }
+      ],
+      "field_order": [
+        "lnk_customer_product_hk",
+        "quantity"
+      ],
+      "data_set_name": "sat-lnk-customer-product-golden2",
+      "transform_name": "Validate"
+    }
+  ],
+  "input_data_sets": [],
+  "name": "validate-sat-lnk-customer-product2 UNIT",
+  "trans_test_tweaks": [],
+  "pipeline_filename": "./tests/link-satellite/validate-sat-lnk-customer-product.hpl"
+}

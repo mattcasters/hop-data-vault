@@ -487,7 +487,10 @@ public class DataVaultModelPainter extends BasePainter {
     boolean hubLink =
         (ta == DvTableType.HUB && tb == DvTableType.LINK)
             || (ta == DvTableType.LINK && tb == DvTableType.HUB);
-    return hubSat || hubLink;
+    boolean linkSat =
+        (ta == DvTableType.LINK && tb == DvTableType.SATELLITE)
+            || (ta == DvTableType.SATELLITE && tb == DvTableType.LINK);
+    return hubSat || hubLink || linkSat;
   }
 
   /**

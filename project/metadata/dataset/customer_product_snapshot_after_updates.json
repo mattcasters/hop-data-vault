@@ -1,0 +1,48 @@
+{
+  "base_filename": "customer_product_snapshot_after_updates.csv",
+  "name": "customer_product_snapshot_after_updates",
+  "description": "CRM snapshot after incremental updates for link satellite test case",
+  "dataset_fields": [
+    {
+      "field_comment": "customer_id",
+      "field_length": 9,
+      "field_type": 5,
+      "field_precision": 0,
+      "field_name": "customer_id",
+      "field_format": "####0;-####0"
+    },
+    {
+      "field_comment": "product_id",
+      "field_length": 7,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "product_id",
+      "field_format": ""
+    },
+    {
+      "field_comment": "quantity",
+      "field_length": 9,
+      "field_type": 5,
+      "field_precision": 0,
+      "field_name": "quantity",
+      "field_format": "####0;-####0"
+    },
+    {
+      "field_comment": "discount_pct",
+      "field_length": 5,
+      "field_type": 1,
+      "field_precision": 2,
+      "field_name": "discount_pct",
+      "field_format": "####0.00"
+    },
+    {
+      "field_comment": "record_source",
+      "field_length": 20,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "record_source",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}

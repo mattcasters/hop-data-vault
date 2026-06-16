@@ -40,8 +40,10 @@ public abstract class DvSourcePipelineBuilder {
   /** The transform that will continue the source data. */
   protected TransformMeta resultTransform;
 
-  // Fields specific for Link updates
-  protected DvLink.DvLinkSource dvLinkSource;
+  // Fields specific for Link / link-satellite updates
+  protected DvLink linkedLink;
+  protected DvLink.DvLinkHubSource dvLinkHubSource;
+  protected DvLink.DvLinkSatelliteSource dvLinkSatelliteSource;
 
   public DvSourcePipelineBuilder(
           IVariables variables,

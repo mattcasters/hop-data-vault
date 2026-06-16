@@ -1496,13 +1496,16 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     boolean hubLink =
         (ta == DvTableType.HUB && tb == DvTableType.LINK)
             || (ta == DvTableType.LINK && tb == DvTableType.HUB);
-    return hubSat || hubLink;
+    boolean linkSat =
+        (ta == DvTableType.LINK && tb == DvTableType.SATELLITE)
+            || (ta == DvTableType.SATELLITE && tb == DvTableType.LINK);
+    return hubSat || hubLink || linkSat;
   }
 
   /**
    * Create a relationship between the two tables by mutating the appropriate name reference(s)
-   * inside the table objects (which live in the model's tables list). Only hub-satellite and
-   * hub-link are supported per the spec. Sets changed on affected table(s) and model.
+   * inside the table objects (which live in the model's tables list). Supports hub-satellite,
+   * hub-link, and link-satellite relationships. Sets changed on affected table(s) and model.
    */
   private void createRelationship(IDvTable from, IDvTable to) {
     if (from == null || to == null || from == to) {
@@ -1544,6 +1547,32 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
           List<String> newHubs = new ArrayList<>(currentHubs);
           newHubs.add(hubName);
           link.setHubNames(newHubs);
+          modelChanged = true;
+        }
+      }
+    } else if ((t1 == DvTableType.LINK && t2 == DvTableType.SATELLITE)
+        || (t1 == DvTableType.SATELLITE && t2 == DvTableType.LINK)) {
+      DvSatellite sat = (t2 == DvTableType.SATELLITE) ? (DvSatellite) to : (DvSatellite) from;
+      DvLink link = (t1 == DvTableType.LINK) ? (DvLink) from : (DvLink) to;
+      String linkName = link.getName();
+      String satName = sat.getName();
+      if (linkName != null) {
+        String current = sat.getLinkName();
+        if (!java.util.Objects.equals(current, linkName)) {
+          sat.setLinkName(linkName);
+          sat.setHubName(null);
+          modelChanged = true;
+        }
+      }
+      if (linkName != null && satName != null) {
+        List<String> currentSats = link.getLinkSatelliteNames();
+        if (currentSats == null) {
+          currentSats = new ArrayList<>();
+        }
+        if (!currentSats.contains(satName)) {
+          List<String> newSats = new ArrayList<>(currentSats);
+          newSats.add(satName);
+          link.setLinkSatelliteNames(newSats);
           modelChanged = true;
         }
       }

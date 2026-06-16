@@ -53,14 +53,14 @@ public class DvDatabaseLinkSourcePipelineBuilder extends DvDatabaseSourcePipelin
     DvDatabaseSource source = (DvDatabaseSource) dvSource;
     DatabaseMeta sourceDbMeta = loadDatabaseMeta(variables.resolve(source.getDatabaseName()));
 
-    if (dvLinkSource == null) {
-      throw new HopException("No DV link source was configured");
+    if (dvLinkHubSource == null) {
+      throw new HopException("No DV link hub source was configured");
     }
 
     // For the hubs attached we'll process the business keys for the given source
     //
     for (String hubName : link.getHubNames()) {
-      for (DvLink.HubSourceKeyField sourceKeyField : dvLinkSource.getHubSourceKeyFields()) {
+      for (DvLink.HubSourceKeyField sourceKeyField : dvLinkHubSource.getHubSourceKeyFields()) {
         if (hubName.equals(sourceKeyField.getHubName())) {
           // This is a business key to record source field mapping for the given hub.
           //

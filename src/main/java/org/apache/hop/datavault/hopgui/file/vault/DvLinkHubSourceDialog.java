@@ -52,17 +52,17 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
 
 /**
- * Dialog to edit a single DvLinkSource entry (one record source feeding the link) and its per-hub
- * source key field mappings (and driving key sources). Launches HubSourceKeyFieldDialog for the
- * detailed per-hub editing.
+ * Dialog to edit a single DvLinkHubSource entry (one record source feeding the link) and its
+ * per-hub source key field mappings (and driving key sources). Launches HubSourceKeyFieldDialog for
+ * the detailed per-hub editing.
  */
-public class DvLinkSourceDialog {
-  private static final Class<?> PKG = DvLinkSourceDialog.class;
+public class DvLinkHubSourceDialog {
+  private static final Class<?> PKG = DvLinkHubSourceDialog.class;
 
   private final Shell parent;
   private final HopGui hopGui;
   private final IVariables variables;
-  private final DvLink.DvLinkSource input;
+  private final DvLink.DvLinkHubSource input;
   private final List<String> availableHubNames;
 
   private Shell shell;
@@ -74,8 +74,8 @@ public class DvLinkSourceDialog {
 
   private boolean ok;
 
-  public DvLinkSourceDialog(
-      Shell parent, HopGui hopGui, DvLink.DvLinkSource linkSource, List<String> hubNames) {
+  public DvLinkHubSourceDialog(
+      Shell parent, HopGui hopGui, DvLink.DvLinkHubSource linkSource, List<String> hubNames) {
     this.parent = parent;
     this.hopGui = hopGui;
     this.variables = hopGui.getVariables();

@@ -8,12 +8,6 @@
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless otherwise indicated, files in this package are licensed under the
- * Apache License, Version 2.0 (the "License"); you may not use this file
- * except in compliance with the License.  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,7 +22,7 @@ import java.util.List;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
-import org.apache.hop.datavault.metadata.BusinessKeySource;
+import org.apache.hop.datavault.metadata.AttributeSource;
 import org.apache.hop.datavault.metadata.DrivingKeySource;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.i18n.BaseMessages;
@@ -49,41 +43,34 @@ import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 
 /**
- * Dialog to edit the source field mappings for one hub within one DvLinkHubSource. Allows
- * specifying
- * which source columns map to the hub's business keys and which source columns supply any driving
- * keys.
+ * Dialog to edit the source field mappings for one link satellite within one DvLinkSatelliteSource.
  */
-public class HubSourceKeyFieldDialog {
-  private static final Class<?> PKG = HubSourceKeyFieldDialog.class;
+public class SatelliteSourceKeyFieldDialog {
+  private static final Class<?> PKG = SatelliteSourceKeyFieldDialog.class;
 
   private final Shell parent;
-  private final HopGui hopGui;
   private final IVariables variables;
-  private final DvLink.HubSourceKeyField input;
-  private final List<String> availableHubNames;
+  private final DvLink.SatelliteSourceKeyField input;
 
   private Shell shell;
 
-  private Text wHubName;
-  private TableView wBusinessKeySources;
+  private Text wSatelliteName;
+  private TableView wAttributeSources;
   private TableView wDrivingKeySources;
 
   private boolean ok;
 
-  public HubSourceKeyFieldDialog(
-      Shell parent, HopGui hopGui, DvLink.HubSourceKeyField field, List<String> hubs) {
+  public SatelliteSourceKeyFieldDialog(
+      Shell parent, HopGui hopGui, DvLink.SatelliteSourceKeyField field) {
     this.parent = parent;
-    this.hopGui = hopGui;
     this.variables = hopGui.getVariables();
     this.input = field;
-    this.availableHubNames = (hubs != null) ? new ArrayList<>(hubs) : new ArrayList<>();
   }
 
   public boolean open() {
     shell = new Shell(parent, BaseDialog.getDefaultDialogStyle());
     PropsUi.setLook(shell);
-    shell.setText("Edit Hub Source Key Fields");
+    shell.setText("Edit Link Satellite Source Key Fields");
 
     FormLayout formLayout = new FormLayout();
     formLayout.marginWidth = PropsUi.getFormMargin();
@@ -93,7 +80,6 @@ public class HubSourceKeyFieldDialog {
     int margin = PropsUi.getMargin();
     int middle = PropsUi.getInstance().getMiddlePct();
 
-    // Buttons at the bottom
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
@@ -103,90 +89,76 @@ public class HubSourceKeyFieldDialog {
 
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
 
-    // Hub name (can be prefilled or chosen)
-    Label wlHubName = new Label(shell, SWT.RIGHT);
-    wlHubName.setText("Hub name");
-    PropsUi.setLook(wlHubName);
-    FormData fdlHubName = new FormData();
-    fdlHubName.left = new FormAttachment(0, 0);
-    fdlHubName.top = new FormAttachment(0, margin);
-    fdlHubName.right = new FormAttachment(middle, -margin);
-    wlHubName.setLayoutData(fdlHubName);
+    Label wlSatelliteName = new Label(shell, SWT.RIGHT);
+    wlSatelliteName.setText("Link satellite name");
+    PropsUi.setLook(wlSatelliteName);
+    FormData fdlSatelliteName = new FormData();
+    fdlSatelliteName.left = new FormAttachment(0, 0);
+    fdlSatelliteName.top = new FormAttachment(0, margin);
+    fdlSatelliteName.right = new FormAttachment(middle, -margin);
+    wlSatelliteName.setLayoutData(fdlSatelliteName);
 
-    wHubName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wHubName);
-    FormData fdHubName = new FormData();
-    fdHubName.left = new FormAttachment(middle, 0);
-    fdHubName.top = new FormAttachment(0, margin);
-    fdHubName.right = new FormAttachment(100, 0);
-    wHubName.setLayoutData(fdHubName);
-    // If we have known hubs and none set yet, leave blank for user; editing context usually prefills
+    wSatelliteName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wSatelliteName);
+    FormData fdSatelliteName = new FormData();
+    fdSatelliteName.left = new FormAttachment(middle, 0);
+    fdSatelliteName.top = new FormAttachment(0, margin);
+    fdSatelliteName.right = new FormAttachment(100, 0);
+    wSatelliteName.setLayoutData(fdSatelliteName);
 
-    // Business key sources section
-    Label wlBks = new Label(shell, SWT.LEFT);
-    wlBks.setText("Business key source fields (hub BK field -> source column)");
-    PropsUi.setLook(wlBks);
-    FormData fdlBks = new FormData();
-    fdlBks.left = new FormAttachment(0, 0);
-    fdlBks.top = new FormAttachment(wHubName, margin);
-    wlBks.setLayoutData(fdlBks);
+    Label wlAttrs = new Label(shell, SWT.LEFT);
+    wlAttrs.setText("Attribute source fields (satellite attribute -> source column)");
+    PropsUi.setLook(wlAttrs);
+    FormData fdlAttrs = new FormData();
+    fdlAttrs.left = new FormAttachment(0, 0);
+    fdlAttrs.top = new FormAttachment(wSatelliteName, margin);
+    wlAttrs.setLayoutData(fdlAttrs);
 
-    ColumnInfo[] bkCols =
+    ColumnInfo[] attrCols =
         new ColumnInfo[] {
-          new ColumnInfo(
-              "Hub business key field",
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
-          new ColumnInfo(
-              "Source field name",
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+          new ColumnInfo("Satellite attribute field", ColumnInfo.COLUMN_TYPE_TEXT, false),
+          new ColumnInfo("Source field name", ColumnInfo.COLUMN_TYPE_TEXT, false),
         };
 
-    int nrBk = (input.getSourceBusinessKeyFields() != null)
-        ? Math.max(1, input.getSourceBusinessKeyFields().size())
-        : 2;
-    wBusinessKeySources =
+    int nrAttr =
+        (input.getAttributeSources() != null)
+            ? Math.max(1, input.getAttributeSources().size())
+            : 2;
+    wAttributeSources =
         new TableView(
             variables,
             shell,
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
-            bkCols,
-            nrBk,
+            attrCols,
+            nrAttr,
             e -> {},
             PropsUi.getInstance());
 
-    FormData fdBks = new FormData();
-    fdBks.left = new FormAttachment(0, 0);
-    fdBks.top = new FormAttachment(wlBks, margin);
-    fdBks.right = new FormAttachment(100, 0);
-    fdBks.bottom = new FormAttachment(50, -margin);
-    wBusinessKeySources.setLayoutData(fdBks);
+    FormData fdAttrs = new FormData();
+    fdAttrs.left = new FormAttachment(0, 0);
+    fdAttrs.top = new FormAttachment(wlAttrs, margin);
+    fdAttrs.right = new FormAttachment(100, 0);
+    fdAttrs.bottom = new FormAttachment(50, -margin);
+    wAttributeSources.setLayoutData(fdAttrs);
 
-    // Driving key sources section
     Label wlDks = new Label(shell, SWT.LEFT);
     wlDks.setText("Driving key source fields (driving key -> source column)");
     PropsUi.setLook(wlDks);
     FormData fdlDks = new FormData();
     fdlDks.left = new FormAttachment(0, 0);
-    fdlDks.top = new FormAttachment(wBusinessKeySources, margin);
+    fdlDks.top = new FormAttachment(wAttributeSources, margin);
     wlDks.setLayoutData(fdlDks);
 
     ColumnInfo[] dkCols =
         new ColumnInfo[] {
-          new ColumnInfo(
-              "Driving key",
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
-          new ColumnInfo(
-              "Source field name",
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+          new ColumnInfo("Driving key", ColumnInfo.COLUMN_TYPE_TEXT, false),
+          new ColumnInfo("Source field name", ColumnInfo.COLUMN_TYPE_TEXT, false),
         };
 
-    int nrDk = (input.getDrivingKeySources() != null)
-        ? Math.max(1, input.getDrivingKeySources().size())
-        : 2;
+    int nrDk =
+        (input.getDrivingKeySources() != null)
+            ? Math.max(1, input.getDrivingKeySources().size())
+            : 2;
     wDrivingKeySources =
         new TableView(
             variables,
@@ -212,25 +184,23 @@ public class HubSourceKeyFieldDialog {
   }
 
   private void getData() {
-    if (input.getHubName() != null) {
-      wHubName.setText(input.getHubName());
+    if (input.getSatelliteName() != null) {
+      wSatelliteName.setText(input.getSatelliteName());
     }
 
-    // Business key sources
-    wBusinessKeySources.clearAll();
-    if (input.getSourceBusinessKeyFields() != null) {
-      for (int i = 0; i < input.getSourceBusinessKeyFields().size(); i++) {
-        BusinessKeySource bs = input.getSourceBusinessKeyFields().get(i);
-        TableItem item = wBusinessKeySources.table.getItem(i);
-        item.setText(1, Const.NVL(bs.getBusinessKeyField(), ""));
-        item.setText(2, Const.NVL(bs.getSourceFieldName(), ""));
+    wAttributeSources.clearAll();
+    if (input.getAttributeSources() != null) {
+      for (int i = 0; i < input.getAttributeSources().size(); i++) {
+        AttributeSource as = input.getAttributeSources().get(i);
+        TableItem item = wAttributeSources.table.getItem(i);
+        item.setText(1, Const.NVL(as.getAttributeField(), ""));
+        item.setText(2, Const.NVL(as.getSourceFieldName(), ""));
       }
     }
-    wBusinessKeySources.removeEmptyRows();
-    wBusinessKeySources.setRowNums();
-    wBusinessKeySources.optWidth(true);
+    wAttributeSources.removeEmptyRows();
+    wAttributeSources.setRowNums();
+    wAttributeSources.optWidth(true);
 
-    // Driving key sources
     wDrivingKeySources.clearAll();
     if (input.getDrivingKeySources() != null) {
       for (int i = 0; i < input.getDrivingKeySources().size(); i++) {
@@ -246,21 +216,19 @@ public class HubSourceKeyFieldDialog {
   }
 
   private void ok() {
-    input.setHubName(wHubName.getText());
+    input.setSatelliteName(wSatelliteName.getText());
 
-    // Read business key sources table
-    List<BusinessKeySource> bks = new ArrayList<>();
-    for (TableItem item : wBusinessKeySources.getNonEmptyItems()) {
-      BusinessKeySource bs = new BusinessKeySource();
-      bs.setBusinessKeyField(item.getText(1));
-      bs.setSourceFieldName(item.getText(2));
-      if (!Utils.isEmpty(bs.getBusinessKeyField()) || !Utils.isEmpty(bs.getSourceFieldName())) {
-        bks.add(bs);
+    List<AttributeSource> attrs = new ArrayList<>();
+    for (TableItem item : wAttributeSources.getNonEmptyItems()) {
+      AttributeSource as = new AttributeSource();
+      as.setAttributeField(item.getText(1));
+      as.setSourceFieldName(item.getText(2));
+      if (!Utils.isEmpty(as.getAttributeField()) || !Utils.isEmpty(as.getSourceFieldName())) {
+        attrs.add(as);
       }
     }
-    input.setSourceBusinessKeyFields(bks);
+    input.setAttributeSources(attrs);
 
-    // Read driving key sources table
     List<DrivingKeySource> dks = new ArrayList<>();
     for (TableItem item : wDrivingKeySources.getNonEmptyItems()) {
       DrivingKeySource ds = new DrivingKeySource();

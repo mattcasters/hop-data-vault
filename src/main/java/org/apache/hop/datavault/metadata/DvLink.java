@@ -106,8 +106,14 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
    */
   @HopMetadataProperty private List<String> hubNames = new ArrayList<>();
 
-  @HopMetadataProperty(key = "linkSource", groupKey = "linkSources")
-  private List<DvLinkSource> linkSources = new ArrayList<>();
+  /** Names of link satellites that describe this link (metadata references by name). */
+  @HopMetadataProperty private List<String> linkSatelliteNames = new ArrayList<>();
+
+  @HopMetadataProperty(key = "linkHubSource", groupKey = "linkHubSources")
+  private List<DvLinkHubSource> linkHubSources = new ArrayList<>();
+
+  @HopMetadataProperty(key = "linkSatelliteSource", groupKey = "linkSatelliteSources")
+  private List<DvLinkSatelliteSource> linkSatelliteSources = new ArrayList<>();
 
   /**
    * Optional driving key(s) - used when the same Hub appears more than once in a link (e.g. "from
@@ -235,14 +241,24 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
               this));
     }
 
-    // New multi-source structure validation
-    if (linkSources != null && !linkSources.isEmpty()) {
+    if (linkSatelliteNames != null && !linkSatelliteNames.isEmpty()) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,
-              BaseMessages.getString(PKG, "DvLink.CheckResult.HasLinkSources", linkSources.size()),
+              BaseMessages.getString(
+                  PKG, "DvLink.CheckResult.HasLinkSatellites", linkSatelliteNames.size()),
               this));
-      for (DvLinkSource ls : linkSources) {
+    }
+
+    // Hub record source validation
+    if (linkHubSources != null && !linkHubSources.isEmpty()) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(
+                  PKG, "DvLink.CheckResult.HasLinkHubSources", linkHubSources.size()),
+              this));
+      for (DvLinkHubSource ls : linkHubSources) {
         if (ls != null && ls.getSource() != null && !Utils.isEmpty(ls.getSource().getName())) {
           DataVaultSource source = ls.getSource();
           List<SourceField> availableSourceFields;
@@ -329,6 +345,98 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         }
       }
     }
+
+    if (linkSatelliteSources != null && !linkSatelliteSources.isEmpty()) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(
+                  PKG, "DvLink.CheckResult.HasLinkSatelliteSources", linkSatelliteSources.size()),
+              this));
+      for (DvLinkSatelliteSource ls : linkSatelliteSources) {
+        if (ls != null && ls.getSource() != null && !Utils.isEmpty(ls.getSource().getName())) {
+          DataVaultSource source = ls.getSource();
+          List<SourceField> availableSourceFields;
+          try {
+            availableSourceFields = source.getFields(metadataProvider);
+          } catch (HopException e) {
+            remarks.add(
+                new CheckResult(
+                    ICheckResult.TYPE_RESULT_ERROR,
+                    "Error loading fields from record source '"
+                        + source.getName()
+                        + "': "
+                        + e.getMessage(),
+                    this));
+            continue;
+          }
+          if (availableSourceFields == null) {
+            availableSourceFields = new ArrayList<>();
+          }
+          if (ls.getSatelliteSourceKeyFields() != null) {
+            for (SatelliteSourceKeyField skf : ls.getSatelliteSourceKeyFields()) {
+              if (skf == null) continue;
+              if (skf.getAttributeSources() != null) {
+                for (AttributeSource as : skf.getAttributeSources()) {
+                  if (as != null && !Utils.isEmpty(as.getSourceFieldName())) {
+                    boolean found = false;
+                    for (SourceField sf : availableSourceFields) {
+                      if (as.getSourceFieldName().equals(sf.getName())) {
+                        found = true;
+                        break;
+                      }
+                    }
+                    if (!found) {
+                      remarks.add(
+                          new CheckResult(
+                              ICheckResult.TYPE_RESULT_ERROR,
+                              "Source field '"
+                                  + as.getSourceFieldName()
+                                  + "' (for attribute '"
+                                  + as.getAttributeField()
+                                  + "') in link satellite '"
+                                  + skf.getSatelliteName()
+                                  + "' not available in record source '"
+                                  + source.getName()
+                                  + "'",
+                              this));
+                    }
+                  }
+                }
+              }
+              if (skf.getDrivingKeySources() != null) {
+                for (DrivingKeySource dks : skf.getDrivingKeySources()) {
+                  if (dks != null && !Utils.isEmpty(dks.getSourceField())) {
+                    boolean found = false;
+                    for (SourceField sf : availableSourceFields) {
+                      if (dks.getSourceField().equals(sf.getName())) {
+                        found = true;
+                        break;
+                      }
+                    }
+                    if (!found) {
+                      remarks.add(
+                          new CheckResult(
+                              ICheckResult.TYPE_RESULT_ERROR,
+                              "Source field '"
+                                  + dks.getSourceField()
+                                  + "' (for driving key '"
+                                  + dks.getDrivingKey()
+                                  + "') in link satellite '"
+                                  + skf.getSatelliteName()
+                                  + "' not available in record source '"
+                                  + source.getName()
+                                  + "'",
+                              this));
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   @Override
@@ -346,7 +454,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
       List<PipelineMeta> result = new ArrayList<>();
 
-      for (DvLinkSource linkSource : linkSources) {
+      for (DvLinkHubSource linkSource : linkHubSources) {
         DataVaultSource source = linkSource.getSource();
         if (source != null && !source.matchesRecordSourceGroup(recordSourceGroup, variables)) {
           continue;
@@ -593,7 +701,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   // --- Helper methods and context (modeled after DvSatellite) ---
 
   private TransformMeta addSourceTableInput(
-      LinkUpdateContext ctx, PipelineMeta pipelineMeta, DvLinkSource linkSource)
+      LinkUpdateContext ctx, PipelineMeta pipelineMeta, DvLinkHubSource linkSource)
       throws HopException {
 
     DvDatabaseLinkSourcePipelineBuilder builder =
@@ -606,7 +714,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
             ctx.dvSource,
             this,
             new Point(LOCATION_START_LINE_2.x, LOCATION_START_LINE_2.y));
-    builder.setDvLinkSource(linkSource);
+    builder.setDvLinkHubSource(linkSource);
     builder.build();
     return builder.getResultTransform();
   }
@@ -714,8 +822,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   }
 
   private String findSourceFieldOfDrivingKey(LinkUpdateContext ctx, String drivingKeyName) {
-    for (DvLinkSource linkSource : linkSources) {
-      if (linkSource.source.equals(ctx.dataVaultSource)) {
+    for (DvLinkHubSource linkSource : linkHubSources) {
+      if (linkSource.getSource().equals(ctx.dataVaultSource)) {
         // This is the source we're loading in this pipeline
         // See if we have the source for the driving key.
         for (HubSourceKeyField hubSourceKeyField : linkSource.hubSourceKeyFields) {
@@ -1058,7 +1166,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         IVariables variables,
         DataVaultModel model,
         DvLink link,
-        DvLinkSource linkSource)
+        DvLinkHubSource linkSource)
         throws HopException {
       if (metadataProvider == null || model == null || link == null) {
         return null;
@@ -1144,7 +1252,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
   @Getter
   @Setter
-  public static class DvLinkSource {
+  public static class DvLinkHubSource {
     /** The Data Vault Source (record source) for this link feed. */
     @HopMetadataProperty(storeWithName = true)
     private DataVaultSource source;
@@ -1157,8 +1265,53 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     @HopMetadataProperty(key = "hubSourceKeyField", groupKey = "hubSourceKeyFields")
     private List<HubSourceKeyField> hubSourceKeyFields;
 
-    public DvLinkSource() {
+    public DvLinkHubSource() {
       hubSourceKeyFields = new ArrayList<>();
+    }
+  }
+
+  @Getter
+  @Setter
+  public static class DvLinkSatelliteSource {
+    /** The Data Vault Source (record source) feeding a link satellite. */
+    @HopMetadataProperty(storeWithName = true)
+    private DataVaultSource source;
+
+    /**
+     * Per-satellite source attribute field mappings for this specific source. Tells the system,
+     * for each participating link satellite, which columns in *this* source correspond to the
+     * satellite's attributes (and driving keys when multi-active).
+     */
+    @HopMetadataProperty(key = "satelliteSourceKeyField", groupKey = "satelliteSourceKeyFields")
+    private List<SatelliteSourceKeyField> satelliteSourceKeyFields;
+
+    public DvLinkSatelliteSource() {
+      satelliteSourceKeyFields = new ArrayList<>();
+    }
+  }
+
+  /**
+   * Represents the source field mappings for one participating link satellite. Allows mapping
+   * attribute fields from the link's record source to the satellite's attributes, supporting
+   * different naming conventions in the source system.
+   */
+  @Getter
+  @Setter
+  public static class SatelliteSourceKeyField {
+    /** The name of the link satellite (matches an entry in linkSatelliteNames). */
+    @HopMetadataProperty private String satelliteName;
+
+    /** Source columns that correspond to this satellite's attribute fields. */
+    @HopMetadataProperty(key = "attributeSource", groupKey = "attributeSources")
+    private List<AttributeSource> attributeSources;
+
+    /** Source columns that supply driving keys for multi-active link satellites. */
+    @HopMetadataProperty(key = "drivingKeySource", groupKey = "drivingKeySources")
+    private List<DrivingKeySource> drivingKeySources;
+
+    public SatelliteSourceKeyField() {
+      attributeSources = new ArrayList<>();
+      drivingKeySources = new ArrayList<>();
     }
   }
 }

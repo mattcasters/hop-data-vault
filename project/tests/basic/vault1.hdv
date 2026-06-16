@@ -226,8 +226,8 @@
       <hubNames>hub_customer</hubNames>
       <hubNames>hub_order</hubNames>
       <hubNames>hub_product</hubNames>
-      <linkSources>
-        <linkSource>
+      <linkHubSources>
+        <linkHubSource>
           <source>CRM-order</source>
           <hubSourceKeyFields>
             <hubSourceKeyField>
@@ -261,8 +261,8 @@
               <drivingKeySources/>
             </hubSourceKeyField>
           </hubSourceKeyFields>
-        </linkSource>
-      </linkSources>
+        </linkHubSource>
+      </linkHubSources>
       <linkHashKeyFieldName>lnk_customer_order_hk</linkHashKeyFieldName>
       <hubSourceKeyFields/>
       <hasDescriptiveAttributes>N</hasDescriptiveAttributes>

@@ -1,0 +1,4 @@
+customer_id,product_id,quantity,discount_pct,record_source
+1001,P001,2,10.00,CRM
+1001,P002,1,5.00,CRM
+1002,P001,3,0.00,CRM

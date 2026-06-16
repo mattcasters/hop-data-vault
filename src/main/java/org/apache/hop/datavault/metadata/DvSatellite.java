@@ -34,6 +34,7 @@ import org.apache.hop.core.Condition;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.DbCache;
 import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.database.Database;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.exception.HopValueException;
@@ -41,7 +42,6 @@ import org.apache.hop.core.gui.IGuiPosition;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
-import org.apache.hop.core.database.Database;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.logging.ILoggingObject;
 import org.apache.hop.core.logging.LoggingObjectType;
@@ -72,8 +72,10 @@ import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta.ResultType;
 import org.apache.hop.pipeline.transforms.checksum.Field;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
-import org.apache.hop.pipeline.transforms.dummy.DummyMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
+import org.apache.hop.pipeline.transforms.groupby.Aggregation;
+import org.apache.hop.pipeline.transforms.groupby.GroupByMeta;
+import org.apache.hop.pipeline.transforms.groupby.GroupingField;
 import org.apache.hop.pipeline.transforms.mergerows.MergeRowsMeta;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
@@ -82,10 +84,6 @@ import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
-import org.apache.hop.pipeline.transforms.groupby.Aggregation;
-import org.apache.hop.pipeline.transforms.groupby.GroupByMeta;
-import org.apache.hop.pipeline.transforms.groupby.GroupingField;
-import org.jspecify.annotations.NonNull;
 
 /**
  * Data Vault 2.0 Satellite metadata definition.
@@ -313,15 +311,16 @@ public class DvSatellite extends DvTableBase
       PipelineMeta pipelineMeta = new PipelineMeta();
       pipelineMeta.setName(ctx.pipelineName);
 
-      // Source TableInput (from record source) - selects hub bks (for hash calc) + sat attrs + rs
+      // Source TableInput (from record source) - hub/link bks + sat attrs + record source
       TransformMeta sourceInputTransform = addSourceTableInput(ctx, recordSource, pipelineMeta);
 
-      // CheckSum to compute the (hub's) hash key from the bks in source
-      TransformMeta checkSumTransform = addHashKeyCheckSum(ctx, pipelineMeta, sourceInputTransform);
+      TransformMeta hashChainEndTransform =
+          ctx.linkSatellite
+              ? addLinkHashKeyChain(ctx, pipelineMeta, sourceInputTransform)
+              : addHashKeyCheckSum(ctx, pipelineMeta, sourceInputTransform);
 
-      // CheckSum to compute the (hub's) hash key from the bks in source
       TransformMeta sourceSelectTransform =
-          addSourceSelectRows(ctx, pipelineMeta, checkSumTransform);
+          addSourceSelectRows(ctx, pipelineMeta, hashChainEndTransform);
 
       // Sort the records by hash key
       TransformMeta sortHkTransform = addSortRows(ctx, pipelineMeta, sourceSelectTransform);
@@ -375,12 +374,13 @@ public class DvSatellite extends DvTableBase
         config = new DataVaultConfiguration(); // defaults
       }
 
-      // 1. First column: hash key from the linked hub (look up hub if needed)
+      // 1. First column: parent hash key (hub hash for hub satellites, link hash for link
+      // satellites)
       String hashKeyName = "hashkey";
       if (!Utils.isEmpty(hubName)) {
         DvHub linkedHub = model.findHub(hubName);
         if (linkedHub == null) {
-          throw new HopException("Please provide an existing hub in satelite " + getName());
+          throw new HopException("Please provide an existing hub in satellite " + getName());
         }
         hashKeyName = linkedHub.getHashKeyFieldName();
         if (Utils.isEmpty(hashKeyName)) {
@@ -389,7 +389,16 @@ public class DvSatellite extends DvTableBase
             hashKeyName = bkName + "_HK";
           }
         }
-      } // else link support omitted for now, fallback
+      } else if (!Utils.isEmpty(linkName)) {
+        DvLink linkedLink = model.findLink(linkName);
+        if (linkedLink == null) {
+          throw new HopException("Please provide an existing link in satellite " + getName());
+        }
+        hashKeyName = linkedLink.getLinkHashKeyFieldName();
+        if (Utils.isEmpty(hashKeyName)) {
+          hashKeyName = linkedLink.getName() + "_LK";
+        }
+      }
 
       IValueMeta hashMeta;
       HashKeyDataType hdt = config.getHashKeyDataType();
@@ -615,9 +624,79 @@ public class DvSatellite extends DvTableBase
             ctx.dvSource,
             this,
             new Point(LOCATION_START_LINE_2.x, LOCATION_START_LINE_2.y));
+    if (ctx.linkSatellite) {
+      builder.setLinkedLink(ctx.linkedLink);
+      builder.setDvLinkHubSource(ctx.linkHubSource);
+      builder.setDvLinkSatelliteSource(ctx.linkSatelliteSource);
+    }
     builder.build();
 
     return builder.getResultTransform();
+  }
+
+  /**
+   * For link satellites: compute each participating hub hash from mapped source business key
+   * fields, then compute the link hash from those hub hashes (same approach as {@link
+   * DvLink#generateUpdatePipelines()}).
+   */
+  private TransformMeta addLinkHashKeyChain(
+      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor) {
+    TransformMeta current = predecessor;
+    List<String> hubHashNames = new ArrayList<>();
+    int index = 0;
+    for (SatelliteUpdateContext.HubHashCalcStep step : ctx.hubHashCalcSteps) {
+      current =
+          addCheckSumForFields(
+              ctx,
+              pipelineMeta,
+              current,
+              step.inputFieldNames(),
+              step.hashKeyFieldName(),
+              index++);
+      hubHashNames.add(step.hashKeyFieldName());
+    }
+    return addCheckSumForFields(
+        ctx,
+        pipelineMeta,
+        current,
+        hubHashNames,
+        ctx.hashKeyFieldName,
+        index);
+  }
+
+  private TransformMeta addCheckSumForFields(
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      List<String> inputFieldNames,
+      String resultFieldName,
+      int index) {
+    CheckSumMeta checkSumMeta = new CheckSumMeta();
+    checkSumMeta.setCheckSumType(ctx.checkSumType);
+
+    List<Field> checkFields = new ArrayList<>();
+    for (String fieldName : inputFieldNames) {
+      checkFields.add(new Field(fieldName));
+    }
+    checkSumMeta.setFields(checkFields);
+    checkSumMeta.setResultFieldName(resultFieldName);
+
+    HashKeyDataType hdt =
+        (ctx.config != null) ? ctx.config.getHashKeyDataType() : HashKeyDataType.BINARY;
+    if (hdt == HashKeyDataType.BINARY) {
+      checkSumMeta.setResultType(ResultType.BINARY);
+    } else if (hdt == HashKeyDataType.HEX) {
+      checkSumMeta.setResultType(ResultType.HEXADECIMAL);
+    } else {
+      checkSumMeta.setResultType(ResultType.STRING);
+    }
+
+    TransformMeta tm = new TransformMeta("CheckSum", "calc_" + resultFieldName, checkSumMeta);
+    tm.setLocation(
+        LOCATION_START_LINE_2.x + (index + 1) * SPACING_WIDTH, LOCATION_START_LINE_2.y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
   }
 
   private TransformMeta addHashKeyCheckSum(
@@ -659,17 +738,14 @@ public class DvSatellite extends DvTableBase
     SelectValuesMeta selectMeta = new SelectValuesMeta();
     List<SelectField> selectFields = selectMeta.getSelectOption().getSelectFields();
 
-    // We just want to get rid of the business key fields.
-    // These are defined in the attached Hub
-    //
-    DvHub hub = ctx.model.findHub(getHubName());
-    if (hub == null) {
-      throw new HopException(
-          "Unable to find the hub (" + getHubName() + ") to satellite " + getName());
+    if (!ctx.linkSatellite) {
+      DvHub hub = ctx.model.findHub(getHubName());
+      if (hub == null) {
+        throw new HopException(
+            "Unable to find the hub (" + getHubName() + ") to satellite " + getName());
+      }
     }
 
-    // We select the hash key, attributes, optional driving key and record source field.
-    //
     SelectField hashField = new SelectField();
     hashField.setName(ctx.hashKeyFieldName);
     selectFields.add(hashField);
@@ -681,9 +757,14 @@ public class DvSatellite extends DvTableBase
       selectFields.add(drivingKeyField);
     }
 
-    for (String attrField : ctx.satAttrFieldNames) {
+    for (int i = 0; i < ctx.satAttrFieldNames.size(); i++) {
+      String sourceName = ctx.satAttrSourceFieldNames.get(i);
+      String targetName = ctx.satAttrFieldNames.get(i);
       SelectField selectField = new SelectField();
-      selectField.setName(attrField);
+      selectField.setName(sourceName);
+      if (!sourceName.equals(targetName)) {
+        selectField.setRename(targetName);
+      }
       selectFields.add(selectField);
     }
 
@@ -692,8 +773,9 @@ public class DvSatellite extends DvTableBase
     selectFields.add(recordSourceSelect);
 
     TransformMeta tm = new TransformMeta("SelectValues", "hk plus attr", selectMeta);
-    // Place it on the compare flow after the last checksum, before the sort
-    Point loc = new Point(LOCATION_START_LINE_2.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_2.y);
+    int selectX =
+        LOCATION_START_LINE_2.x + (ctx.hashChainLength() + 1) * SPACING_WIDTH;
+    Point loc = new Point(selectX, LOCATION_START_LINE_2.y);
     tm.setLocation(loc);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
@@ -724,7 +806,9 @@ public class DvSatellite extends DvTableBase
 
     String sortTransformName = "sort " + ctx.hashKeyFieldName;
     TransformMeta tm = new TransformMeta("SortRows", sortTransformName, sortRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_2.x + 3 * SPACING_WIDTH, LOCATION_START_LINE_2.y);
+    tm.setLocation(
+        LOCATION_START_LINE_2.x + (ctx.hashChainLength() + 2) * SPACING_WIDTH,
+        LOCATION_START_LINE_2.y);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
     return tm;
@@ -854,7 +938,7 @@ public class DvSatellite extends DvTableBase
             LOCATION_START_LINE_3.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     TransformMeta compareDummyTransform = addDummyTransform(
             pipelineMeta, compareTransform, "Merge compare",
-            LOCATION_START_LINE_2.x + 4 * SPACING_WIDTH, LOCATION_START_LINE_2.y);
+            compareTransform.getLocation().x + SPACING_WIDTH, compareTransform.getLocation().y);
 
     MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
     mergeRowsMeta.setReferenceTransform(referenceDummyTransform.getName());
@@ -1018,9 +1102,16 @@ public class DvSatellite extends DvTableBase
     final String sourceDbName;
     final String sourceSchema;
     final String sourceTable;
-    final List<String> pkSourceFieldNames; // hub bks from sat source, for hash calc
-    final List<String> satAttrFieldNames; // sat attrs to carry through
-    final String hashKeyFieldName; // from linked hub
+    final List<String> pkSourceFieldNames; // hub bks from sat source, for hash calc (hub satellites)
+    final List<String> satAttrFieldNames; // satellite attribute names in the target table
+    final List<String> satAttrSourceFieldNames; // attribute column names in the source stream
+    final String hashKeyFieldName; // hub hash or link hash column name
+
+    final boolean linkSatellite;
+    final DvLink linkedLink;
+    final DvLink.DvLinkHubSource linkHubSource;
+    final DvLink.DvLinkSatelliteSource linkSatelliteSource;
+    final List<HubHashCalcStep> hubHashCalcSteps;
 
     // Record source indicator support
     final String sourceIndicator;
@@ -1049,7 +1140,13 @@ public class DvSatellite extends DvTableBase
         String sourceTable,
         List<String> pkSourceFieldNames,
         List<String> satAttrFieldNames,
+        List<String> satAttrSourceFieldNames,
         String hashKeyFieldName,
+        boolean linkSatellite,
+        DvLink linkedLink,
+        DvLink.DvLinkHubSource linkHubSource,
+        DvLink.DvLinkSatelliteSource linkSatelliteSource,
+        List<HubHashCalcStep> hubHashCalcSteps,
         String sourceIndicator,
         String sourceIndicatorField,
         String recordSourceField,
@@ -1075,7 +1172,14 @@ public class DvSatellite extends DvTableBase
       this.sourceTable = sourceTable;
       this.pkSourceFieldNames = pkSourceFieldNames != null ? pkSourceFieldNames : new ArrayList<>();
       this.satAttrFieldNames = satAttrFieldNames != null ? satAttrFieldNames : new ArrayList<>();
+      this.satAttrSourceFieldNames =
+          satAttrSourceFieldNames != null ? satAttrSourceFieldNames : new ArrayList<>();
       this.hashKeyFieldName = hashKeyFieldName != null ? hashKeyFieldName : "hashkey";
+      this.linkSatellite = linkSatellite;
+      this.linkedLink = linkedLink;
+      this.linkHubSource = linkHubSource;
+      this.linkSatelliteSource = linkSatelliteSource;
+      this.hubHashCalcSteps = hubHashCalcSteps != null ? hubHashCalcSteps : new ArrayList<>();
       this.sourceIndicator = sourceIndicator;
       this.sourceIndicatorField = sourceIndicatorField;
       this.recordSourceField = recordSourceField != null ? recordSourceField : "RECORD_SOURCE";
@@ -1088,6 +1192,12 @@ public class DvSatellite extends DvTableBase
     boolean hasDrivingKey() {
       return !Utils.isEmpty(drivingKeyFieldName) && !Utils.isEmpty(drivingKeySourceFieldName);
     }
+
+    int hashChainLength() {
+      return linkSatellite ? hubHashCalcSteps.size() + 1 : 1;
+    }
+
+    record HubHashCalcStep(List<String> inputFieldNames, String hashKeyFieldName) {}
 
     static SatelliteUpdateContext create(
         IHopMetadataProvider metadataProvider,
@@ -1152,12 +1262,27 @@ public class DvSatellite extends DvTableBase
       String sourceTransformName = sat.getName();
       String targetTransformName = "target_" + targetTableName;
 
-      // Look up linked hub for hash key name + bks to select for hash calc
-      DvHub linkedHub = null;
+      boolean linkSatellite = !Utils.isEmpty(sat.getLinkName());
+      boolean hubSatellite = !Utils.isEmpty(sat.getHubName());
+      if (!linkSatellite && !hubSatellite) {
+        throw new HopException(
+            "Please link satellite " + sat.getName() + " to a hub or a link");
+      }
+      if (linkSatellite && hubSatellite) {
+        throw new HopException(
+            "Satellite " + sat.getName() + " cannot be linked to both a hub and a link");
+      }
+
+      DvLink linkedLink = null;
+      DvLink.DvLinkHubSource linkHubSource = null;
+      DvLink.DvLinkSatelliteSource linkSatelliteSource = null;
+      List<HubHashCalcStep> hubHashCalcSteps = new ArrayList<>();
+
       String hashKeyFieldName = "hashkey";
       List<String> hubBkNames = new ArrayList<>();
-      if (!Utils.isEmpty(sat.getHubName())) {
-        linkedHub = model.findHub(sat.getHubName());
+
+      if (hubSatellite) {
+        DvHub linkedHub = model.findHub(sat.getHubName());
         if (linkedHub == null) {
           throw new HopException("Please link satellite " + sat.getName() + " to a hub");
         }
@@ -1174,18 +1299,69 @@ public class DvSatellite extends DvTableBase
             hubBkNames.add(bk.getName());
           }
         }
+      } else {
+        linkedLink = model.findLink(sat.getLinkName());
+        if (linkedLink == null) {
+          throw new HopException("Please link satellite " + sat.getName() + " to a link");
+        }
+        hashKeyFieldName = variables.resolve(linkedLink.getLinkHashKeyFieldName());
+        if (Utils.isEmpty(hashKeyFieldName)) {
+          hashKeyFieldName = linkedLink.getName() + "_LK";
+        }
+        linkHubSource = findLinkHubSource(linkedLink, recordSource);
+        linkSatelliteSource = findLinkSatelliteSource(linkedLink, recordSource);
+
+        for (String hubName : linkedLink.getHubNames()) {
+          DvHub hub = model.findHub(hubName);
+          if (hub == null) {
+            throw new HopException(
+                "Hub '"
+                    + hubName
+                    + "' referenced by link "
+                    + linkedLink.getName()
+                    + " was not found in the model");
+          }
+          DvLink.HubSourceKeyField hubSourceKeyField =
+              findHubSourceKeyField(linkHubSource, hubName);
+          List<String> inputFieldNames = new ArrayList<>();
+          if (hubSourceKeyField.getSourceBusinessKeyFields() != null) {
+            for (BusinessKeySource bks : hubSourceKeyField.getSourceBusinessKeyFields()) {
+              if (bks != null && !Utils.isEmpty(bks.getSourceFieldName())) {
+                inputFieldNames.add(variables.resolve(bks.getSourceFieldName()));
+              }
+            }
+          }
+          if (inputFieldNames.isEmpty()) {
+            throw new HopException(
+                "No source business key fields mapped for hub "
+                    + hubName
+                    + " on link "
+                    + linkedLink.getName()
+                    + " and record source "
+                    + recordSource.getName());
+          }
+          String hubHashFieldName = variables.resolve(hub.getHashKeyFieldName());
+          if (Utils.isEmpty(hubHashFieldName)) {
+            if (!Utils.isEmpty(hub.getBusinessKeys())) {
+              hubHashFieldName = hub.getBusinessKeys().get(0).getName() + "_HK";
+            } else {
+              hubHashFieldName = hub.getName() + "_HK";
+            }
+          }
+          hubHashCalcSteps.add(new HubHashCalcStep(inputFieldNames, hubHashFieldName));
+        }
       }
 
-      // Source side loads (recordSource -> ... + select hub bks + sat attrs)
       DatabaseMeta sourceDatabaseMeta = null;
       String sourceDbName = null;
       String sourceSchema = null;
       String sourceTable = null;
       List<String> pkSourceFieldNames = new ArrayList<>();
       List<String> satAttrFieldNames = new ArrayList<>();
+      List<String> satAttrSourceFieldNames = new ArrayList<>();
       String sourceIndicator = null;
       String sourceIndicatorField = null;
-      String recordSourceName = recordSource.getName();
+
       if (recordSource.getSourceType() == DataVaultSourceType.DATABASE
           && !Utils.isEmpty(recordSource.getSourceTableName())) {
         DvDatabaseSource dbSource =
@@ -1207,29 +1383,25 @@ public class DvSatellite extends DvTableBase
 
           List<SourceField> sourceFields = recordSource.getFields(metadataProvider);
 
-          // hub bks (pks for hash calc)
-          for (String hubBk : hubBkNames) {
-            for (SourceField sf : sourceFields) {
-              if (hubBk.equals(sf.getName())) {
-                String fieldName = variables.resolve(sf.getName());
-                pkSourceFieldNames.add(fieldName);
-                break;
+          if (hubSatellite) {
+            for (String hubBk : hubBkNames) {
+              for (SourceField sf : sourceFields) {
+                if (hubBk.equals(sf.getName())) {
+                  pkSourceFieldNames.add(variables.resolve(sf.getName()));
+                  break;
+                }
               }
             }
-          }
-
-          // sat attrs
-          if (Utils.isEmpty(sat.getAttributes())) {
-            // all from source
-            for (SourceField sf : sourceFields) {
-              if (!sf.isPrimaryKey()) {
-                satAttrFieldNames.add(variables.resolve(sf.getName()));
-              }
-            }
+            loadHubSatelliteAttributeFields(
+                sat, variables, sourceFields, satAttrFieldNames, satAttrSourceFieldNames);
           } else {
-            for (SatelliteAttribute sa : sat.getAttributes()) {
-              satAttrFieldNames.add(sa.getName());
-            }
+            loadLinkSatelliteAttributeFields(
+                sat,
+                variables,
+                linkSatelliteSource,
+                sourceFields,
+                satAttrFieldNames,
+                satAttrSourceFieldNames);
           }
         }
       }
@@ -1261,12 +1433,140 @@ public class DvSatellite extends DvTableBase
           sourceTable,
           pkSourceFieldNames,
           satAttrFieldNames,
+          satAttrSourceFieldNames,
           hashKeyFieldName,
+          linkSatellite,
+          linkedLink,
+          linkHubSource,
+          linkSatelliteSource,
+          hubHashCalcSteps,
           sourceIndicator,
           sourceIndicatorField,
           recordSourceField,
           drivingKeyFieldName,
           drivingKeySourceFieldName);
+    }
+  }
+
+  private static DvLink.DvLinkHubSource findLinkHubSource(DvLink link, DataVaultSource source)
+      throws HopException {
+    if (link.getLinkHubSources() == null) {
+      throw new HopException("Link " + link.getName() + " has no hub record sources defined");
+    }
+    for (DvLink.DvLinkHubSource lhs : link.getLinkHubSources()) {
+      if (lhs != null
+          && lhs.getSource() != null
+          && source.getName().equals(lhs.getSource().getName())) {
+        return lhs;
+      }
+    }
+    throw new HopException(
+        "No hub source mapping on link "
+            + link.getName()
+            + " for record source "
+            + source.getName());
+  }
+
+  private static DvLink.DvLinkSatelliteSource findLinkSatelliteSource(
+      DvLink link, DataVaultSource source) throws HopException {
+    if (link.getLinkSatelliteSources() == null) {
+      throw new HopException(
+          "Link " + link.getName() + " has no link satellite record sources defined");
+    }
+    for (DvLink.DvLinkSatelliteSource lss : link.getLinkSatelliteSources()) {
+      if (lss != null
+          && lss.getSource() != null
+          && source.getName().equals(lss.getSource().getName())) {
+        return lss;
+      }
+    }
+    throw new HopException(
+        "No satellite source mapping on link "
+            + link.getName()
+            + " for record source "
+            + source.getName());
+  }
+
+  private static DvLink.HubSourceKeyField findHubSourceKeyField(
+      DvLink.DvLinkHubSource linkHubSource, String hubName) throws HopException {
+    if (linkHubSource.getHubSourceKeyFields() != null) {
+      for (DvLink.HubSourceKeyField hskf : linkHubSource.getHubSourceKeyFields()) {
+        if (hskf != null && hubName.equals(hskf.getHubName())) {
+          return hskf;
+        }
+      }
+    }
+    throw new HopException(
+        "No hub source key field mapping for hub "
+            + hubName
+            + " in link hub source "
+            + linkHubSource.getSource().getName());
+  }
+
+  private static void loadHubSatelliteAttributeFields(
+      DvSatellite sat,
+      IVariables variables,
+      List<SourceField> sourceFields,
+      List<String> satAttrFieldNames,
+      List<String> satAttrSourceFieldNames) {
+    if (Utils.isEmpty(sat.getAttributes())) {
+      for (SourceField sf : sourceFields) {
+        if (!sf.isPrimaryKey()) {
+          String name = variables.resolve(sf.getName());
+          satAttrFieldNames.add(name);
+          satAttrSourceFieldNames.add(name);
+        }
+      }
+    } else {
+      for (SatelliteAttribute sa : sat.getAttributes()) {
+        satAttrFieldNames.add(sa.getName());
+        satAttrSourceFieldNames.add(sa.getName());
+      }
+    }
+  }
+
+  private static void loadLinkSatelliteAttributeFields(
+      DvSatellite sat,
+      IVariables variables,
+      DvLink.DvLinkSatelliteSource linkSatelliteSource,
+      List<SourceField> sourceFields,
+      List<String> satAttrFieldNames,
+      List<String> satAttrSourceFieldNames)
+      throws HopException {
+    DvLink.SatelliteSourceKeyField satelliteSourceKeyField = null;
+    if (linkSatelliteSource.getSatelliteSourceKeyFields() != null) {
+      for (DvLink.SatelliteSourceKeyField skf :
+          linkSatelliteSource.getSatelliteSourceKeyFields()) {
+        if (skf != null && sat.getName().equals(skf.getSatelliteName())) {
+          satelliteSourceKeyField = skf;
+          break;
+        }
+      }
+    }
+    if (satelliteSourceKeyField != null
+        && satelliteSourceKeyField.getAttributeSources() != null
+        && !satelliteSourceKeyField.getAttributeSources().isEmpty()) {
+      for (AttributeSource as : satelliteSourceKeyField.getAttributeSources()) {
+        if (as == null || Utils.isEmpty(as.getAttributeField())) {
+          continue;
+        }
+        satAttrFieldNames.add(variables.resolve(as.getAttributeField()));
+        String sourceName =
+            Utils.isEmpty(as.getSourceFieldName())
+                ? as.getAttributeField()
+                : as.getSourceFieldName();
+        satAttrSourceFieldNames.add(variables.resolve(sourceName));
+      }
+      return;
+    }
+
+    if (Utils.isEmpty(sat.getAttributes())) {
+      throw new HopException(
+          "Please specify link satellite attribute mappings for satellite " + sat.getName());
+    }
+    for (SatelliteAttribute sa : sat.getAttributes()) {
+      satAttrFieldNames.add(sa.getName());
+      satAttrSourceFieldNames.add(sa.getName());
     }
   }
 }
