@@ -190,9 +190,8 @@ public class SatelliteSourceKeyFieldDialog {
 
     wAttributeSources.clearAll();
     if (input.getAttributeSources() != null) {
-      for (int i = 0; i < input.getAttributeSources().size(); i++) {
-        AttributeSource as = input.getAttributeSources().get(i);
-        TableItem item = wAttributeSources.table.getItem(i);
+      for (AttributeSource as : input.getAttributeSources()) {
+        TableItem item = new TableItem(wAttributeSources.table, SWT.NONE);
         item.setText(1, Const.NVL(as.getAttributeField(), ""));
         item.setText(2, Const.NVL(as.getSourceFieldName(), ""));
       }
@@ -203,9 +202,8 @@ public class SatelliteSourceKeyFieldDialog {
 
     wDrivingKeySources.clearAll();
     if (input.getDrivingKeySources() != null) {
-      for (int i = 0; i < input.getDrivingKeySources().size(); i++) {
-        DrivingKeySource ds = input.getDrivingKeySources().get(i);
-        TableItem item = wDrivingKeySources.table.getItem(i);
+      for (DrivingKeySource ds : input.getDrivingKeySources()) {
+        TableItem item = new TableItem(wDrivingKeySources.table, SWT.NONE);
         item.setText(1, Const.NVL(ds.getDrivingKey(), ""));
         item.setText(2, Const.NVL(ds.getSourceField(), ""));
       }

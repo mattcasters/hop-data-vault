@@ -219,9 +219,8 @@ public class HubSourceKeyFieldDialog {
     // Business key sources
     wBusinessKeySources.clearAll();
     if (input.getSourceBusinessKeyFields() != null) {
-      for (int i = 0; i < input.getSourceBusinessKeyFields().size(); i++) {
-        BusinessKeySource bs = input.getSourceBusinessKeyFields().get(i);
-        TableItem item = wBusinessKeySources.table.getItem(i);
+      for (BusinessKeySource bs : input.getSourceBusinessKeyFields()) {
+        TableItem item = new TableItem(wBusinessKeySources.table, SWT.NONE);
         item.setText(1, Const.NVL(bs.getBusinessKeyField(), ""));
         item.setText(2, Const.NVL(bs.getSourceFieldName(), ""));
       }
@@ -233,9 +232,8 @@ public class HubSourceKeyFieldDialog {
     // Driving key sources
     wDrivingKeySources.clearAll();
     if (input.getDrivingKeySources() != null) {
-      for (int i = 0; i < input.getDrivingKeySources().size(); i++) {
-        DrivingKeySource ds = input.getDrivingKeySources().get(i);
-        TableItem item = wDrivingKeySources.table.getItem(i);
+      for (DrivingKeySource ds : input.getDrivingKeySources()) {
+        TableItem item = new TableItem(wDrivingKeySources.table, SWT.NONE);
         item.setText(1, Const.NVL(ds.getDrivingKey(), ""));
         item.setText(2, Const.NVL(ds.getSourceField(), ""));
       }
