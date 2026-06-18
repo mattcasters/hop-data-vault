@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workflow>
+  <name>update-load-end-date</name>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <created_user>-</created_user>
+  <modified_user>-</modified_user>
+  <created_date>2026/06/18 12:00:00.000</created_date>
+  <modified_date>2026/06/18 12:00:00.000</modified_date>
+  <parameters/>
+  <actions>
+    <action>
+      <repeat>N</repeat>
+      <schedulerType>0</schedulerType>
+      <intervalSeconds>0</intervalSeconds>
+      <intervalMinutes>60</intervalMinutes>
+      <DayOfMonth>1</DayOfMonth>
+      <weekDay>1</weekDay>
+      <minutes>0</minutes>
+      <hour>12</hour>
+      <doNotWaitOnFirstExecution>N</doNotWaitOnFirstExecution>
+      <name>Start</name>
+      <description/>
+      <type>SPECIAL</type>
+      <attributes/>
+      <xloc>48</xloc>
+      <yloc>48</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <sql>DROP TABLE IF EXISTS customer_led
+;
+CREATE TABLE customer_led
+(
+  customer_id INTEGER
+, name VARCHAR(50)
+, email VARCHAR(50)
+, record_source VARCHAR(20)
+)
+;
+</sql>
+      <connection>CRM</connection>
+      <useVariableSubstitution>N</useVariableSubstitution>
+      <sqlfromfile>N</sqlfromfile>
+      <sqlfilename/>
+      <sqlfilename_encoding/>
+      <sendOneStatement>N</sendOneStatement>
+      <name>Create customer_led table</name>
+      <description/>
+      <type>SQL</type>
+      <attributes/>
+      <xloc>208</xloc>
+      <yloc>48</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <filename>${PROJECT_HOME}/tests/load-end-date/load-customer-led1.hpl</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <clear_rows>N</clear_rows>
+      <clear_files>N</clear_files>
+      <create_parent_folder>N</create_parent_folder>
+      <set_logfile>N</set_logfile>
+      <set_append_logfile>N</set_append_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <loglevel>Basic</loglevel>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>load-customer-led1</name>
+      <description/>
+      <type>PIPELINE</type>
+      <attributes/>
+      <xloc>576</xloc>
+      <yloc>48</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <dataVaultModelFile>${PROJECT_HOME}/tests/load-end-date/load-end-date.hdv</dataVaultModelFile>
+      <pipelineRunConfiguration>local</pipelineRunConfiguration>
+      <logModelCheckFailures>Y</logModelCheckFailures>
+      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
+      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
+      <ddlSqlFilename>${java.io.tmpdir}/load-end-date-ddl.sql</ddlSqlFilename>
+      <failIfDdlNeeded>N</failIfDdlNeeded>
+      <recordSourceGroup/>
+      <ensureSpecialRecords>Y</ensureSpecialRecords>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <name>update load-end-date.hdv</name>
+      <description/>
+      <type>DATA_VAULT_UPDATE</type>
+      <attributes/>
+      <xloc>784</xloc>
+      <yloc>48</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <sql>DROP TABLE IF EXISTS hub_customer_led
+;
+DROP TABLE IF EXISTS sat_customer_led
+;
+</sql>
+      <connection>Vault</connection>
+      <useVariableSubstitution>N</useVariableSubstitution>
+      <sqlfromfile>N</sqlfromfile>
+      <sqlfilename/>
+      <sqlfilename_encoding/>
+      <sendOneStatement>N</sendOneStatement>
+      <name>drop customer_led vault tables</name>
+      <description/>
+      <type>SQL</type>
+      <attributes/>
+      <xloc>400</xloc>
+      <yloc>48</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <test_names>
+        <test_name>
+          <name>validate-hub-customer-led UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-sat-customer-led UNIT</name>
+        </test_name>
+      </test_names>
+      <name>test after initial</name>
+      <description/>
+      <type>RunPipelineTests</type>
+      <attributes/>
+      <xloc>976</xloc>
+      <yloc>48</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <filename>${PROJECT_HOME}/tests/load-end-date/load-customer-led2.hpl</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <clear_rows>N</clear_rows>
+      <clear_files>N</clear_files>
+      <create_parent_folder>N</create_parent_folder>
+      <set_logfile>N</set_logfile>
+      <set_append_logfile>N</set_append_logfile>
+      <logfile/>
+      <logext/>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <loglevel>Basic</loglevel>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>load-customer-led2</name>
+      <description/>
+      <type>PIPELINE</type>
+      <attributes/>
+      <xloc>576</xloc>
+      <yloc>176</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <dataVaultModelFile>${PROJECT_HOME}/tests/load-end-date/load-end-date.hdv</dataVaultModelFile>
+      <pipelineRunConfiguration>local</pipelineRunConfiguration>
+      <logModelCheckFailures>N</logModelCheckFailures>
+      <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
+      <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
+      <ddlSqlFilename/>
+      <failIfDdlNeeded>N</failIfDdlNeeded>
+      <recordSourceGroup/>
+      <ensureSpecialRecords>N</ensureSpecialRecords>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <name>update load-end-date.hdv </name>
+      <description/>
+      <type>DATA_VAULT_UPDATE</type>
+      <attributes/>
+      <xloc>784</xloc>
+      <yloc>176</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <test_names>
+        <test_name>
+          <name>validate-hub-customer-led2 UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-sat-customer-led2 UNIT</name>
+        </test_name>
+      </test_names>
+      <name>test after update</name>
+      <description/>
+      <type>RunPipelineTests</type>
+      <attributes/>
+      <xloc>976</xloc>
+      <yloc>176</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+  </actions>
+  <hops>
+    <hop>
+      <from>Start</from>
+      <to>Create customer_led table</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>update load-end-date.hdv</from>
+      <to>test after initial</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>load-customer-led1</from>
+      <to>update load-end-date.hdv</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Create customer_led table</from>
+      <to>drop customer_led vault tables</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>drop customer_led vault tables</from>
+      <to>load-customer-led1</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>load-customer-led2</from>
+      <to>update load-end-date.hdv </to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>test after initial</from>
+      <to>load-customer-led2</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>update load-end-date.hdv </from>
+      <to>test after update</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+  </hops>
+  <notepads/>
+  <attributes/>
+</workflow>

@@ -1,6 +1,6 @@
 # Hop Data Vault 2.0 Plugin
 
-Apache Hop plugin for **Data Vault 2.0** modeling, validation, and model-driven loading. Version **0.0.7-SNAPSHOT** targets **Apache Hop 2.18.0** and **Java 21**.
+Apache Hop plugin for **Data Vault 2.0** modeling, validation, and model-driven loading. Version **0.0.8-SNAPSHOT** targets **Apache Hop 2.18.0** and **Java 21**.
 
 The plugin provides Hop metadata types for logical DV models and physical/update configuration, a visual **`.hdv` model editor**, a **Data Vault Update** workflow action that generates and runs load pipelines, and a sample Hop project under `project/` for end-to-end testing.
 
@@ -16,8 +16,8 @@ The plugin provides Hop metadata types for logical DV models and physical/update
   - Business key / concat delimiter (e.g. `||`)
   - Null placeholder for consistent hashing
   - Unknown / "ghost" record generation + value
-  - Naming conventions: `_HK` suffixes, `LOAD_DATE`, `RECORD_SOURCE`, `_HASHDIFF`, etc.
-  - Satellite patterns: hashdiff vs load-end-date
+  - Naming conventions: `_HK` suffixes, load date / record source / load end date field names
+  - **Load end date** (`useLoadEndDate`): close superseded satellite rows by setting an end-date column; current rows stay open (`NULL` end date)
 
 - **Data Vault Source** (`data-vault-source`, `data-vault-source-database`)
   - Record source definition with optional **`group`** label for partial model updates (e.g. `hourly`, `daily`)
@@ -34,8 +34,9 @@ The plugin provides Hop metadata types for logical DV models and physical/update
 
 - **Data Vault Satellite** (`data-vault-satellite`)
   - Attach to Hub **or** Link (via metadata reference)
-  - Attributes with include-in-hashdiff flag
+  - Attributes with include-in-change-data-capture flag
   - **Multi-active** satellites via **`drivingKey`** and **`drivingKeySourceField`** (one satellite row per hub key + driving key)
+  - **Load end date** pattern: on attribute change, insert a new open row and close the prior version via `Update`
 
 - **Data Vault Model** (`data-vault-model`)
   - Groups hubs, links, and satellites for one EDW / subject area
@@ -59,6 +60,8 @@ The **`DATA_VAULT_UPDATE`** action reads a `.hdv` model and:
 - Executes those pipelines using a selected pipeline run configuration
 - Supports optional **`recordSourceGroup`** to load only record sources whose `group` matches (empty = all sources)
 
+![Data Vault Update action](docs/images/action-data-vault-update.png)
+
 ### Search
 
 - **`DataVaultModelSearchAnalyser`** indexes Data Vault models for Hop's metadata search (name, description, configuration, tables, and properties).
@@ -67,17 +70,37 @@ The **`DATA_VAULT_UPDATE`** action reads a `.hdv` model and:
 
 - **`DataVaultConfigOptionPlugin`** exposes Data Vault-related settings in Hop's configuration system.
 
+## Documentation
+
+AsciiDoc reference material lives under `docs/`:
+
+| Document | Topic |
+|----------|--------|
+| `docs/datavault-plugin.adoc` | Plugin overview |
+| `docs/datavault-configuration.adoc` | Configuration metadata |
+| `docs/datavault-source.adoc` / `datavault-source-database.adoc` | Record sources |
+| `docs/dv-hub.adoc` / `dv-link.adoc` / `dv-satellite.adoc` | Table metadata |
+| `docs/datavault-update-action.adoc` | Workflow action |
+
+The sample project guide is **[project/PROJECT.md](project/PROJECT.md)** — models, workflows, unit tests, and screenshots.
+
 ## Sample project
 
-The `project/` folder is a self-contained Hop project with metadata, datasets, source CSVs, models, pipelines, and workflows. See **[project/PROJECT.md](project/PROJECT.md)** for prerequisites, layout, and workflow details.
+The `project/` folder is a self-contained Hop project with metadata, datasets, source CSVs, models, pipelines, and workflows. See **[project/PROJECT.md](project/PROJECT.md)** for prerequisites, layout, test-suite details, and screenshots.
 
-**Quick start:** open the `project/` folder as a Hop project, configure the `CRM` and `Vault` database connections, then run:
+**Prerequisites:** register `project/` as a Hop project named `hop-data-vault`, configure **`CRM`** and **`Vault`** database connections (PostgreSQL tested), and install the plugin.
 
+**Run all tests** from the command line (adjust the Hop path in `project/run-tests.sh` if needed):
+
+```bash
+project/run-tests.sh
 ```
-project/tests/satellite-multi-active/run-tests.hwf
-```
 
-That orchestrator runs the basic `vault1` end-to-end test (`tests/basic/update-vault1.hwf`) and the multi-active satellite test (`tests/satellite-multi-active/update-customer-phone.hwf`).
+That runs `tests/run-tests.hwf`, which executes four suites: basic vault1, multi-active satellite, link satellite, and load end date. To run one workflow:
+
+```bash
+project/run-tests.sh tests/load-end-date/update-load-end-date.hwf
+```
 
 ## Building
 
@@ -87,14 +110,14 @@ mvn clean package
 
 Artifacts:
 
-- `target/hop-datavault-0.0.7-SNAPSHOT.jar`
-- `target/hop-datavault-0.0.7-SNAPSHOT.zip` (ready-to-unzip plugin layout)
+- `target/hop-datavault-0.0.8-SNAPSHOT.jar`
+- `target/hop-datavault-0.0.8-SNAPSHOT.zip` (ready-to-unzip plugin layout)
 
 ## Installation (external plugin)
 
 1. Unzip the assembly zip into your Hop installation, or manually copy the jar to:
    ```
-   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.0.7-SNAPSHOT.jar
+   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.0.8-SNAPSHOT.jar
    ```
 2. Restart Hop GUI.
 3. New metadata types appear under **Metadata → Data Vault**. The **Data Vault Update** action is available in workflows. `.hdv` files open in the visual modeler.
@@ -109,6 +132,12 @@ Artifacts:
 
 For multi-active satellites, set **`drivingKey`** (vault column name) and **`drivingKeySourceField`** (source column mapped into the driving key). For scheduled partial loads, tag record sources with **`group`** and set **`recordSourceGroup`** on the update action.
 
+For load end dating, enable **`useLoadEndDate`** on the configuration and set **`loadEndDateField`** (e.g. `x_load_end_ts`). Current satellite rows are those where the end-date column is null:
+
+```sql
+SELECT * FROM sat_customer WHERE x_load_end_ts IS NULL
+```
+
 ## Common Data Vault 2.0 options included
 
 - Hashing: MD5 / SHA1 / SHA256 / SHA512
@@ -116,8 +145,8 @@ For multi-active satellites, set **`drivingKey`** (vault column name) and **`dri
 - Trimming + casing normalization
 - Delimiter + null placeholder
 - Unknown record / ghost record handling
-- Column naming conventions (LDTS / LOAD_DATE, RSRC, HASHDIFF, HK suffixes)
-- Hashdiff vs end-dating satellite patterns
+- Column naming conventions (load timestamp, record source, HK suffixes)
+- Hashdiff vs **load end date** satellite patterns
 - Multi-active satellites via driving keys
 
 ## Roadmap / ideas

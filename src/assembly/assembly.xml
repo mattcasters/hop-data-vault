@@ -55,6 +55,7 @@
                 <include>org.apache.hop:hop-transform-sql:jar</include>
                 <include>org.apache.hop:hop-transform-tableinput:jar</include>
                 <include>org.apache.hop:hop-transform-tableoutput:jar</include>
+                <include>org.apache.hop:hop-transform-update:jar</include>
             </includes>
             <outputDirectory>plugins/misc/datavault/lib</outputDirectory>
         </dependencySet>

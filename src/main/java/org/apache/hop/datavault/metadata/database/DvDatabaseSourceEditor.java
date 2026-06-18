@@ -28,10 +28,14 @@ import org.apache.hop.core.logging.LoggingObjectType;
 import org.apache.hop.core.logging.SimpleLoggingObject;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.row.RowMeta;
 import org.apache.hop.core.row.value.ValueMetaFactory;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.SourceField;
+import org.apache.hop.metadata.api.IHopMetadataSerializer;
 import org.apache.hop.ui.core.database.dialog.DatabaseExplorerDialog;
+import org.apache.hop.ui.core.dialog.EditRowsDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.i18n.BaseMessages;
@@ -338,7 +342,12 @@ public class DvDatabaseSourceEditor extends MetadataEditor<DvDatabaseSource> {
     Button wImport = new Button(parent, SWT.PUSH);
     wImport.setText(BaseMessages.getString(PKG, "DvDatabaseSourceEditor.Import.Button"));
     wImport.addListener(SWT.Selection, e -> importFromTable());
-    return new Button[] {wImport};
+
+    Button wImportTables = new Button(parent, SWT.PUSH);
+    wImportTables.setText(BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ImportTables.Button"));
+    wImportTables.addListener(SWT.Selection, e -> importTables());
+
+    return new Button[] {wImport, wImportTables};
   }
 
   private void importFromTable() {
@@ -411,22 +420,10 @@ public class DvDatabaseSourceEditor extends MetadataEditor<DvDatabaseSource> {
       try (Database db = new Database(loggingObject, manager.getVariables(), databaseMeta)) {
         db.connect();
 
-        IRowMeta rowMeta =
-            db.getTableFieldsMeta(
-                manager.getVariables().resolve(schemaName),
-                manager.getVariables().resolve(tableName));
-        if (rowMeta != null && !rowMeta.isEmpty()) {
-          List<SourceField> fields = new ArrayList<>();
-          for (IValueMeta vm : rowMeta.getValueMetaList()) {
-            SourceField sf = new SourceField(vm.getName());
-            sf.setDescription("");
-            sf.setSourceDataType(vm.getTypeDesc());
-            sf.setLength(vm.getLength() > 0 ? String.valueOf(vm.getLength()) : "");
-            sf.setPrecision(vm.getPrecision() >= 0 ? String.valueOf(vm.getPrecision()) : "");
-            sf.setHopType(vm.getType());
-            sf.setPrimaryKey(false);
-            fields.add(sf);
-          }
+        List<SourceField> fields =
+            DvDatabaseSourceImportSupport.importFieldsFromTable(
+                db, manager.getVariables(), schemaName, tableName);
+        if (!fields.isEmpty()) {
           getMetadata().setFields(fields);
           setWidgetsContent();
           setChanged();
@@ -440,5 +437,286 @@ public class DvDatabaseSourceEditor extends MetadataEditor<DvDatabaseSource> {
             e);
       }
     }
+  }
+
+  private void importTables() {
+    ImportDatabaseTablesOptionsDialog optionsDialog =
+        new ImportDatabaseTablesOptionsDialog(
+            getShell(), manager.getVariables(), manager.getMetadataProvider());
+    ImportDatabaseTablesOptionsDialog.ImportDatabaseTablesOptions options = optionsDialog.open();
+    if (options == null) {
+      return;
+    }
+
+    String connectionName = Const.NVL(options.getDatabaseName(), "");
+    if (Utils.isEmpty(connectionName)) {
+      MessageBox mb = new MessageBox(getShell(), SWT.OK | SWT.ICON_ERROR);
+      mb.setMessage(
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.NoConnection.DialogMessage"));
+      mb.setText(
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.NoConnection.DialogTitle"));
+      mb.open();
+      return;
+    }
+
+    DatabaseMeta databaseMeta;
+    try {
+      databaseMeta =
+          manager.getMetadataProvider().getSerializer(DatabaseMeta.class).load(connectionName);
+    } catch (Exception e) {
+      new ErrorDialog(
+          getShell(),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorLoadingConnection.DialogTitle"),
+          BaseMessages.getString(
+              PKG, "DvDatabaseSourceEditor.ErrorLoadingConnection.DialogMessage", connectionName),
+          e);
+      return;
+    }
+
+    if (databaseMeta == null) {
+      MessageBox mb = new MessageBox(getShell(), SWT.OK | SWT.ICON_ERROR);
+      mb.setMessage(
+          BaseMessages.getString(
+              PKG, "DvDatabaseSourceEditor.ErrorLoadingConnection.DialogMessage", connectionName));
+      mb.setText(
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorLoadingConnection.DialogTitle"));
+      mb.open();
+      return;
+    }
+
+    String schemaName = Const.NVL(options.getSchemaName(), "");
+    String[] tableNames;
+    ILoggingObject loggingObject =
+        new SimpleLoggingObject("DvDatabaseSourceEditor", LoggingObjectType.GENERAL, null);
+    try (Database db = new Database(loggingObject, manager.getVariables(), databaseMeta)) {
+      db.connect();
+      tableNames = db.getTablenames(schemaName, false);
+    } catch (Exception e) {
+      new ErrorDialog(
+          getShell(),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorListingTables.DialogTitle"),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorListingTables.DialogMessage"),
+          e);
+      return;
+    }
+
+    if (tableNames == null || tableNames.length == 0) {
+      MessageBox mb = new MessageBox(getShell(), SWT.OK | SWT.ICON_INFORMATION);
+      mb.setMessage(
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.NoTablesFound.DialogMessage"));
+      mb.setText(
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.NoTablesFound.DialogTitle"));
+      mb.open();
+      return;
+    }
+
+    boolean createDataVaultSource = options.isCreateDataVaultSource();
+    IRowMeta selectionRowMeta = new RowMeta();
+    try {
+      selectionRowMeta.addValueMeta(
+          ValueMetaFactory.createValueMeta(
+              BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ImportTables.Column.TableName"),
+              IValueMeta.TYPE_STRING));
+      selectionRowMeta.addValueMeta(
+          ValueMetaFactory.createValueMeta(
+              BaseMessages.getString(
+                  PKG, "DvDatabaseSourceEditor.ImportTables.Column.DatabaseSourceName"),
+              IValueMeta.TYPE_STRING));
+      if (createDataVaultSource) {
+        selectionRowMeta.addValueMeta(
+            ValueMetaFactory.createValueMeta(
+                BaseMessages.getString(
+                    PKG, "DvDatabaseSourceEditor.ImportTables.Column.DataVaultSourceName"),
+                IValueMeta.TYPE_STRING));
+      }
+    } catch (HopException e) {
+      new ErrorDialog(
+          getShell(),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogTitle"),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogMessage"),
+          e);
+      return;
+    }
+
+    List<Object[]> selectionRows = new ArrayList<>();
+    IHopMetadataSerializer<DvDatabaseSource> databaseSourceSerializer;
+    IHopMetadataSerializer<DataVaultSource> dataVaultSourceSerializer = null;
+    try {
+      databaseSourceSerializer = manager.getMetadataProvider().getSerializer(DvDatabaseSource.class);
+      if (createDataVaultSource) {
+        dataVaultSourceSerializer =
+            manager.getMetadataProvider().getSerializer(DataVaultSource.class);
+      }
+    } catch (HopException e) {
+      new ErrorDialog(
+          getShell(),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogTitle"),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogMessage"),
+          e);
+      return;
+    }
+
+    for (String rawTableName : tableNames) {
+      String tableName = DvDatabaseSourceImportSupport.stripTableNameQuotes(rawTableName);
+      String databaseSourceName =
+          DvDatabaseSourceImportSupport.buildDefaultMetadataName(
+              options.getDatabaseSourcePrefix(), connectionName, tableName);
+      try {
+        databaseSourceName =
+            DvDatabaseSourceImportSupport.uniqueMetadataName(
+                databaseSourceSerializer, databaseSourceName);
+        Object[] row;
+        if (createDataVaultSource) {
+          String dataVaultSourceName =
+              DvDatabaseSourceImportSupport.buildDefaultMetadataName(
+                  options.getDataVaultSourcePrefix(), connectionName, tableName);
+          dataVaultSourceName =
+              DvDatabaseSourceImportSupport.uniqueMetadataName(
+                  dataVaultSourceSerializer, dataVaultSourceName);
+          row = new Object[] {tableName, databaseSourceName, dataVaultSourceName};
+        } else {
+          row = new Object[] {tableName, databaseSourceName};
+        }
+        selectionRows.add(row);
+      } catch (HopException e) {
+        new ErrorDialog(
+            getShell(),
+            BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogTitle"),
+            BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogMessage"),
+            e);
+        return;
+      }
+    }
+
+    String selectionMessage =
+        createDataVaultSource
+            ? BaseMessages.getString(
+                PKG, "DvDatabaseSourceEditor.ImportTables.Selection.Message.WithDataVaultSource")
+            : BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ImportTables.Selection.Message");
+
+    EditRowsDialog tableSelectionDialog =
+        new EditRowsDialog(
+            getShell(),
+            SWT.NONE,
+            BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ImportTables.Selection.Title"),
+            selectionMessage,
+            selectionRowMeta,
+            selectionRows);
+    List<Object[]> selectedRows = tableSelectionDialog.open();
+    if (selectedRows == null) {
+      return;
+    }
+
+    int importedCount = 0;
+    List<String> errors = new ArrayList<>();
+    try (Database db = new Database(loggingObject, manager.getVariables(), databaseMeta)) {
+      db.connect();
+
+      for (Object[] row : selectedRows) {
+        if (row == null || row.length < 2) {
+          continue;
+        }
+        String tableName =
+            DvDatabaseSourceImportSupport.stripTableNameQuotes(
+                row[0] != null ? row[0].toString() : null);
+        String databaseSourceName = row[1] != null ? row[1].toString() : null;
+        String dataVaultSourceName =
+            createDataVaultSource && row.length > 2 && row[2] != null ? row[2].toString() : null;
+        if (Utils.isEmpty(tableName) || Utils.isEmpty(databaseSourceName)) {
+          continue;
+        }
+
+        try {
+          if (databaseSourceSerializer.exists(databaseSourceName)) {
+            errors.add(
+                BaseMessages.getString(
+                    PKG,
+                    "DvDatabaseSourceEditor.ImportTables.Exists.Message",
+                    databaseSourceName,
+                    tableName));
+            continue;
+          }
+
+          List<SourceField> fields =
+              DvDatabaseSourceImportSupport.importFieldsFromTable(
+                  db, manager.getVariables(), schemaName, tableName);
+          DvDatabaseSource databaseSource =
+              DvDatabaseSourceImportSupport.createDatabaseSource(
+                  databaseSourceName, connectionName, schemaName, tableName, fields);
+          DvDatabaseSourceImportSupport.saveNewMetadata(
+              manager.getMetadataProvider(),
+              manager.getVariables(),
+              hopGui.getLog(),
+              databaseSource);
+          importedCount++;
+
+          if (createDataVaultSource
+              && dataVaultSourceSerializer != null
+              && !Utils.isEmpty(dataVaultSourceName)) {
+            if (dataVaultSourceSerializer.exists(dataVaultSourceName)) {
+              errors.add(
+                  BaseMessages.getString(
+                      PKG,
+                      "DvDatabaseSourceEditor.ImportTables.DataVaultSourceExists.Message",
+                      dataVaultSourceName,
+                      tableName));
+            } else {
+              DataVaultSource dataVaultSource =
+                  DvDatabaseSourceImportSupport.createDataVaultSource(
+                      dataVaultSourceName, databaseSourceName);
+              DvDatabaseSourceImportSupport.saveNewMetadata(
+                  manager.getMetadataProvider(),
+                  manager.getVariables(),
+                  hopGui.getLog(),
+                  dataVaultSource);
+            }
+          }
+        } catch (Exception e) {
+          errors.add(
+              BaseMessages.getString(
+                  PKG,
+                  "DvDatabaseSourceEditor.ImportTables.TableError.Message",
+                  tableName,
+                  e.getMessage()));
+        }
+      }
+    } catch (Exception e) {
+      new ErrorDialog(
+          getShell(),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogTitle"),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogMessage"),
+          e);
+      return;
+    }
+
+    try {
+      DvDatabaseSourceImportSupport.refreshMetadataPerspective(hopGui);
+    } catch (HopException e) {
+      new ErrorDialog(
+          getShell(),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorRefreshingTree.DialogTitle"),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorRefreshingTree.DialogMessage"),
+          e);
+    }
+
+    if (!errors.isEmpty()) {
+      new ErrorDialog(
+          getShell(),
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ImportTables.PartialFailure.Title"),
+          BaseMessages.getString(
+              PKG,
+              "DvDatabaseSourceEditor.ImportTables.PartialFailure.Message",
+              importedCount,
+              String.join(Const.CR, errors)),
+          null);
+      return;
+    }
+
+    MessageBox mb = new MessageBox(getShell(), SWT.OK | SWT.ICON_INFORMATION);
+    mb.setMessage(
+        BaseMessages.getString(
+            PKG, "DvDatabaseSourceEditor.ImportTables.Success.Message", importedCount));
+    mb.setText(BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ImportTables.Success.Title"));
+    mb.open();
   }
 }

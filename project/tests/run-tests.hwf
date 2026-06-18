@@ -97,11 +97,34 @@
       <attributes_hac/>
     </action>
     <action>
+      <filename>${PROJECT_HOME}/tests/load-end-date/update-load-end-date.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>update-load-end-date</name>
+      <description/>
+      <type>WORKFLOW</type>
+      <attributes/>
+      <xloc>736</xloc>
+      <yloc>64</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
       <name>Success</name>
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>752</xloc>
+      <xloc>912</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -131,6 +154,13 @@
     </hop>
     <hop>
       <from>update-link-satellite</from>
+      <to>update-load-end-date</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>update-load-end-date</from>
       <to>Success</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>

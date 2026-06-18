@@ -1,0 +1,47 @@
+{
+  "virtualPath": "",
+  "databaseName": "CRM",
+  "field": [
+    {
+      "sourceDataType": "Integer",
+      "hopType": 5,
+      "precision": "0",
+      "length": "9",
+      "name": "customer_id",
+      "description": "Customer business key",
+      "primaryKey": true
+    },
+    {
+      "sourceDataType": "String",
+      "hopType": 2,
+      "precision": "",
+      "length": "50",
+      "name": "name",
+      "description": "Customer name",
+      "primaryKey": false
+    },
+    {
+      "sourceDataType": "String",
+      "hopType": 2,
+      "precision": "",
+      "length": "50",
+      "name": "email",
+      "description": "Customer email",
+      "primaryKey": false
+    },
+    {
+      "sourceDataType": "String",
+      "hopType": 2,
+      "precision": "",
+      "length": "20",
+      "name": "record_source",
+      "description": "Record source indicator",
+      "primaryKey": false
+    }
+  ],
+  "sourceType": "DATABASE",
+  "name": "CRM-load-end-date",
+  "description": "Customer source for load end date satellite test case",
+  "schemaName": "",
+  "tableName": "customer_led"
+}

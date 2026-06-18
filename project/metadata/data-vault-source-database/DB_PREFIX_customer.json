@@ -1,0 +1,73 @@
+{
+  "virtualPath": "",
+  "databaseName": "CRM",
+  "field": [
+    {
+      "sourceDataType": "Integer",
+      "hopType": 5,
+      "precision": "0",
+      "length": "9",
+      "name": "customer_id",
+      "description": "",
+      "primaryKey": false
+    },
+    {
+      "sourceDataType": "String",
+      "hopType": 2,
+      "precision": "",
+      "length": "50",
+      "name": "name",
+      "description": "",
+      "primaryKey": false
+    },
+    {
+      "sourceDataType": "String",
+      "hopType": 2,
+      "precision": "",
+      "length": "50",
+      "name": "email",
+      "description": "",
+      "primaryKey": false
+    },
+    {
+      "sourceDataType": "String",
+      "hopType": 2,
+      "precision": "",
+      "length": "50",
+      "name": "address",
+      "description": "",
+      "primaryKey": false
+    },
+    {
+      "sourceDataType": "String",
+      "hopType": 2,
+      "precision": "",
+      "length": "50",
+      "name": "city",
+      "description": "",
+      "primaryKey": false
+    },
+    {
+      "sourceDataType": "Timestamp",
+      "hopType": 9,
+      "precision": "",
+      "length": "6",
+      "name": "load_date",
+      "description": "",
+      "primaryKey": false
+    },
+    {
+      "sourceDataType": "String",
+      "hopType": 2,
+      "precision": "",
+      "length": "20",
+      "name": "record_source",
+      "description": "",
+      "primaryKey": false
+    }
+  ],
+  "sourceType": "DATABASE",
+  "name": "DB_PREFIX_customer",
+  "schemaName": "hop",
+  "tableName": "customer"
+}

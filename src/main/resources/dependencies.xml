@@ -22,4 +22,5 @@
     <folder>../../transforms/filterrows/</folder>
     <folder>../../transforms/checksum/</folder>
     <folder>../../transforms/sql/</folder>
+    <folder>../../transforms/update/</folder>
 </dependencies>

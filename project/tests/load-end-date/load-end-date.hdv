@@ -1,0 +1,60 @@
+<data-vault-model>
+  <name>load-end-date</name>
+  <filename>${PROJECT_HOME}/tests/load-end-date/load-end-date.hdv</filename>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <description>Load end date test case: hub + standard satellite with x_load_end_ts closing</description>
+  <configuration>load-end-date-config</configuration>
+  <tables>
+    <table>
+      <businessKeys>
+        <name>customer_id</name>
+        <description>Customer business key</description>
+        <dataType>Integer</dataType>
+        <length>9</length>
+        <sourceFieldName>customer_id</sourceFieldName>
+        <recordSourceName>CRM-load-end-date</recordSourceName>
+      </businessKeys>
+      <hashKeyFieldName>customer_hk</hashKeyFieldName>
+      <recordSourceFieldName/>
+      <recordSources>
+        <recordSource>CRM-load-end-date</recordSource>
+      </recordSources>
+      <tableName>hub_customer_led</tableName>
+      <description>Hub for customers in the load end date test case</description>
+      <tableType>HUB</tableType>
+      <xloc>64</xloc>
+      <yloc>48</yloc>
+      <name>hub_customer_led</name>
+      <virtualPath/>
+    </table>
+    <table>
+      <hub>hub_customer_led</hub>
+      <link/>
+      <attributes>
+        <name>name</name>
+        <description>Customer name</description>
+        <dataType>String</dataType>
+        <length>50</length>
+        <precision/>
+        <includeInChangeDataCapture>Y</includeInChangeDataCapture>
+      </attributes>
+      <attributes>
+        <name>email</name>
+        <description>Customer email</description>
+        <dataType>String</dataType>
+        <length>50</length>
+        <precision/>
+        <includeInChangeDataCapture>Y</includeInChangeDataCapture>
+      </attributes>
+      <drivingKey/>
+      <recordSource>CRM-load-end-date</recordSource>
+      <tableName>sat_customer_led</tableName>
+      <description>Standard satellite with load end date closing on attribute changes</description>
+      <tableType>SATELLITE</tableType>
+      <xloc>304</xloc>
+      <yloc>48</yloc>
+      <name>sat_customer_led</name>
+      <virtualPath/>
+    </table>
+  </tables>
+</data-vault-model>

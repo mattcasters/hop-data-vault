@@ -1,0 +1,4 @@
+CUSTOMER_ID,NAME,EMAIL,RECORD_SOURCE
+1001,John Smith,john.smith@crm.com,CRM
+1002,Jane Doe,jane.doe@crm.com,CRM
+1003,Bob Martin,bob.martin@crm.com,CRM

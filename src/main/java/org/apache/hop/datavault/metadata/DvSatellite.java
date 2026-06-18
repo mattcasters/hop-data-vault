@@ -77,7 +77,13 @@ import org.apache.hop.pipeline.transforms.groupby.Aggregation;
 import org.apache.hop.pipeline.transforms.groupby.GroupByMeta;
 import org.apache.hop.pipeline.transforms.groupby.GroupingField;
 import org.apache.hop.pipeline.transforms.mergerows.MergeRowsMeta;
+import org.apache.hop.pipeline.transforms.mergerows.PassThroughField;
+import org.apache.hop.pipeline.transforms.update.UpdateField;
+import org.apache.hop.pipeline.transforms.update.UpdateKeyField;
+import org.apache.hop.pipeline.transforms.update.UpdateLookupField;
+import org.apache.hop.pipeline.transforms.update.UpdateMeta;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectMetadataChange;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.sort.SortRowsField;
 import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
@@ -98,6 +104,9 @@ public class DvSatellite extends DvTableBase
     implements IDvTable, IGuiPosition, IBaseMeta, IHasName {
 
   private static final Class<?> PKG = DvSatellite.class;
+
+  /** Stream field carrying the superseded row load date from the target (reference) leg. */
+  private static final String PREVIOUS_LOAD_DATE_FIELD = "previous_load_date";
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_SATELLITE_DIALOG";
 
@@ -328,23 +337,40 @@ public class DvSatellite extends DvTableBase
       // Target TableInput (hash + attributes from sat table, for diff + value comparison)
       TransformMeta targetInputTransform = addTargetTableInput(ctx, pipelineMeta);
 
+      // Compare leg: with end-dating the load date is added before the diff; otherwise after filter.
+      TransformMeta compareTransform =
+          useLoadEndDate(ctx)
+              ? addConstantForLoadDate(ctx, pipelineMeta, loadDate, sortHkTransform)
+              : sortHkTransform;
+
       // Perform CDC with a merge rows (diff) transform
       TransformMeta mergeTransform =
-          addMergeRows(ctx, pipelineMeta, sortHkTransform, targetInputTransform);
+          addMergeRows(ctx, pipelineMeta, compareTransform, targetInputTransform);
 
       // Filter Rows: keep rows that are not 'identical' (i.e. new or changed attribute values
       // for an existing hub in the satellite). We achieve this by testing for 'identical' and
       // negating the condition.
       TransformMeta filterTransform = addFilterNewRows(pipelineMeta, mergeTransform);
 
-      // Add Constant transform for the static load date (provided to the method)
-      TransformMeta constantTransform =
-          addConstantForLoadDate(ctx, pipelineMeta, loadDate, filterTransform);
+      TransformMeta insertPredecessor = filterTransform;
+      if (!useLoadEndDate(ctx)) {
+        insertPredecessor = addConstantForLoadDate(ctx, pipelineMeta, loadDate, filterTransform);
+      } else {
+        insertPredecessor =
+            addConstantForOpenLoadEndDate(ctx, pipelineMeta, insertPredecessor);
+      }
 
-      // Add Table Output at the end to write new rows (all target fields except "flag")
+      // Add Table Output to insert new satellite versions
       IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
 
-      addTableOutput(ctx, pipelineMeta, targetLayout, constantTransform);
+      TransformMeta tableOutputTransform =
+          addTableOutput(ctx, pipelineMeta, targetLayout, insertPredecessor);
+
+      if (useLoadEndDate(ctx)) {
+        TransformMeta filterPreviousTransform =
+            addFilterHasPreviousLoadDate(ctx, pipelineMeta, tableOutputTransform);
+        addUpdateLoadEndDate(ctx, pipelineMeta, filterPreviousTransform);
+      }
 
       return List.of(pipelineMeta);
     } catch (Exception e) {
@@ -505,8 +531,19 @@ public class DvSatellite extends DvTableBase
       if (Utils.isEmpty(loadDateField)) {
         loadDateField = "LOAD_DATE";
       }
+      loadDateField = variables.resolve(loadDateField);
       IValueMeta loadMeta = new ValueMetaTimestamp(loadDateField);
       rowMeta.addValueMeta(loadMeta);
+
+      if (config.isUseLoadEndDate()) {
+        String loadEndDateField = config.getLoadEndDateField();
+        if (Utils.isEmpty(loadEndDateField)) {
+          loadEndDateField = "LOAD_END_DATE";
+        }
+        loadEndDateField = variables.resolve(loadEndDateField);
+        IValueMeta loadEndMeta = new ValueMetaTimestamp(loadEndDateField);
+        rowMeta.addValueMeta(loadEndMeta);
+      }
 
       return rowMeta;
 
@@ -839,8 +876,8 @@ public class DvSatellite extends DvTableBase
     String quotedHash = ctx.targetDatabaseMeta.quoteField(hashField);
 
     // Resolve load date field name (from config, supports variables) so we can ORDER BY it.
-    // We ORDER BY hash + load_date (without selecting load_date) so that the Group By below
-    // using LAST_INCL_NULL will retain only the most recent record per satellite hash key.
+    // With load end dating, the WHERE clause limits the read to current rows (open end date);
+    // the Group By below still deduplicates per hash key using LAST_INCL_NULL.
     String loadDateField = determineTargetLoadDateField(ctx);
     String quotedLoadDate = ctx.targetDatabaseMeta.quoteField(loadDateField);
 
@@ -861,6 +898,9 @@ public class DvSatellite extends DvTableBase
       selectFields.add(ctx.targetDatabaseMeta.quoteField(ctx.drivingKeyFieldName));
     }
     selectFields.add(ctx.targetDatabaseMeta.quoteField(ctx.recordSourceField));
+    if (useLoadEndDate(ctx)) {
+      selectFields.add(quotedLoadDate);
+    }
     selectFields.add(quotedHash);
 
     sql.append(String.join(", ", selectFields));
@@ -869,6 +909,12 @@ public class DvSatellite extends DvTableBase
     sql.append(
         ctx.targetDatabaseMeta.getQuotedSchemaTableCombination(
             ctx.variables, null, ctx.targetTableName));
+    if (useLoadEndDate(ctx)) {
+      String loadEndDateField = determineTargetLoadEndDateField(ctx);
+      sql.append(" WHERE ");
+      sql.append(ctx.targetDatabaseMeta.quoteField(loadEndDateField));
+      sql.append(" IS NULL");
+    }
     sql.append(" ORDER BY ");
     sql.append(quotedHash);
     if (ctx.hasDrivingKey()) {
@@ -914,6 +960,14 @@ public class DvSatellite extends DvTableBase
     rsAgg.setTypeLabel("LAST_INCL_NULL");
     aggregations.add(rsAgg);
 
+    if (useLoadEndDate(ctx)) {
+      Aggregation loadDateAgg = new Aggregation();
+      loadDateAgg.setSubject(loadDateField);
+      loadDateAgg.setField(loadDateField);
+      loadDateAgg.setTypeLabel("LAST_INCL_NULL");
+      aggregations.add(loadDateAgg);
+    }
+
     groupByMeta.setAggregations(aggregations);
 
     TransformMeta groupTm =
@@ -935,6 +989,29 @@ public class DvSatellite extends DvTableBase
     return loadDateField;
   }
 
+  private TransformMeta addReferenceLoadDateTypeSelectValues(
+      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor) {
+    if (predecessor == null) {
+      return null;
+    }
+
+    String loadDateField = determineTargetLoadDateField(ctx);
+
+    SelectValuesMeta selectMeta = new SelectValuesMeta();
+    SelectMetadataChange metaChange = new SelectMetadataChange();
+    metaChange.setName(loadDateField);
+    metaChange.setType(ValueMetaFactory.getValueMetaName(IValueMeta.TYPE_DATE));
+    selectMeta.getSelectOption().getMeta().add(metaChange);
+
+    TransformMeta tm =
+        new TransformMeta(
+            "SelectValues", "ref_load_date_as_date", selectMeta);
+    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
   private TransformMeta addMergeRows(
       SatelliteUpdateContext ctx,
       PipelineMeta pipelineMeta,
@@ -944,17 +1021,41 @@ public class DvSatellite extends DvTableBase
       return null;
     }
 
+    boolean loadEndDate = useLoadEndDate(ctx);
+    int referenceDummyX =
+        LOCATION_START_LINE_3.x + (loadEndDate ? 3 : 2) * SPACING_WIDTH;
+    int mergeX = LOCATION_START_LINE_3.x + (loadEndDate ? 5 : 3) * SPACING_WIDTH;
+
+    TransformMeta referenceMergeTransform = referenceTransform;
+
+    // Whether it's a date or a Timestamp in the source data, we force it to a Date to
+    // match the Date from the Add Constant values transform in the source branch.
+    //
+    if (loadEndDate) {
+      referenceMergeTransform =
+          addReferenceLoadDateTypeSelectValues(ctx, pipelineMeta, referenceMergeTransform);
+    }
+
     // A bug in hop requires an extra dummy to read from both reference and compare transforms
     //
-    TransformMeta referenceDummyTransform = addDummyTransform(
-            pipelineMeta, referenceTransform, "Merge reference",
-            LOCATION_START_LINE_3.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
-    TransformMeta compareDummyTransform = addDummyTransform(
-            pipelineMeta, compareTransform, "Merge compare",
-            compareTransform.getLocation().x + SPACING_WIDTH, compareTransform.getLocation().y);
+    referenceMergeTransform =
+            addDummyTransform(
+                    pipelineMeta,
+                    referenceMergeTransform,
+                    "Merge reference",
+                    referenceDummyX,
+                    LOCATION_START_LINE_3.y);
+
+    TransformMeta compareDummyTransform =
+        addDummyTransform(
+            pipelineMeta,
+            compareTransform,
+            "Merge compare",
+            compareTransform.getLocation().x + SPACING_WIDTH,
+            compareTransform.getLocation().y);
 
     MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
-    mergeRowsMeta.setReferenceTransform(referenceDummyTransform.getName());
+    mergeRowsMeta.setReferenceTransform(referenceMergeTransform.getName());
     mergeRowsMeta.setCompareTransform(compareDummyTransform.getName());
     mergeRowsMeta.setFlagField("flag");
 
@@ -973,10 +1074,17 @@ public class DvSatellite extends DvTableBase
       }
     }
 
+    if (loadEndDate) {
+      String loadDateField = determineTargetLoadDateField(ctx);
+      mergeRowsMeta
+          .getPassThroughFields()
+          .add(new PassThroughField(loadDateField, PREVIOUS_LOAD_DATE_FIELD, true));
+    }
+
     TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x + 3 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    tm.setLocation(mergeX, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceDummyTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceMergeTransform, tm));
     pipelineMeta.addPipelineHop(new PipelineHopMeta(compareDummyTransform, tm));
 
     return tm;
@@ -1012,7 +1120,7 @@ public class DvSatellite extends DvTableBase
     }
 
     TransformMeta tm = new TransformMeta("FilterRows", "new or changed", filterRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x + 4 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    tm.setLocation(mergeTransform.getLocation().x + SPACING_WIDTH, mergeTransform.getLocation().y);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(mergeTransform, tm));
 
@@ -1043,11 +1151,103 @@ public class DvSatellite extends DvTableBase
     constantMeta.getFields().add(cf);
 
     TransformMeta tm = new TransformMeta("Constant", "add_" + loadDateField, constantMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x + 5 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
 
     return tm;
+  }
+
+  private TransformMeta addConstantForOpenLoadEndDate(
+      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor)
+      throws HopException {
+    String loadEndDateField = determineTargetLoadEndDateField(ctx);
+
+    ConstantMeta constantMeta = new ConstantMeta();
+    ConstantField cf = new ConstantField(loadEndDateField, "Date", "");
+    cf.setFieldFormat(ValueMetaBase.DEFAULT_DATE_FORMAT_MASK);
+    constantMeta.getFields().add(cf);
+
+    TransformMeta tm =
+        new TransformMeta("Constant", "open_" + loadEndDateField, constantMeta);
+    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private TransformMeta addFilterHasPreviousLoadDate(
+      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor)
+      throws HopException {
+    if (predecessor == null) {
+      return null;
+    }
+
+    FilterRowsMeta filterRowsMeta = new FilterRowsMeta();
+    Condition condition =
+        new Condition(PREVIOUS_LOAD_DATE_FIELD, Condition.Function.NOT_NULL, null, null);
+    filterRowsMeta.getCompare().setCondition(condition);
+
+    TransformMeta tm =
+        new TransformMeta("FilterRows", "has_previous_load_date", filterRowsMeta);
+    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private TransformMeta addUpdateLoadEndDate(
+      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor)
+      throws HopException {
+    if (predecessor == null || ctx.targetDatabaseMeta == null) {
+      return null;
+    }
+
+    String loadDateField = determineTargetLoadDateField(ctx);
+    String loadEndDateField = determineTargetLoadEndDateField(ctx);
+    String tableName = ctx.targetTableName;
+    if (Utils.isEmpty(tableName)) {
+      tableName = getName();
+    }
+
+    UpdateMeta updateMeta = new UpdateMeta();
+    updateMeta.setConnection(ctx.targetDbName);
+
+    UpdateLookupField lookup = new UpdateLookupField();
+    lookup.setTableName(tableName);
+    lookup
+        .getLookupKeys()
+        .add(new UpdateKeyField(ctx.hashKeyFieldName, ctx.hashKeyFieldName, "="));
+    if (ctx.hasDrivingKey()) {
+      lookup
+          .getLookupKeys()
+          .add(
+              new UpdateKeyField(ctx.drivingKeyFieldName, ctx.drivingKeyFieldName, "="));
+    }
+    lookup
+        .getLookupKeys()
+        .add(new UpdateKeyField(PREVIOUS_LOAD_DATE_FIELD, loadDateField, "="));
+    lookup.getUpdateFields().add(new UpdateField(loadEndDateField, loadDateField));
+    updateMeta.setLookupField(lookup);
+
+    TransformMeta tm =
+        new TransformMeta("Update", "close_" + tableName, updateMeta);
+    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private static boolean useLoadEndDate(SatelliteUpdateContext ctx) {
+    return ctx.config != null && ctx.config.isUseLoadEndDate();
+  }
+
+  private static String determineTargetLoadEndDateField(SatelliteUpdateContext ctx) {
+    String loadEndDateField = "LOAD_END_DATE";
+    if (ctx.config != null && !Utils.isEmpty(ctx.config.getLoadEndDateField())) {
+      loadEndDateField = ctx.config.getLoadEndDateField();
+    }
+    return ctx.variables.resolve(loadEndDateField);
   }
 
   private TransformMeta addTableOutput(
@@ -1073,14 +1273,15 @@ public class DvSatellite extends DvTableBase
       if (targetLayout != null) {
         for (IValueMeta vm : targetLayout.getValueMetaList()) {
           String name = vm.getName();
-          if (!"flag".equalsIgnoreCase(name)) {
+          if (!"flag".equalsIgnoreCase(name)
+              && !PREVIOUS_LOAD_DATE_FIELD.equalsIgnoreCase(name)) {
             tableOutputMeta.getFields().add(new TableOutputField(name, name));
           }
         }
       }
 
       TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
-      tm.setLocation(LOCATION_START_LINE_3.x + 6 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
+      tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
       pipelineMeta.addTransform(tm);
       pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
       return tm;

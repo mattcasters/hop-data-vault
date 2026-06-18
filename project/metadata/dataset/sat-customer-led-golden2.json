@@ -1,0 +1,40 @@
+{
+  "base_filename": "sat-customer-led-golden2.csv",
+  "name": "sat-customer-led-golden2",
+  "description": "",
+  "dataset_fields": [
+    {
+      "field_comment": "customer_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "customer_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "NAME",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "NAME",
+      "field_format": ""
+    },
+    {
+      "field_comment": "email",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "email",
+      "field_format": ""
+    },
+    {
+      "field_comment": "x_record_source",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "x_record_source",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}

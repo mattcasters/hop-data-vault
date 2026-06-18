@@ -32,20 +32,21 @@ import org.apache.hop.metadata.api.IHopMetadata;
 /**
  * Configuration metadata for Data Vault 2.0 physical implementation and update strategy.
  *
- * <p>This is kept separate from the logical model (Hubs/Links/Satellites) so that the same
- * model can be realized with different physical strategies or on different platforms.
+ * <p>This is kept separate from the logical model (Hubs/Links/Satellites) so that the same model
+ * can be realized with different physical strategies or on different platforms.
  *
  * <p>Common options covered:
+ *
  * <ul>
- *   <li>Target database (DatabaseMeta) for physical implementation</li>
- *   <li>Hashing algorithm (MD5, SHA1, SHA256...)</li>
- *   <li>Hash key storage: binary (recommended) or string (hex)</li>
- *   <li>Trimming of business keys</li>
- *   <li>Case normalization before hashing</li>
- *   <li>Delimiter for composite business keys and link key construction</li>
- *   <li>Null/unknown value placeholder for consistent hashing</li>
- *   <li>Standard column naming conventions (suffixes, field names)</li>
- *   <li>Unknown record generation</li>
+ *   <li>Target database (DatabaseMeta) for physical implementation
+ *   <li>Hashing algorithm (MD5, SHA1, SHA256...)
+ *   <li>Hash key storage: binary (recommended) or string (hex)
+ *   <li>Trimming of business keys
+ *   <li>Case normalization before hashing
+ *   <li>Delimiter for composite business keys and link key construction
+ *   <li>Null/unknown value placeholder for consistent hashing
+ *   <li>Standard column naming conventions (suffixes, field names)
+ *   <li>Unknown record generation
  * </ul>
  */
 @GuiPlugin
@@ -64,8 +65,8 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty private String name;
 
   /**
-   * The target database (DatabaseMeta) in which the Data Vault will be implemented.
-   * This makes the configuration aware of the destination RDBMS for quoting, DDL, etc.
+   * The target database (DatabaseMeta) in which the Data Vault will be implemented. This makes the
+   * configuration aware of the destination RDBMS for quoting, DDL, etc.
    */
   @GuiWidgetElement(
       order = "0050",
@@ -114,7 +115,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       toolTip = "i18n::DataVaultConfiguration.UnknownBusinessKeyValue.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
-  private String unknownBusinessKeyValue = "N/A";
+  private String unknownBusinessKeyValue;
 
   @GuiWidgetElement(
       order = "0220",
@@ -144,7 +145,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       toolTip = "i18n::DataVaultConfiguration.UnknownRecordSource.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
-  private String unknownRecordSource = "UNKNOWN";
+  private String unknownRecordSource;
 
   // --- Invalid / error record handling ---
   @GuiWidgetElement(
@@ -164,7 +165,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       toolTip = "i18n::DataVaultConfiguration.InvalidBusinessKeyValue.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
-  private String invalidBusinessKeyValue = "INVALID";
+  private String invalidBusinessKeyValue;
 
   @GuiWidgetElement(
       order = "0270",
@@ -194,73 +195,37 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       toolTip = "i18n::DataVaultConfiguration.InvalidRecordSource.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
-  private String invalidRecordSource = "INVALID";
+  private String invalidRecordSource;
 
   /*@GuiWidgetElement(
-      order = "0120",
-      type = GuiElementType.COMBO,
-      label = "i18n::DataVaultConfiguration.HashContentCasing.Label",
-      toolTip = "i18n::DataVaultConfiguration.HashContentCasing.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private HashContentCasing hashContentCasing = HashContentCasing.UPPER;
+        order = "0120",
+        type = GuiElementType.COMBO,
+        label = "i18n::DataVaultConfiguration.HashContentCasing.Label",
+        toolTip = "i18n::DataVaultConfiguration.HashContentCasing.ToolTip",
+        parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+    @HopMetadataProperty
+    private HashContentCasing hashContentCasing = HashContentCasing.UPPER;
 
-  @GuiWidgetElement(
-      order = "0130",
-      type = GuiElementType.TEXT,
-      label = "i18n::DataVaultConfiguration.BusinessKeyDelimiter.Label",
-      toolTip = "i18n::DataVaultConfiguration.BusinessKeyDelimiter.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private String businessKeyDelimiter = "||";
+    @GuiWidgetElement(
+        order = "0130",
+        type = GuiElementType.TEXT,
+        label = "i18n::DataVaultConfiguration.BusinessKeyDelimiter.Label",
+        toolTip = "i18n::DataVaultConfiguration.BusinessKeyDelimiter.ToolTip",
+        parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+    @HopMetadataProperty
+    private String businessKeyDelimiter = "||";
 
-  @GuiWidgetElement(
-      order = "0140",
-      type = GuiElementType.TEXT,
-      label = "i18n::DataVaultConfiguration.NullPlaceholder.Label",
-      toolTip = "i18n::DataVaultConfiguration.NullPlaceholder.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private String nullPlaceholder = "^^";
-
-  @GuiWidgetElement(
-      order = "0150",
-      type = GuiElementType.CHECKBOX,
-      label = "i18n::DataVaultConfiguration.TrimBusinessKeys.Label",
-      toolTip = "i18n::DataVaultConfiguration.TrimBusinessKeys.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private boolean trimBusinessKeys = true;
-
-  // --- Unknown / Ghost record handling (common DV pattern) ---
-  @GuiWidgetElement(
-      order = "0200",
-      type = GuiElementType.CHECKBOX,
-      label = "i18n::DataVaultConfiguration.GenerateUnknownRecord.Label",
-      toolTip = "i18n::DataVaultConfiguration.GenerateUnknownRecord.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private boolean generateUnknownRecord = true;
-
-  @GuiWidgetElement(
-      order = "0210",
-      type = GuiElementType.TEXT,
-      label = "i18n::DataVaultConfiguration.UnknownBusinessKeyValue.Label",
-      toolTip = "i18n::DataVaultConfiguration.UnknownBusinessKeyValue.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private String unknownBusinessKeyValue = "N/A";
-
-  // --- Naming conventions (update / physical strategy) ---
-  @GuiWidgetElement(
-      order = "0310",
-      type = GuiElementType.TEXT,
-      label = "i18n::DataVaultConfiguration.LinkHashKeySuffix.Label",
-      toolTip = "i18n::DataVaultConfiguration.LinkHashKeySuffix.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private String linkHashKeySuffix = "_HK";
+    @GuiWidgetElement(
+        order = "0150",
+        type = GuiElementType.CHECKBOX,
+        label = "i18n::DataVaultConfiguration.TrimBusinessKeys.Label",
+        toolTip = "i18n::DataVaultConfiguration.TrimBusinessKeys.ToolTip",
+        parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+    @HopMetadataProperty
+    private boolean trimBusinessKeys = true;
 */
+
+
   @GuiWidgetElement(
       order = "0330",
       type = GuiElementType.TEXT,
@@ -270,14 +235,14 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty
   private String loadDateField = "LOAD_DATE";
 
- /* @GuiWidgetElement(
+  @GuiWidgetElement(
       order = "0340",
       type = GuiElementType.TEXT,
       label = "i18n::DataVaultConfiguration.LoadEndDateField.Label",
       toolTip = "i18n::DataVaultConfiguration.LoadEndDateField.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
-  private String loadEndDateField = "LOAD_END_DATE";*/
+  private String loadEndDateField = "LOAD_END_DATE";
 
   @GuiWidgetElement(
       order = "0350",
@@ -307,7 +272,6 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty
   private String sourceField = "SOURCE";*/
 
- /* // --- Satellite loading pattern ---
   @GuiWidgetElement(
       order = "0410",
       type = GuiElementType.CHECKBOX,
@@ -315,13 +279,20 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       toolTip = "i18n::DataVaultConfiguration.UseLoadEndDate.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
-  private boolean useLoadEndDate = false;*/
+  private boolean useLoadEndDate = false;
 
   public DataVaultConfiguration() {
     super();
+    this.unknownHashKeyValue = "00000000000000000000000000000000";
+    this.unknownLinkHashKeyValue = "00000000000000000000000000000000";
+    this.unknownRecordSource = "UNKNOWN";
+    this.invalidHashKeyValue = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+    this.invalidLinkHashKeyValue = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
+    this.invalidRecordSource = "INVALID";
   }
 
   public DataVaultConfiguration(String name) {
+    this();
     this.name = name;
   }
 
@@ -336,5 +307,4 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   public void setName(String name) {
     this.name = name;
   }
-
 }

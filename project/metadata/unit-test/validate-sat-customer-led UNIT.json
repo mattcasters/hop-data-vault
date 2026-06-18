@@ -1,0 +1,41 @@
+{
+  "database_replacements": [],
+  "autoOpening": true,
+  "description": "",
+  "persist_filename": "",
+  "test_type": "UNIT_TEST",
+  "variableValues": [],
+  "basePath": "${HOP_UNIT_TESTS_FOLDER}",
+  "golden_data_sets": [
+    {
+      "field_mappings": [
+        {
+          "transform_field": "customer_hk",
+          "data_set_field": "customer_hk"
+        },
+        {
+          "transform_field": "name",
+          "data_set_field": "NAME"
+        },
+        {
+          "transform_field": "email",
+          "data_set_field": "email"
+        },
+        {
+          "transform_field": "x_record_source",
+          "data_set_field": "x_record_source"
+        }
+      ],
+      "field_order": [
+        "customer_hk",
+        "email"
+      ],
+      "data_set_name": "sat-customer-led-golden1",
+      "transform_name": "Validate"
+    }
+  ],
+  "input_data_sets": [],
+  "name": "validate-sat-customer-led UNIT",
+  "trans_test_tweaks": [],
+  "pipeline_filename": "./tests/load-end-date/validate-sat-customer-led.hpl"
+}
