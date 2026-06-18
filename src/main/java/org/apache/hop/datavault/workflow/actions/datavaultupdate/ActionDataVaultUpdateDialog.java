@@ -18,20 +18,26 @@
 package org.apache.hop.datavault.workflow.actions.datavaultupdate;
 
 import org.apache.hop.core.Const;
+import org.apache.hop.core.Props;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
+import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.apache.hop.ui.workflow.action.ActionDialog;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.action.IAction;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
@@ -39,10 +45,11 @@ import org.eclipse.swt.widgets.Text;
 public class ActionDataVaultUpdateDialog extends ActionDialog {
   private static final Class<?> PKG = ActionDataVaultUpdate.class;
 
-  public static final String PARENT_WIDGET_ID = ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_PARENT_ID;
-
   private final ActionDataVaultUpdate action;
   private GuiCompositeWidgets widgets;
+  private Composite wModelTabComp;
+  private Composite wDdlTabComp;
+  private Composite wSourceTabComp;
 
   public ActionDataVaultUpdateDialog(
       Shell parent, ActionDataVaultUpdate action, WorkflowMeta workflowMeta, IVariables variables) {
@@ -69,7 +76,6 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
     int margin = PropsUi.getMargin();
     int middle = PropsUi.getInstance().getMiddlePct();
 
-    // Buttons at the bottom
     Button wOK = new Button(shell, SWT.PUSH);
     wOK.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOK.addListener(SWT.Selection, e -> ok());
@@ -79,7 +85,6 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
 
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOK, wCancel}, margin, null);
 
-    // Name
     Label wlName = new Label(shell, SWT.RIGHT);
     PropsUi.setLook(wlName);
     wlName.setText(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Name.Label"));
@@ -97,11 +102,42 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
     fdName.right = new FormAttachment(100, 0);
     wName.setLayoutData(fdName);
 
-    // Rest of the widgets are created automatically from the @GuiWidgetElement annotations
-    widgets = new GuiCompositeWidgets(variables);
-    widgets.createCompositeWidgets(action, null, shell, PARENT_WIDGET_ID, wName);
+    CTabFolder wTabFolder = new CTabFolder(shell, SWT.BORDER);
+    PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
+    wTabFolder.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(new FormAttachment(wName, margin))
+            .right()
+            .bottom(new FormAttachment(wOK, -2 * margin))
+            .result());
 
-    // Set content on the widgets
+    wModelTabComp =
+        addTab(
+            wTabFolder,
+            BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Model.Label"),
+            BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Model.ToolTip"));
+    wDdlTabComp =
+        addTab(
+            wTabFolder,
+            BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Ddl.Label"),
+            BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Ddl.ToolTip"));
+    wSourceTabComp =
+        addTab(
+            wTabFolder,
+            BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Source.Label"),
+            BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Source.ToolTip"));
+
+    widgets = new GuiCompositeWidgets(variables);
+    widgets.createCompositeWidgets(
+        action, null, wModelTabComp, ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_MODEL_TAB_ID, null);
+    widgets.createCompositeWidgets(
+        action, null, wDdlTabComp, ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_DDL_TAB_ID, null);
+    widgets.createCompositeWidgets(
+        action, null, wSourceTabComp, ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_SOURCE_TAB_ID, null);
+
+    wTabFolder.setSelection(0);
+
     setWidgetsContent();
 
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
@@ -109,14 +145,37 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
     return action;
   }
 
+  private Composite addTab(CTabFolder tabFolder, String title, String toolTip) {
+    CTabItem tabItem = new CTabItem(tabFolder, SWT.NONE);
+    tabItem.setFont(GuiResource.getInstance().getFontDefault());
+    tabItem.setText(title);
+    tabItem.setToolTipText(toolTip);
+
+    Composite composite = new Composite(tabFolder, SWT.NONE);
+    PropsUi.setLook(composite);
+    FormLayout layout = new FormLayout();
+    layout.marginWidth = PropsUi.getFormMargin();
+    layout.marginHeight = PropsUi.getFormMargin();
+    composite.setLayout(layout);
+    tabItem.setControl(composite);
+    return composite;
+  }
+
   private void setWidgetsContent() {
     wName.setText(Const.NVL(action.getName(), ""));
-    widgets.setWidgetsContents(action, shell, PARENT_WIDGET_ID);
+    widgets.setWidgetsContents(
+        action, wModelTabComp, ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_MODEL_TAB_ID);
+    widgets.setWidgetsContents(
+        action, wDdlTabComp, ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_DDL_TAB_ID);
+    widgets.setWidgetsContents(
+        action, wSourceTabComp, ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_SOURCE_TAB_ID);
   }
 
   private void getWidgetsContent() {
     action.setName(wName.getText());
-    widgets.getWidgetsContents(action, PARENT_WIDGET_ID);
+    widgets.getWidgetsContents(action, ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_MODEL_TAB_ID);
+    widgets.getWidgetsContents(action, ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_DDL_TAB_ID);
+    widgets.getWidgetsContents(action, ActionDataVaultUpdate.GUI_PLUGIN_ELEMENT_SOURCE_TAB_ID);
   }
 
   private void ok() {

@@ -35,8 +35,9 @@
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <recordSourceGroup/>
+      <ensureSpecialRecords>Y</ensureSpecialRecords>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <name>update vault1.hdv</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>
@@ -229,8 +230,9 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <recordSourceGroup/>
+      <ensureSpecialRecords>N</ensureSpecialRecords>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <name>update vault1.hdv </name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>

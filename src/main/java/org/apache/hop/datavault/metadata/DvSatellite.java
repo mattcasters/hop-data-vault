@@ -572,6 +572,19 @@ public class DvSatellite extends DvTableBase
     return result;
   }
 
+  @Override
+  public int ensureSpecialRecords(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model,
+      Date loadDate,
+      ILoggingObject loggingObject)
+      throws HopException {
+    // Satellites do not carry unknown/invalid sentinel rows; parent hub/link hashes are ensured
+    // separately.
+    return 0;
+  }
+
   private IValueMeta createValueMetaFromSourceField(SourceField sf) throws HopException {
     String name = sf.getName();
     int type = sf.getHopType();

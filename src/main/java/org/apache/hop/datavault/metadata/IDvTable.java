@@ -26,6 +26,7 @@ import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.ICheckResultSource;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.logging.ILoggingObject;
 import org.apache.hop.core.gui.IGuiPosition;
 import org.apache.hop.metadata.api.HopMetadataObject;
 import org.apache.hop.metadata.api.IHasName;
@@ -128,6 +129,22 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
    * @param model the DataVaultModel (to resolve the configuration name)
    */
   IRowMeta getTargetTableLayout(IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model) throws HopException;
+
+  /**
+   * Ensure unknown and invalid sentinel rows exist in the target table when enabled in the model's
+   * Data Vault Configuration. Missing rows are inserted with {@link
+   * org.apache.hop.core.database.Database#insertRow(String, IRowMeta, Object[])}.
+   *
+   * @return the number of rows inserted (0 if none were needed or this table type has no sentinel
+   *     rows)
+   */
+  int ensureSpecialRecords(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model,
+      Date loadDate,
+      ILoggingObject loggingObject)
+      throws HopException;
 
   /**
    * Factory used by the Hop metadata serializer to handle polymorphic serialization of

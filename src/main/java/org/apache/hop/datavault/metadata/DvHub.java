@@ -998,4 +998,16 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       throw new HopException("Error building target table layout for hub", e);
     }
   }
+
+  @Override
+  public int ensureSpecialRecords(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model,
+      Date loadDate,
+      ILoggingObject loggingObject)
+      throws HopException {
+    return DvSpecialRecordSupport.ensureHubSpecialRecords(
+        this, metadataProvider, variables, model, loadDate, loggingObject);
+  }
 }

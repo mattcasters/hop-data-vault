@@ -88,6 +88,8 @@ CREATE TABLE customer_phone
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/customer-phone-ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
+      <recordSourceGroup/>
+      <ensureSpecialRecords>Y</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <name>update customer-phone.hdv</name>
       <description/>
@@ -173,8 +175,9 @@ DROP TABLE IF EXISTS sat_customer_phone
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <recordSourceGroup/>
+      <ensureSpecialRecords>N</ensureSpecialRecords>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <name>update customer-phone.hdv </name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>

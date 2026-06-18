@@ -27,6 +27,7 @@ import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.changed.ChangedFlag;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.logging.ILoggingObject;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.database.DatabaseMeta;
@@ -309,6 +310,17 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
       throws HopException {
     // default: no DDL in base
     return java.util.Collections.emptyMap();
+  }
+
+  @Override
+  public int ensureSpecialRecords(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model,
+      Date loadDate,
+      ILoggingObject loggingObject)
+      throws HopException {
+    return 0;
   }
 
   protected static @NonNull TransformMeta addDummyTransform(PipelineMeta pipelineMeta, TransformMeta referenceTransform, String transformName, int locationX, int locationY) {

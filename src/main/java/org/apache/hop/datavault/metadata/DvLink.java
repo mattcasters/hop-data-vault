@@ -40,6 +40,7 @@ import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.logging.ILoggingObject;
 import org.apache.hop.core.logging.LoggingObjectType;
 import org.apache.hop.core.logging.SimpleLoggingObject;
 import org.apache.hop.core.row.IRowMeta;
@@ -1086,6 +1087,18 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   }
 
   // The main addSortRows is defined above and used for both the link hash sort and the helper.
+
+  @Override
+  public int ensureSpecialRecords(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model,
+      Date loadDate,
+      ILoggingObject loggingObject)
+      throws HopException {
+    return DvSpecialRecordSupport.ensureLinkSpecialRecords(
+        this, metadataProvider, variables, model, loadDate, loggingObject);
+  }
 
   /**
    * Represents the source key field mappings for one participating hub in a link. Allows mapping

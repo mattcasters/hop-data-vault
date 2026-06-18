@@ -96,6 +96,106 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty
   private HashKeyDataType hashKeyDataType = HashKeyDataType.BINARY;
 
+  // --- Unknown / ghost record handling (common DV pattern) ---
+  @GuiWidgetElement(
+      order = "0200",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::DataVaultConfiguration.GenerateUnknownRecord.Label",
+      toolTip = "i18n::DataVaultConfiguration.GenerateUnknownRecord.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean generateUnknownRecord = true;
+
+  @GuiWidgetElement(
+      order = "0210",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.UnknownBusinessKeyValue.Label",
+      toolTip = "i18n::DataVaultConfiguration.UnknownBusinessKeyValue.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String unknownBusinessKeyValue = "N/A";
+
+  @GuiWidgetElement(
+      order = "0220",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.UnknownHashKeyValue.Label",
+      toolTip = "i18n::DataVaultConfiguration.UnknownHashKeyValue.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String unknownHashKeyValue;
+
+  @GuiWidgetElement(
+      order = "0230",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.UnknownLinkHashKeyValue.Label",
+      toolTip = "i18n::DataVaultConfiguration.UnknownLinkHashKeyValue.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String unknownLinkHashKeyValue;
+
+  @GuiWidgetElement(
+      order = "0240",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.UnknownRecordSource.Label",
+      toolTip = "i18n::DataVaultConfiguration.UnknownRecordSource.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String unknownRecordSource = "UNKNOWN";
+
+  // --- Invalid / error record handling ---
+  @GuiWidgetElement(
+      order = "0250",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::DataVaultConfiguration.GenerateInvalidRecord.Label",
+      toolTip = "i18n::DataVaultConfiguration.GenerateInvalidRecord.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean generateInvalidRecord = true;
+
+  @GuiWidgetElement(
+      order = "0260",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.InvalidBusinessKeyValue.Label",
+      toolTip = "i18n::DataVaultConfiguration.InvalidBusinessKeyValue.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String invalidBusinessKeyValue = "INVALID";
+
+  @GuiWidgetElement(
+      order = "0270",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.InvalidHashKeyValue.Label",
+      toolTip = "i18n::DataVaultConfiguration.InvalidHashKeyValue.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String invalidHashKeyValue;
+
+  @GuiWidgetElement(
+      order = "0280",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.InvalidLinkHashKeyValue.Label",
+      toolTip = "i18n::DataVaultConfiguration.InvalidLinkHashKeyValue.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String invalidLinkHashKeyValue;
+
+  @GuiWidgetElement(
+      order = "0290",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.InvalidRecordSource.Label",
+      toolTip = "i18n::DataVaultConfiguration.InvalidRecordSource.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String invalidRecordSource = "INVALID";
+
   /*@GuiWidgetElement(
       order = "0120",
       type = GuiElementType.COMBO,

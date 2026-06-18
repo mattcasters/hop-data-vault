@@ -57,7 +57,7 @@ FROM hub_customer
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>272</xloc>
+      <xloc>256</xloc>
       <yloc>80</yloc>
     </GUI>
     <partitioning>
@@ -81,7 +81,7 @@ FROM hub_customer
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>416</xloc>
+      <xloc>400</xloc>
       <yloc>80</yloc>
     </GUI>
     <partitioning>
@@ -96,7 +96,7 @@ FROM hub_customer
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>576</xloc>
+      <xloc>560</xloc>
       <yloc>80</yloc>
     </GUI>
     <partitioning>

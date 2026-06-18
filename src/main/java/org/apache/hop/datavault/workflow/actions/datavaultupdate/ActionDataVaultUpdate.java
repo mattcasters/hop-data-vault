@@ -48,6 +48,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
@@ -77,14 +78,23 @@ import org.w3c.dom.Node;
 public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAction {
   private static final Class<?> PKG = ActionDataVaultUpdate.class;
 
+  /** Root dialog identifier (action name field lives outside the tab folder). */
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_UPDATE_ACTION";
+
+  public static final String GUI_PLUGIN_ELEMENT_MODEL_TAB_ID =
+      "DATAVAULT_UPDATE_ACTION_MODEL_TAB";
+
+  public static final String GUI_PLUGIN_ELEMENT_DDL_TAB_ID = "DATAVAULT_UPDATE_ACTION_DDL_TAB";
+
+  public static final String GUI_PLUGIN_ELEMENT_SOURCE_TAB_ID =
+      "DATAVAULT_UPDATE_ACTION_SOURCE_TAB";
 
   @GuiWidgetElement(
       order = "0100",
       type = GuiElementType.FILENAME,
       label = "i18n::ActionDataVaultUpdate.DataVaultModel.Label",
       toolTip = "i18n::ActionDataVaultUpdate.DataVaultModel.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
   private String dataVaultModelFile;
 
@@ -94,7 +104,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       metadata = PipelineRunConfiguration.class,
       label = "i18n::ActionDataVaultUpdate.PipelineRunConfiguration.Label",
       toolTip = "i18n::ActionDataVaultUpdate.PipelineRunConfiguration.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
   private String pipelineRunConfiguration;
 
@@ -103,7 +113,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       type = GuiElementType.CHECKBOX,
       label = "i18n::ActionDataVaultUpdate.LogModelCheckFailures.Label",
       toolTip = "i18n::ActionDataVaultUpdate.LogModelCheckFailures.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
   private boolean logModelCheckFailures = true;
 
@@ -112,55 +122,64 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       type = GuiElementType.CHECKBOX,
       label = "i18n::ActionDataVaultUpdate.AbortOnModelCheckFailures.Label",
       toolTip = "i18n::ActionDataVaultUpdate.AbortOnModelCheckFailures.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
   private boolean abortOnModelCheckFailures = true;
 
   @GuiWidgetElement(
-      order = "0500",
+      order = "0100",
       type = GuiElementType.CHECKBOX,
       label = "i18n::ActionDataVaultUpdate.UpdateTargetStructure.Label",
       toolTip = "i18n::ActionDataVaultUpdate.UpdateTargetStructure.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_DDL_TAB_ID)
   @HopMetadataProperty
   private boolean updateTargetDatabaseStructure = true;
 
   @GuiWidgetElement(
-      order = "0510",
+      order = "0200",
       type = GuiElementType.FILENAME,
       label = "i18n::ActionDataVaultUpdate.DdlSqlFilename.Label",
       toolTip = "i18n::ActionDataVaultUpdate.DdlSqlFilename.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_DDL_TAB_ID)
   @HopMetadataProperty
   private String ddlSqlFilename;
 
   @GuiWidgetElement(
-      order = "0520",
+      order = "0300",
       type = GuiElementType.CHECKBOX,
       label = "i18n::ActionDataVaultUpdate.FailIfDdlNeeded.Label",
       toolTip = "i18n::ActionDataVaultUpdate.FailIfDdlNeeded.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_DDL_TAB_ID)
   @HopMetadataProperty
   private boolean failIfDdlNeeded;
 
   @GuiWidgetElement(
-      order = "0600",
-      type = GuiElementType.CHECKBOX,
-      label = "i18n::ActionDataVaultUpdate.DoNotUpdateTargetDatabase.Label",
-      toolTip = "i18n::ActionDataVaultUpdate.DoNotUpdateTargetDatabase.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private boolean doNotUpdateTargetDatabase;
-
-  @GuiWidgetElement(
-      order = "0650",
+      order = "0100",
       type = GuiElementType.TEXT,
       variables = true,
       label = "i18n::ActionDataVaultUpdate.RecordSourceGroup.Label",
       toolTip = "i18n::ActionDataVaultUpdate.RecordSourceGroup.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_SOURCE_TAB_ID)
   @HopMetadataProperty
   private String recordSourceGroup;
+
+  @GuiWidgetElement(
+      order = "0200",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionDataVaultUpdate.EnsureSpecialRecords.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.EnsureSpecialRecords.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_SOURCE_TAB_ID)
+  @HopMetadataProperty
+  private boolean ensureSpecialRecords = true;
+
+  @GuiWidgetElement(
+      order = "0300",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionDataVaultUpdate.DoNotUpdateTargetDatabase.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.DoNotUpdateTargetDatabase.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_SOURCE_TAB_ID)
+  @HopMetadataProperty
+  private boolean doNotUpdateTargetDatabase;
 
   public ActionDataVaultUpdate(String name) {
     super(name, "");
@@ -181,6 +200,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     this.updateTargetDatabaseStructure = meta.updateTargetDatabaseStructure;
     this.ddlSqlFilename = meta.ddlSqlFilename;
     this.failIfDdlNeeded = meta.failIfDdlNeeded;
+    this.ensureSpecialRecords = meta.ensureSpecialRecords;
     this.doNotUpdateTargetDatabase = meta.doNotUpdateTargetDatabase;
     this.recordSourceGroup = meta.recordSourceGroup;
   }
@@ -348,6 +368,46 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
         result.setResult(success);
         result.setNrErrors(success ? 0 : (totalErrors > 0 ? totalErrors : 1));
         return result;
+      }
+
+      if (ensureSpecialRecords) {
+        ILoggingObject specialRecordsLoggingObject =
+            new SimpleLoggingObject(
+                "ActionDataVaultUpdate.ensureSpecialRecords", LoggingObjectType.GENERAL, null);
+        int totalInserted = 0;
+        for (DvTableType tableType : new DvTableType[] {DvTableType.HUB, DvTableType.LINK}) {
+          for (IDvTable table : tables) {
+            if (table.getTableType() != tableType) {
+              continue;
+            }
+            try {
+              int inserted =
+                  table.ensureSpecialRecords(
+                      getMetadataProvider(), getVariables(), model, loadDate, specialRecordsLoggingObject);
+              totalInserted += inserted;
+              if (inserted > 0) {
+                logBasic(
+                    BaseMessages.getString(
+                        PKG,
+                        "ActionDataVaultUpdate.Log.SpecialRecordsInserted",
+                        table.getName(),
+                        inserted));
+              }
+            } catch (Exception ex) {
+              logError(
+                  BaseMessages.getString(
+                      PKG, "ActionDataVaultUpdate.Error.SpecialRecordsFailed", table.getName()),
+                  ex);
+              totalErrors++;
+              success = false;
+            }
+          }
+        }
+        if (totalInserted > 0) {
+          logBasic(
+              BaseMessages.getString(
+                  PKG, "ActionDataVaultUpdate.Log.SpecialRecordsTotal", totalInserted));
+        }
       }
 
       for (IDvTable table : tables) {

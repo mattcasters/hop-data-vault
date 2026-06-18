@@ -114,8 +114,9 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/link-satellite-ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <recordSourceGroup/>
+      <ensureSpecialRecords>Y</ensureSpecialRecords>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <name>update link-satellite.hdv</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>
@@ -177,8 +178,9 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <recordSourceGroup/>
+      <ensureSpecialRecords>N</ensureSpecialRecords>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
       <name>update link-satellite.hdv 2</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>
