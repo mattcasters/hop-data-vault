@@ -94,24 +94,17 @@ public class DataVaultModel extends HopMetadataBase
   private String description;
 
   /**
-   * Default configuration for hashing and physical strategy used by objects in this model (can be
-   * overridden at the individual table level).
+   * Configuration for hashing, target database and physical strategy used by objects in this model.
    */
-  @GuiWidgetElement(
-      order = "0200",
-      type = GuiElementType.METADATA,
-      metadata = DataVaultConfiguration.class,
-      label = "i18n::DataVaultModel.Configuration.Label",
-      toolTip = "i18n::DataVaultModel.Configuration.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty(key = "configuration", storeWithName = true)
-  private DataVaultConfiguration configuration;
+  @HopMetadataProperty(key = "configuration")
+  private DataVaultConfiguration configuration = new DataVaultConfiguration();
 
-  public String getConfigurationName() {
-    if (configuration != null && !Utils.isEmpty(configuration.getName())) {
-      return configuration.getName();
+  /** Returns the embedded configuration, or a new default instance if none is set. */
+  public DataVaultConfiguration getConfigurationOrDefault() {
+    if (configuration == null) {
+      configuration = new DataVaultConfiguration();
     }
-    return null;
+    return configuration;
   }
 
   /**
@@ -173,18 +166,19 @@ public class DataVaultModel extends HopMetadataBase
     }
 
     // Top-level model checks
-    if (configuration == null) {
+    DataVaultConfiguration config = getConfigurationOrDefault();
+    if (Utils.isEmpty(config.getTargetDatabase())) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_WARNING,
-              BaseMessages.getString(PKG, "DataVaultModel.CheckResult.NoConfiguration"),
+              BaseMessages.getString(PKG, "DataVaultModel.CheckResult.NoTargetDatabase"),
               null));
     } else {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,
               BaseMessages.getString(
-                  PKG, "DataVaultModel.CheckResult.HasConfiguration", configuration.getName()),
+                  PKG, "DataVaultModel.CheckResult.HasTargetDatabase", config.getTargetDatabase()),
               null));
     }
 

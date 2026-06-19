@@ -47,7 +47,9 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvGeneratedPipelineSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
@@ -441,6 +443,8 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           continue;
         }
 
+        DataVaultConfiguration pipelineConfig = model.getConfigurationOrDefault();
+
         for (PipelineMeta pipelineMeta : pipelineMetas) {
           if (pipelineMeta == null) {
             logError(
@@ -452,6 +456,18 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           }
 
           pipelineMeta.lookupReferencesAfterLoading();
+
+          String savedPipelineFile =
+              DvGeneratedPipelineSupport.saveBeforeExecution(
+                  pipelineConfig, getVariables(), pipelineMeta);
+          if (!Utils.isEmpty(savedPipelineFile)) {
+            logBasic(
+                BaseMessages.getString(
+                    PKG,
+                    "ActionDataVaultUpdate.Log.SavedGeneratedPipeline",
+                    pipelineMeta.getName(),
+                    savedPipelineFile));
+          }
 
           logBasic("====================================================================");
           logBasic(

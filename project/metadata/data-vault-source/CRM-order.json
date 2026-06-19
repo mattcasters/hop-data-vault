@@ -1,8 +1,79 @@
 {
   "sourceIndicator": "",
-  "sourceTableName": "CRM-order",
-  "virtualPath": "",
-  "sourceType": "DATABASE",
   "sourceIndicatorField": "record_source",
-  "name": "CRM-order"
+  "name": "CRM-order",
+  "source": {
+    "DATABASE": {
+      "databaseName": "CRM",
+      "schemaName": "",
+      "tableName": "order",
+      "description": "",
+      "field": [
+        {
+          "sourceDataType": "String",
+          "hopType": 2,
+          "precision": "",
+          "length": "7",
+          "name": "order_id",
+          "description": ""
+        },
+        {
+          "sourceDataType": "Integer",
+          "hopType": 5,
+          "precision": "0",
+          "length": "9",
+          "name": "customer_id",
+          "description": ""
+        },
+        {
+          "sourceDataType": "String",
+          "hopType": 2,
+          "precision": "",
+          "length": "7",
+          "name": "product_id",
+          "description": ""
+        },
+        {
+          "sourceDataType": "Integer",
+          "hopType": 5,
+          "precision": "0",
+          "length": "9",
+          "name": "quantity",
+          "description": ""
+        },
+        {
+          "sourceDataType": "Number",
+          "hopType": 1,
+          "precision": "2",
+          "length": "9",
+          "name": "unit_price",
+          "description": ""
+        },
+        {
+          "sourceDataType": "Timestamp",
+          "hopType": 9,
+          "precision": "",
+          "length": "6",
+          "name": "order_date",
+          "description": ""
+        },
+        {
+          "sourceDataType": "Timestamp",
+          "hopType": 9,
+          "precision": "",
+          "length": "6",
+          "name": "load_date",
+          "description": ""
+        },
+        {
+          "sourceDataType": "String",
+          "hopType": 2,
+          "precision": "",
+          "length": "20",
+          "name": "record_source",
+          "description": ""
+        }
+      ]
+    }
+  }
 }

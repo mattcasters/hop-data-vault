@@ -57,7 +57,7 @@ public abstract class DvSourcePipelineBuilder {
     this.variables = variables;
     this.metadataProvider = metadataProvider;
     this.model = model;
-    this.configuration = model.getConfiguration();
+    this.configuration = model.getConfigurationOrDefault();
     this.pipelineMeta = pipelineMeta;
     this.recordSource = recordSource;
     this.dvSource = dvSource;

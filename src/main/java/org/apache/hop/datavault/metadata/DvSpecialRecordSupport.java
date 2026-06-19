@@ -47,15 +47,10 @@ public final class DvSpecialRecordSupport {
 
   public static DataVaultConfiguration loadConfiguration(
       IHopMetadataProvider metadataProvider, DataVaultModel model) throws HopException {
-    DataVaultConfiguration config = null;
-    String configName = model != null ? model.getConfigurationName() : null;
-    if (metadataProvider != null && !Utils.isEmpty(configName)) {
-      config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
+    if (model == null) {
+      return new DataVaultConfiguration();
     }
-    if (config == null) {
-      config = new DataVaultConfiguration();
-    }
-    return config;
+    return model.getConfigurationOrDefault();
   }
 
   public static DatabaseMeta loadTargetDatabase(

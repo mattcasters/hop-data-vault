@@ -1,0 +1,73 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.hop.datavault.hopgui.file.vault;
+
+import java.util.ArrayList;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.gui.DPoint;
+import org.apache.hop.core.gui.Point;
+import org.apache.hop.core.gui.SvgGc;
+import org.apache.hop.core.svg.HopSvgGraphics2D;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultModel;
+
+/** Renders a {@link DataVaultModel} to SVG using {@link DataVaultModelPainter}. */
+public final class DataVaultModelSvgPainter {
+
+  private static final int ICON_SIZE = 32;
+  private static final int EXTRA_MARGIN = 0;
+
+  private DataVaultModelSvgPainter() {}
+
+  public static String generateDataVaultModelSvg(
+      DataVaultModel model, float magnification, IVariables variables, boolean showHashKeyFieldNames)
+      throws HopException {
+    if (model == null) {
+      throw new HopException("Cannot generate SVG for a null Data Vault model.");
+    }
+    try {
+      Point maximum = model.getMaximum();
+      maximum.multiply(magnification);
+
+      HopSvgGraphics2D graphics2D = HopSvgGraphics2D.newDocument();
+      Point svgSize =
+          new Point(maximum.x + EXTRA_MARGIN, maximum.y + EXTRA_MARGIN);
+
+      SvgGc gc = new SvgGc(graphics2D, svgSize, ICON_SIZE, 0, 0);
+      DataVaultModelPainter painter =
+          new DataVaultModelPainter(model, gc, variables, svgSize.x, svgSize.y);
+      painter.setMagnification(magnification);
+      painter.setAreaOwners(new ArrayList<>());
+      painter.setZoomFactor(1.0f);
+      painter.setOffset(new DPoint(0, 0));
+      painter.setIconSize(ICON_SIZE);
+      painter.setGridSize(1);
+      painter.setShowingNavigationView(false);
+      painter.setShowHashKeyFieldNames(showHashKeyFieldNames);
+      painter.setMaximum(model.getMaximum());
+      painter.drawDataVaultModel();
+
+      return graphics2D.toXml();
+    } catch (Exception e) {
+      throw new HopException(
+          "Unable to generate SVG for Data Vault model "
+              + (model.getName() != null ? model.getName() : ""),
+          e);
+    }
+  }
+}

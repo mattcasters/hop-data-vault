@@ -88,15 +88,6 @@ public class SourceField {
 
   @GuiWidgetElement(
       order = "0600",
-      type = GuiElementType.CHECKBOX,
-      label = "i18n::SourceField.PrimaryKey.Label",
-      toolTip = "i18n::SourceField.PrimaryKey.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private boolean primaryKey;
-
-  @GuiWidgetElement(
-      order = "0700",
       type = GuiElementType.TEXT,
       label = "i18n::SourceField.HopType.Label",
       toolTip = "i18n::SourceField.HopType.ToolTip",

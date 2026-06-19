@@ -23,42 +23,20 @@ import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
-import org.apache.hop.metadata.api.HopMetadata;
-import org.apache.hop.metadata.api.HopMetadataBase;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.HopMetadataProperty;
-import org.apache.hop.metadata.api.IHasName;
-import org.apache.hop.metadata.api.IHopMetadata;
 
 /**
- * Configuration metadata for Data Vault 2.0 physical implementation and update strategy.
+ * Configuration for Data Vault 2.0 physical implementation and update strategy.
  *
- * <p>This is kept separate from the logical model (Hubs/Links/Satellites) so that the same model
- * can be realized with different physical strategies or on different platforms.
- *
- * <p>Common options covered:
- *
- * <ul>
- *   <li>Target database (DatabaseMeta) for physical implementation
- *   <li>Hashing algorithm (MD5, SHA1, SHA256...)
- *   <li>Hash key storage: binary (recommended) or string (hex)
- *   <li>Trimming of business keys
- *   <li>Case normalization before hashing
- *   <li>Delimiter for composite business keys and link key construction
- *   <li>Null/unknown value placeholder for consistent hashing
- *   <li>Standard column naming conventions (suffixes, field names)
- *   <li>Unknown record generation
- * </ul>
+ * <p>Embedded inline in {@link DataVaultModel} so each model carries its own hashing, naming and
+ * target database settings.
  */
-@GuiPlugin
-@HopMetadata(
-    key = "data-vault-configuration",
-    name = "i18n::DataVaultConfiguration.name",
-    description = "i18n::DataVaultConfiguration.description",
-    image = "datavault_configuration.svg",
-    documentationUrl = "/metadata-types/data-vault-configuration.html")
 @Getter
 @Setter
-public class DataVaultConfiguration extends HopMetadataBase implements IHopMetadata, IHasName {
+@GuiPlugin
+public class DataVaultConfiguration {
 
   public static final String GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID =
       "DATAVAULT_CONFIGURATION_GENERAL_TAB";
@@ -72,7 +50,18 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   public static final String GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID =
       "DATAVAULT_CONFIGURATION_COLUMNS_TAB";
 
-  @HopMetadataProperty private String name;
+  public static final String GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID =
+      "DATAVAULT_CONFIGURATION_TARGET_LOAD_TAB";
+
+  public static final String GUI_PLUGIN_ELEMENT_GENERATED_PIPELINES_TAB_ID =
+      "DATAVAULT_CONFIGURATION_GENERATED_PIPELINES_TAB";
+
+  /** Default commit size used by {@link org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta}. */
+  public static final String DEFAULT_TARGET_TABLE_BATCH_SIZE = "1000";
+
+  public static final String DEFAULT_HUB_PIPELINE_NAME_PREFIX = "hub-";
+  public static final String DEFAULT_LINK_PIPELINE_NAME_PREFIX = "link-";
+  public static final String DEFAULT_SATELLITE_PIPELINE_NAME_PREFIX = "sat-";
 
   /**
    * The target database (DatabaseMeta) in which the Data Vault will be implemented. This makes the
@@ -264,7 +253,6 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty
   private boolean trimBusinessKeys = true;
 
-
   @GuiWidgetElement(
       order = "0330",
       type = GuiElementType.TEXT,
@@ -302,15 +290,6 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty
   private String recordSourceFieldLength = "100";
 
-  /*@GuiWidgetElement(
-      order = "0360",
-      type = GuiElementType.TEXT,
-      label = "i18n::DataVaultConfiguration.SourceField.Label",
-      toolTip = "i18n::DataVaultConfiguration.SourceField.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID)
-  @HopMetadataProperty
-  private String sourceField = "SOURCE";*/
-
   @GuiWidgetElement(
       order = "0410",
       type = GuiElementType.CHECKBOX,
@@ -320,8 +299,57 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty
   private boolean useLoadEndDate = false;
 
+  @GuiWidgetElement(
+      order = "0500",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.TargetTableBatchSize.Label",
+      toolTip = "i18n::DataVaultConfiguration.TargetTableBatchSize.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private String targetTableBatchSize = DEFAULT_TARGET_TABLE_BATCH_SIZE;
+
+  @GuiWidgetElement(
+      order = "0600",
+      type = GuiElementType.FOLDER,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.GeneratedPipelineFolder.Label",
+      toolTip = "i18n::DataVaultConfiguration.GeneratedPipelineFolder.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERATED_PIPELINES_TAB_ID)
+  @HopMetadataProperty
+  private String generatedPipelineFolder;
+
+  @GuiWidgetElement(
+      order = "0610",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.HubPipelineNamePrefix.Label",
+      toolTip = "i18n::DataVaultConfiguration.HubPipelineNamePrefix.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERATED_PIPELINES_TAB_ID)
+  @HopMetadataProperty
+  private String hubPipelineNamePrefix = DEFAULT_HUB_PIPELINE_NAME_PREFIX;
+
+  @GuiWidgetElement(
+      order = "0620",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.LinkPipelineNamePrefix.Label",
+      toolTip = "i18n::DataVaultConfiguration.LinkPipelineNamePrefix.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERATED_PIPELINES_TAB_ID)
+  @HopMetadataProperty
+  private String linkPipelineNamePrefix = DEFAULT_LINK_PIPELINE_NAME_PREFIX;
+
+  @GuiWidgetElement(
+      order = "0630",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.SatellitePipelineNamePrefix.Label",
+      toolTip = "i18n::DataVaultConfiguration.SatellitePipelineNamePrefix.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERATED_PIPELINES_TAB_ID)
+  @HopMetadataProperty
+  private String satellitePipelineNamePrefix = DEFAULT_SATELLITE_PIPELINE_NAME_PREFIX;
+
   public DataVaultConfiguration() {
-    super();
     this.unknownHashKeyValue = "00000000000000000000000000000000";
     this.unknownLinkHashKeyValue = "00000000000000000000000000000000";
     this.unknownRecordSource = "UNKNOWN";
@@ -330,20 +358,57 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
     this.invalidRecordSource = "INVALID";
   }
 
-  public DataVaultConfiguration(String name) {
-    this();
-    this.name = name;
+  /**
+   * Resolves the batch size (commit size) for generated Table Output transforms writing to target DV
+   * tables.
+   */
+  public String resolveTargetTableCommitSize(IVariables variables) {
+    String size = targetTableBatchSize;
+    if (Utils.isEmpty(size)) {
+      return DEFAULT_TARGET_TABLE_BATCH_SIZE;
+    }
+    if (variables != null) {
+      size = variables.resolve(size);
+    }
+    return size;
   }
 
-  // --- Getters & Setters ---
-
-  @Override
-  public String getName() {
-    return name;
+  public String buildHubPipelineName(
+      IVariables variables, String targetTableName, String sourceName) {
+    return buildPipelineName(
+        variables, hubPipelineNamePrefix, DEFAULT_HUB_PIPELINE_NAME_PREFIX, targetTableName, sourceName);
   }
 
-  @Override
-  public void setName(String name) {
-    this.name = name;
+  public String buildLinkPipelineName(
+      IVariables variables, String targetTableName, String sourceName) {
+    return buildPipelineName(
+        variables,
+        linkPipelineNamePrefix,
+        DEFAULT_LINK_PIPELINE_NAME_PREFIX,
+        targetTableName,
+        sourceName);
+  }
+
+  public String buildSatellitePipelineName(
+      IVariables variables, String targetTableName, String sourceName) {
+    return buildPipelineName(
+        variables,
+        satellitePipelineNamePrefix,
+        DEFAULT_SATELLITE_PIPELINE_NAME_PREFIX,
+        targetTableName,
+        sourceName);
+  }
+
+  private static String buildPipelineName(
+      IVariables variables,
+      String configuredPrefix,
+      String defaultPrefix,
+      String targetTableName,
+      String sourceName) {
+    String prefix = Utils.isEmpty(configuredPrefix) ? defaultPrefix : configuredPrefix;
+    if (variables != null) {
+      prefix = variables.resolve(prefix);
+    }
+    return prefix + targetTableName + "-" + sourceName;
   }
 }

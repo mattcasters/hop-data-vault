@@ -17,6 +17,9 @@
 
 package org.apache.hop.datavault.hopgui.file.vault;
 
+import java.io.File;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,14 +47,17 @@ import org.apache.hop.core.gui.plugin.IGuiRefresher;
 import org.apache.hop.core.gui.plugin.action.GuiActionType;
 import org.apache.hop.core.gui.plugin.key.GuiKeyboardShortcut;
 import org.apache.hop.core.gui.plugin.key.GuiOsxKeyboardShortcut;
+import org.apache.hop.core.gui.plugin.menu.GuiMenuElement;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElementType;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
+import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.database.DvDatabaseSourceImportSupport;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvNote;
@@ -65,6 +71,7 @@ import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.database.dialog.SqlEditor;
+import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.CheckResultDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.dialog.MessageBox;
@@ -137,6 +144,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   public static final String TOOLBAR_ITEM_GENERATE_DDL =
       "HopGuiVaultGraph-ToolBar-10080-Generate-Ddl";
 
+  public static final String TOOLBAR_ITEM_IMPORT_SOURCES =
+      "HopGuiVaultGraph-ToolBar-10085-Import-Sources";
+
   public static final String TOOLBAR_ITEM_SHOW_HASH_KEYS =
       "HopGuiVaultGraph-ToolBar-10090-Show-Hash-Keys";
 
@@ -199,6 +209,18 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   private Point
       navigationGrabOffset; // mouse offset inside the viewPort rect at drag start (screen px)
 
+  /** No-arg constructor for the Hop GUI menu plugin dispatcher ({@link #menuFileExportToSvg()}). */
+  public HopGuiVaultGraph() {
+    this(createMenuDispatchParent(), HopGui.getInstance(), null, null, null);
+  }
+
+  private static Composite createMenuDispatchParent() {
+    Shell shell = HopGui.getInstance().getShell();
+    Composite parent = new Composite(shell, SWT.NONE);
+    parent.setVisible(false);
+    return parent;
+  }
+
   public HopGuiVaultGraph(
       Composite parent,
       HopGui hopGui,
@@ -213,6 +235,10 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
     this.variables = new Variables();
     this.variables.copyFrom(hopGui.getVariables());
+
+    if (model == null) {
+      return;
+    }
 
     // The layout in the widget is done using a FormLayout to allow toolbar at top + canvas
     setLayout(new FormLayout());
@@ -493,16 +519,13 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
 
     if (resize != null && selectedNote != null) {
-      if (model != null) {
-        model.setChanged();
-      }
+      setChanged();
       resize = null;
       selectedNote = null;
       resizeArea = null;
       setCursor(null);
       clearNoteDragState();
       avoidContextDialog = true;
-      redraw();
       return;
     }
 
@@ -537,13 +560,10 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (e.button == 1) {
       if (iconDragCommitted || dragSelection || noteWasMoved) {
         // end table/note drag (moves were applied live during mouseMove)
-        if (model != null) {
-          model.setChanged();
-        }
+        setChanged();
         clearTableDragState();
         clearNoteDragState();
         avoidContextDialog = false;
-        redraw();
         return;
       }
 
@@ -1202,10 +1222,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
     DvNoteDialog dialog = new DvNoteDialog(getShell(), note);
     if (dialog.open()) {
-      if (model != null) {
-        model.setChanged();
-      }
-      redraw();
+      setChanged();
       canvas.setFocus();
     }
   }
@@ -1451,6 +1468,16 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
   @GuiToolbarElement(
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_IMPORT_SOURCES,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.ImportSources.Tooltip",
+      image = "ui/images/schema.svg")
+  public void importDatabaseSourceTables() {
+    DvDatabaseSourceImportSupport.importDatabaseTables(
+        hopGui.getShell(), hopGui, hopGui.getVariables(), hopGui.getMetadataProvider());
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_CHECK_MODEL,
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.CheckModel.Tooltip",
       image = "ui/images/check.svg")
@@ -1611,9 +1638,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     DvHub hub = new DvHub(getUniqueTableNameFromModel("Hub", realModel));
     PropsUi.setLocation(hub, click != null ? click.x : 50, click != null ? click.y : 50);
     realModel.getTables().add(hub);
-    realModel.setChanged();
-    realGraph.redraw();
-    realGraph.updateGui();
+    realGraph.setChanged();
   }
 
   @GuiContextAction(
@@ -1635,9 +1660,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     DvSatellite sat = new DvSatellite(getUniqueTableNameFromModel("Satellite", realModel));
     PropsUi.setLocation(sat, click != null ? click.x : 50, click != null ? click.y : 50);
     realModel.getTables().add(sat);
-    realModel.setChanged();
-    realGraph.redraw();
-    realGraph.updateGui();
+    realGraph.setChanged();
   }
 
   @GuiContextAction(
@@ -1659,9 +1682,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     DvLink link = new DvLink(getUniqueTableNameFromModel("Link", realModel));
     PropsUi.setLocation(link, click.x, click.y);
     realModel.getTables().add(link);
-    realModel.setChanged();
-    realGraph.redraw();
-    realGraph.updateGui();
+    realGraph.setChanged();
   }
 
   @GuiContextAction(
@@ -1689,10 +1710,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     PropsUi.setLocation(note, click != null ? click.x : 50, click != null ? click.y : 50);
     PropsUi.setSize(note, ConstUi.NOTE_MIN_SIZE, ConstUi.NOTE_MIN_SIZE);
     realModel.getNotes().add(note);
-    realModel.setChanged();
     realGraph.editNote(note);
-    realGraph.redraw();
-    realGraph.updateGui();
+    realGraph.setChanged();
   }
 
   @GuiContextAction(
@@ -1710,6 +1729,19 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (realGraph != null && realModel != null) {
       realGraph.editModelProperties(realModel);
     }
+  }
+
+  @GuiContextAction(
+      id = "vault-graph-import-sources",
+      parentId = HopGuiVaultContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiVaultGraph.ImportSources.Name",
+      tooltip = "i18n::HopGuiVaultGraph.ImportSources.Tooltip",
+      image = "ui/images/schema.svg",
+      category = "Import",
+      categoryOrder = "1")
+  public void importDatabaseSourceTables(HopGuiVaultContext context) {
+    importDatabaseSourceTables();
   }
 
   // --- @GuiContextAction methods for table context (left click on icon body, not name) ---
@@ -1748,10 +1780,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     DataVaultModel realModel = context.getModel();
     if (t != null && realModel != null && realModel.getTables() != null) {
       realModel.getTables().remove(t);
-      realModel.setChanged();
       if (realGraph != null) {
-        realGraph.redraw();
-        realGraph.updateGui();
+        realGraph.setChanged();
       }
     }
   }
@@ -1805,10 +1835,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     DataVaultModel realModel = context.getModel();
     if (note != null && realModel != null && realModel.getNotes() != null) {
       realModel.getNotes().remove(note);
-      realModel.setChanged();
       if (realGraph != null) {
-        realGraph.redraw();
-        realGraph.updateGui();
+        realGraph.setChanged();
       }
     }
   }
@@ -2008,18 +2036,17 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       DvHubDialog dialog = new DvHubDialog(parentShell, hopGui, (DvHub) table);
       changed = dialog.open();
     } else if (table.getTableType() == DvTableType.SATELLITE) {
-      DvSatelliteDialog dialog = new DvSatelliteDialog(parentShell, hopGui, (DvSatellite) table);
+      DvSatelliteDialog dialog =
+          new DvSatelliteDialog(parentShell, hopGui, (DvSatellite) table, model);
       changed = dialog.open();
     } else if (table.getTableType() == DvTableType.LINK) {
-      DvLinkDialog dialog = new DvLinkDialog(parentShell, hopGui, (DvLink) table);
+      DvLinkDialog dialog =
+          new DvLinkDialog(parentShell, hopGui, (DvLink) table, model);
       changed = dialog.open();
     }
     if (changed) {
       table.setChanged();
-      if (model != null) {
-        model.setChanged();
-      }
-      redraw();
+      setChanged();
       canvas.setFocus();
     }
   }
@@ -2031,9 +2058,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     HopGuiDataVaultModelDialog dialog =
         new HopGuiDataVaultModelDialog(getShell(), hopGui, modelToEdit);
     if (dialog.open()) {
-      modelToEdit.setChanged();
-      redraw();
-      updateGui();
+      setChanged();
       if (perspective != null) {
         perspective.updateTabItem(this);
       }
@@ -2147,10 +2172,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       }
     }
 
-    if (modelChanged && model != null) {
-      model.setChanged();
-      redraw();
-      updateGui();
+    if (modelChanged) {
+      setChanged();
     }
   }
 
@@ -2242,6 +2265,75 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     // ExplorerPerspective.updateTabItem + BaseExplorerFileTypeHandler.
     if (perspective != null) {
       perspective.updateTabItem(this);
+    }
+  }
+
+  @GuiMenuElement(
+      root = HopGui.ID_MAIN_MENU,
+      id = "10051-menu-data-vault-model-export-to-svg",
+      label = "i18n::HopGui.Menu.File.ExportToSVG",
+      image = "ui/images/image.svg",
+      parentId = HopGui.ID_MAIN_MENU_FILE)
+  public void menuFileExportToSvg() {
+    IHopFileTypeHandler active = HopGui.getExplorerPerspective().getActiveFileTypeHandler();
+    if (active instanceof HopGuiVaultGraph vaultGraph) {
+      vaultGraph.exportModelToSvg();
+      return;
+    }
+    HopGui.getInstance().fileDelegate.exportToSvg();
+  }
+
+  public void exportModelToSvg() {
+    if (model == null) {
+      return;
+    }
+    try {
+      boolean showHashKeyFieldNames =
+          DataVaultConfigSingleton.getConfig().isDrawingHashKeysInModel();
+      String svgXml =
+          DataVaultModelSvgPainter.generateDataVaultModelSvg(
+              model, 1.0f, variables, showHashKeyFieldNames);
+
+      String proposedName = Const.NVL(model.getName(), "data-vault-model") + ".svg";
+      String proposedFilename =
+          variables.getVariable("user.home") + File.separator + proposedName;
+
+      String filename =
+          BaseDialog.presentFileDialog(
+              true,
+              hopGui.getShell(),
+              null,
+              variables,
+              HopVfs.getFileObject(proposedFilename),
+              new String[] {"*.svg"},
+              new String[] {"SVG Files"},
+              true);
+      if (filename == null) {
+        return;
+      }
+
+      String realFilename = variables.resolve(filename);
+      var file = HopVfs.getFileObject(realFilename);
+      if (file.exists()) {
+        MessageBox box =
+            new MessageBox(hopGui.getShell(), SWT.YES | SWT.NO | SWT.ICON_QUESTION);
+        box.setText(BaseMessages.getString(PKG, "HopGuiVaultGraph.ExportSvg.Exists.Title"));
+        box.setMessage(
+            BaseMessages.getString(PKG, "HopGuiVaultGraph.ExportSvg.Exists.Message"));
+        if ((box.open() & SWT.YES) == 0) {
+          return;
+        }
+      }
+
+      try (OutputStream outputStream = HopVfs.getOutputStream(file, false)) {
+        outputStream.write(svgXml.getBytes(StandardCharsets.UTF_8));
+      }
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.ExportSvg.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.ExportSvg.Error.Message"),
+          e);
     }
   }
 
@@ -2360,12 +2452,61 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
   @Override
   public boolean isCloseable() {
-    // Ask to save if changed
-    if (hasChanged()) {
-      // TODO: show dialog
-      return true; // for basic
+    try {
+      if (hopGui.fileDelegate.isClosing()) {
+        return true;
+      }
+
+      if (hasChanged()) {
+        MessageBox messageDialog =
+            new MessageBox(hopShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO | SWT.CANCEL);
+        messageDialog.setText(
+            BaseMessages.getString(PKG, "HopGuiVaultGraph.SaveFile.Dialog.Header"));
+        messageDialog.setMessage(
+            BaseMessages.getString(
+                PKG, "HopGuiVaultGraph.SaveFile.Dialog.Message", buildTabName()));
+        int answer = messageDialog.open();
+        if ((answer & SWT.YES) != 0) {
+          if (Utils.isEmpty(getFilename())) {
+            String chosenFilename =
+                BaseDialog.presentFileDialog(
+                    true,
+                    hopGui.getActiveShell(),
+                    fileType.getFilterExtensions(),
+                    fileType.getFilterNames(),
+                    true);
+            if (chosenFilename == null) {
+              return false;
+            }
+            saveAs(hopGui.getVariables().resolve(chosenFilename));
+          } else {
+            save();
+          }
+          return true;
+        }
+        return (answer & SWT.NO) != 0;
+      }
+      return true;
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopShell(),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.SaveFile.Error.Header"),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.SaveFile.Error.Message"),
+          e);
     }
-    return true;
+    return false;
+  }
+
+  private String buildTabName() {
+    String realFilename = variables.resolve(getFilename());
+    if (Utils.isEmpty(realFilename)) {
+      return getName();
+    }
+    int lastSlash = Math.max(realFilename.lastIndexOf('/'), realFilename.lastIndexOf('\\'));
+    if (lastSlash >= 0 && lastSlash < realFilename.length() - 1) {
+      return realFilename.substring(lastSlash + 1);
+    }
+    return realFilename;
   }
 
   @Override
@@ -2383,6 +2524,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (model != null) {
       model.setChanged();
     }
+    updateGui();
     redraw();
   }
 
@@ -2391,6 +2533,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (model != null) {
       model.clearChanged();
     }
+    updateGui();
     redraw();
   }
 

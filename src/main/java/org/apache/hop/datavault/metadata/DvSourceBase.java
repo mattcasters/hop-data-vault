@@ -19,50 +19,37 @@ package org.apache.hop.datavault.metadata;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.hop.core.RowMetaAndData;
 import org.apache.hop.core.changed.ChangedFlag;
-import org.apache.hop.core.gui.plugin.GuiElementType;
-import org.apache.hop.core.gui.plugin.GuiWidgetElement;
-import org.apache.hop.metadata.api.HopMetadataBase;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.HopMetadataProperty;
-import org.apache.hop.metadata.api.IHopMetadata;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /**
- * Common abstract base for all Data Vault source definitions (Database, CSV, etc.).
- *
- * <p>Provides:
- * <ul>
- *   <li>metadata name (inherited)</li>
- *   <li>description</li>
- *   <li>list of expected source fields (the logical row layout)</li>
- *   <li>sourceType discriminator (for polymorphism)</li>
- * </ul>
- *
- * <p>Concrete subclasses add the connection details for their kind of source (e.g. which
- * DatabaseMeta to use for DATABASE sources).
+ * Common abstract base for embedded physical source definitions (Database, CSV, Parquet, etc.).
  */
-public abstract class DvSourceBase extends HopMetadataBase implements IHopMetadata, IDvSource {
-  @HopMetadataProperty
-  protected String description;
+public abstract class DvSourceBase implements IDvSource {
 
-  /**
-   * The expected fields / columns in rows coming from this source.
-   * This is the "source schema" used for mapping to DV hubs/links/satellites.
-   */
+  @HopMetadataProperty protected String description;
+
   @HopMetadataProperty(key = "field", groupKey = "fields")
   protected List<SourceField> fields = new ArrayList<>();
 
-  /** Set by concrete subclass; used for polymorphic (de)serialization. */
-  @HopMetadataProperty
-  protected DvSourceType sourceType;
+  @HopMetadataProperty protected DvSourceType sourceType;
 
   protected final ChangedFlag changedFlag = new ChangedFlag();
 
-  protected DvSourceBase() {
-    super();
+  protected DvSourceBase() {}
+
+  @Override
+  public String getName() {
+    return null;
   }
 
-  protected DvSourceBase(String name) {
-    super(name);
+  @Override
+  public void setName(String name) {
+    // Name is owned by the parent DataVaultSource metadata object when embedded.
   }
 
   @Override
@@ -102,19 +89,12 @@ public abstract class DvSourceBase extends HopMetadataBase implements IHopMetada
     this.sourceType = sourceType;
   }
 
-  /**
-   * Convenience: fall back to the metadata name when no explicit description is present.
-   */
   public String getEffectiveDescription() {
     if (description != null && !description.isBlank()) {
       return description;
     }
     return getName();
   }
-
-  // -------------------------------------------------------------------------------------
-  // IChanged implementation (so that sources participate in model dirty state when embedded)
-  // -------------------------------------------------------------------------------------
 
   @Override
   public boolean hasChanged() {
@@ -134,5 +114,17 @@ public abstract class DvSourceBase extends HopMetadataBase implements IHopMetada
   @Override
   public void clearChanged() {
     changedFlag.clearChanged();
+  }
+
+  @Override
+  public List<RowMetaAndData> previewRecords(
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      int rowLimit,
+      int queryTimeoutSeconds)
+      throws HopException {
+    throw new HopException(
+        "Preview is not supported for Data Vault source type "
+            + (sourceType != null ? sourceType.name() : "unknown"));
   }
 }

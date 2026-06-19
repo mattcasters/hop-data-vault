@@ -54,6 +54,8 @@ import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.row.value.ValueMetaTimestamp;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMeta;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMetaFactory;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
@@ -61,8 +63,6 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
-import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMeta;
-import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMetaFactory;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
@@ -547,14 +547,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     IRowMeta rowMeta = new RowMeta();
 
     try {
-      DataVaultConfiguration config = null;
-      String configName = model.getConfigurationName();
-      if (!Utils.isEmpty(configName)) {
-        config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
-      }
-      if (config == null) {
-        config = new DataVaultConfiguration();
-      }
+      DataVaultConfiguration config = model.getConfigurationOrDefault();
 
       // 1. The link's own hash key (LHK)
       String linkHashName = getLinkHashKeyFieldName();
@@ -589,9 +582,9 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         String hubHashCol = hub.getHashKeyFieldName();
         if (Utils.isEmpty(hubHashCol)) {
           if (!Utils.isEmpty(hub.getBusinessKeys())) {
-            hubHashCol = hub.getBusinessKeys().get(0).getName() + "_HK";
+            hubHashCol = hub.getBusinessKeys().get(0).getName() + "_hk";
           } else {
-            hubHashCol = hub.getName() + "_HK";
+            hubHashCol = hub.getName() + "_hk";
           }
         }
         // Same type/length as a normal hub hash
@@ -649,14 +642,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     }
 
     // Resolve the effective target configuration (same logic as context creation)
-    DataVaultConfiguration config = null;
-    String configName = model.getConfigurationName();
-    if (!Utils.isEmpty(configName)) {
-      config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
-    }
-    if (config == null) {
-      config = new DataVaultConfiguration();
-    }
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
 
     DatabaseMeta targetDatabaseMeta = null;
     String targetDbName = (config != null) ? config.getTargetDatabase() : null;
@@ -1048,6 +1034,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       tableOutputMeta.setConnection(ctx.targetDbName);
       tableOutputMeta.setTableName(tableName);
       tableOutputMeta.setSpecifyFields(true);
+      tableOutputMeta.setCommitSize(
+          ctx.config.resolveTargetTableCommitSize(ctx.variables));
 
       if (targetLayout != null) {
         for (IValueMeta vm : targetLayout.getValueMetaList()) {
@@ -1164,11 +1152,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         return null;
       }
 
-      DataVaultConfiguration config = null;
-      String configName = model.getConfigurationName();
-      if (!Utils.isEmpty(configName)) {
-        config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
-      }
+      DataVaultConfiguration config = model.getConfigurationOrDefault();
 
       String recordSourceField = "RECORD_SOURCE";
       if (config != null && !Utils.isEmpty(config.getRecordSourceField())) {
@@ -1188,7 +1172,6 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
       String targetTableName =
           !Utils.isEmpty(link.getTableName()) ? link.getTableName() : link.getName();
-      String pipelineName = "link-" + targetTableName;
 
       String targetTransformName = "target " + targetTableName;
 
@@ -1207,6 +1190,9 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       if (effectiveSource == null) {
         throw new HopException("Please provide a valid record source in Link " + link.getName());
       }
+
+      String pipelineName =
+          config.buildLinkPipelineName(variables, targetTableName, effectiveSource.getName());
 
       return new LinkUpdateContext(
           link,

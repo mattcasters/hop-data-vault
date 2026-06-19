@@ -25,8 +25,12 @@ import org.apache.hop.core.Props;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvLink;
+import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.datavault.metadata.DvTableType;
+import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
@@ -64,6 +68,7 @@ public class DvLinkDialog {
   private final HopGui hopGui;
   private final IVariables variables;
   private final DvLink input;
+  private final DataVaultModel model;
   private Shell shell;
 
   private CTabFolder wTabFolder;
@@ -93,11 +98,12 @@ public class DvLinkDialog {
 
   private boolean ok;
 
-  public DvLinkDialog(Shell parent, HopGui hopGui, DvLink link) {
+  public DvLinkDialog(Shell parent, HopGui hopGui, DvLink link, DataVaultModel model) {
     this.parent = parent;
     this.hopGui = hopGui;
     this.variables = hopGui.getVariables();
     this.input = link;
+    this.model = model;
   }
 
   public boolean open() {
@@ -140,7 +146,6 @@ public class DvLinkDialog {
     fdName.top = new FormAttachment(0, margin);
     fdName.right = new FormAttachment(100, 0);
     wName.setLayoutData(fdName);
-    wName.addModifyListener(e -> input.setChanged());
 
     // Description right under name
     Label wlDescription = new Label(shell, SWT.RIGHT);
@@ -159,7 +164,6 @@ public class DvLinkDialog {
     fdDescription.top = new FormAttachment(wName, margin);
     fdDescription.right = new FormAttachment(100, 0);
     wDescription.setLayoutData(fdDescription);
-    wDescription.addModifyListener(e -> input.setChanged());
 
     // TabFolder between description and buttons
     wTabFolder = new CTabFolder(shell, SWT.BORDER);
@@ -215,7 +219,6 @@ public class DvLinkDialog {
     fdTableName.top = new FormAttachment(0, 0);
     fdTableName.right = new FormAttachment(100, 0);
     wTableName.setLayoutData(fdTableName);
-    wTableName.addModifyListener(e -> input.setChanged());
 
     // Link hash key field name
     Label wlLinkHashKey = new Label(wOptionsComp, SWT.RIGHT);
@@ -234,7 +237,6 @@ public class DvLinkDialog {
     fdLinkHashKey.top = new FormAttachment(wTableName, margin);
     fdLinkHashKey.right = new FormAttachment(100, 0);
     wLinkHashKeyFieldName.setLayoutData(fdLinkHashKey);
-    wLinkHashKeyFieldName.addModifyListener(e -> input.setChanged());
 
     // Record source field name (the per-link override field name)
     Label wlRecordSourceField = new Label(wOptionsComp, SWT.RIGHT);
@@ -253,7 +255,6 @@ public class DvLinkDialog {
     fdRecordSourceField.top = new FormAttachment(wLinkHashKeyFieldName, margin);
     fdRecordSourceField.right = new FormAttachment(100, 0);
     wRecordSourceFieldName.setLayoutData(fdRecordSourceField);
-    wRecordSourceFieldName.addModifyListener(e -> input.setChanged());
 
     // Has descriptive attributes checkbox
     Label wlHasDescriptive = new Label(wOptionsComp, SWT.RIGHT);
@@ -272,7 +273,6 @@ public class DvLinkDialog {
     fdHasDescriptive.left = new FormAttachment(middle, 0);
     fdHasDescriptive.top = new FormAttachment(wRecordSourceFieldName, margin);
     wHasDescriptiveAttributes.setLayoutData(fdHasDescriptive);
-    wHasDescriptiveAttributes.addListener(SWT.Selection, e -> input.setChanged());
 
     // Participating hubs (single column table) inside options
     Label wlHubNames = new Label(wOptionsComp, SWT.LEFT);
@@ -283,12 +283,13 @@ public class DvLinkDialog {
     fdlHubNames.top = new FormAttachment(wHasDescriptiveAttributes, margin);
     wlHubNames.setLayoutData(fdlHubNames);
 
+    List<String> hubNames = getModelHubNames();
     ColumnInfo[] hubColumns =
         new ColumnInfo[] {
           new ColumnInfo(
               BaseMessages.getString(PKG, "DvLinkDialog.HubName.Column"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+              ColumnInfo.COLUMN_TYPE_CCOMBO,
+              hubNames.toArray(new String[0])),
         };
 
     int nrHubRows = (input.getHubNames() != null && !input.getHubNames().isEmpty()) ? input.getHubNames().size() : 2;
@@ -299,7 +300,7 @@ public class DvLinkDialog {
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
             hubColumns,
             nrHubRows,
-            e -> input.setChanged(),
+            null,
             PropsUi.getInstance());
 
     FormData fdHubNames = new FormData();
@@ -318,12 +319,13 @@ public class DvLinkDialog {
     fdlLinkSatelliteNames.top = new FormAttachment(wHubNames, margin);
     wlLinkSatelliteNames.setLayoutData(fdlLinkSatelliteNames);
 
+    List<String> linkSatelliteNames = getModelLinkSatelliteNames();
     ColumnInfo[] linkSatColumns =
         new ColumnInfo[] {
           new ColumnInfo(
               BaseMessages.getString(PKG, "DvLinkDialog.LinkSatelliteName.Column"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+              ColumnInfo.COLUMN_TYPE_CCOMBO,
+              linkSatelliteNames.toArray(new String[0])),
         };
 
     int nrLinkSatRows =
@@ -337,7 +339,7 @@ public class DvLinkDialog {
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
             linkSatColumns,
             nrLinkSatRows,
-            e -> input.setChanged(),
+            null,
             PropsUi.getInstance());
 
     FormData fdLinkSatelliteNames = new FormData();
@@ -387,7 +389,7 @@ public class DvLinkDialog {
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
             drivingColumns,
             nrDrivingRows,
-            e -> input.setChanged(),
+            null,
             PropsUi.getInstance());
 
     FormData fdDrivingKeys = new FormData();
@@ -452,7 +454,7 @@ public class DvLinkDialog {
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
             srcCols,
             2,
-            e -> input.setChanged(),
+            null,
             PropsUi.getInstance());
 
     FormData fdSources = new FormData();
@@ -517,7 +519,7 @@ public class DvLinkDialog {
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
             srcCols,
             2,
-            e -> input.setChanged(),
+            null,
             PropsUi.getInstance());
 
     FormData fdSatSources = new FormData();
@@ -529,6 +531,63 @@ public class DvLinkDialog {
 
     wSatSourcesComp.layout();
     wSatSourcesTab.setControl(wSatSourcesComp);
+  }
+
+  private List<String> getModelHubNames() {
+    List<String> names = new ArrayList<>();
+    if (model != null && model.getTables() != null) {
+      for (IDvTable table : model.getTables()) {
+        if (table.getTableType() == DvTableType.HUB && !Utils.isEmpty(table.getName())) {
+          names.add(table.getName());
+        }
+      }
+    }
+    if (input.getHubNames() != null) {
+      for (String hubName : input.getHubNames()) {
+        if (!Utils.isEmpty(hubName) && !names.contains(hubName)) {
+          names.add(hubName);
+        }
+      }
+    }
+    Collections.sort(names);
+    return names;
+  }
+
+  private List<String> getModelLinkSatelliteNames() {
+    List<String> names = new ArrayList<>();
+    if (model != null && model.getTables() != null) {
+      for (IDvTable table : model.getTables()) {
+        if (table.getTableType() == DvTableType.SATELLITE) {
+          DvSatellite satellite = (DvSatellite) table;
+          if (!Utils.isEmpty(satellite.getLinkName()) && !Utils.isEmpty(table.getName())) {
+            names.add(table.getName());
+          }
+        }
+      }
+    }
+    if (input.getLinkSatelliteNames() != null) {
+      for (String satName : input.getLinkSatelliteNames()) {
+        if (!Utils.isEmpty(satName) && !names.contains(satName)) {
+          names.add(satName);
+        }
+      }
+    }
+    Collections.sort(names);
+    return names;
+  }
+
+  private List<String> getDrivingKeyNamesFromTable() {
+    List<String> drivingKeys = new ArrayList<>();
+    if (wDrivingKeyNames == null) {
+      return drivingKeys;
+    }
+    for (TableItem item : wDrivingKeyNames.getNonEmptyItems()) {
+      String drivingKey = item.getText(1);
+      if (!Utils.isEmpty(drivingKey)) {
+        drivingKeys.add(drivingKey);
+      }
+    }
+    return drivingKeys;
   }
 
   private List<String> getHubNamesFromTable() {
@@ -598,10 +657,10 @@ public class DvLinkDialog {
     }
 
     List<String> hubs = getHubNamesFromTable();
-    DvLinkHubSourceDialog dlg = new DvLinkHubSourceDialog(shell, hopGui, detail, hubs);
-    if (dlg.open()) {
-      input.setChanged();
-    }
+    List<String> drivingKeys = getDrivingKeyNamesFromTable();
+    DvLinkHubSourceDialog dlg =
+        new DvLinkHubSourceDialog(shell, hopGui, detail, hubs, model, drivingKeys);
+    dlg.open();
   }
 
   private void editSelectedLinkSatelliteSource() {
@@ -643,11 +702,10 @@ public class DvLinkDialog {
     }
 
     List<String> satellites = getLinkSatelliteNamesFromTable();
+    List<String> drivingKeys = getDrivingKeyNamesFromTable();
     DvLinkSatelliteSourceDialog dlg =
-        new DvLinkSatelliteSourceDialog(shell, hopGui, detail, satellites);
-    if (dlg.open()) {
-      input.setChanged();
-    }
+        new DvLinkSatelliteSourceDialog(shell, hopGui, detail, satellites, model, drivingKeys);
+    dlg.open();
   }
 
   private void getData() {
@@ -821,6 +879,7 @@ public class DvLinkDialog {
       input.getLinkSatelliteSources().add(match);
     }
 
+    input.setChanged();
     ok = true;
     dispose();
   }

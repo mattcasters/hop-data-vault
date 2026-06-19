@@ -114,8 +114,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>736</xloc>
-      <yloc>160</yloc>
+      <xloc>256</xloc>
+      <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -147,8 +147,8 @@
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>912</xloc>
-      <yloc>64</yloc>
+      <xloc>736</xloc>
+      <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>

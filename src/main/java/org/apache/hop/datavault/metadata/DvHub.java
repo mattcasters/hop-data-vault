@@ -54,6 +54,8 @@ import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.row.value.ValueMetaTimestamp;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMeta;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMetaFactory;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
@@ -62,13 +64,10 @@ import org.apache.hop.metadata.api.IHopMetadataSerializer;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
-import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMeta;
-import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMetaFactory;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
 import org.apache.hop.pipeline.transforms.mergerows.MergeRowsMeta;
-import org.apache.hop.pipeline.transforms.sql.ExecSqlMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
@@ -169,7 +168,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
   }
 
   @Override
-  public void check(List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
+  public void check(
+      List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
     super.check(remarks, metadataProvider, variables);
     if (Utils.isEmpty(businessKeys)) {
       remarks.add(
@@ -207,9 +207,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
                     ? variables.resolve(bk.getRecordSourceName())
                     : bk.getRecordSourceName();
             DataVaultSource recordSource =
-                metadataProvider
-                    .getSerializer(DataVaultSource.class)
-                    .load(resolvedRecordSource);
+                metadataProvider.getSerializer(DataVaultSource.class).load(resolvedRecordSource);
             if (recordSource != null) {
               List<SourceField> fields = recordSource.getFields(metadataProvider);
               boolean exists = false;
@@ -382,31 +380,23 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       return result;
     }
 
-    // Resolve the effective target configuration (same logic as context creation and getTargetTableLayout)
-    DataVaultConfiguration config = null;
-    String configName = model.getConfigurationName();
-    if (!Utils.isEmpty(configName)) {
-      config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
-    }
-    if (config == null) {
-      config = new DataVaultConfiguration();
-    }
+    // Resolve the effective target configuration (same logic as context creation and
+    // getTargetTableLayout)
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
 
     DatabaseMeta targetDatabaseMeta = null;
     String targetDbName = (config != null) ? config.getTargetDatabase() : null;
     if (!Utils.isEmpty(targetDbName)) {
       targetDatabaseMeta = metadataProvider.getSerializer(DatabaseMeta.class).load(targetDbName);
       if (targetDatabaseMeta == null) {
-        throw new HopException(
-            "Target database connection not found in metadata: " + targetDbName);
+        throw new HopException("Target database connection not found in metadata: " + targetDbName);
       }
     }
     if (targetDatabaseMeta == null) {
       return result;
     }
 
-    String targetTableName =
-        !Utils.isEmpty(getTableName()) ? getTableName() : getName();
+    String targetTableName = !Utils.isEmpty(getTableName()) ? getTableName() : getName();
 
     IRowMeta targetFields = getTargetTableLayout(metadataProvider, variables, model);
     if (targetFields == null) {
@@ -543,7 +533,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       keyFields.add(bk.getName());
     }
     mergeRowsMeta.setKeyFields(keyFields);
-    
+
     TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
     tm.setLocation(LOCATION_START_LINE_3.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
@@ -589,7 +579,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       if (!Utils.isEmpty(ctx.hub.getBusinessKeys())) {
         bkName = ctx.hub.getBusinessKeys().get(0).getName();
       }
-      resultFieldName = bkName + "_HK";
+      resultFieldName = bkName + "_hk";
     }
 
     List<String> businessKeyNames = new ArrayList<>();
@@ -652,6 +642,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       tableOutputMeta.setConnection(ctx.targetDbName);
       tableOutputMeta.setTableName(tableName);
       tableOutputMeta.setSpecifyFields(true);
+      tableOutputMeta.setCommitSize(ctx.config.resolveTargetTableCommitSize(ctx.variables));
 
       if (targetLayout != null) {
         for (IValueMeta vm : targetLayout.getValueMetaList()) {
@@ -744,7 +735,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       this.pipelineName = pipelineName;
       this.sourceTransformName = sourceTransformName;
       this.targetTransformName = targetTransformName;
-      this.hashKeyFieldName = hashKeyFieldName != null ? hashKeyFieldName : "hashkey_HK";
+      this.hashKeyFieldName = hashKeyFieldName != null ? hashKeyFieldName : "hashkey_hk";
 
       this.dvSource = dataVaultSource.getDvSource(metadataProvider);
     }
@@ -769,20 +760,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         throw new HopException("Please specify a specific data vault source");
       }
 
-      // Load DataVaultConfiguration
-      DataVaultConfiguration config = null;
-      String configName = model.getConfigurationName();
-      if (!Utils.isEmpty(configName)) {
-        config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
-      }
-
-      // Record source field name from configuration (used for the indicator column alias +
-      // passthrough)
-      String recordSourceField = "RECORD_SOURCE";
-      if (config != null && !Utils.isEmpty(config.getRecordSourceField())) {
-        recordSourceField = config.getRecordSourceField();
-      }
-
+      DataVaultConfiguration config = model.getConfigurationOrDefault();
+      
       // Target DB
       DatabaseMeta targetDatabaseMeta = null;
       String targetDbName = (config != null) ? config.getTargetDatabase() : null;
@@ -796,7 +775,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
       String targetTableName =
           !Utils.isEmpty(hub.getTableName()) ? hub.getTableName() : hub.getName();
-      String pipelineName = "hub-" + targetTableName;
+      String pipelineName =
+          config.buildHubPipelineName(variables, targetTableName, specificSource.getName());
 
       String sourceTransformName;
       sourceTransformName = specificSource.getName();
@@ -809,20 +789,11 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       String hashKeyFieldName = hub.getHashKeyFieldName();
       if (Utils.isEmpty(hashKeyFieldName)) {
         if (!Utils.isEmpty(hub.getBusinessKeys())) {
-          hashKeyFieldName = hub.getBusinessKeys().get(0).getName() + "_HK";
+          hashKeyFieldName = hub.getBusinessKeys().get(0).getName() + "_hk";
         } else {
-          hashKeyFieldName = "hashkey_HK";
+          hashKeyFieldName = "hashkey_hk";
         }
       }
-
-      // Source side loads (using specificSource or first from hub's recordSources)
-      DatabaseMeta sourceDatabaseMeta = null;
-      String sourceDbName = null;
-      String sourceSchema = null;
-      String sourceTable = null;
-      List<String> pkSourceFieldNames = new ArrayList<>();
-      String sourceIndicator = null;
-      String sourceIndicatorField = null;
 
       // Basic validation example inside context (more can be added; serious ones throw above)
       // e.g. we could collect warnings but for now the critical loads already validated via throws.
@@ -855,15 +826,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     IRowMeta rowMeta = new RowMeta();
 
     try {
-      // Load the DataVaultConfiguration using the metadata provider
-      DataVaultConfiguration config = null;
-      String configName = model.getConfigurationName();
-      if (!Utils.isEmpty(configName)) {
-        config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
-      }
-      if (config == null) {
-        config = new DataVaultConfiguration(); // defaults
-      }
+      DataVaultConfiguration config = model.getConfigurationOrDefault();
 
       // 1. First column: the hub's hash key field name (or fallback from first business key + _HK)
       String hashKeyName = hashKeyFieldName;
@@ -872,7 +835,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         if (!Utils.isEmpty(businessKeys)) {
           bkName = businessKeys.get(0).getName();
         }
-        hashKeyName = bkName + "_HK";
+        hashKeyName = bkName + "_hk";
       }
 
       IValueMeta hashMeta;

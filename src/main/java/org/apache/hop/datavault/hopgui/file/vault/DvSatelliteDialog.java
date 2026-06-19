@@ -18,12 +18,16 @@
 package org.apache.hop.datavault.hopgui.file.vault;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
+import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.SatelliteAttribute;
 import org.apache.hop.datavault.metadata.SourceField;
@@ -42,6 +46,7 @@ import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
@@ -54,6 +59,7 @@ public class DvSatelliteDialog {
   private Shell parent;
   private IVariables variables;
   private DvSatellite input;
+  private DataVaultModel model;
   private HopGui hopGui;
   private Shell shell;
 
@@ -65,16 +71,18 @@ public class DvSatelliteDialog {
   private Text wHubName;
   private Text wLinkName;
   private Text wDrivingKey;
-  private Text wDrivingKeySourceField;
+  private Combo wDrivingKeySourceField;
   private TableView wAttributes;
 
   private boolean ok;
 
-  public DvSatelliteDialog(Shell parent, HopGui hopGui, DvSatellite satellite) {
+  public DvSatelliteDialog(
+      Shell parent, HopGui hopGui, DvSatellite satellite, DataVaultModel model) {
     this.parent = parent;
     this.hopGui = hopGui;
     this.variables = hopGui.getVariables();
     this.input = satellite;
+    this.model = model;
   }
 
   public boolean open() {
@@ -122,7 +130,6 @@ public class DvSatelliteDialog {
     fdName.top = new FormAttachment(0, margin);
     fdName.right = new FormAttachment(100, 0);
     wName.setLayoutData(fdName);
-    wName.addModifyListener(e -> input.setChanged());
 
     // Table name
     Label wlTableName = new Label(shell, SWT.RIGHT);
@@ -141,7 +148,6 @@ public class DvSatelliteDialog {
     fdTableName.top = new FormAttachment(wName, margin);
     fdTableName.right = new FormAttachment(100, 0);
     wTableName.setLayoutData(fdTableName);
-    wTableName.addModifyListener(e -> input.setChanged());
 
     // Description
     Label wlDescription = new Label(shell, SWT.RIGHT);
@@ -160,7 +166,6 @@ public class DvSatelliteDialog {
     fdDescription.top = new FormAttachment(wTableName, margin);
     fdDescription.right = new FormAttachment(100, 0);
     wDescription.setLayoutData(fdDescription);
-    wDescription.addModifyListener(e -> input.setChanged());
 
     // Record source (now a reference to DataVaultSource metadata)
     wRecordSource =
@@ -177,7 +182,6 @@ public class DvSatelliteDialog {
     fdRecordSource.top = new FormAttachment(wDescription, margin);
     fdRecordSource.right = new FormAttachment(100, 0);
     wRecordSource.setLayoutData(fdRecordSource);
-    wRecordSource.addModifyListener(e -> input.setChanged());
 
     // Hub name (ref)
     Label wlHubName = new Label(shell, SWT.RIGHT);
@@ -196,7 +200,6 @@ public class DvSatelliteDialog {
     fdHubName.top = new FormAttachment(wRecordSource, margin);
     fdHubName.right = new FormAttachment(100, 0);
     wHubName.setLayoutData(fdHubName);
-    wHubName.addModifyListener(e -> input.setChanged());
 
     // Link name (ref)
     Label wlLinkName = new Label(shell, SWT.RIGHT);
@@ -215,7 +218,6 @@ public class DvSatelliteDialog {
     fdLinkName.top = new FormAttachment(wHubName, margin);
     fdLinkName.right = new FormAttachment(100, 0);
     wLinkName.setLayoutData(fdLinkName);
-    wLinkName.addModifyListener(e -> input.setChanged());
 
     // Driving key
     Label wlDrivingKey = new Label(shell, SWT.RIGHT);
@@ -234,7 +236,6 @@ public class DvSatelliteDialog {
     fdDrivingKey.top = new FormAttachment(wLinkName, margin);
     fdDrivingKey.right = new FormAttachment(100, 0);
     wDrivingKey.setLayoutData(fdDrivingKey);
-    wDrivingKey.addModifyListener(e -> input.setChanged());
 
     Label wlDrivingKeySourceField = new Label(shell, SWT.RIGHT);
     wlDrivingKeySourceField.setText(
@@ -246,14 +247,13 @@ public class DvSatelliteDialog {
     fdlDrivingKeySourceField.right = new FormAttachment(middle, -margin);
     wlDrivingKeySourceField.setLayoutData(fdlDrivingKeySourceField);
 
-    wDrivingKeySourceField = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    wDrivingKeySourceField = new Combo(shell, SWT.BORDER);
     PropsUi.setLook(wDrivingKeySourceField);
     FormData fdDrivingKeySourceField = new FormData();
     fdDrivingKeySourceField.left = new FormAttachment(middle, 0);
     fdDrivingKeySourceField.top = new FormAttachment(wDrivingKey, margin);
     fdDrivingKeySourceField.right = new FormAttachment(100, 0);
     wDrivingKeySourceField.setLayoutData(fdDrivingKeySourceField);
-    wDrivingKeySourceField.addModifyListener(e -> input.setChanged());
 
     // Attributes table
     Label wlAttributes = new Label(shell, SWT.LEFT);
@@ -304,7 +304,7 @@ public class DvSatelliteDialog {
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
             columns,
             nrRows,
-            e -> input.setChanged(),
+            null,
             PropsUi.getInstance());
 
     FormData fdAttributes = new FormData();
@@ -313,6 +313,8 @@ public class DvSatelliteDialog {
     fdAttributes.right = new FormAttachment(100, 0);
     fdAttributes.bottom = new FormAttachment(wOk, -2 * margin);
     wAttributes.setLayoutData(fdAttributes);
+
+    wRecordSource.addModifyListener(e -> refreshDrivingKeySourceFieldItems());
 
     getData();
 
@@ -336,6 +338,7 @@ public class DvSatelliteDialog {
     wHubName.setText(Const.NVL(input.getHubName(), ""));
     wLinkName.setText(Const.NVL(input.getLinkName(), ""));
     wDrivingKey.setText(Const.NVL(input.getDrivingKey(), ""));
+    refreshDrivingKeySourceFieldItems();
     wDrivingKeySourceField.setText(Const.NVL(input.getDrivingKeySourceField(), ""));
 
     for (int i = 0; i < input.getAttributes().size(); i++) {
@@ -385,6 +388,7 @@ public class DvSatelliteDialog {
     }
     input.setAttributes(attrs);
 
+    input.setChanged();
     ok = true;
     dispose();
   }
@@ -392,6 +396,47 @@ public class DvSatelliteDialog {
   private void cancel() {
     ok = false;
     dispose();
+  }
+
+  private void refreshDrivingKeySourceFieldItems() {
+    if (wDrivingKeySourceField == null || wDrivingKeySourceField.isDisposed()) {
+      return;
+    }
+    String current = wDrivingKeySourceField.getText();
+    wDrivingKeySourceField.removeAll();
+    for (String fieldName : loadSortedRecordSourceFieldNames(wRecordSource.getText())) {
+      wDrivingKeySourceField.add(fieldName);
+    }
+    if (!Utils.isEmpty(current)) {
+      wDrivingKeySourceField.setText(current);
+    }
+  }
+
+  private List<String> loadSortedRecordSourceFieldNames(String sourceName) {
+    if (Utils.isEmpty(sourceName)) {
+      return List.of();
+    }
+    try {
+      DataVaultSource source =
+          hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sourceName);
+      if (source == null) {
+        return List.of();
+      }
+      List<SourceField> sourceFields = source.getFields(hopGui.getMetadataProvider());
+      if (sourceFields == null || sourceFields.isEmpty()) {
+        return List.of();
+      }
+      List<String> names = new ArrayList<>();
+      for (SourceField sourceField : sourceFields) {
+        if (sourceField != null && !Utils.isEmpty(sourceField.getName())) {
+          names.add(sourceField.getName());
+        }
+      }
+      Collections.sort(names);
+      return names;
+    } catch (HopException e) {
+      return List.of();
+    }
   }
 
   private void getAttributes() {
@@ -437,14 +482,20 @@ public class DvSatelliteDialog {
     String drivingKeySourceField =
         wDrivingKeySourceField.getText() != null ? wDrivingKeySourceField.getText().trim() : "";
 
+    String hubName = wHubName.getText() != null ? wHubName.getText().trim() : "";
+    DvHub linkedHub = null;
+    if (!Utils.isEmpty(hubName) && model != null) {
+      linkedHub = model.findHub(hubName);
+    }
+    Set<String> excluded =
+        linkedHub != null
+            ? DvSatellite.excludedHubSatelliteSourceFieldNames(
+                linkedHub, variables, drivingKey, drivingKeySourceField)
+            : Collections.emptySet();
+
     for (SourceField sf : sourceFields) {
-      if (sf.isPrimaryKey()) {
-        continue;
-      }
-      if (!Utils.isEmpty(drivingKey) && drivingKey.equals(sf.getName())) {
-        continue;
-      }
-      if (!Utils.isEmpty(drivingKeySourceField) && drivingKeySourceField.equals(sf.getName())) {
+      String name = variables.resolve(sf.getName());
+      if (excluded.contains(name)) {
         continue;
       }
 
@@ -458,7 +509,6 @@ public class DvSatelliteDialog {
     }
 
     wAttributes.optimizeTableView();
-    input.setChanged();
   }
 
   private void dispose() {

@@ -57,8 +57,6 @@ public class ImportDatabaseTablesOptionsDialog {
 
   private static final String STATE_DATABASE_NAME = "databaseName";
   private static final String STATE_SCHEMA_NAME = "schemaName";
-  private static final String STATE_DATABASE_SOURCE_PREFIX = "databaseSourcePrefix";
-  private static final String STATE_CREATE_DATA_VAULT_SOURCE = "createDataVaultSource";
   private static final String STATE_DATA_VAULT_SOURCE_PREFIX = "dataVaultSourcePrefix";
 
   private final Shell parent;
@@ -68,8 +66,6 @@ public class ImportDatabaseTablesOptionsDialog {
   private Shell shell;
   private MetaSelectionLine<DatabaseMeta> wDatabaseName;
   private Text wSchemaName;
-  private Text wDatabaseSourcePrefix;
-  private Button wCreateDataVaultSource;
   private Text wDataVaultSourcePrefix;
   private Button wOk;
 
@@ -147,51 +143,6 @@ public class ImportDatabaseTablesOptionsDialog {
     wSchemaName.setLayoutData(fdSchemaName);
     lastControl = wSchemaName;
 
-    Label wlDatabaseSourcePrefix = new Label(shell, SWT.RIGHT);
-    PropsUi.setLook(wlDatabaseSourcePrefix);
-    wlDatabaseSourcePrefix.setText(
-        BaseMessages.getString(
-            PKG, "ImportDatabaseTablesOptionsDialog.DatabaseSourcePrefix.Label"));
-    FormData fdlDatabaseSourcePrefix = new FormData();
-    fdlDatabaseSourcePrefix.top = new FormAttachment(lastControl, margin);
-    fdlDatabaseSourcePrefix.left = new FormAttachment(0, 0);
-    fdlDatabaseSourcePrefix.right = new FormAttachment(middle, -margin);
-    wlDatabaseSourcePrefix.setLayoutData(fdlDatabaseSourcePrefix);
-
-    wDatabaseSourcePrefix = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wDatabaseSourcePrefix);
-    FormData fdDatabaseSourcePrefix = new FormData();
-    fdDatabaseSourcePrefix.top = new FormAttachment(wlDatabaseSourcePrefix, 0, SWT.CENTER);
-    fdDatabaseSourcePrefix.left = new FormAttachment(middle, 0);
-    fdDatabaseSourcePrefix.right = new FormAttachment(100, 0);
-    wDatabaseSourcePrefix.setLayoutData(fdDatabaseSourcePrefix);
-    lastControl = wDatabaseSourcePrefix;
-
-    Label wlCreateDataVaultSource = new Label(shell, SWT.RIGHT);
-    PropsUi.setLook(wlCreateDataVaultSource);
-    wlCreateDataVaultSource.setText(
-            BaseMessages.getString(
-                    PKG, "ImportDatabaseTablesOptionsDialog.CreateDataVaultSource.Label"));
-    FormData fdlCreateDataVaultSource = new FormData();
-    fdlCreateDataVaultSource.top = new FormAttachment(lastControl, margin);
-    fdlCreateDataVaultSource.left = new FormAttachment(0, 0);
-    fdlCreateDataVaultSource.right = new FormAttachment(middle, -margin);
-    wlCreateDataVaultSource.setLayoutData(fdlCreateDataVaultSource);
-
-    wCreateDataVaultSource = new Button(shell, SWT.CHECK);
-    PropsUi.setLook(wCreateDataVaultSource);
-    wCreateDataVaultSource.setToolTipText(
-        BaseMessages.getString(
-            PKG, "ImportDatabaseTablesOptionsDialog.CreateDataVaultSource.Label"));
-    FormData fdCreateDataVaultSource = new FormData();
-    fdCreateDataVaultSource.top = new FormAttachment(wlCreateDataVaultSource, 0, SWT.CENTER);
-    fdCreateDataVaultSource.left = new FormAttachment(middle, 0);
-    fdCreateDataVaultSource.right = new FormAttachment(100, 0);
-    wCreateDataVaultSource.setLayoutData(fdCreateDataVaultSource);
-    wCreateDataVaultSource.addListener(
-        SWT.Selection, e -> updateDataVaultSourcePrefixEnabled());
-    lastControl = wlCreateDataVaultSource;
-
     Label wlDataVaultSourcePrefix = new Label(shell, SWT.RIGHT);
     PropsUi.setLook(wlDataVaultSourcePrefix);
     wlDataVaultSourcePrefix.setText(
@@ -210,18 +161,13 @@ public class ImportDatabaseTablesOptionsDialog {
     fdDataVaultSourcePrefix.left = new FormAttachment(middle, 0);
     fdDataVaultSourcePrefix.right = new FormAttachment(100, 0);
     wDataVaultSourcePrefix.setLayoutData(fdDataVaultSourcePrefix);
-    updateDataVaultSourcePrefixEnabled();
+    lastControl = wDataVaultSourcePrefix;
 
     restoreAuditState();
 
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
     return cancelled ? null : options;
-  }
-
-  private void updateDataVaultSourcePrefixEnabled() {
-    boolean enabled = wCreateDataVaultSource.getSelection();
-    wDataVaultSourcePrefix.setEnabled(enabled);
   }
 
   private void restoreAuditState() {
@@ -235,13 +181,8 @@ public class ImportDatabaseTablesOptionsDialog {
       wDatabaseName.setText(
           Const.NVL(auditState.extractString(STATE_DATABASE_NAME, ""), ""));
       wSchemaName.setText(Const.NVL(auditState.extractString(STATE_SCHEMA_NAME, ""), ""));
-      wDatabaseSourcePrefix.setText(
-          Const.NVL(auditState.extractString(STATE_DATABASE_SOURCE_PREFIX, ""), ""));
-      wCreateDataVaultSource.setSelection(
-          auditState.extractBoolean(STATE_CREATE_DATA_VAULT_SOURCE, false));
       wDataVaultSourcePrefix.setText(
           Const.NVL(auditState.extractString(STATE_DATA_VAULT_SOURCE_PREFIX, ""), ""));
-      updateDataVaultSourcePrefixEnabled();
     } catch (Exception e) {
       LogChannel.UI.logError("Error restoring import database tables dialog state", e);
     }
@@ -252,8 +193,6 @@ public class ImportDatabaseTablesOptionsDialog {
       Map<String, Object> stateMap = new HashMap<>();
       stateMap.put(STATE_DATABASE_NAME, wDatabaseName.getText());
       stateMap.put(STATE_SCHEMA_NAME, wSchemaName.getText());
-      stateMap.put(STATE_DATABASE_SOURCE_PREFIX, wDatabaseSourcePrefix.getText());
-      stateMap.put(STATE_CREATE_DATA_VAULT_SOURCE, wCreateDataVaultSource.getSelection());
       stateMap.put(STATE_DATA_VAULT_SOURCE_PREFIX, wDataVaultSourcePrefix.getText());
 
       AuditState auditState = new AuditState(AUDIT_STATE_NAME, stateMap);
@@ -268,8 +207,6 @@ public class ImportDatabaseTablesOptionsDialog {
     options = new ImportDatabaseTablesOptions();
     options.setDatabaseName(wDatabaseName.getText());
     options.setSchemaName(wSchemaName.getText());
-    options.setDatabaseSourcePrefix(wDatabaseSourcePrefix.getText());
-    options.setCreateDataVaultSource(wCreateDataVaultSource.getSelection());
     options.setDataVaultSourcePrefix(wDataVaultSourcePrefix.getText());
     cancelled = false;
     shell.dispose();
@@ -287,8 +224,6 @@ public class ImportDatabaseTablesOptionsDialog {
   public static final class ImportDatabaseTablesOptions {
     private String databaseName;
     private String schemaName;
-    private String databaseSourcePrefix;
-    private boolean createDataVaultSource;
     private String dataVaultSourcePrefix;
 
     public ImportDatabaseTablesOptions() {

@@ -3,7 +3,32 @@
   <filename>${PROJECT_HOME}/tests/satellite-multi-active/customer-phone.hdv</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description>Multi-active satellite test case: customer phones per customer (driving key phone_type)</description>
-  <configuration>vault-config</configuration>
+  <configuration>
+    <targetDatabase>Vault</targetDatabase>
+    <hashAlgorithm>MD5</hashAlgorithm>
+    <hashKeyDataType>STRING</hashKeyDataType>
+    <generateUnknownRecord>Y</generateUnknownRecord>
+    <unknownBusinessKeyValue>N/A</unknownBusinessKeyValue>
+    <unknownHashKeyValue>00000000000000000000000000000000</unknownHashKeyValue>
+    <unknownLinkHashKeyValue>00000000000000000000000000000000</unknownLinkHashKeyValue>
+    <unknownRecordSource>UNKNOWN</unknownRecordSource>
+    <generateInvalidRecord>Y</generateInvalidRecord>
+    <invalidBusinessKeyValue>INVALID</invalidBusinessKeyValue>
+    <invalidHashKeyValue>FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</invalidHashKeyValue>
+    <invalidLinkHashKeyValue>FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</invalidLinkHashKeyValue>
+    <invalidRecordSource>INVALID</invalidRecordSource>
+    <hashContentCasing>UPPER</hashContentCasing>
+    <businessKeyDelimiter/>
+    <hashContentPrefix/>
+    <nullPlaceholder/>
+    <hashContentSuffix/>
+    <trimBusinessKeys>N</trimBusinessKeys>
+    <loadDateField>x_load_ts</loadDateField>
+    <loadEndDateField/>
+    <recordSourceField>x_record_source</recordSourceField>
+    <recordSourceFieldLength>100</recordSourceFieldLength>
+    <useLoadEndDate>N</useLoadEndDate>
+  </configuration>
   <tables>
     <table>
       <businessKeys>

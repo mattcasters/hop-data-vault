@@ -1,8 +1,63 @@
 {
   "sourceIndicator": "",
-  "sourceTableName": "CRM-product",
-  "virtualPath": "",
-  "sourceType": "DATABASE",
   "sourceIndicatorField": "record_source",
-  "name": "CRM-product"
+  "name": "CRM-product",
+  "source": {
+    "DATABASE": {
+      "databaseName": "CRM",
+      "schemaName": "",
+      "tableName": "product",
+      "description": "",
+      "field": [
+        {
+          "sourceDataType": "String",
+          "hopType": 2,
+          "precision": "",
+          "length": "7",
+          "name": "product_id",
+          "description": ""
+        },
+        {
+          "sourceDataType": "String",
+          "hopType": 2,
+          "precision": "",
+          "length": "50",
+          "name": "product_name",
+          "description": ""
+        },
+        {
+          "sourceDataType": "String",
+          "hopType": 2,
+          "precision": "",
+          "length": "50",
+          "name": "category",
+          "description": ""
+        },
+        {
+          "sourceDataType": "Number",
+          "hopType": 1,
+          "precision": "2",
+          "length": "9",
+          "name": "unit_price",
+          "description": ""
+        },
+        {
+          "sourceDataType": "Timestamp",
+          "hopType": 9,
+          "precision": "",
+          "length": "6",
+          "name": "load_date",
+          "description": ""
+        },
+        {
+          "sourceDataType": "String",
+          "hopType": 2,
+          "precision": "",
+          "length": "20",
+          "name": "record_source",
+          "description": ""
+        }
+      ]
+    }
+  }
 }

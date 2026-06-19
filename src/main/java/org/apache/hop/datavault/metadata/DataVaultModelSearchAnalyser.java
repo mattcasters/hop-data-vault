@@ -55,36 +55,16 @@ public class DataVaultModelSearchAnalyser extends BaseSearchableAnalyser<DataVau
         model.getDescription(),
         null);
 
-    // The default Data Vault configuration and its properties
+    // The embedded Data Vault configuration and its properties
     //
-    DataVaultConfiguration configuration = model.getConfiguration();
-    if (configuration != null) {
-      matchProperty(
-          searchable,
-          results,
-          searchQuery,
-          "data vault configuration name",
-          configuration.getName(),
-          "configuration");
-      matchObjectFields(
-          searchable,
-          results,
-          searchQuery,
-          configuration,
-          "data vault configuration property",
-          "configuration");
-    } else {
-      String configurationName = model.getConfigurationName();
-      if (!Utils.isEmpty(configurationName)) {
-        matchProperty(
-            searchable,
-            results,
-            searchQuery,
-            "data vault configuration reference",
-            configurationName,
-            "configuration");
-      }
-    }
+    DataVaultConfiguration configuration = model.getConfigurationOrDefault();
+    matchObjectFields(
+        searchable,
+        results,
+        searchQuery,
+        configuration,
+        "data vault configuration property",
+        "configuration");
 
     // The tables (Hubs, Links and Satellites) and their properties
     //

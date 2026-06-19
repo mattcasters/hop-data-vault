@@ -3,7 +3,26 @@
   <filename>${PROJECT_HOME}/tests/load-end-date/load-end-date.hdv</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description>Load end date test case: hub + standard satellite with x_load_end_ts closing</description>
-  <configuration>load-end-date-config</configuration>
+  <configuration>
+    <targetDatabase>Vault</targetDatabase>
+    <hashAlgorithm>MD5</hashAlgorithm>
+    <hashKeyDataType>STRING</hashKeyDataType>
+    <generateUnknownRecord>Y</generateUnknownRecord>
+    <unknownBusinessKeyValue>N/A</unknownBusinessKeyValue>
+    <unknownHashKeyValue>00000000000000000000000000000000</unknownHashKeyValue>
+    <unknownLinkHashKeyValue>00000000000000000000000000000000</unknownLinkHashKeyValue>
+    <unknownRecordSource>UNKNOWN</unknownRecordSource>
+    <generateInvalidRecord>Y</generateInvalidRecord>
+    <invalidBusinessKeyValue>INVALID</invalidBusinessKeyValue>
+    <invalidHashKeyValue>FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</invalidHashKeyValue>
+    <invalidLinkHashKeyValue>FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</invalidLinkHashKeyValue>
+    <invalidRecordSource>INVALID</invalidRecordSource>
+    <loadDateField>x_load_ts</loadDateField>
+    <loadEndDateField>x_load_end_ts</loadEndDateField>
+    <recordSourceField>x_record_source</recordSourceField>
+    <recordSourceFieldLength>100</recordSourceFieldLength>
+    <useLoadEndDate>Y</useLoadEndDate>
+  </configuration>
   <tables>
     <table>
       <businessKeys>

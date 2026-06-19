@@ -17,27 +17,34 @@
 
 package org.apache.hop.datavault.hopgui.file.vault;
 
-import org.apache.hop.core.Const;
-import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.Props;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
-import org.apache.hop.ui.core.widget.MetaSelectionLine;
+import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
+import org.apache.hop.ui.core.gui.GuiCompositeWidgetsAdapter;
+import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
+import org.jspecify.annotations.NonNull;
 
-/** Dialog to edit the properties of a DataVaultModel (description, default configuration etc). */
+/** Dialog to edit the properties of a DataVaultModel (description, configuration, etc). */
 public class HopGuiDataVaultModelDialog {
   private static final Class<?> PKG = HopGuiDataVaultModelDialog.class;
 
@@ -47,10 +54,15 @@ public class HopGuiDataVaultModelDialog {
   private final DataVaultModel input;
   private Shell shell;
 
-  // Widgets
   private Text wName;
   private Text wDescription;
-  private MetaSelectionLine<DataVaultConfiguration> wConfigurationName;
+  private GuiCompositeWidgets widgets;
+  private Composite wGeneralTabComp;
+  private Composite wUnknownTabComp;
+  private Composite wInvalidTabComp;
+  private Composite wColumnsTabComp;
+  private Composite wTargetLoadTabComp;
+  private Composite wGeneratedPipelinesTabComp;
 
   private boolean ok;
 
@@ -65,6 +77,7 @@ public class HopGuiDataVaultModelDialog {
     shell = new Shell(parent, BaseDialog.getDefaultDialogStyle());
     PropsUi.setLook(shell);
     shell.setText(BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Title", input.getName()));
+    shell.setSize(700, 600);
 
     FormLayout formLayout = new FormLayout();
     formLayout.marginWidth = PropsUi.getFormMargin();
@@ -74,17 +87,6 @@ public class HopGuiDataVaultModelDialog {
     int margin = PropsUi.getMargin();
     int middle = 30;
 
-    // Buttons at the bottom (using standard positioning)
-    Button wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wOk.addListener(SWT.Selection, e -> ok());
-    Button wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    wCancel.addListener(SWT.Selection, e -> cancel());
-
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
-
-    // Name
     Label wlName = new Label(shell, SWT.RIGHT);
     wlName.setText(BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Name.Label"));
     PropsUi.setLook(wlName);
@@ -103,7 +105,6 @@ public class HopGuiDataVaultModelDialog {
     wName.setLayoutData(fdName);
     wName.addModifyListener(e -> input.setChanged());
 
-    // Description
     Label wlDescription = new Label(shell, SWT.RIGHT);
     wlDescription.setText(
         BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Description.Label"));
@@ -123,22 +124,105 @@ public class HopGuiDataVaultModelDialog {
     wDescription.setLayoutData(fdDescription);
     wDescription.addModifyListener(e -> input.setChanged());
 
-    // Configuration name (default for the model) using MetaSelectionLine for metadata selection
-    wConfigurationName =
-        new MetaSelectionLine<>(
-            variables,
-            hopGui.getMetadataProvider(),
-            DataVaultConfiguration.class,
-            shell,
-            SWT.SINGLE | SWT.LEFT | SWT.BORDER,
-            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.ConfigurationName.Label"),
-            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.ConfigurationName.ToolTip"));
-    FormData fdConfigurationName = new FormData();
-    fdConfigurationName.left = new FormAttachment(0, 0);
-    fdConfigurationName.top = new FormAttachment(wDescription, margin);
-    fdConfigurationName.right = new FormAttachment(100, 0);
-    wConfigurationName.setLayoutData(fdConfigurationName);
-    wConfigurationName.addModifyListener(e -> input.setChanged());
+    Button wOk = new Button(shell, SWT.PUSH);
+    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
+    wOk.addListener(SWT.Selection, e -> ok());
+    Button wCancel = new Button(shell, SWT.PUSH);
+    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
+    wCancel.addListener(SWT.Selection, e -> cancel());
+    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
+
+    CTabFolder wTabFolder = new CTabFolder(shell, SWT.BORDER);
+    PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
+    wTabFolder.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(new FormAttachment(wDescription, margin))
+            .right()
+            .bottom(new FormAttachment(wOk, -margin))
+            .result());
+
+    wGeneralTabComp =
+        createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.General.Label"),
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.General.ToolTip"));
+    wUnknownTabComp =
+        createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.Unknown.Label"),
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.Unknown.ToolTip"));
+    wInvalidTabComp =
+        createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.Invalid.Label"),
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.Invalid.ToolTip"));
+    wColumnsTabComp =
+        createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.Columns.Label"),
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.Columns.ToolTip"));
+    wTargetLoadTabComp =
+        createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.TargetLoad.Label"),
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.TargetLoad.ToolTip"));
+    wGeneratedPipelinesTabComp =
+        createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Tab.GeneratedPipelines.Label"),
+            BaseMessages.getString(
+                PKG, "HopGuiDataVaultModelDialog.Tab.GeneratedPipelines.ToolTip"));
+
+    DataVaultConfiguration configuration = input.getConfigurationOrDefault();
+    widgets = new GuiCompositeWidgets(variables);
+    widgets.createCompositeWidgets(
+        configuration,
+        null,
+        wGeneralTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        configuration,
+        null,
+        wUnknownTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        configuration,
+        null,
+        wInvalidTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_INVALID_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        configuration,
+        null,
+        wColumnsTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        configuration,
+        null,
+        wTargetLoadTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        configuration,
+        null,
+        wGeneratedPipelinesTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_PIPELINES_TAB_ID,
+        null);
+
+    wTabFolder.setSelection(0);
+
+    widgets.setWidgetsListener(
+        new GuiCompositeWidgetsAdapter() {
+          @Override
+          public void widgetModified(
+              GuiCompositeWidgets compositeWidgets, Control changedWidget, String widgetId) {
+            input.setChanged();
+          }
+        });
 
     getData();
 
@@ -147,22 +231,68 @@ public class HopGuiDataVaultModelDialog {
     return ok;
   }
 
+  @NonNull
+  public static Composite createTabComposite(CTabFolder tabFolder, String title, String toolTip) {
+    CTabItem tabItem = new CTabItem(tabFolder, SWT.NONE);
+    tabItem.setFont(GuiResource.getInstance().getFontDefault());
+    tabItem.setText(title);
+    tabItem.setToolTipText(toolTip);
+
+    Composite composite = new Composite(tabFolder, SWT.NONE);
+    PropsUi.setLook(composite);
+    FormLayout layout = new FormLayout();
+    layout.marginWidth = PropsUi.getFormMargin();
+    layout.marginHeight = PropsUi.getFormMargin();
+    composite.setLayout(layout);
+    tabItem.setControl(composite);
+    return composite;
+  }
+
   private void getData() {
-    if (input.getName() != null) wName.setText(input.getName());
-    if (input.getDescription() != null) wDescription.setText(input.getDescription());
-    try {
-      wConfigurationName.fillItems();
-      wConfigurationName.setText(Const.NVL(input.getConfigurationName(), ""));
-    } catch (HopException e) {
-      // ignore for this simple dialog; just set what we have
-      wConfigurationName.setText(Const.NVL(input.getConfigurationName(), ""));
+    if (input.getName() != null) {
+      wName.setText(input.getName());
     }
+    if (input.getDescription() != null) {
+      wDescription.setText(input.getDescription());
+    }
+
+    DataVaultConfiguration configuration = input.getConfigurationOrDefault();
+    widgets.setWidgetsContents(
+        configuration, wGeneralTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID);
+    widgets.setWidgetsContents(
+        configuration, wUnknownTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID);
+    widgets.setWidgetsContents(
+        configuration, wInvalidTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_INVALID_TAB_ID);
+    widgets.setWidgetsContents(
+        configuration, wColumnsTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID);
+    widgets.setWidgetsContents(
+        configuration,
+        wTargetLoadTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
+    widgets.setWidgetsContents(
+        configuration,
+        wGeneratedPipelinesTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_PIPELINES_TAB_ID);
   }
 
   private void ok() {
     input.setName(wName.getText());
     input.setDescription(wDescription.getText());
-    input.setConfiguration(wConfigurationName.loadSelectedElement());
+
+    DataVaultConfiguration configuration = input.getConfigurationOrDefault();
+    widgets.getWidgetsContents(
+        configuration, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID);
+    widgets.getWidgetsContents(
+        configuration, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID);
+    widgets.getWidgetsContents(
+        configuration, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_INVALID_TAB_ID);
+    widgets.getWidgetsContents(
+        configuration, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID);
+    widgets.getWidgetsContents(
+        configuration, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
+    widgets.getWidgetsContents(
+        configuration, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_PIPELINES_TAB_ID);
+    input.setConfiguration(configuration);
 
     ok = true;
     dispose();

@@ -18,8 +18,11 @@
 package org.apache.hop.datavault.metadata;
 
 import java.util.List;
+import org.apache.hop.core.RowMetaAndData;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.metadata.api.HopMetadataObject;
 import org.apache.hop.metadata.api.IHasName;
@@ -50,6 +53,18 @@ public interface IDvSource extends IHasName, IChanged {
 
   /** Discriminator for polymorphic serialization and runtime handling. */
   DvSourceType getSourceType();
+
+  /**
+   * Read up to {@code rowLimit} rows from this source for interactive preview.
+   *
+   * @param queryTimeoutSeconds JDBC statement timeout in seconds; 0 uses the driver default
+   */
+  List<RowMetaAndData> previewRecords(
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      int rowLimit,
+      int queryTimeoutSeconds)
+      throws HopException;
 
   /**
    * Factory used by the Hop metadata serializer (and when serializing lists of sources inside

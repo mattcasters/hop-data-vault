@@ -24,13 +24,19 @@
 package org.apache.hop.datavault.hopgui.file.vault;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.BusinessKeySource;
+import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DrivingKeySource;
+import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
+import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
@@ -62,6 +68,9 @@ public class HubSourceKeyFieldDialog {
   private final IVariables variables;
   private final DvLink.HubSourceKeyField input;
   private final List<String> availableHubNames;
+  private final DataVaultModel model;
+  private final List<String> drivingKeyNames;
+  private final DataVaultSource recordSource;
 
   private Shell shell;
 
@@ -72,12 +81,22 @@ public class HubSourceKeyFieldDialog {
   private boolean ok;
 
   public HubSourceKeyFieldDialog(
-      Shell parent, HopGui hopGui, DvLink.HubSourceKeyField field, List<String> hubs) {
+      Shell parent,
+      HopGui hopGui,
+      DvLink.HubSourceKeyField field,
+      List<String> hubs,
+      DataVaultModel model,
+      List<String> drivingKeyNames,
+      DataVaultSource recordSource) {
     this.parent = parent;
     this.hopGui = hopGui;
     this.variables = hopGui.getVariables();
     this.input = field;
     this.availableHubNames = (hubs != null) ? new ArrayList<>(hubs) : new ArrayList<>();
+    this.model = model;
+    this.drivingKeyNames =
+        (drivingKeyNames != null) ? new ArrayList<>(drivingKeyNames) : new ArrayList<>();
+    this.recordSource = recordSource;
   }
 
   public boolean open() {
@@ -135,12 +154,12 @@ public class HubSourceKeyFieldDialog {
         new ColumnInfo[] {
           new ColumnInfo(
               "Hub business key field",
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+              ColumnInfo.COLUMN_TYPE_CCOMBO,
+              getBusinessKeyComboOptions()),
           new ColumnInfo(
               "Source field name",
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+              ColumnInfo.COLUMN_TYPE_CCOMBO,
+              getSourceFieldComboOptions()),
         };
 
     int nrBk = (input.getSourceBusinessKeyFields() != null)
@@ -175,13 +194,11 @@ public class HubSourceKeyFieldDialog {
     ColumnInfo[] dkCols =
         new ColumnInfo[] {
           new ColumnInfo(
-              "Driving key",
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+              "Driving key", ColumnInfo.COLUMN_TYPE_CCOMBO, getDrivingKeyComboOptions()),
           new ColumnInfo(
               "Source field name",
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+              ColumnInfo.COLUMN_TYPE_CCOMBO,
+              getSourceFieldComboOptions()),
         };
 
     int nrDk = (input.getDrivingKeySources() != null)
@@ -209,6 +226,89 @@ public class HubSourceKeyFieldDialog {
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
     return ok;
+  }
+
+  private String[] getBusinessKeyComboOptions() {
+    List<String> options = new ArrayList<>();
+    String hubName = input != null ? input.getHubName() : null;
+    if (model != null && !Utils.isEmpty(hubName)) {
+      DvHub hub = model.findHub(hubName);
+      if (hub != null && hub.getBusinessKeyFieldNames() != null) {
+        options.addAll(hub.getBusinessKeyFieldNames());
+      }
+    }
+    if (input.getSourceBusinessKeyFields() != null) {
+      for (BusinessKeySource mapping : input.getSourceBusinessKeyFields()) {
+        if (mapping != null
+            && !Utils.isEmpty(mapping.getBusinessKeyField())
+            && !options.contains(mapping.getBusinessKeyField())) {
+          options.add(mapping.getBusinessKeyField());
+        }
+      }
+    }
+    Collections.sort(options);
+    return options.toArray(new String[0]);
+  }
+
+  private String[] getDrivingKeyComboOptions() {
+    List<String> options = new ArrayList<>(drivingKeyNames);
+    if (input.getDrivingKeySources() != null) {
+      for (DrivingKeySource mapping : input.getDrivingKeySources()) {
+        if (mapping != null
+            && !Utils.isEmpty(mapping.getDrivingKey())
+            && !options.contains(mapping.getDrivingKey())) {
+          options.add(mapping.getDrivingKey());
+        }
+      }
+    }
+    Collections.sort(options);
+    return options.toArray(new String[0]);
+  }
+
+  private String[] getSourceFieldComboOptions() {
+    List<String> options = new ArrayList<>(loadRecordSourceFieldNames());
+    if (input.getSourceBusinessKeyFields() != null) {
+      for (BusinessKeySource mapping : input.getSourceBusinessKeyFields()) {
+        if (mapping != null
+            && !Utils.isEmpty(mapping.getSourceFieldName())
+            && !options.contains(mapping.getSourceFieldName())) {
+          options.add(mapping.getSourceFieldName());
+        }
+      }
+    }
+    if (input.getDrivingKeySources() != null) {
+      for (DrivingKeySource mapping : input.getDrivingKeySources()) {
+        if (mapping != null
+            && !Utils.isEmpty(mapping.getSourceField())
+            && !options.contains(mapping.getSourceField())) {
+          options.add(mapping.getSourceField());
+        }
+      }
+    }
+    Collections.sort(options);
+    return options.toArray(new String[0]);
+  }
+
+  private List<String> loadRecordSourceFieldNames() {
+    if (recordSource == null) {
+      return List.of();
+    }
+    try {
+      List<SourceField> sourceFields = recordSource.getFields(hopGui.getMetadataProvider());
+      if (sourceFields == null || sourceFields.isEmpty()) {
+        return List.of();
+      }
+      List<String> names = new ArrayList<>();
+      for (SourceField sourceField : sourceFields) {
+        if (sourceField != null && !Utils.isEmpty(sourceField.getName())) {
+          names.add(sourceField.getName());
+        }
+      }
+      Collections.sort(names);
+      return names;
+    } catch (HopException e) {
+      return List.of();
+    }
   }
 
   private void getData() {

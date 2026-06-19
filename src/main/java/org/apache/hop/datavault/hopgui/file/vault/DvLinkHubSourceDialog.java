@@ -24,11 +24,13 @@
 package org.apache.hop.datavault.hopgui.file.vault;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.i18n.BaseMessages;
@@ -64,6 +66,8 @@ public class DvLinkHubSourceDialog {
   private final IVariables variables;
   private final DvLink.DvLinkHubSource input;
   private final List<String> availableHubNames;
+  private final DataVaultModel model;
+  private final List<String> drivingKeyNames;
 
   private Shell shell;
 
@@ -75,12 +79,20 @@ public class DvLinkHubSourceDialog {
   private boolean ok;
 
   public DvLinkHubSourceDialog(
-      Shell parent, HopGui hopGui, DvLink.DvLinkHubSource linkSource, List<String> hubNames) {
+      Shell parent,
+      HopGui hopGui,
+      DvLink.DvLinkHubSource linkSource,
+      List<String> hubNames,
+      DataVaultModel model,
+      List<String> drivingKeyNames) {
     this.parent = parent;
     this.hopGui = hopGui;
     this.variables = hopGui.getVariables();
     this.input = linkSource;
     this.availableHubNames = (hubNames != null) ? new ArrayList<>(hubNames) : new ArrayList<>();
+    this.model = model;
+    this.drivingKeyNames =
+        (drivingKeyNames != null) ? new ArrayList<>(drivingKeyNames) : new ArrayList<>();
     this.currentHubFields = new ArrayList<>();
   }
 
@@ -156,13 +168,9 @@ public class DvLinkHubSourceDialog {
     wRemoveHub.setLayoutData(fdRemove);
     wRemoveHub.addListener(SWT.Selection, e -> removeHubMapping());
 
-    // TableView for hub names (user can also type hub names here)
     ColumnInfo[] hubCols =
         new ColumnInfo[] {
-          new ColumnInfo(
-              "Hub name",
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+          new ColumnInfo("Hub name", ColumnInfo.COLUMN_TYPE_CCOMBO, getHubComboOptions()),
         };
 
     int nrRows = 3;
@@ -188,6 +196,21 @@ public class DvLinkHubSourceDialog {
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
     return ok;
+  }
+
+  private String[] getHubComboOptions() {
+    List<String> options = new ArrayList<>(availableHubNames);
+    if (input.getHubSourceKeyFields() != null) {
+      for (DvLink.HubSourceKeyField field : input.getHubSourceKeyFields()) {
+        if (field != null
+            && !Utils.isEmpty(field.getHubName())
+            && !options.contains(field.getHubName())) {
+          options.add(field.getHubName());
+        }
+      }
+    }
+    Collections.sort(options);
+    return options.toArray(new String[0]);
   }
 
   private String getSourceNameForTitle() {
@@ -285,8 +308,32 @@ public class DvLinkHubSourceDialog {
   private void editHubForName(String hubName) {
     DvLink.HubSourceKeyField field = findOrCreateHubField(hubName);
     HubSourceKeyFieldDialog dlg =
-        new HubSourceKeyFieldDialog(shell, hopGui, field, availableHubNames);
+        new HubSourceKeyFieldDialog(
+            shell,
+            hopGui,
+            field,
+            availableHubNames,
+            model,
+            drivingKeyNames,
+            getCurrentRecordSource());
     dlg.open();
+  }
+
+  private DataVaultSource getCurrentRecordSource() {
+    String sourceName = wSource.getText();
+    if (Utils.isEmpty(sourceName)) {
+      return input.getSource();
+    }
+    if (input.getSource() != null && sourceName.equals(input.getSource().getName())) {
+      return input.getSource();
+    }
+    try {
+      return hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sourceName);
+    } catch (HopException e) {
+      DataVaultSource placeholder = new DataVaultSource();
+      placeholder.setName(sourceName);
+      return placeholder;
+    }
   }
 
   private DvLink.HubSourceKeyField findOrCreateHubField(String hubName) {

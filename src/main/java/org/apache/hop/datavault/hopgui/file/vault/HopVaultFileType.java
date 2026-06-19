@@ -97,6 +97,7 @@ public class HopVaultFileType extends HopFileTypeBase {
     caps.setProperty(IHopFileType.CAPABILITY_SAVE_AS, "true");
     caps.setProperty(IHopFileType.CAPABILITY_CLOSE, "true");
     caps.setProperty(IHopFileType.CAPABILITY_SELECT, "true"); // basic
+    caps.setProperty(IHopFileType.CAPABILITY_EXPORT_TO_SVG, "true");
     caps.setProperty(IHopFileType.CAPABILITY_FILE_HISTORY, "true");
     return caps;
   }

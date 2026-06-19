@@ -20,19 +20,18 @@ package org.apache.hop.datavault.workflow.actions.datavaultupdate;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.hopgui.file.vault.HopGuiDataVaultModelDialog;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
-import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.apache.hop.ui.workflow.action.ActionDialog;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.action.IAction;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
-import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
@@ -113,17 +112,17 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
             .result());
 
     wModelTabComp =
-        addTab(
+        addTabComposite(
             wTabFolder,
             BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Model.Label"),
             BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Model.ToolTip"));
     wDdlTabComp =
-        addTab(
+        addTabComposite(
             wTabFolder,
             BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Ddl.Label"),
             BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Ddl.ToolTip"));
     wSourceTabComp =
-        addTab(
+        addTabComposite(
             wTabFolder,
             BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Source.Label"),
             BaseMessages.getString(PKG, "ActionDataVaultUpdate.Tab.Source.ToolTip"));
@@ -145,20 +144,8 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
     return action;
   }
 
-  private Composite addTab(CTabFolder tabFolder, String title, String toolTip) {
-    CTabItem tabItem = new CTabItem(tabFolder, SWT.NONE);
-    tabItem.setFont(GuiResource.getInstance().getFontDefault());
-    tabItem.setText(title);
-    tabItem.setToolTipText(toolTip);
-
-    Composite composite = new Composite(tabFolder, SWT.NONE);
-    PropsUi.setLook(composite);
-    FormLayout layout = new FormLayout();
-    layout.marginWidth = PropsUi.getFormMargin();
-    layout.marginHeight = PropsUi.getFormMargin();
-    composite.setLayout(layout);
-    tabItem.setControl(composite);
-    return composite;
+  private Composite addTabComposite(CTabFolder tabFolder, String title, String toolTip) {
+    return HopGuiDataVaultModelDialog.createTabComposite(tabFolder, title, toolTip);
   }
 
   private void setWidgetsContent() {

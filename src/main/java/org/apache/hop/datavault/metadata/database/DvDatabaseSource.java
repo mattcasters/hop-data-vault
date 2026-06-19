@@ -17,66 +17,74 @@
 
 package org.apache.hop.datavault.metadata.database;
 
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.hop.core.gui.plugin.GuiPlugin;
+import org.apache.hop.core.RowMetaAndData;
+import org.apache.hop.core.database.DatabaseMeta;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.core.gui.plugin.GuiElementType;
+import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.datavault.metadata.DvSourceBase;
 import org.apache.hop.datavault.metadata.DvSourceType;
 import org.apache.hop.datavault.metadata.IDvSource;
-import org.apache.hop.metadata.api.HopMetadata;
 import org.apache.hop.metadata.api.HopMetadataProperty;
-import org.apache.hop.metadata.api.IHasName;
-import org.apache.hop.metadata.api.IHopMetadata;
 
 /**
- * Data Vault source implementation for a relational database (RDBMS).
- *
- * <p>References an existing Hop "RDBMS" / DatabaseMeta metadata object (key "rdbms") by name.
- * The actual table, view or query is typically resolved at runtime by a transform or generator
- * that also knows the desired source table / SQL.
- *
- * <p>The {@link #getFields()} list (inherited) defines the expected column layout and which
- * columns participate in the source primary key / natural key.
+ * Database (RDBMS) implementation of {@link IDvSource}, embedded in {@link
+ * org.apache.hop.datavault.metadata.DataVaultSource}.
  */
-@GuiPlugin
-@HopMetadata(
-    key = "data-vault-source-database",
-    name = "i18n::DvDatabaseSource.name",
-    description = "i18n::DvDatabaseSource.description",
-    image = "datavault_model.svg",
-    documentationUrl = "/metadata-types/data-vault-source-database.html")
 @Getter
 @Setter
-public class DvDatabaseSource extends DvSourceBase implements IHopMetadata, IDvSource, IHasName {
-  public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_DATABASE_SOURCE_DIALOG";
+public class DvDatabaseSource extends DvSourceBase implements IDvSource {
 
-  /**
-   * Name of the RDBMS connection (a DatabaseMeta / "rdbms" metadata object) that this source
-   * uses.
-   */
+  public static final String GUI_PLUGIN_ELEMENT_DATABASE_TAB_ID =
+      "DATAVAULT_SOURCE_DATABASE_TAB";
+
+  @GuiWidgetElement(
+      order = "0100",
+      type = GuiElementType.METADATA,
+      metadata = DatabaseMeta.class,
+      label = "i18n::DvDatabaseSource.DatabaseName.Label",
+      toolTip = "i18n::DvDatabaseSource.DatabaseName.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_DATABASE_TAB_ID)
   @HopMetadataProperty(key = "databaseName")
   private String databaseName;
 
-  /**
-   * Optional schema / catalog qualifier (implementation dependent).
-   */
+  @GuiWidgetElement(
+      order = "0200",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DvDatabaseSource.SchemaName.Label",
+      toolTip = "i18n::DvDatabaseSource.SchemaName.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_DATABASE_TAB_ID)
   @HopMetadataProperty
   private String schemaName;
 
-  /**
-   * Optional: the physical table or view name in the source database (can also be supplied
-   * at runtime or via a query).
-   */
+  @GuiWidgetElement(
+      order = "0300",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DvDatabaseSource.TableName.Label",
+      toolTip = "i18n::DvDatabaseSource.TableName.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_DATABASE_TAB_ID)
   @HopMetadataProperty(key = "tableName")
   private String tableName;
 
   public DvDatabaseSource() {
-    super();
     this.sourceType = DvSourceType.DATABASE;
   }
 
-  public DvDatabaseSource(String name) {
-    super(name);
-    this.sourceType = DvSourceType.DATABASE;
+  @Override
+  public List<RowMetaAndData> previewRecords(
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      int rowLimit,
+      int queryTimeoutSeconds)
+      throws HopException {
+    return DvDatabaseSourcePreviewSupport.previewRecords(
+        this, variables, metadataProvider, rowLimit, queryTimeoutSeconds);
   }
 }

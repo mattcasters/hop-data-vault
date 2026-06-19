@@ -19,10 +19,13 @@ package org.apache.hop.datavault.hopgui.file.vault;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.BusinessKey;
 import org.apache.hop.datavault.metadata.DataVaultSource;
@@ -131,7 +134,6 @@ public class DvHubDialog {
     fdName.top = new FormAttachment(0, margin);
     fdName.right = new FormAttachment(100, 0);
     wName.setLayoutData(fdName);
-    wName.addModifyListener(e -> input.setChanged());
 
     // Description
     Label wlDescription = new Label(shell, SWT.RIGHT);
@@ -150,7 +152,6 @@ public class DvHubDialog {
     fdDescription.top = new FormAttachment(wlDescription, 0, SWT.CENTER);
     fdDescription.right = new FormAttachment(100, 0);
     wDescription.setLayoutData(fdDescription);
-    wDescription.addModifyListener(e -> input.setChanged());
 
     wTabFolder = new CTabFolder(shell, SWT.BORDER);
     PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
@@ -163,8 +164,8 @@ public class DvHubDialog {
             .result());
 
     addOptionsTab();
-    addKeysTab();
     addSourcesTab();
+    addKeysTab();
 
     wTabFolder.setSelection(0);
 
@@ -201,7 +202,6 @@ public class DvHubDialog {
     fdTableName.top = new FormAttachment(wlTableName, 0, SWT.CENTER);
     fdTableName.right = new FormAttachment(100, 0);
     wTableName.setLayoutData(fdTableName);
-    wTableName.addModifyListener(e -> input.setChanged());
 
     // Hash key field name (per-hub, replaces global suffix from DataVaultConfiguration)
     Label wlHashKeyFieldName = new Label(wOptionsComp, SWT.RIGHT);
@@ -221,7 +221,6 @@ public class DvHubDialog {
     fdHashKeyFieldName.top = new FormAttachment(wlHashKeyFieldName, 0, SWT.CENTER);
     fdHashKeyFieldName.right = new FormAttachment(100, 0);
     wHashKeyFieldName.setLayoutData(fdHashKeyFieldName);
-    wHashKeyFieldName.addModifyListener(e -> input.setChanged());
 
     // Record source field name (per-hub override of the one in DataVaultConfiguration)
     Label wlRecordSourceFieldName = new Label(wOptionsComp, SWT.RIGHT);
@@ -241,7 +240,6 @@ public class DvHubDialog {
     fdRecordSourceFieldName.top = new FormAttachment(wlRecordSourceFieldName, 0, SWT.CENTER);
     fdRecordSourceFieldName.right = new FormAttachment(100, 0);
     wRecordSourceFieldName.setLayoutData(fdRecordSourceFieldName);
-    wRecordSourceFieldName.addModifyListener(e -> input.setChanged());
 
     wOptionsComp.layout();
     wOptionsTab.setControl(wOptionsComp);
@@ -301,7 +299,7 @@ public class DvHubDialog {
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
             columns,
             nrRows,
-            e -> input.setChanged(),
+            null,
             PropsUi.getInstance());
 
     FormData fdBusinessKeys = new FormData();
@@ -352,7 +350,7 @@ public class DvHubDialog {
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
             columns,
             1,
-            e -> input.setChanged(),
+            null,
             PropsUi.getInstance());
     FormData fdSources = new FormData();
     fdSources.left = new FormAttachment(0, 0);
@@ -424,6 +422,7 @@ public class DvHubDialog {
       input.getRecordSources().add(sourceName);
     }
 
+    input.setChanged();
     ok = true;
     dispose();
   }
@@ -435,7 +434,7 @@ public class DvHubDialog {
   }
 
   private void getKeys() {
-    // Select the first source and pick the primary key field(s) from it.
+    // Select the first source and pick source field(s) to add as business keys.
     //
     List<TableItem> sourceItems = wSources.getNonEmptyItems();
     if (sourceItems.isEmpty()) {
@@ -475,12 +474,25 @@ public class DvHubDialog {
       return;
     }
 
+    Set<String> preselectedSourceFields = new HashSet<>();
+    for (TableItem item : wBusinessKeys.getNonEmptyItems()) {
+      String sourceFieldName = item.getText(5);
+      if (!Utils.isEmpty(sourceFieldName)) {
+        preselectedSourceFields.add(sourceFieldName);
+      } else {
+        String businessKeyName = item.getText(1);
+        if (!Utils.isEmpty(businessKeyName)) {
+          preselectedSourceFields.add(businessKeyName);
+        }
+      }
+    }
+
     String[] choices = new String[sourceFields.size()];
     List<Integer> selectedIndexes = new ArrayList<>();
     for (int i = 0; i < sourceFields.size(); i++) {
       SourceField sf = sourceFields.get(i);
       choices[i] = sf.getName();
-      if (sf.isPrimaryKey()) {
+      if (preselectedSourceFields.contains(sf.getName())) {
         selectedIndexes.add(i);
       }
     }
@@ -509,7 +521,6 @@ public class DvHubDialog {
       wBusinessKeys.removeEmptyRows();
       wBusinessKeys.setRowNums();
       wBusinessKeys.optWidth(true);
-      input.setChanged();
     }
   }
 

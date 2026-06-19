@@ -18,11 +18,13 @@
 package org.apache.hop.datavault.hopgui.file.vault;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.i18n.BaseMessages;
@@ -57,6 +59,8 @@ public class DvLinkSatelliteSourceDialog {
   private final IVariables variables;
   private final DvLink.DvLinkSatelliteSource input;
   private final List<String> availableSatelliteNames;
+  private final DataVaultModel model;
+  private final List<String> drivingKeyNames;
 
   private Shell shell;
 
@@ -71,13 +75,18 @@ public class DvLinkSatelliteSourceDialog {
       Shell parent,
       HopGui hopGui,
       DvLink.DvLinkSatelliteSource linkSatelliteSource,
-      List<String> satelliteNames) {
+      List<String> satelliteNames,
+      DataVaultModel model,
+      List<String> drivingKeyNames) {
     this.parent = parent;
     this.hopGui = hopGui;
     this.variables = hopGui.getVariables();
     this.input = linkSatelliteSource;
     this.availableSatelliteNames =
         (satelliteNames != null) ? new ArrayList<>(satelliteNames) : new ArrayList<>();
+    this.model = model;
+    this.drivingKeyNames =
+        (drivingKeyNames != null) ? new ArrayList<>(drivingKeyNames) : new ArrayList<>();
     this.currentSatelliteFields = new ArrayList<>();
   }
 
@@ -150,7 +159,10 @@ public class DvLinkSatelliteSourceDialog {
     wRemoveSatellite.addListener(SWT.Selection, e -> removeSatelliteMapping());
 
     ColumnInfo[] satCols =
-        new ColumnInfo[] {new ColumnInfo("Link satellite name", ColumnInfo.COLUMN_TYPE_TEXT, false)};
+        new ColumnInfo[] {
+          new ColumnInfo(
+              "Link satellite name", ColumnInfo.COLUMN_TYPE_CCOMBO, getSatelliteComboOptions()),
+        };
 
     wSatelliteMappings =
         new TableView(
@@ -174,6 +186,21 @@ public class DvLinkSatelliteSourceDialog {
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
     return ok;
+  }
+
+  private String[] getSatelliteComboOptions() {
+    List<String> options = new ArrayList<>(availableSatelliteNames);
+    if (input.getSatelliteSourceKeyFields() != null) {
+      for (DvLink.SatelliteSourceKeyField field : input.getSatelliteSourceKeyFields()) {
+        if (field != null
+            && !Utils.isEmpty(field.getSatelliteName())
+            && !options.contains(field.getSatelliteName())) {
+          options.add(field.getSatelliteName());
+        }
+      }
+    }
+    Collections.sort(options);
+    return options.toArray(new String[0]);
   }
 
   private String getSourceNameForTitle() {
@@ -266,8 +293,31 @@ public class DvLinkSatelliteSourceDialog {
   private void editSatelliteForName(String satelliteName) {
     DvLink.SatelliteSourceKeyField field = findOrCreateSatelliteField(satelliteName);
     SatelliteSourceKeyFieldDialog dlg =
-        new SatelliteSourceKeyFieldDialog(shell, hopGui, field);
+        new SatelliteSourceKeyFieldDialog(
+            shell,
+            hopGui,
+            field,
+            model,
+            drivingKeyNames,
+            getCurrentRecordSource());
     dlg.open();
+  }
+
+  private DataVaultSource getCurrentRecordSource() {
+    String sourceName = wSource.getText();
+    if (Utils.isEmpty(sourceName)) {
+      return input.getSource();
+    }
+    if (input.getSource() != null && sourceName.equals(input.getSource().getName())) {
+      return input.getSource();
+    }
+    try {
+      return hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sourceName);
+    } catch (HopException e) {
+      DataVaultSource placeholder = new DataVaultSource();
+      placeholder.setName(sourceName);
+      return placeholder;
+    }
   }
 
   private DvLink.SatelliteSourceKeyField findOrCreateSatelliteField(String satelliteName) {
