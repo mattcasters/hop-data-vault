@@ -61,10 +61,8 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
-import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta;
-import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta.CheckSumType;
-import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta.ResultType;
-import org.apache.hop.pipeline.transforms.checksum.Field;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMeta;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMetaFactory;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
@@ -486,10 +484,9 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
           hubHashNames.add(hubHashName);
           List<String> hubBkFields = hub.getBusinessKeyFieldNames();
           TransformMeta checkSumTransform =
-              addCheckSumForFields(
+              addDvHashKeyForFields(
                   pipelineMeta,
                   predecessorTransform,
-                  ctx.checkSumType,
                   hubBkFields,
                   hubHashName,
                   ctx.config,
@@ -500,10 +497,9 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
         // Final checksum for the Link Hash itself
         TransformMeta linkHashCalc =
-            addCheckSumForFields(
+            addDvHashKeyForFields(
                 pipelineMeta,
                 predecessorTransform,
-                ctx.checkSumType,
                 hubHashNames,
                 linkHashKeyFieldName,
                 ctx.config,
@@ -720,31 +716,17 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     return builder.getResultTransform();
   }
 
-  private TransformMeta addCheckSumForFields(
+  private TransformMeta addDvHashKeyForFields(
       PipelineMeta pipelineMeta,
       TransformMeta predecessor,
-      CheckSumType checkSumType,
       List<String> inputFieldNames,
       String resultFieldName,
       DataVaultConfiguration config,
       int index) {
-    CheckSumMeta checkSumMeta = new CheckSumMeta();
-    checkSumMeta.setCheckSumType(checkSumType);
+    DvHashKeyMeta hashKeyMeta =
+        DvHashKeyMetaFactory.create(config, inputFieldNames, resultFieldName);
 
-    List<Field> checkFields = new ArrayList<>();
-    for (String f : inputFieldNames) {
-      checkFields.add(new Field(f));
-    }
-    checkSumMeta.setFields(checkFields);
-    checkSumMeta.setResultFieldName(resultFieldName);
-
-    if (config != null && config.getHashKeyDataType() == HashKeyDataType.BINARY) {
-      checkSumMeta.setResultType(ResultType.BINARY);
-    } else {
-      checkSumMeta.setResultType(ResultType.STRING);
-    }
-
-    TransformMeta tm = new TransformMeta("CheckSum", "calc_" + resultFieldName, checkSumMeta);
+    TransformMeta tm = new TransformMeta("DvHashKey", "calc_" + resultFieldName, hashKeyMeta);
     // Place progressively to the right
     Point loc =
         new Point(LOCATION_START_LINE_2.x + (index + 1) * SPACING_WIDTH, LOCATION_START_LINE_2.y);
@@ -1136,7 +1118,6 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     final IVariables variables;
 
     final DataVaultConfiguration config;
-    final CheckSumType checkSumType;
 
     final DataVaultSource dataVaultSource;
     final IDvSource dvSource;
@@ -1152,7 +1133,6 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         IHopMetadataProvider metadataProvider,
         IVariables variables,
         DataVaultConfiguration config,
-        CheckSumType checkSumType,
         DataVaultSource dataVaultSource,
         DatabaseMeta targetDatabaseMeta,
         String targetDbName,
@@ -1164,7 +1144,6 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       this.metadataProvider = metadataProvider;
       this.variables = variables;
       this.config = config;
-      this.checkSumType = checkSumType;
       this.dataVaultSource = dataVaultSource;
       this.targetDatabaseMeta = targetDatabaseMeta;
       this.targetDbName = targetDbName;
@@ -1189,25 +1168,6 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       String configName = model.getConfigurationName();
       if (!Utils.isEmpty(configName)) {
         config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
-      }
-
-      // Hash algo -> CheckSumType (same logic as hubs/sats)
-      HashAlgorithm hashAlgorithm =
-          (config != null) ? config.getHashAlgorithm() : HashAlgorithm.MD5;
-      CheckSumType checkSumType = CheckSumType.MD5;
-      if (hashAlgorithm != null) {
-        switch (hashAlgorithm) {
-          case SHA1:
-            checkSumType = CheckSumType.SHA1;
-            break;
-          case SHA256:
-            checkSumType = CheckSumType.SHA256;
-            break;
-          case SHA512:
-            checkSumType = CheckSumType.SHA512;
-            break;
-          default:
-        }
       }
 
       String recordSourceField = "RECORD_SOURCE";
@@ -1254,7 +1214,6 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
           metadataProvider,
           variables,
           config,
-          checkSumType,
           effectiveSource,
           targetDatabaseMeta,
           targetDbName,

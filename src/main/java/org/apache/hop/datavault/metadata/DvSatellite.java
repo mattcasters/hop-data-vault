@@ -66,10 +66,8 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
-import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta;
-import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta.CheckSumType;
-import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta.ResultType;
-import org.apache.hop.pipeline.transforms.checksum.Field;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMeta;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMetaFactory;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
@@ -326,7 +324,7 @@ public class DvSatellite extends DvTableBase
       TransformMeta hashChainEndTransform =
           ctx.linkSatellite
               ? addLinkHashKeyChain(ctx, pipelineMeta, sourceInputTransform)
-              : addHashKeyCheckSum(ctx, pipelineMeta, sourceInputTransform);
+              : addDvHashKey(ctx, pipelineMeta, sourceInputTransform);
 
       TransformMeta sourceSelectTransform =
           addSourceSelectRows(ctx, pipelineMeta, hashChainEndTransform);
@@ -441,7 +439,7 @@ public class DvSatellite extends DvTableBase
         hashMeta = new ValueMetaString(hashKeyName);
         hashMeta.setLength(digestBytes * 2);
       } else {
-        // STRING: the decimal-dash format produced by CheckSum ResultType.STRING
+        // STRING: the decimal-dash format produced by DvHashKey
         // max length = N*3 + (N-1)  e.g. 63 for MD5
         int stringMax = digestBytes * 3 + (digestBytes > 0 ? digestBytes - 1 : 0);
         hashMeta = new ValueMetaString(hashKeyName);
@@ -696,7 +694,7 @@ public class DvSatellite extends DvTableBase
     int index = 0;
     for (SatelliteUpdateContext.HubHashCalcStep step : ctx.hubHashCalcSteps) {
       current =
-          addCheckSumForFields(
+          addDvHashKeyForFields(
               ctx,
               pipelineMeta,
               current,
@@ -705,7 +703,7 @@ public class DvSatellite extends DvTableBase
               index++);
       hubHashNames.add(step.hashKeyFieldName());
     }
-    return addCheckSumForFields(
+    return addDvHashKeyForFields(
         ctx,
         pipelineMeta,
         current,
@@ -714,34 +712,17 @@ public class DvSatellite extends DvTableBase
         index);
   }
 
-  private TransformMeta addCheckSumForFields(
+  private TransformMeta addDvHashKeyForFields(
       SatelliteUpdateContext ctx,
       PipelineMeta pipelineMeta,
       TransformMeta predecessor,
       List<String> inputFieldNames,
       String resultFieldName,
       int index) {
-    CheckSumMeta checkSumMeta = new CheckSumMeta();
-    checkSumMeta.setCheckSumType(ctx.checkSumType);
+    DvHashKeyMeta hashKeyMeta =
+        DvHashKeyMetaFactory.create(ctx.config, inputFieldNames, resultFieldName);
 
-    List<Field> checkFields = new ArrayList<>();
-    for (String fieldName : inputFieldNames) {
-      checkFields.add(new Field(fieldName));
-    }
-    checkSumMeta.setFields(checkFields);
-    checkSumMeta.setResultFieldName(resultFieldName);
-
-    HashKeyDataType hdt =
-        (ctx.config != null) ? ctx.config.getHashKeyDataType() : HashKeyDataType.BINARY;
-    if (hdt == HashKeyDataType.BINARY) {
-      checkSumMeta.setResultType(ResultType.BINARY);
-    } else if (hdt == HashKeyDataType.HEX) {
-      checkSumMeta.setResultType(ResultType.HEXADECIMAL);
-    } else {
-      checkSumMeta.setResultType(ResultType.STRING);
-    }
-
-    TransformMeta tm = new TransformMeta("CheckSum", "calc_" + resultFieldName, checkSumMeta);
+    TransformMeta tm = new TransformMeta("DvHashKey", "calc_" + resultFieldName, hashKeyMeta);
     tm.setLocation(
         LOCATION_START_LINE_2.x + (index + 1) * SPACING_WIDTH, LOCATION_START_LINE_2.y);
     pipelineMeta.addTransform(tm);
@@ -749,32 +730,13 @@ public class DvSatellite extends DvTableBase
     return tm;
   }
 
-  private TransformMeta addHashKeyCheckSum(
+  private TransformMeta addDvHashKey(
       SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor) {
-    CheckSumMeta checkSumMeta = new CheckSumMeta();
-    checkSumMeta.setCheckSumType(ctx.checkSumType);
-
-    List<Field> checkFields = new ArrayList<>();
-    for (String fieldName : ctx.pkSourceFieldNames) {
-      checkFields.add(new Field(fieldName));
-    }
-    checkSumMeta.setFields(checkFields);
-
     String resultFieldName = ctx.hashKeyFieldName;
-    checkSumMeta.setResultFieldName(resultFieldName);
+    DvHashKeyMeta hashKeyMeta =
+        DvHashKeyMetaFactory.create(ctx.config, ctx.pkSourceFieldNames, resultFieldName);
 
-    HashKeyDataType hdt =
-        (ctx.config != null) ? ctx.config.getHashKeyDataType() : HashKeyDataType.BINARY;
-    if (hdt == HashKeyDataType.BINARY) {
-      checkSumMeta.setResultType(ResultType.BINARY);
-    } else if (hdt == HashKeyDataType.HEX) {
-      checkSumMeta.setResultType(ResultType.HEXADECIMAL);
-    } else {
-      // STRING -> the decimal-dash string format (0-255 separated by "-")
-      checkSumMeta.setResultType(ResultType.STRING);
-    }
-
-    TransformMeta tm = new TransformMeta("CheckSum", "calc_" + resultFieldName, checkSumMeta);
+    TransformMeta tm = new TransformMeta("DvHashKey", "calc_" + resultFieldName, hashKeyMeta);
     tm.setLocation(LOCATION_START_LINE_2.x + SPACING_WIDTH, LOCATION_START_LINE_2.y);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
@@ -1301,7 +1263,6 @@ public class DvSatellite extends DvTableBase
     final IVariables variables;
 
     final DataVaultConfiguration config;
-    final CheckSumType checkSumType;
 
     final DataVaultSource dataVaultSource;
     final IDvSource dvSource;
@@ -1340,7 +1301,6 @@ public class DvSatellite extends DvTableBase
         IHopMetadataProvider metadataProvider,
         IVariables variables,
         DataVaultConfiguration config,
-        CheckSumType checkSumType,
         DataVaultSource dataVaultSource,
         DatabaseMeta targetDatabaseMeta,
         String targetDbName,
@@ -1372,7 +1332,6 @@ public class DvSatellite extends DvTableBase
       this.metadataProvider = metadataProvider;
       this.variables = variables;
       this.config = config;
-      this.checkSumType = checkSumType;
       this.dataVaultSource = dataVaultSource;
       this.targetDatabaseMeta = targetDatabaseMeta;
       this.targetDbName = targetDbName;
@@ -1435,24 +1394,6 @@ public class DvSatellite extends DvTableBase
         config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
       }
 
-      // checksum type from hash algo in config
-      HashAlgorithm hashAlgorithm =
-          (config != null) ? config.getHashAlgorithm() : HashAlgorithm.MD5;
-      CheckSumType checkSumType = CheckSumType.MD5;
-      if (hashAlgorithm != null) {
-        switch (hashAlgorithm) {
-          case SHA1:
-            checkSumType = CheckSumType.SHA1;
-            break;
-          case SHA256:
-            checkSumType = CheckSumType.SHA256;
-            break;
-          case SHA512:
-            checkSumType = CheckSumType.SHA512;
-            break;
-          default:
-        }
-      }
       String recordSourceField = "RECORD_SOURCE";
       if (config != null && !Utils.isEmpty(config.getRecordSourceField())) {
         recordSourceField = config.getRecordSourceField();
@@ -1633,7 +1574,6 @@ public class DvSatellite extends DvTableBase
           metadataProvider,
           variables,
           config,
-          checkSumType,
           recordSource,
           targetDatabaseMeta,
           targetDbName,

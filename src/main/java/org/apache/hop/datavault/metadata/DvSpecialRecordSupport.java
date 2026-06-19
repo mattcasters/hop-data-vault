@@ -18,8 +18,6 @@
 package org.apache.hop.datavault.metadata;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -37,7 +35,7 @@ import org.apache.hop.core.util.StringUtil;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
-import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta.CheckSumType;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyLogic;
 
 /**
  * Ensures unknown and invalid (error) sentinel rows exist in hub and link target tables using
@@ -456,9 +454,10 @@ public final class DvSpecialRecordSupport {
       byte[] bytes = parseBinaryValue(resolved, variables);
       return bytesToHex(normalizeBinaryLength(bytes, config));
     }
-    // STRING format: decimal-dash like CheckSum STRING result
+    // STRING format: decimal-dash like DvHashKey STRING result
     byte[] bytes = parseBinaryValue(resolved, variables);
-    return bytesToCheckSumString(normalizeBinaryLength(bytes, config));
+    return DvHashKeyLogic.formatHashResult(
+        normalizeBinaryLength(bytes, config), HashKeyDataType.STRING);
   }
 
   private static byte[] normalizeBinaryLength(byte[] bytes, DataVaultConfiguration config) {
@@ -522,95 +521,57 @@ public final class DvSpecialRecordSupport {
     return sb.toString();
   }
 
-  private static String bytesToCheckSumString(byte[] bytes) {
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < bytes.length; i++) {
-      if (i > 0) {
-        sb.append('-');
-      }
-      sb.append(bytes[i] & 0xFF);
-    }
-    return sb.toString();
-  }
-
   private static Object computeBusinessKeyHash(
       String businessKeyValue,
       List<BusinessKey> businessKeys,
       DataVaultConfiguration config,
       int valueMetaType)
       throws HopException {
-    HashAlgorithm algo =
-        config.getHashAlgorithm() != null ? config.getHashAlgorithm() : HashAlgorithm.MD5;
-    CheckSumType checkSumType = mapToCheckSumType(algo);
-
-    try {
-      MessageDigest digest = MessageDigest.getInstance(checkSumType.getCode());
-      if (businessKeys != null && !businessKeys.isEmpty()) {
-        for (BusinessKey bk : businessKeys) {
-          String part = businessKeyValue;
-          if (!Utils.isEmpty(bk.getName())) {
-            part = businessKeyValue;
-          }
-          digest.update(part.getBytes(StandardCharsets.UTF_8));
-        }
-      } else {
-        digest.update(businessKeyValue.getBytes(StandardCharsets.UTF_8));
+    List<Object> values = new ArrayList<>();
+    List<Boolean> binaryFlags = new ArrayList<>();
+    if (businessKeys != null && !businessKeys.isEmpty()) {
+      for (BusinessKey ignored : businessKeys) {
+        values.add(businessKeyValue);
+        binaryFlags.add(false);
       }
-      byte[] hashBytes = digest.digest();
-
-      HashKeyDataType hdt =
-          config.getHashKeyDataType() != null ? config.getHashKeyDataType() : HashKeyDataType.BINARY;
-      if (valueMetaType == IValueMeta.TYPE_BINARY || hdt == HashKeyDataType.BINARY) {
-        return hashBytes;
-      }
-      if (hdt == HashKeyDataType.HEX) {
-        return bytesToHex(hashBytes);
-      }
-      return bytesToCheckSumString(hashBytes);
-    } catch (NoSuchAlgorithmException e) {
-      throw new HopException("Unsupported hash algorithm: " + algo, e);
+    } else {
+      values.add(businessKeyValue);
+      binaryFlags.add(false);
     }
+    Object hash =
+        DvHashKeyLogic.computeHashFromValues(values, binaryFlags, config, null);
+    return coerceHashResult(hash, config, valueMetaType);
   }
 
   private static Object computeLinkHashFromHubHashes(
       List<Object> hubHashValues, DataVaultConfiguration config, int valueMetaType)
       throws HopException {
-    HashAlgorithm algo =
-        config.getHashAlgorithm() != null ? config.getHashAlgorithm() : HashAlgorithm.MD5;
-    CheckSumType checkSumType = mapToCheckSumType(algo);
-
-    try {
-      MessageDigest digest = MessageDigest.getInstance(checkSumType.getCode());
+    List<Object> values = new ArrayList<>();
+    List<Boolean> binaryFlags = new ArrayList<>();
+    if (hubHashValues != null) {
       for (Object hubHash : hubHashValues) {
-        if (hubHash instanceof byte[] bytes) {
-          digest.update(bytes);
-        } else if (hubHash != null) {
-          digest.update(hubHash.toString().getBytes(StandardCharsets.UTF_8));
-        }
+        values.add(hubHash);
+        binaryFlags.add(hubHash instanceof byte[]);
       }
-      byte[] hashBytes = digest.digest();
-
-      HashKeyDataType hdt =
-          config.getHashKeyDataType() != null ? config.getHashKeyDataType() : HashKeyDataType.BINARY;
-      if (valueMetaType == IValueMeta.TYPE_BINARY || hdt == HashKeyDataType.BINARY) {
-        return hashBytes;
-      }
-      if (hdt == HashKeyDataType.HEX) {
-        return bytesToHex(hashBytes);
-      }
-      return bytesToCheckSumString(hashBytes);
-    } catch (NoSuchAlgorithmException e) {
-      throw new HopException("Unsupported hash algorithm: " + algo, e);
     }
+    Object hash = DvHashKeyLogic.computeHashFromValues(values, binaryFlags, config, null);
+    return coerceHashResult(hash, config, valueMetaType);
   }
 
-  private static CheckSumType mapToCheckSumType(HashAlgorithm algo) throws HopException {
-    return switch (algo) {
-      case MD5 -> CheckSumType.MD5;
-      case SHA1 -> CheckSumType.SHA1;
-      case SHA256 -> CheckSumType.SHA256;
-      case SHA512 -> CheckSumType.SHA512;
-    };
+  private static Object coerceHashResult(
+      Object hash, DataVaultConfiguration config, int valueMetaType) {
+    if (hash == null) {
+      return null;
+    }
+    HashKeyDataType hdt =
+        config.getHashKeyDataType() != null ? config.getHashKeyDataType() : HashKeyDataType.BINARY;
+    if (valueMetaType == IValueMeta.TYPE_BINARY || hdt == HashKeyDataType.BINARY) {
+      if (hash instanceof byte[] bytes) {
+        return bytes;
+      }
+      return parseBinaryValue(hash.toString(), null);
+    }
+    return hash;
   }
 
   private static String resolveBusinessKeyValue(

@@ -62,10 +62,8 @@ import org.apache.hop.metadata.api.IHopMetadataSerializer;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
-import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta;
-import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta.CheckSumType;
-import org.apache.hop.pipeline.transforms.checksum.CheckSumMeta.ResultType;
-import org.apache.hop.pipeline.transforms.checksum.Field;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMeta;
+import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMetaFactory;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
@@ -337,9 +335,9 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         // Filter Rows: keep only "new" rows coming out of the diff (for insert into target hub)
         TransformMeta filterTransform = addFilterNewRows(pipelineMeta, mergeTransform);
 
-        // CheckSum after the filter (only for new rows). The result type (STRING/HEX/BINARY) and
+        // DvHashKey after the filter (only for new rows). The result type (STRING/HEX/BINARY) and
         // length in the final layout still reflect the HashKeyDataType choice from configuration.
-        TransformMeta checkSumTransform = addCheckSum(ctx, pipelineMeta, filterTransform);
+        TransformMeta checkSumTransform = addDvHashKey(ctx, pipelineMeta, filterTransform);
 
         // Add Constant transform for the static load date (provided to the method)
         TransformMeta constantTransform =
@@ -583,19 +581,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     return tm;
   }
 
-  private TransformMeta addCheckSum(
+  private TransformMeta addDvHashKey(
       HubUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor) {
-    CheckSumMeta checkSumMeta = new CheckSumMeta();
-    checkSumMeta.setCheckSumType(ctx.checkSumType);
-
-    // A hash key is calculated over all the business key field
-    //
-    for (BusinessKey bk : businessKeys) {
-      checkSumMeta.getFields().add(new Field(bk.getName()));
-    }
-
-    // Result field name = the hub's configured hash key field name (or fallback computed from first
-    // BK)
     String resultFieldName = ctx.hub.getHashKeyFieldName();
     if (Utils.isEmpty(resultFieldName)) {
       String bkName = "hashkey";
@@ -604,20 +591,15 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       }
       resultFieldName = bkName + "_HK";
     }
-    checkSumMeta.setResultFieldName(resultFieldName);
 
-    HashKeyDataType hdt =
-        (ctx.config != null) ? ctx.config.getHashKeyDataType() : HashKeyDataType.BINARY;
-    if (hdt == HashKeyDataType.BINARY) {
-      checkSumMeta.setResultType(ResultType.BINARY);
-    } else if (hdt == HashKeyDataType.HEX) {
-      checkSumMeta.setResultType(ResultType.HEXADECIMAL);
-    } else {
-      // STRING -> the decimal-dash string format (0-255 separated by "-")
-      checkSumMeta.setResultType(ResultType.STRING);
+    List<String> businessKeyNames = new ArrayList<>();
+    for (BusinessKey bk : businessKeys) {
+      businessKeyNames.add(bk.getName());
     }
+    DvHashKeyMeta hashKeyMeta =
+        DvHashKeyMetaFactory.create(ctx.config, businessKeyNames, resultFieldName);
 
-    TransformMeta tm = new TransformMeta("CheckSum", "calc_" + resultFieldName, checkSumMeta);
+    TransformMeta tm = new TransformMeta("DvHashKey", "calc_" + resultFieldName, hashKeyMeta);
     tm.setLocation(LOCATION_START_LINE_3.x + 4 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
@@ -722,7 +704,6 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
     final DataVaultConfiguration config;
     final HashAlgorithm hashAlgorithm;
-    final CheckSumType checkSumType;
 
     final DataVaultSource dataVaultSource;
     final IDvSource dvSource;
@@ -741,7 +722,6 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         IHopMetadataProvider metadataProvider,
         IVariables variables,
         DataVaultConfiguration config,
-        CheckSumType checkSumType,
         DataVaultSource dataVaultSource,
         DatabaseMeta targetDatabaseMeta,
         String targetDbName,
@@ -757,7 +737,6 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       this.variables = variables;
       this.config = config;
       this.hashAlgorithm = (config != null) ? config.getHashAlgorithm() : HashAlgorithm.MD5;
-      this.checkSumType = checkSumType;
       this.dataVaultSource = dataVaultSource;
       this.targetDatabaseMeta = targetDatabaseMeta;
       this.targetDbName = targetDbName;
@@ -797,24 +776,6 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         config = metadataProvider.getSerializer(DataVaultConfiguration.class).load(configName);
       }
 
-      // checksum type from hash algo in config
-      HashAlgorithm hashAlgorithm =
-          (config != null) ? config.getHashAlgorithm() : HashAlgorithm.MD5;
-      CheckSumType checkSumType = CheckSumType.MD5;
-      if (hashAlgorithm != null) {
-        switch (hashAlgorithm) {
-          case SHA1:
-            checkSumType = CheckSumType.SHA1;
-            break;
-          case SHA256:
-            checkSumType = CheckSumType.SHA256;
-            break;
-          case SHA512:
-            checkSumType = CheckSumType.SHA512;
-            break;
-          default:
-        }
-      }
       // Record source field name from configuration (used for the indicator column alias +
       // passthrough)
       String recordSourceField = "RECORD_SOURCE";
@@ -872,7 +833,6 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
           metadataProvider,
           variables,
           config,
-          checkSumType,
           specificSource,
           targetDatabaseMeta,
           targetDbName,
@@ -930,7 +890,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         hashMeta = new ValueMetaString(hashKeyName);
         hashMeta.setLength(digestBytes * 2);
       } else {
-        // STRING: the decimal-dash format produced by CheckSum ResultType.STRING
+        // STRING: the decimal-dash format produced by DvHashKey
         // max length = N*3 + (N-1)  e.g. 63 for MD5
         int stringMax = digestBytes * 3 + (digestBytes > 0 ? digestBytes - 1 : 0);
         hashMeta = new ValueMetaString(hashKeyName);

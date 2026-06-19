@@ -207,33 +207,62 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
   @HopMetadataProperty
   private String invalidRecordSource;
 
-  /*@GuiWidgetElement(
-        order = "0120",
-        type = GuiElementType.COMBO,
-        label = "i18n::DataVaultConfiguration.HashContentCasing.Label",
-        toolTip = "i18n::DataVaultConfiguration.HashContentCasing.ToolTip",
-        parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
-    @HopMetadataProperty
-    private HashContentCasing hashContentCasing = HashContentCasing.UPPER;
+  @GuiWidgetElement(
+      order = "0120",
+      type = GuiElementType.COMBO,
+      label = "i18n::DataVaultConfiguration.HashContentCasing.Label",
+      toolTip = "i18n::DataVaultConfiguration.HashContentCasing.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
+  @HopMetadataProperty
+  private HashContentCasing hashContentCasing = HashContentCasing.UPPER;
 
-    @GuiWidgetElement(
-        order = "0130",
-        type = GuiElementType.TEXT,
-        label = "i18n::DataVaultConfiguration.BusinessKeyDelimiter.Label",
-        toolTip = "i18n::DataVaultConfiguration.BusinessKeyDelimiter.ToolTip",
-        parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
-    @HopMetadataProperty
-    private String businessKeyDelimiter = "||";
+  @GuiWidgetElement(
+      order = "0130",
+      type = GuiElementType.TEXT,
+      label = "i18n::DataVaultConfiguration.BusinessKeyDelimiter.Label",
+      toolTip = "i18n::DataVaultConfiguration.BusinessKeyDelimiter.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
+  @HopMetadataProperty
+  private String businessKeyDelimiter = "||";
 
-    @GuiWidgetElement(
-        order = "0150",
-        type = GuiElementType.CHECKBOX,
-        label = "i18n::DataVaultConfiguration.TrimBusinessKeys.Label",
-        toolTip = "i18n::DataVaultConfiguration.TrimBusinessKeys.ToolTip",
-        parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
-    @HopMetadataProperty
-    private boolean trimBusinessKeys = true;
-*/
+  @GuiWidgetElement(
+      order = "0135",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.HashContentPrefix.Label",
+      toolTip = "i18n::DataVaultConfiguration.HashContentPrefix.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
+  @HopMetadataProperty
+  private String hashContentPrefix;
+
+  @GuiWidgetElement(
+      order = "0140",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.NullPlaceholder.Label",
+      toolTip = "i18n::DataVaultConfiguration.NullPlaceholder.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
+  @HopMetadataProperty
+  private String nullPlaceholder = "^^";
+
+  @GuiWidgetElement(
+      order = "0145",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.HashContentSuffix.Label",
+      toolTip = "i18n::DataVaultConfiguration.HashContentSuffix.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
+  @HopMetadataProperty
+  private String hashContentSuffix;
+
+  @GuiWidgetElement(
+      order = "0150",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::DataVaultConfiguration.TrimBusinessKeys.Label",
+      toolTip = "i18n::DataVaultConfiguration.TrimBusinessKeys.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
+  @HopMetadataProperty
+  private boolean trimBusinessKeys = true;
 
 
   @GuiWidgetElement(
