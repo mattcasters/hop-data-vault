@@ -1,70 +1,72 @@
 = Data Vault Source
+:toc: macro
+:toclevels: 3
 
-A Data Vault Source is the logical definition of a source system or data feed that supplies data to your Data Vault model. Hubs, Links, and Satellites refer to Data Vault Sources (in their "Default record source" field) rather than directly to physical connections.
+toc::[]
 
-This extra layer gives you a place to:
+A **Data Vault Source** is the logical definition of a source system or data feed that supplies data to your Data Vault model. Hubs, Links, and Satellites refer to Data Vault Sources (in their record source fields) rather than directly to physical database connections.
 
-* Give the source a stable, business-oriented name.
-* Define how the record source / source system indicator value should be populated for rows coming from this source.
-* Point to the detailed physical definition (today a Data Vault Database Source) that contains the actual connection and column layout.
+Each Data Vault Source combines:
 
-== Options
+* **DV semantics** – How rows from this feed should be tagged with a record source value, and optionally which **group** they belong to for partial workflow loads.
+* **Physical source definition** – How to read the data (today an embedded **database** source with connection, table, and field layout; file and API types are planned).
+
+== Editor tabs
+
+The Data Vault Source metadata editor has two tabs:
+
+* **General** – Record source indicator settings and group.
+* **Database** – Connection, schema, table, and field layout (see link:datavault-source-database.adoc[Database source details]).
+
+== General tab options
 
 [cols="1,3", options="header"]
 |===
 |Option |Description
 
 |Name
-|The name of this source. This is the name you will select when attaching sources to hubs (Record sources tab), links, and satellites (Default record source field). It must be unique within the project.
-
-|Source type
-|The kind of source. Currently only "Database" is supported. This field exists so that other source types (files, messages, APIs, etc.) can be added in the future without changing the rest of the model.
-
-|Source table name
-|For database sources, this is the name of the Data Vault Database Source metadata object that contains the connection details and column definitions. You pick it from the available database sources in the project.
-
-|Source indicator field
-|Optional. The name of a column in the source table that contains, for each row, the value that should be written into the Data Vault RECORD_SOURCE (or equivalent) column.
-
-This field is only used when you do not provide a static Source indicator value. The name you enter here supports variables and will be used (quoted) in the generated source queries.
+|The name of this source. Selected when attaching sources to hubs (Record sources tab), links, and satellites (Default record source). Must be unique within the project.
 
 |Source indicator
-|Optional but very commonly used. A fixed value that will be written as the record source for every row coming from this source (for example `ERP`, `CRM`, `ORDERS-2024`, `SALES-FEED`).
+|Optional fixed value written as the record source for every row from this feed (for example `ERP`, `CRM`, `ORDERS-2024`). Supports variables. When set, takes precedence over Source indicator field.
 
-When a value is supplied here, it takes precedence over any Source indicator field. The value can contain variables. It is emitted as a SQL string literal in the source query.
+|Source indicator field
+|Optional column in the source that contains the per-row record source value. Used only when Source indicator is empty. Supports variables; the name is quoted in generated SQL.
 
-This is the simplest and most reliable way to tag data with its origin when the source system itself does not carry a source indicator column.
+|Group
+|Optional tag used by the **Data Vault Update** action's **Record source group** option. When the action specifies a group, only sources whose Group matches are included in that run. Leave empty to always participate in full loads.
 |===
 
 == How the record source indicator is chosen at runtime
 
-The plugin follows this simple precedence:
+The plugin follows this precedence:
 
-1. If the Source indicator field contains a non-empty value (after variable resolution), that static value is used for all rows from this source.
-2. Otherwise, if a Source indicator field name is supplied, the generated pipeline reads that column from the source and aliases it to the target record source column name.
-3. If neither is provided, no record source indicator is added from this source (a table-level override or a NULL placeholder may still be used for technical reasons during comparison).
+1. If **Source indicator** contains a non-empty value (after variable resolution), that static value is used for all rows from this source.
+2. Otherwise, if **Source indicator field** is set, the generated pipeline reads that column and aliases it to the target record source column name.
+3. If neither is provided, no record source indicator is added from this source (a NULL placeholder may still be used during comparison steps).
 
-You control the target column name for the record source either globally in the Data Vault Configuration or with a per-hub override.
+The target record source column name comes from the model configuration, unless a hub or link overrides it in its own dialog.
 
-== Why separate Data Vault Source from the physical source definition?
+== Why logical and physical details live together
 
-* The physical Data Vault Database Source is about "what columns exist and where do I read them from?"
-* The (logical) Data Vault Source is about "this is the feed called SALES-ORDERS and everything from it should be tagged with record source value SALES".
+Keeping DV semantics and the database layout in one metadata object means:
 
-A single physical table can be referenced by multiple logical Data Vault Sources if you need to load it with different record source tags or under different circumstances.
+* Model tables reference a single stable source name.
+* Connection, schema, table, and column metadata travel with the feed definition.
+* You can duplicate a Data Vault Source (with a different name, indicator, or group) while reusing the same physical layout when one table is loaded under multiple record source tags.
 
-Tables in your model only need to know the logical source name. This keeps the model stable even if the underlying physical details change.
+The **Import** button on the Database tab (and the model toolbar **Import sources** action) reads column metadata from a live database to populate the field list quickly.
 
 == Validation and checks
 
-When you click **Check model** (or when the Data Vault Update action runs with model checking enabled), the plugin verifies that every table's chosen record source actually exists. A missing reference is reported as an error. This prevents pipelines from being generated against sources that have not been defined yet.
+When you click **Check model** (or when the Data Vault Update action runs with model checking enabled), the plugin verifies that every table's chosen record source exists and that source field definitions are present. A missing reference or empty field list is reported as an error.
 
 == Practical advice
 
-* Create Data Vault Sources with clear, stable names that reflect the business feed rather than the physical table name.
-* Decide early on a convention for record source values (short codes, feed names with dates, system names, etc.) and document it. Consistency here makes auditing and debugging much easier later.
-* For sources that truly carry their own source indicator column, use the Source indicator field option. For the majority of cases a static Source indicator value is simpler and more reliable.
-* Variables are supported in both indicator fields, so you can make record source values dynamic (for example include a batch date or environment name) if your requirements demand it.
-* Keep the physical column layout in the referenced Data Vault Database Source accurate. It drives "Get Keys", "Get Attributes", hash calculations, and target column definitions.
+* Name sources after the business feed, not only the physical table name.
+* Agree on a convention for record source values and document it.
+* Use **Group** when you need to split loads (for example hourly vs nightly feeds) without maintaining separate models.
+* For sources that carry their own indicator column, use Source indicator field; for most cases a static Source indicator is simpler.
+* Keep the Database tab field layout accurate—it drives Get Keys, Get Attributes, hash calculations, and target column definitions.
 
-Data Vault Sources are lightweight but important. Good source definitions make the rest of the modeling experience much smoother and the resulting loads more correct.
+Data Vault Sources are lightweight but important. Good source definitions make modeling smoother and loads more correct.

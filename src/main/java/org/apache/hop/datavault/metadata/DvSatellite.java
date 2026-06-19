@@ -549,56 +549,6 @@ public class DvSatellite extends DvTableBase
   }
 
   @Override
-  public Map<DatabaseMeta, List<String>> generateUpdateDdl(
-      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
-      throws HopException {
-    Map<DatabaseMeta, List<String>> result = new HashMap<>();
-    if (metadataProvider == null || model == null) {
-      return result;
-    }
-
-    // Resolve the effective target configuration (same logic as in context creation)
-    DataVaultConfiguration config = model.getConfigurationOrDefault();
-
-    DatabaseMeta targetDatabaseMeta = null;
-    String targetDbName = (config != null) ? config.getTargetDatabase() : null;
-    if (!Utils.isEmpty(targetDbName)) {
-      targetDatabaseMeta =
-          metadataProvider.getSerializer(DatabaseMeta.class).load(targetDbName);
-      if (targetDatabaseMeta == null) {
-        throw new HopException(
-            "Target database connection not found in metadata: " + targetDbName);
-      }
-    }
-    if (targetDatabaseMeta == null) {
-      return result;
-    }
-
-    String targetTableName =
-        !Utils.isEmpty(getTableName()) ? getTableName() : getName();
-
-    IRowMeta targetFields = getTargetTableLayout(metadataProvider, variables, model);
-    if (targetFields == null) {
-      return result;
-    }
-
-    String ddl = "";
-    ILoggingObject loggingObject =
-        new SimpleLoggingObject(
-            "DvSatellite.generateUpdateDdl", LoggingObjectType.GENERAL, null);
-    try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
-      db.connect();
-      ddl = db.getDDL(targetTableName, targetFields);
-    } catch (Exception e) {
-      throw new HopException("Error getting DDL for target table: " + targetTableName, e);
-    }
-    if (!Utils.isEmpty(ddl)) {
-      result.computeIfAbsent(targetDatabaseMeta, k -> new ArrayList<>()).add(ddl);
-    }
-    return result;
-  }
-
-  @Override
   public int ensureSpecialRecords(
       IHopMetadataProvider metadataProvider,
       IVariables variables,

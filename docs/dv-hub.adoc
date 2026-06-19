@@ -1,4 +1,8 @@
 = Data Vault Hub
+:toc: macro
+:toclevels: 3
+
+toc::[]
 
 A Hub represents a core business concept that you want to track over time, such as Customer, Product, Supplier, Order, or Account. In Data Vault terms, the hub stores the natural business key(s) that uniquely identify an instance of that concept, plus a surrogate hash key that is derived from those business keys.
 
@@ -60,9 +64,6 @@ Use the **Get Keys** button (available when you are on the Keys tab) to populate
 |A hub can be fed by one or more Data Vault Sources. List every source system or feed that will supply business keys for this hub.
 
 You can attach as many sources as you need. The generated load process will handle each source (typically producing one pipeline per source) but all of them write into the same physical hub table. This is the recommended way to handle a single business concept that receives data from multiple upstream systems (for example a Customer hub that is populated from both a CRM system and an ERP system).
-
-|Configuration
-|Optional. Select a specific Data Vault Configuration to use for this hub only. This lets you override the default hashing algorithm, hash key data type, column names, etc. for just this hub while the rest of the model uses the model-level configuration.
 |===
 
 == Using the Check model feature with hubs
@@ -104,5 +105,5 @@ This approach keeps your hub modeling clean: one logical hub table, many places 
 * Start with good source definitions (Data Vault Database Source) that accurately declare primary keys and column lengths. This makes "Get Keys" work well and produces better target tables.
 * When a hub has multiple sources, add them all on the Record sources tab first, then use Get Keys for each source in turn so the Source system column is populated correctly.
 * Be consistent with hash key naming across the model (either rely on the default suffix or set explicit names on every hub).
-* Use the per-hub record source field name override sparingly; most of the time the global setting in the Data Vault Configuration is sufficient.
-* If you need different hashing rules for one particular hub, create a dedicated Data Vault Configuration for it and reference it from the hub.
+* Use the per-hub record source field name override sparingly; most of the time the model configuration's record source field name is sufficient.
+* Hashing rules are defined once per model in the embedded configuration (Edit model dialog). Use consistent hash key naming across hubs rather than expecting per-table hashing overrides.

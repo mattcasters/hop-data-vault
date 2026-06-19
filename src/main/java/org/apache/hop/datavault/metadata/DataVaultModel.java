@@ -23,7 +23,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.base.AbstractMeta;
@@ -46,6 +48,7 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadata;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.jspecify.annotations.NonNull;
 
 /**
  * A named Data Vault 2.0 model.
@@ -72,8 +75,6 @@ public class DataVaultModel extends HopMetadataBase
   private static final Class<?> PKG = DataVaultModel.class;
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_MODEL_DIALOG";
-
-  @HopMetadataProperty private String name;
 
   /** The filename (runtime, like in AbstractMeta/PipelineMeta). Not always serialized. */
   @HopMetadataProperty private String filename;
@@ -116,23 +117,78 @@ public class DataVaultModel extends HopMetadataBase
   // GuiElementType.LIST is not available; lists are handled by serialization and the metadata
   // perspective.
   @HopMetadataProperty(key = "table", groupKey = "tables")
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
   private List<IDvTable> tables = new ArrayList<>();
 
   /**
-   * Typed annotation notes on the visual model canvas. Documentation only; does not affect DV Update
-   * or DDL generation.
+   * Typed annotation notes on the visual model canvas. Documentation only; does not affect DV
+   * Update or DDL generation.
    */
   @HopMetadataProperty(key = "note", groupKey = "notes")
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
   private List<DvNote> notes = new ArrayList<>();
 
   protected final ChangedFlag changedFlag = new ChangedFlag();
 
   public DataVaultModel() {
     super();
+    ensureLists();
   }
 
   public DataVaultModel(String name) {
     this.name = name;
+    ensureLists();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof DataVaultModel that)) return false;
+    if (!super.equals(o)) {
+      return false;
+    }
+    return Objects.equals(getName(), that.getName());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(super.hashCode(), getName());
+  }
+
+  /**
+   * All hubs, links and satellites in this model. Never {@code null} (may be empty). {@link
+   * #setTables(List)} normalizes {@code null} to an empty list for XML deserialization safety.
+   */
+  public @NonNull List<IDvTable> getTables() {
+    if (tables == null) {
+      tables = new ArrayList<>();
+    }
+    return tables;
+  }
+
+  public void setTables(List<IDvTable> tables) {
+    this.tables = tables != null ? tables : new ArrayList<>();
+  }
+
+  /**
+   * Canvas annotation notes. Never {@code null} (can be empty). {@link #setNotes(List)} normalizes
+   * {@code null} to an empty list for XML deserialization safety.
+   */
+  public @NonNull List<DvNote> getNotes() {
+    if (notes == null) {
+      notes = new ArrayList<>();
+    }
+    return notes;
+  }
+
+  public void setNotes(List<DvNote> notes) {
+    this.notes = notes != null ? notes : new ArrayList<>();
+  }
+
+  private void ensureLists() {
+    setTables(tables);
+    setNotes(notes);
   }
 
   @Override
@@ -143,6 +199,8 @@ public class DataVaultModel extends HopMetadataBase
         nameSynchronizedWithFilename, name, filename, ".hdv");
   }
 
+  private record DefinedTableNames(Set<String> hubNames, Set<String> linkNames) {}
+
   /**
    * Perform a series of validation checks on this Data Vault model and return the results.
    *
@@ -151,22 +209,33 @@ public class DataVaultModel extends HopMetadataBase
   public List<ICheckResult> check(IHopMetadataProvider metadataProvider, IVariables variables) {
     List<ICheckResult> remarks = new ArrayList<>();
 
-    List<DataVaultSource> sources = null;
+    List<DataVaultSource> sources = loadDataVaultSources(metadataProvider, remarks);
+    checkTargetDatabase(remarks);
+    checkTablesPresent(remarks);
+    checkTables(remarks, metadataProvider, variables, collectDefinedHubAndLinkNames());
+    checkDuplicateTableNames(remarks);
+    checkDuplicateSourceNames(remarks, sources);
+
+    return remarks;
+  }
+
+  private List<DataVaultSource> loadDataVaultSources(
+      IHopMetadataProvider metadataProvider, List<ICheckResult> remarks) {
     try {
-      sources = metadataProvider.getSerializer(DataVaultSource.class).loadAll();
+      List<DataVaultSource> sources =
+          metadataProvider.getSerializer(DataVaultSource.class).loadAll();
+      return sources != null ? sources : new ArrayList<>();
     } catch (Exception e) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_ERROR,
               BaseMessages.getString(PKG, "DataVaultModel.CheckResult.ErrorLoadingMetadata"),
               null));
+      return new ArrayList<>();
     }
+  }
 
-    if (sources == null) {
-      sources = new ArrayList<>();
-    }
-
-    // Top-level model checks
+  private void checkTargetDatabase(List<ICheckResult> remarks) {
     DataVaultConfiguration config = getConfigurationOrDefault();
     if (Utils.isEmpty(config.getTargetDatabase())) {
       remarks.add(
@@ -174,125 +243,119 @@ public class DataVaultModel extends HopMetadataBase
               ICheckResult.TYPE_RESULT_WARNING,
               BaseMessages.getString(PKG, "DataVaultModel.CheckResult.NoTargetDatabase"),
               null));
-    } else {
-      remarks.add(
-          new CheckResult(
-              ICheckResult.TYPE_RESULT_OK,
-              BaseMessages.getString(
-                  PKG, "DataVaultModel.CheckResult.HasTargetDatabase", config.getTargetDatabase()),
-              null));
+      return;
     }
+    remarks.add(
+        new CheckResult(
+            ICheckResult.TYPE_RESULT_OK,
+            BaseMessages.getString(
+                PKG, "DataVaultModel.CheckResult.HasTargetDatabase", config.getTargetDatabase()),
+            null));
+  }
 
-    if (Utils.isEmpty(tables)) {
+  private void checkTablesPresent(List<ICheckResult> remarks) {
+    if (getTables().isEmpty()) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_WARNING,
               BaseMessages.getString(PKG, "DataVaultModel.CheckResult.NoTables"),
               null));
     }
+  }
 
-    // Collect defined names for reference validation
-    Set<String> definedSourceNames = new HashSet<>();
-    if (sources != null) {
-      for (DataVaultSource s : sources) {
-        if (!Utils.isEmpty(s.getName())) {
-          definedSourceNames.add(s.getName());
-        }
+  private DefinedTableNames collectDefinedHubAndLinkNames() {
+    Set<String> hubNames = new HashSet<>();
+    Set<String> linkNames = new HashSet<>();
+    for (IDvTable table : getTables()) {
+      if (Utils.isEmpty(table.getName())) {
+        continue;
+      }
+      if (table.getTableType() == DvTableType.HUB) {
+        hubNames.add(table.getName());
+      } else if (table.getTableType() == DvTableType.LINK) {
+        linkNames.add(table.getName());
       }
     }
+    return new DefinedTableNames(hubNames, linkNames);
+  }
 
-    Set<String> definedHubNames = new HashSet<>();
-    Set<String> definedLinkNames = new HashSet<>();
-    if (tables != null) {
-      for (IDvTable t : tables) {
-        if (!Utils.isEmpty(t.getName())) {
-          if (t.getTableType() == DvTableType.HUB) {
-            definedHubNames.add(t.getName());
-          } else if (t.getTableType() == DvTableType.LINK) {
-            definedLinkNames.add(t.getName());
-          }
-        }
+  private void checkTables(
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DefinedTableNames definedNames) {
+    for (IDvTable table : getTables()) {
+      table.check(remarks, metadataProvider, variables);
+      if (table instanceof DvSatellite satellite) {
+        checkSatelliteReferences(remarks, satellite, definedNames);
+      } else if (table instanceof DvLink link) {
+        checkLinkReferences(remarks, link, definedNames.hubNames());
       }
     }
+  }
 
-    // Per-table reference validation + delegate to table checks
-    if (tables != null) {
-      for (IDvTable table : tables) {
-        table.check(remarks, metadataProvider, variables);
+  private void checkSatelliteReferences(
+      List<ICheckResult> remarks, DvSatellite satellite, DefinedTableNames definedNames) {
+    if (!Utils.isEmpty(satellite.getHubName())
+        && !definedNames.hubNames().contains(satellite.getHubName())) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG, "DataVaultModel.CheckResult.MissingHub", satellite.getHubName()),
+              satellite));
+    }
+    if (!Utils.isEmpty(satellite.getLinkName())
+        && !definedNames.linkNames().contains(satellite.getLinkName())) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG, "DataVaultModel.CheckResult.MissingLink", satellite.getLinkName()),
+              satellite));
+    }
+  }
 
-        // Cross-references for satellites and links
-        if (table instanceof DvSatellite sat) {
-          if (!Utils.isEmpty(sat.getHubName()) && !definedHubNames.contains(sat.getHubName())) {
-            remarks.add(
-                new CheckResult(
-                    ICheckResult.TYPE_RESULT_ERROR,
-                    BaseMessages.getString(
-                        PKG, "DataVaultModel.CheckResult.MissingHub", sat.getHubName()),
-                    table));
-          }
-
-          if (!Utils.isEmpty(sat.getLinkName()) && !definedLinkNames.contains(sat.getLinkName())) {
-            remarks.add(
-                new CheckResult(
-                    ICheckResult.TYPE_RESULT_ERROR,
-                    BaseMessages.getString(
-                        PKG, "DataVaultModel.CheckResult.MissingLink", sat.getLinkName()),
-                    table));
-          }
-        }
-
-        if (table instanceof DvLink lnk) {
-          for (String hn : lnk.getHubNames()) {
-            if (!Utils.isEmpty(hn) && !definedHubNames.contains(hn)) {
-              remarks.add(
-                  new CheckResult(
-                      ICheckResult.TYPE_RESULT_ERROR,
-                      BaseMessages.getString(PKG, "DataVaultModel.CheckResult.MissingHub", hn),
-                      table));
-            }
-          }
-        }
+  private void checkLinkReferences(
+      List<ICheckResult> remarks, DvLink link, Set<String> definedHubNames) {
+    for (String hubName : link.getHubNames()) {
+      if (!Utils.isEmpty(hubName) && !definedHubNames.contains(hubName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(PKG, "DataVaultModel.CheckResult.MissingHub", hubName),
+                link));
       }
     }
+  }
 
-    // Duplicate name checks
+  private void checkDuplicateTableNames(List<ICheckResult> remarks) {
+    checkDuplicateNames(remarks, getTables(), "DataVaultModel.CheckResult.DuplicateTableName");
+  }
+
+  private void checkDuplicateSourceNames(
+      List<ICheckResult> remarks, List<DataVaultSource> sources) {
+    checkDuplicateNames(remarks, sources, "DataVaultModel.CheckResult.DuplicateSourceName");
+  }
+
+  private void checkDuplicateNames(
+      List<ICheckResult> remarks, Iterable<? extends IHasName> items, String messageKey) {
     Map<String, Integer> nameCount = new HashMap<>();
-    if (tables != null) {
-      for (IDvTable t : tables) {
-        if (!Utils.isEmpty(t.getName())) {
-          nameCount.put(t.getName(), nameCount.getOrDefault(t.getName(), 0) + 1);
-        }
+    for (IHasName item : items) {
+      if (item == null || Utils.isEmpty(item.getName())) {
+        continue;
       }
+      nameCount.merge(item.getName(), 1, Integer::sum);
     }
-    for (Map.Entry<String, Integer> e : nameCount.entrySet()) {
-      if (e.getValue() > 1) {
+    for (Map.Entry<String, Integer> entry : nameCount.entrySet()) {
+      if (entry.getValue() > 1) {
         remarks.add(
             new CheckResult(
                 ICheckResult.TYPE_RESULT_ERROR,
-                BaseMessages.getString(
-                    PKG, "DataVaultModel.CheckResult.DuplicateTableName", e.getKey()),
+                BaseMessages.getString(PKG, messageKey, entry.getKey()),
                 null));
       }
     }
-
-    nameCount.clear();
-    for (DataVaultSource s : sources) {
-      if (!Utils.isEmpty(s.getName())) {
-        nameCount.put(s.getName(), nameCount.getOrDefault(s.getName(), 0) + 1);
-      }
-    }
-    for (Map.Entry<String, Integer> e : nameCount.entrySet()) {
-      if (e.getValue() > 1) {
-        remarks.add(
-            new CheckResult(
-                ICheckResult.TYPE_RESULT_ERROR,
-                BaseMessages.getString(
-                    PKG, "DataVaultModel.CheckResult.DuplicateSourceName", e.getKey()),
-                null));
-      }
-    }
-
-    return remarks;
   }
 
   // -------------------------------------------------------------------------------------
@@ -304,11 +367,9 @@ public class DataVaultModel extends HopMetadataBase
     if (changedFlag.hasChanged()) {
       return true;
     }
-    if (tables != null) {
-      for (IDvTable table : tables) {
-        if (table.hasChanged()) {
-          return true;
-        }
+    for (IDvTable table : getTables()) {
+      if (table.hasChanged()) {
+        return true;
       }
     }
     return false;
@@ -327,10 +388,8 @@ public class DataVaultModel extends HopMetadataBase
   @Override
   public void clearChanged() {
     changedFlag.clearChanged();
-    if (tables != null) {
-      for (IDvTable table : tables) {
-        table.clearChanged();
-      }
+    for (IDvTable table : getTables()) {
+      table.clearChanged();
     }
   }
 
@@ -341,7 +400,7 @@ public class DataVaultModel extends HopMetadataBase
    * @return The Hub or null if not found.
    */
   public DvHub findHub(String hubName) {
-    for (IDvTable table : tables) {
+    for (IDvTable table : getTables()) {
       if (table.getTableType() == DvTableType.HUB && table.getName().equalsIgnoreCase(hubName)) {
         return (DvHub) table;
       }
@@ -356,7 +415,7 @@ public class DataVaultModel extends HopMetadataBase
    * @return The Link or null if not found.
    */
   public DvLink findLink(String linkName) {
-    for (IDvTable table : tables) {
+    for (IDvTable table : getTables()) {
       if (table.getTableType() == DvTableType.LINK && table.getName().equalsIgnoreCase(linkName)) {
         return (DvLink) table;
       }
@@ -371,7 +430,7 @@ public class DataVaultModel extends HopMetadataBase
    * @return The table or null if not found.
    */
   public IDvTable findTable(String tableName) {
-    for (IDvTable table : tables) {
+    for (IDvTable table : getTables()) {
       if (table.getName().equalsIgnoreCase(tableName)) {
         return table;
       }
@@ -386,7 +445,7 @@ public class DataVaultModel extends HopMetadataBase
    */
   public int nrSelectedTables() {
     int nr = 0;
-    for (IDvTable table : tables) {
+    for (IDvTable table : getTables()) {
       if (table.isSelected()) {
         nr++;
       }
@@ -397,30 +456,30 @@ public class DataVaultModel extends HopMetadataBase
   public Point getMaximum() {
     int maxx = 0;
     int maxy = 0;
-    for (IDvTable table : tables) {
+    for (IDvTable table : getTables()) {
       Point loc = table.getLocation();
-      if (loc != null) {
-        if (loc.x > maxx) {
-          maxx = loc.x;
-        }
-        if (loc.y > maxy) {
-          maxy = loc.y;
-        }
+      if (loc == null) {
+        continue;
+      }
+      if (loc.x > maxx) {
+        maxx = loc.x;
+      }
+      if (loc.y > maxy) {
+        maxy = loc.y;
       }
     }
-    if (notes != null) {
-      for (DvNote note : notes) {
-        Point loc = note.getLocation();
-        if (loc != null) {
-          int noteMaxX = loc.x + Math.max(0, note.getWidth());
-          int noteMaxY = loc.y + Math.max(0, note.getHeight());
-          if (noteMaxX > maxx) {
-            maxx = noteMaxX;
-          }
-          if (noteMaxY > maxy) {
-            maxy = noteMaxY;
-          }
-        }
+    for (DvNote note : getNotes()) {
+      Point loc = note.getLocation();
+      if (loc == null) {
+        continue;
+      }
+      int noteMaxX = loc.x + Math.max(0, note.getWidth());
+      int noteMaxY = loc.y + Math.max(0, note.getHeight());
+      if (noteMaxX > maxx) {
+        maxx = noteMaxX;
+      }
+      if (noteMaxY > maxy) {
+        maxy = noteMaxY;
       }
     }
     return new Point(maxx + 100, maxy + 100);
@@ -429,17 +488,16 @@ public class DataVaultModel extends HopMetadataBase
   /** Count the number of selected notes on the canvas. */
   public int nrSelectedNotes() {
     int nr = 0;
-    if (notes != null) {
-      for (DvNote note : notes) {
-        if (note != null && note.isSelected()) {
-          nr++;
-        }
+    for (DvNote note : getNotes()) {
+      if (note != null && note.isSelected()) {
+        nr++;
       }
     }
     return nr;
   }
 
-  // TODO: implement undo
+  // Undo/Redo is implemented in HopGuiVaultConfig with model snapshots.
+  // We're not using the Hop Undo/Redo system
 
   @Override
   public void addUndo(
@@ -449,7 +507,9 @@ public class DataVaultModel extends HopMetadataBase
       Point[] prev,
       Point[] curr,
       int typeOfChange,
-      boolean nextAlso) {}
+      boolean nextAlso) {
+    // Implemented in HopGuiVaultConfig.  We're not using the Hop Undo/Redo system
+  }
 
   @Override
   public int getMaxUndo() {
@@ -457,7 +517,9 @@ public class DataVaultModel extends HopMetadataBase
   }
 
   @Override
-  public void setMaxUndo(int mu) {}
+  public void setMaxUndo(int mu) {
+    // Implemented in HopGuiVaultConfig.  We're not using the Hop Undo/Redo system
+  }
 
   @Override
   public ChangeAction previousUndo() {

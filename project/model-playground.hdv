@@ -45,8 +45,8 @@
       <tableName>hub_customer</tableName>
       <description/>
       <tableType>HUB</tableType>
-      <xloc>112</xloc>
-      <yloc>96</yloc>
+      <xloc>144</xloc>
+      <yloc>64</yloc>
       <name>hub_customer</name>
       <virtualPath/>
     </table>
@@ -91,8 +91,8 @@
       <tableName>sat_customer</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
-      <xloc>432</xloc>
-      <yloc>96</yloc>
+      <xloc>496</xloc>
+      <yloc>64</yloc>
       <name>sat_customer</name>
       <virtualPath/>
     </table>

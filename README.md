@@ -8,7 +8,7 @@ to you under the Apache License, Version 2.0 (the
 with the License.  You may obtain a copy of the License at
   http://www.apache.org/licenses/LICENSE-2.0
 Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
+software distributed under this License is distributed on an
 "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
@@ -19,63 +19,70 @@ under the License.
 
 Apache Hop plugin for **Data Vault 2.0** modeling, validation, and model-driven loading. Version **0.0.8-SNAPSHOT** targets **Apache Hop 2.18.0** and **Java 21**.
 
-The plugin provides Hop metadata types for logical DV models and physical/update configuration, a visual **`.hdv` model editor**, a **Data Vault Update** workflow action that generates and runs load pipelines, and a sample Hop project under `project/` for end-to-end testing.
+The plugin provides Hop metadata types for hubs, links, satellites, and record sources; a visual **`.hdv` model editor** with embedded per-model configuration; a **Data Vault Update** workflow action that generates and runs load pipelines; and a sample Hop project under `project/` for end-to-end testing.
 
 ## Features
 
 ### Metadata types
 
-- **Data Vault Configuration** (`data-vault-configuration`)
-  - Hash algorithm: MD5 (default), SHA1, SHA256, SHA512
-  - Hash key data type: BINARY (recommended) or STRING (hex)
-  - Trimming of business keys (on/off)
-  - Hash content casing: UPPER (recommended), LOWER, NONE
-  - Business key / concat delimiter (e.g. `||`)
-  - Null placeholder for consistent hashing
-  - Unknown / "ghost" record generation + value
-  - Naming conventions: `_HK` suffixes, load date / record source / load end date field names
-  - **Load end date** (`useLoadEndDate`): close superseded satellite rows by setting an end-date column; current rows stay open (`NULL` end date)
-
-- **Data Vault Source** (`data-vault-source`, `data-vault-source-database`)
-  - Record source definition with optional **`group`** label for partial model updates (e.g. `hourly`, `daily`)
-  - Database sources with connection, table, and field mappings
+- **Data Vault Source** (`data-vault-source`)
+  - Logical feed name, static or column-based record source indicator, optional **`group`** for partial loads (e.g. `hourly`, `daily`)
+  - Embedded **database** source definition (connection, schema, table, field layout with primary-key flags)
 
 - **Data Vault Hub** (`data-vault-hub`)
-  - Table name, description, record sources, configuration reference
-  - Business keys (composite supported) with source field mapping
+  - Business keys (composite supported) with per-source field mapping
+  - Multiple record sources per hub (one pipeline per source, one physical table)
 
 - **Data Vault Link** (`data-vault-link`)
-  - Participating hubs (by metadata name)
-  - Driving keys (for role-playing / same hub multiple times)
+  - Participating hubs, driving keys for role-playing, hub source key field mappings
   - Optional link satellite flag
 
 - **Data Vault Satellite** (`data-vault-satellite`)
-  - Attach to Hub **or** Link (via metadata reference)
-  - Attributes with include-in-change-data-capture flag
-  - **Multi-active** satellites via **`drivingKey`** and **`drivingKeySourceField`** (one satellite row per hub key + driving key)
-  - **Load end date** pattern: on attribute change, insert a new open row and close the prior version via `Update`
+  - Attach to a hub **or** link
+  - Attributes with include-in-CDC flag
+  - **Multi-active** satellites via **`drivingKey`** and **`drivingKeySourceField`**
 
-- **Data Vault Model** (`data-vault-model`)
-  - Groups hubs, links, and satellites for one EDW / subject area
-  - References a default Data Vault Configuration
+- **Data Vault Model** (`data-vault-model`, `.hdv` files)
+  - Groups hubs, links, satellites, and canvas annotation notes for one EDW / subject area
+  - Embeds **configuration** inline: target database, hashing, unknown/invalid sentinel rows, standard column names, target loading, and generated-pipeline options
 
-`DvTableBase` / `IDvTable` let generic code treat Hubs, Links, and Satellites uniformly. `IDvTable` extends Hop's `IGuiPosition`, `IBaseMeta`, and `IHasName` so DV tables are draggable nodes on the visual modeling canvas.
+`DvTableBase` / `IDvTable` let generic code treat hubs, links, and satellites uniformly. `IDvTable` extends Hop's `IGuiPosition`, `IBaseMeta`, and `IHasName` so DV tables are draggable nodes on the visual canvas.
+
+### Embedded model configuration
+
+Each `.hdv` file carries its own settings (edited via **Edit model** on the toolbar):
+
+- Target database (one vault database per model)
+- Hash algorithm: MD5 (default), SHA1, SHA256, SHA512
+- Hash key data type: BINARY (recommended), HEX, or STRING
+- Trimming, casing, delimiter, null placeholder, hash content prefix/suffix
+- Unknown and **invalid** sentinel record generation and values
+- Standard column names (load date, record source, optional load end date)
+- Target table batch size; optional folder and name prefixes for generated pipelines
+
+![Edit Data Vault Model](docs/images/data-vault-model-dialog.png)
 
 ### Visual modeler (`.hdv` files)
 
-- Hop file type plugin for **Data Vault Model** files (`.hdv`)
-- Graphical canvas to place and connect hubs, links, and satellites
-- Model validation and editing dialogs for each table type
+- Hop file type plugin for **Data Vault Model** files (`.hdv`) with **Save As** support
+- Graphical canvas: drag tables, lasso-select, copy/cut/paste/delete, snapshot **undo/redo**
+- Drag relationships (middle-click or Shift+left) between hub↔satellite, hub↔link, and link↔satellite
+- **Annotation notes** with types, resize handles, and link syntax (`[Label](TableName)` navigates in-model)
+- Toolbar: Edit model, Import sources, Check model, **Generate DDL**, Debug, zoom
+- Optional display of hash key names on table cards (Hop GUI configuration)
+
+![Model canvas with notes](docs/images/data-vault-model-note-rendered.png)
 
 ### Data Vault Update workflow action
 
 The **`DATA_VAULT_UPDATE`** action reads a `.hdv` model and:
 
 - Runs model checks (optional log / abort on failure)
-- Optionally creates or alters target tables in the vault database (DDL generation)
-- Generates update pipelines per hub, link, and satellite (and per record source where applicable)
-- Executes those pipelines using a selected pipeline run configuration
-- Supports optional **`recordSourceGroup`** to load only record sources whose `group` matches (empty = all sources)
+- Optionally ensures unknown and invalid sentinel rows in hubs and links
+- Generates CREATE/ALTER DDL for the model's target database (execute, export to file, or fail if DDL needed)
+- Generates update pipelines per table (and per hub record source where applicable)
+- Executes pipelines using a selected pipeline run configuration
+- Supports **`recordSourceGroup`** to load only sources whose `group` matches (empty = all sources)
 
 ![Data Vault Update action](docs/images/action-data-vault-update.png)
 
@@ -83,9 +90,14 @@ The **`DATA_VAULT_UPDATE`** action reads a `.hdv` model and:
 
 - **`DataVaultModelSearchAnalyser`** indexes Data Vault models for Hop's metadata search (name, description, configuration, tables, and properties).
 
-### Hop configuration option
+### Hop GUI options
 
-- **`DataVaultConfigOptionPlugin`** exposes Data Vault-related settings in Hop's configuration system.
+Under **Configuration → Data Vault 2.0** (`DataVaultConfigOptionPlugin`):
+
+- **Draw hash keys in model** — show hash key column names on table cards
+- **Maximum undo/redo operations kept in memory** — snapshot undo stack size for `.hdv` files (default 200)
+
+![Hop GUI Data Vault options](docs/images/hopgui-configuration-perspecive-data-vault-options.png)
 
 ## Documentation
 
@@ -93,11 +105,14 @@ AsciiDoc reference material lives under `docs/`:
 
 | Document | Topic |
 |----------|--------|
-| `docs/datavault-plugin.adoc` | Plugin overview |
-| `docs/datavault-configuration.adoc` | Configuration metadata |
-| `docs/datavault-source.adoc` / `datavault-source-database.adoc` | Record sources |
-| `docs/dv-hub.adoc` / `dv-link.adoc` / `dv-satellite.adoc` | Table metadata |
-| `docs/datavault-update-action.adoc` | Workflow action |
+| [`docs/datavault-plugin.adoc`](docs/datavault-plugin.adoc) | Plugin overview, visual editor, workflow |
+| [`docs/datavault-configuration.adoc`](docs/datavault-configuration.adoc) | Embedded model configuration (all dialog tabs) |
+| [`docs/datavault-source.adoc`](docs/datavault-source.adoc) | Record sources (General tab) |
+| [`docs/datavault-source-database.adoc`](docs/datavault-source-database.adoc) | Database tab (embedded in each source) |
+| [`docs/dv-hub.adoc`](docs/dv-hub.adoc) / [`dv-link.adoc`](docs/dv-link.adoc) / [`dv-satellite.adoc`](docs/dv-satellite.adoc) | Table metadata |
+| [`docs/datavault-update-action.adoc`](docs/datavault-update-action.adoc) | Workflow action (Model / DDL / Source tabs) |
+
+Screenshots for the model dialog tabs, notes, and the update action are in [`docs/images/`](docs/images/).
 
 The sample project guide is **[project/PROJECT.md](project/PROJECT.md)** — models, workflows, unit tests, and screenshots.
 
@@ -141,15 +156,15 @@ Artifacts:
 
 ## Usage
 
-1. Create a **Data Vault Configuration** (recommended).
-2. Define **Data Vault Sources** (and database source details) for your staging / CRM tables.
-3. Create Hubs, Links, and Satellites (or build them on the `.hdv` canvas).
-4. Assemble a **Data Vault Model** referencing those objects and the configuration.
+1. Define **Data Vault Sources** for your staging / CRM tables (General tab for record source indicator and group; Database tab for connection and field layout).
+2. Create a **Data Vault Model** (`.hdv`): add hubs, links, and satellites on the canvas, connect relationships, and add notes as needed.
+3. Click **Edit model** to set the target database, hashing rules, sentinel records, and pipeline options.
+4. Use **Check model**, **Generate DDL**, or **Debug** on the toolbar to validate and inspect before production loads.
 5. Add a **Data Vault Update** action to a workflow, point it at the `.hdv` file, and run.
 
-For multi-active satellites, set **`drivingKey`** (vault column name) and **`drivingKeySourceField`** (source column mapped into the driving key). For scheduled partial loads, tag record sources with **`group`** and set **`recordSourceGroup`** on the update action.
+For multi-active satellites, set **`drivingKey`** (vault column) and **`drivingKeySourceField`** (source column). For scheduled partial loads, tag sources with **`group`** and set **`recordSourceGroup`** on the update action.
 
-For load end dating, enable **`useLoadEndDate`** on the configuration and set **`loadEndDateField`** (e.g. `x_load_end_ts`). Current satellite rows are those where the end-date column is null:
+For load end dating, enable **`useLoadEndDate`** in the model configuration and set **`loadEndDateField`** (e.g. `x_load_end_ts`). Current satellite rows are those where the end-date column is null:
 
 ```sql
 SELECT * FROM sat_customer WHERE x_load_end_ts IS NULL
@@ -158,13 +173,14 @@ SELECT * FROM sat_customer WHERE x_load_end_ts IS NULL
 ## Common Data Vault 2.0 options included
 
 - Hashing: MD5 / SHA1 / SHA256 / SHA512
-- Binary vs String hash keys (BINARY recommended)
+- Binary, HEX, or String hash keys (BINARY recommended)
 - Trimming + casing normalization
 - Delimiter + null placeholder
-- Unknown record / ghost record handling
-- Column naming conventions (load timestamp, record source, HK suffixes)
+- Unknown and invalid sentinel record handling
+- Column naming conventions (load timestamp, record source)
 - Hashdiff vs **load end date** satellite patterns
 - Multi-active satellites via driving keys
+- Record source groups for partial model updates
 
 ## Roadmap / ideas
 

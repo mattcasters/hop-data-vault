@@ -23,9 +23,7 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
@@ -50,6 +48,7 @@ import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvGeneratedPipelineSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -287,14 +286,13 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
               || !Utils.isEmpty(realDdlSqlFilename);
 
       if (processDdl) {
-        Map<DatabaseMeta, List<String>> ddlMap = new HashMap<>();
+        List<String> ddlStatements = new ArrayList<>();
         for (IDvTable table : tables) {
           try {
-            Map<DatabaseMeta, List<String>> tableDdl =
-                table.generateUpdateDdl(getMetadataProvider(), getVariables(), model);
-            if (tableDdl != null) {
-              for (Map.Entry<DatabaseMeta, List<String>> e : tableDdl.entrySet()) {
-                ddlMap.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).addAll(e.getValue());
+            for (String ddl :
+                table.generateUpdateDdl(getMetadataProvider(), getVariables(), model)) {
+              if (!Utils.isEmpty(ddl)) {
+                ddlStatements.add(ddl);
               }
             }
           } catch (Exception ex) {
@@ -307,7 +305,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           }
         }
 
-        if (hasDdlStatements(ddlMap)) {
+        if (hasDdlStatements(ddlStatements)) {
           if (failIfDdlNeeded) {
             logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Log.AbortingOnDdlNeeded"));
             result.setResult(false);
@@ -315,9 +313,13 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
             return result;
           }
 
+          DatabaseMeta targetDatabase =
+              DvSpecialRecordSupport.loadTargetDatabase(
+                  getMetadataProvider(), model.getConfigurationOrDefault());
+
           if (!Utils.isEmpty(realDdlSqlFilename)) {
             try {
-              writeDdlToFile(ddlMap, realDdlSqlFilename);
+              writeDdlToFile(ddlStatements, targetDatabase, realDdlSqlFilename);
               logBasic(
                   BaseMessages.getString(
                       PKG, "ActionDataVaultUpdate.Log.DdlSavedToFile", realDdlSqlFilename));
@@ -332,27 +334,32 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           }
 
           if (updateTargetDatabaseStructure) {
-            ILoggingObject loggingObject =
-                new SimpleLoggingObject("ActionDataVaultUpdate", LoggingObjectType.GENERAL, null);
-            for (Map.Entry<DatabaseMeta, List<String>> entry : ddlMap.entrySet()) {
-              DatabaseMeta dbMeta = entry.getKey();
-              if (dbMeta == null || entry.getValue() == null) {
-                continue;
-              }
-              try (Database db = new Database(loggingObject, getVariables(), dbMeta)) {
+            if (targetDatabase == null) {
+              logError(
+                  BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.DdlExecutionFailed", ""));
+              totalErrors++;
+              success = false;
+            } else {
+              ILoggingObject loggingObject =
+                  new SimpleLoggingObject("ActionDataVaultUpdate", LoggingObjectType.GENERAL, null);
+              try (Database db = new Database(loggingObject, getVariables(), targetDatabase)) {
                 db.connect();
-                for (String ddl : entry.getValue()) {
+                for (String ddl : ddlStatements) {
                   if (!Utils.isEmpty(ddl)) {
                     logBasic(
                         BaseMessages.getString(
-                            PKG, "ActionDataVaultUpdate.Log.ExecutingDdl", dbMeta.getName()));
+                            PKG,
+                            "ActionDataVaultUpdate.Log.ExecutingDdl",
+                            targetDatabase.getName()));
                     db.execStatements(ddl);
                   }
                 }
               } catch (Exception e) {
                 logError(
                     BaseMessages.getString(
-                        PKG, "ActionDataVaultUpdate.Error.DdlExecutionFailed", dbMeta.getName()),
+                        PKG,
+                        "ActionDataVaultUpdate.Error.DdlExecutionFailed",
+                        targetDatabase.getName()),
                     e);
                 totalErrors++;
                 success = false;
@@ -522,45 +529,36 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     }
   }
 
-  private boolean hasDdlStatements(Map<DatabaseMeta, List<String>> ddlMap) {
-    if (ddlMap == null || ddlMap.isEmpty()) {
+  private boolean hasDdlStatements(List<String> ddlStatements) {
+    if (ddlStatements == null || ddlStatements.isEmpty()) {
       return false;
     }
-    for (List<String> ddlList : ddlMap.values()) {
-      if (ddlList == null) {
-        continue;
-      }
-      for (String ddl : ddlList) {
-        if (!Utils.isEmpty(ddl)) {
-          return true;
-        }
+    for (String ddl : ddlStatements) {
+      if (!Utils.isEmpty(ddl)) {
+        return true;
       }
     }
     return false;
   }
 
-  private void writeDdlToFile(Map<DatabaseMeta, List<String>> ddlMap, String filename)
+  private void writeDdlToFile(
+      List<String> ddlStatements, DatabaseMeta targetDatabase, String filename)
       throws IOException, HopException {
     FileObject file = HopVfs.getFileObject(filename, getVariables());
     try (OutputStreamWriter writer =
         new OutputStreamWriter(HopVfs.getOutputStream(file, false), StandardCharsets.UTF_8)) {
-      for (Map.Entry<DatabaseMeta, List<String>> entry : ddlMap.entrySet()) {
-        DatabaseMeta dbMeta = entry.getKey();
-        if (dbMeta != null) {
-          writer.write("-- Target database: ");
-          writer.write(dbMeta.getName());
-          writer.write(Const.CR);
-        }
-        if (entry.getValue() != null) {
-          for (String ddl : entry.getValue()) {
-            if (!Utils.isEmpty(ddl)) {
-              writer.write(ddl);
-              writer.write(Const.CR);
-            }
-          }
-        }
+      if (targetDatabase != null) {
+        writer.write("-- Target database: ");
+        writer.write(targetDatabase.getName());
         writer.write(Const.CR);
       }
+      for (String ddl : ddlStatements) {
+        if (!Utils.isEmpty(ddl)) {
+          writer.write(ddl);
+          writer.write(Const.CR);
+        }
+      }
+      writer.write(Const.CR);
     }
   }
 

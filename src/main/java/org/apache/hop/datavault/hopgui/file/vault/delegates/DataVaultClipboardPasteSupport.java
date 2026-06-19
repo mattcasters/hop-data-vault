@@ -179,7 +179,7 @@ final class DataVaultClipboardPasteSupport {
         }
       }
     }
-    if (model == null || model.getTables() == null) {
+    if (model == null) {
       return false;
     }
     for (IDvTable table : model.getTables()) {

@@ -18,20 +18,23 @@
 
 package org.apache.hop.datavault.metadata;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.changed.ChangedFlag;
+import org.apache.hop.core.database.Database;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.logging.ILoggingObject;
+import org.apache.hop.core.logging.LoggingObjectType;
+import org.apache.hop.core.logging.SimpleLoggingObject;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.row.IRowMeta;
-import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
@@ -306,11 +309,40 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
   }
 
   @Override
-  public Map<DatabaseMeta, List<String>> generateUpdateDdl(
+  public List<String> generateUpdateDdl(
       IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
       throws HopException {
-    // default: no DDL in base
-    return java.util.Collections.emptyMap();
+    List<String> result = new ArrayList<>();
+    if (metadataProvider == null || model == null) {
+      return result;
+    }
+
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
+    DatabaseMeta targetDatabaseMeta =
+        DvSpecialRecordSupport.loadTargetDatabase(metadataProvider, config);
+    if (targetDatabaseMeta == null) {
+      return result;
+    }
+
+    String targetTableName = !Utils.isEmpty(getTableName()) ? getTableName() : getName();
+    IRowMeta targetFields = getTargetTableLayout(metadataProvider, variables, model);
+    if (targetFields == null) {
+      return result;
+    }
+
+    ILoggingObject loggingObject =
+        new SimpleLoggingObject(
+            getClass().getSimpleName() + ".generateUpdateDdl", LoggingObjectType.GENERAL, null);
+    try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
+      db.connect();
+      String ddl = db.getDDL(targetTableName, targetFields);
+      if (!Utils.isEmpty(ddl)) {
+        result.add(ddl);
+      }
+    } catch (Exception e) {
+      throw new HopException("Error getting DDL for target table: " + targetTableName, e);
+    }
+    return result;
   }
 
   @Override

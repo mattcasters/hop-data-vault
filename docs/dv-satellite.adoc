@@ -1,4 +1,8 @@
 = Data Vault Satellite
+:toc: macro
+:toclevels: 3
+
+toc::[]
 
 A Satellite stores the descriptive, time-varying attributes that belong to a Hub or a Link. Classic examples are customer name and address details, product descriptions and categories, order status history, etc.
 
@@ -60,8 +64,8 @@ If you leave the attributes list empty, the plugin will include all non-key, non
 |Driving key
 |Required when Multi-active is checked. This is the additional column that, together with the parent hash key and load date, makes each row unique (for example the phone number type or the email address itself).
 
-|Configuration
-|Optional. Lets you use a different Data Vault Configuration for this satellite only.
+|Driving key source field
+|Source column that supplies the driving key value. Renamed to the driving key column in the update pipeline and stored in the target satellite table.
 |===
 
 == Checks that involve satellites

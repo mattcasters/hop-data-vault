@@ -148,9 +148,6 @@ final class DataVaultModelReferenceCleanup {
 
   private static void forEachSatellite(
       DataVaultModel model, java.util.function.Consumer<DvSatellite> action) {
-    if (model.getTables() == null) {
-      return;
-    }
     for (IDvTable table : model.getTables()) {
       if (table != null && table.getTableType() == DvTableType.SATELLITE) {
         action.accept((DvSatellite) table);
@@ -159,9 +156,6 @@ final class DataVaultModelReferenceCleanup {
   }
 
   private static void forEachLink(DataVaultModel model, java.util.function.Consumer<DvLink> action) {
-    if (model.getTables() == null) {
-      return;
-    }
     for (IDvTable table : model.getTables()) {
       if (table != null && table.getTableType() == DvTableType.LINK) {
         action.accept((DvLink) table);

@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.Const;
@@ -65,6 +66,7 @@ import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -367,7 +369,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       // Show description tooltip when hovering over the info icon (if present for the table)
       mouseMoveShowInfoTooltip(areaOwner);
 
-      doRedraw = mouseMoveOverTableName(areaOwner, doRedraw);
+      doRedraw = mouseMoveOverTableName(areaOwner, false);
       doRedraw = mouseMoveOverNoteLink(areaOwner, doRedraw);
       doRedraw = mouseMoveOverNoteResize(areaOwner, real, doRedraw);
     }
@@ -628,14 +630,16 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     int minY = Math.min(y1, y2);
     int maxY = Math.max(y1, y2);
 
-    if (model != null && model.getTables() != null) {
+    if (model != null) {
+      model.getTables();
       for (IDvTable table : model.getTables()) {
         if (isTableInLassoScreenRect(table, minX, minY, maxX, maxY)) {
           table.setSelected(true);
         }
       }
     }
-    if (model != null && model.getNotes() != null) {
+    if (model != null) {
+      model.getNotes();
       for (DvNote note : model.getNotes()) {
         if (isNoteInLassoScreenRect(note, minX, minY, maxX, maxY)) {
           note.setSelected(true);
@@ -727,7 +731,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
       // A click somewhere in the background
       //
-      if (hit != null && e.button == 1 && AreaOwner.AreaType.TRANSFORM_ICON == areaType) {
+      if (e.button == 1 && AreaOwner.AreaType.TRANSFORM_ICON == areaType) {
         // Left click on table body/icon: setup drag (defer context/select to mouseUp if
         // no drag)
         //
@@ -745,7 +749,6 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
     DvNote noteHit = getAreaOwnerNote(areaOwner);
     if (noteHit != null
-        && areaOwner != null
         && areaOwner.getAreaType() == AreaOwner.AreaType.NOTE
         && e.button == 1
         && startRelationshipTable == null) {
@@ -1039,7 +1042,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   private void unselectAllNotes() {
-    if (model != null && model.getNotes() != null) {
+    if (model != null) {
+      model.getNotes();
       for (DvNote note : model.getNotes()) {
         if (note != null) {
           note.setSelected(false);
@@ -1050,7 +1054,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
   private List<DvNote> getSelectedNotes() {
     List<DvNote> list = new ArrayList<>();
-    if (model != null && model.getNotes() != null) {
+    if (model != null) {
+      model.getNotes();
       for (DvNote note : model.getNotes()) {
         if (note != null && note.isSelected()) {
           list.add(note);
@@ -1120,90 +1125,87 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       return;
     }
     switch (resize) {
-      case EAST -> {
-        int width = real.x - resizeArea.x;
-        if (width < note.getMinimumWidth()) {
-          width = note.getMinimumWidth();
-        }
-        PropsUi.setSize(note, width, note.getHeight());
-      }
-      case NORTH -> {
-        int y = Math.max(0, real.y);
-        if (y > resizeArea.y + resizeArea.height - note.getMinimumHeight()) {
-          y = resizeArea.y + resizeArea.height - note.getMinimumHeight();
-        }
-        PropsUi.setLocation(note, resizeArea.x, y);
-        PropsUi.setSize(
-            note, note.getWidth(), resizeArea.y + resizeArea.height - note.getLocation().y);
-      }
-      case NORTH_EAST -> {
-        int width = real.x - resizeArea.x;
-        if (width < note.getMinimumWidth()) {
-          width = note.getMinimumWidth();
-        }
-        int y = Math.max(0, real.y);
-        if (y > resizeArea.y + resizeArea.height - note.getMinimumHeight()) {
-          y = resizeArea.y + resizeArea.height - note.getMinimumHeight();
-        }
-        PropsUi.setLocation(note, resizeArea.x, y);
-        PropsUi.setSize(note, width, resizeArea.y + resizeArea.height - note.getLocation().y);
-      }
-      case NORTH_WEST -> {
-        int x = Math.max(0, real.x);
-        if (x > resizeArea.x + resizeArea.width - note.getMinimumWidth()) {
-          x = resizeArea.x + resizeArea.width - note.getMinimumWidth();
-        }
-        int y = Math.max(0, real.y);
-        if (y > resizeArea.y + resizeArea.height - note.getMinimumHeight()) {
-          y = resizeArea.y + resizeArea.height - note.getMinimumHeight();
-        }
-        PropsUi.setLocation(note, x, y);
-        PropsUi.setSize(
-            note,
-            resizeArea.x + resizeArea.width - note.getLocation().x,
-            resizeArea.height + resizeArea.y - note.getLocation().y);
-      }
-      case SOUTH -> {
-        int height = real.y - resizeArea.y;
-        if (height < note.getMinimumHeight()) {
-          height = note.getMinimumHeight();
-        }
-        PropsUi.setSize(note, note.getWidth(), height);
-      }
-      case SOUTH_EAST -> {
-        int width = real.x - resizeArea.x;
-        if (width < note.getMinimumWidth()) {
-          width = note.getMinimumWidth();
-        }
-        int height = real.y - resizeArea.y;
-        if (height < note.getMinimumHeight()) {
-          height = note.getMinimumHeight();
-        }
-        PropsUi.setSize(note, width, height);
-      }
-      case SOUTH_WEST -> {
-        int x = Math.max(0, real.x);
-        if (x > resizeArea.x + resizeArea.width - note.getMinimumWidth()) {
-          x = resizeArea.x + resizeArea.width - note.getMinimumWidth();
-        }
-        int height = real.y - resizeArea.y;
-        if (height < note.getMinimumHeight()) {
-          height = note.getMinimumHeight();
-        }
-        PropsUi.setLocation(note, x, resizeArea.y);
-        PropsUi.setSize(note, resizeArea.x + resizeArea.width - note.getLocation().x, height);
-      }
-      case WEST -> {
-        int x = Math.max(0, real.x);
-        if (x > resizeArea.x + resizeArea.width - note.getMinimumWidth()) {
-          x = resizeArea.x + resizeArea.width - note.getMinimumWidth();
-        }
-        PropsUi.setLocation(note, x, resizeArea.y);
-        PropsUi.setSize(
-            note, resizeArea.x + resizeArea.width - note.getLocation().x, note.getHeight());
-      }
+      case EAST -> resizeNoteEast(note, real);
+      case NORTH -> resizeNoteNorth(note, real);
+      case NORTH_EAST -> resizeNoteNorthEast(note, real);
+      case NORTH_WEST -> resizeNoteNorthWest(note, real);
+      case SOUTH -> resizeNoteSouth(note, real);
+      case SOUTH_EAST -> resizeNoteSouthEast(note, real);
+      case SOUTH_WEST -> resizeNoteSouthWest(note, real);
+      case WEST -> resizeNoteWest(note, real);
     }
     redraw();
+  }
+
+  /** Width when dragging the east (right) edge; the left edge stays fixed. */
+  private int clampedEastWidth(int mouseX, DvNote note) {
+    return Math.max(mouseX - resizeArea.x, note.getMinimumWidth());
+  }
+
+  /** Height when dragging the south (bottom) edge; the top edge stays fixed. */
+  private int clampedSouthHeight(int mouseY, DvNote note) {
+    return Math.max(mouseY - resizeArea.y, note.getMinimumHeight());
+  }
+
+  /** Left-edge X, clamped so the note cannot shrink below its minimum width or move past x=0. */
+  private int clampedWestEdgeX(int mouseX, DvNote note) {
+    int x = Math.max(0, mouseX);
+    int maxX = resizeArea.x + resizeArea.width - note.getMinimumWidth();
+    return Math.min(x, maxX);
+  }
+
+  /** Top-edge Y, clamped so the note cannot shrink below its minimum height or move past y=0. */
+  private int clampedNorthEdgeY(int mouseY, DvNote note) {
+    int y = Math.max(0, mouseY);
+    int maxY = resizeArea.y + resizeArea.height - note.getMinimumHeight();
+    return Math.min(y, maxY);
+  }
+
+  /** Width after moving the west edge; the right edge remains at the resize-start position. */
+  private int widthFromWestEdge(DvNote note) {
+    return resizeArea.x + resizeArea.width - note.getLocation().x;
+  }
+
+  /** Height after moving the north edge; the bottom edge remains at the resize-start position. */
+  private int heightFromNorthEdge(DvNote note) {
+    return resizeArea.y + resizeArea.height - note.getLocation().y;
+  }
+
+  private void resizeNoteEast(DvNote note, Point real) {
+    PropsUi.setSize(note, clampedEastWidth(real.x, note), note.getHeight());
+  }
+
+  private void resizeNoteSouth(DvNote note, Point real) {
+    PropsUi.setSize(note, note.getWidth(), clampedSouthHeight(real.y, note));
+  }
+
+  private void resizeNoteWest(DvNote note, Point real) {
+    PropsUi.setLocation(note, clampedWestEdgeX(real.x, note), resizeArea.y);
+    PropsUi.setSize(note, widthFromWestEdge(note), note.getHeight());
+  }
+
+  private void resizeNoteNorth(DvNote note, Point real) {
+    PropsUi.setLocation(note, resizeArea.x, clampedNorthEdgeY(real.y, note));
+    PropsUi.setSize(note, note.getWidth(), heightFromNorthEdge(note));
+  }
+
+  private void resizeNoteSouthEast(DvNote note, Point real) {
+    PropsUi.setSize(note, clampedEastWidth(real.x, note), clampedSouthHeight(real.y, note));
+  }
+
+  private void resizeNoteNorthEast(DvNote note, Point real) {
+    PropsUi.setLocation(note, resizeArea.x, clampedNorthEdgeY(real.y, note));
+    PropsUi.setSize(note, clampedEastWidth(real.x, note), heightFromNorthEdge(note));
+  }
+
+  private void resizeNoteSouthWest(DvNote note, Point real) {
+    PropsUi.setLocation(note, clampedWestEdgeX(real.x, note), resizeArea.y);
+    PropsUi.setSize(note, widthFromWestEdge(note), clampedSouthHeight(real.y, note));
+  }
+
+  private void resizeNoteNorthWest(DvNote note, Point real) {
+    PropsUi.setLocation(note, clampedWestEdgeX(real.x, note), clampedNorthEdgeY(real.y, note));
+    PropsUi.setSize(note, widthFromWestEdge(note), heightFromNorthEdge(note));
   }
 
   private void editNote(DvNote note) {
@@ -1500,18 +1502,17 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.GenerateDdl.Tooltip",
       image = "ui/images/database.svg")
   public void generateModelDdl() {
-    if (model == null || model.getTables() == null) {
+    if (model == null) {
       return;
     }
 
-    Map<DatabaseMeta, List<String>> ddlMap = new HashMap<>();
+    List<String> ddlStatements = new ArrayList<>();
     for (IDvTable table : model.getTables()) {
       try {
-        Map<DatabaseMeta, List<String>> tableDdl =
-            table.generateUpdateDdl(hopGui.getMetadataProvider(), hopGui.getVariables(), model);
-        if (tableDdl != null) {
-          for (Map.Entry<DatabaseMeta, List<String>> e : tableDdl.entrySet()) {
-            ddlMap.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).addAll(e.getValue());
+        for (String ddl :
+            table.generateUpdateDdl(hopGui.getMetadataProvider(), hopGui.getVariables(), model)) {
+          if (!Utils.isEmpty(ddl)) {
+            ddlStatements.add(ddl);
           }
         }
       } catch (Exception e) {
@@ -1522,35 +1523,27 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       }
     }
 
-    boolean foundDdl = false;
-    for (Map.Entry<DatabaseMeta, List<String>> entry : ddlMap.entrySet()) {
-      DatabaseMeta dbMeta = entry.getKey();
-      if (dbMeta == null || entry.getValue() == null) {
-        continue;
-      }
-      List<String> ddlStatements = new ArrayList<>();
-      for (String ddl : entry.getValue()) {
-        if (!Utils.isEmpty(ddl)) {
-          ddlStatements.add(ddl);
-          foundDdl = true;
+    if (!ddlStatements.isEmpty()) {
+      try {
+        DatabaseMeta dbMeta =
+            DvSpecialRecordSupport.loadTargetDatabase(
+                hopGui.getMetadataProvider(), model.getConfigurationOrDefault());
+        if (dbMeta != null) {
+          String sql = String.join("\n", ddlStatements);
+          SqlEditor sqlEditor =
+              new SqlEditor(
+                  hopGui.getShell(),
+                  SWT.NONE,
+                  hopGui.getVariables(),
+                  dbMeta,
+                  DbCache.getInstance(),
+                  sql);
+          sqlEditor.open();
         }
+      } catch (Exception e) {
+        new ErrorDialog(hopGui.getShell(), "Error", "Error opening DDL SQL editor", e);
       }
-      if (ddlStatements.isEmpty()) {
-        continue;
-      }
-      String sql = String.join("\n", ddlStatements);
-      SqlEditor sqlEditor =
-          new SqlEditor(
-              hopGui.getShell(),
-              SWT.NONE,
-              hopGui.getVariables(),
-              dbMeta,
-              DbCache.getInstance(),
-              sql);
-      sqlEditor.open();
-    }
-
-    if (!foundDdl) {
+    } else {
       MessageBox box = new MessageBox(hopGui.getShell(), SWT.OK | SWT.ICON_INFORMATION);
       box.setText(BaseMessages.getString(PKG, "HopGuiVaultGraph.NoDdlNeeded.Title"));
       box.setMessage(BaseMessages.getString(PKG, "HopGuiVaultGraph.NoDdlNeeded.Message"));
@@ -1564,7 +1557,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.Debug.Tooltip",
       image = "ui/images/debug.svg")
   public void debugPipelines() {
-    if (model == null || model.getTables() == null) {
+    if (model == null) {
       return;
     }
     for (IDvTable table : model.getTables()) {
@@ -1719,9 +1712,6 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       return;
     }
     realGraph.markUndoPoint();
-    if (realModel.getNotes() == null) {
-      realModel.setNotes(new ArrayList<>());
-    }
     DvNote note = new DvNote();
     note.setNoteType(DvNoteType.GENERAL);
     note.setText("");
@@ -1862,7 +1852,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   private boolean removeTableFromModel(DataVaultModel targetModel, IDvTable table) {
-    if (targetModel == null || table == null || targetModel.getTables() == null) {
+    if (targetModel == null || table == null) {
       return false;
     }
     if (!targetModel.getTables().remove(table)) {
@@ -1873,7 +1863,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   private boolean removeNotesFromModel(DataVaultModel targetModel, List<DvNote> notes) {
-    if (targetModel == null || notes == null || notes.isEmpty() || targetModel.getNotes() == null) {
+    if (targetModel == null || notes == null || notes.isEmpty()) {
       return false;
     }
     return targetModel.getNotes().removeAll(notes);
@@ -1882,7 +1872,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   // Small helper so the action methods (which may be called on a dummy graph instance via
   // lambda builder) can still compute unique names using the *real* model from context.
   private String getUniqueTableNameFromModel(String base, DataVaultModel m) {
-    if (m == null || m.getTables() == null) {
+    if (m == null) {
       return base;
     }
     int num = 1;
@@ -1947,7 +1937,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   // --- Context menu / click handling support ---
 
   private IDvTable findTableAtScreen(int screenX, int screenY) {
-    if (model == null || model.getTables() == null) {
+    if (model == null) {
       return null;
     }
     float cMag = calculateCorrectedMagnification();
@@ -2022,7 +2012,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   private void unselectAllTables() {
-    if (model != null && model.getTables() != null) {
+    if (model != null) {
+      model.getTables();
       for (IDvTable t : model.getTables()) {
         if (t != null) {
           t.setSelected(false);
@@ -2033,7 +2024,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
   private List<IDvTable> getSelectedTables() {
     List<IDvTable> list = new ArrayList<>();
-    if (model != null && model.getTables() != null) {
+    if (model != null) {
+      model.getTables();
       for (IDvTable t : model.getTables()) {
         if (t != null && t.isSelected()) {
           list.add(t);
@@ -2119,22 +2111,28 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
   }
 
+  private static boolean isHubSatellitePair(DvTableType first, DvTableType second) {
+    return (first == DvTableType.HUB && second == DvTableType.SATELLITE)
+        || (first == DvTableType.SATELLITE && second == DvTableType.HUB);
+  }
+
+  private static boolean isHubLinkPair(DvTableType first, DvTableType second) {
+    return (first == DvTableType.HUB && second == DvTableType.LINK)
+        || (first == DvTableType.LINK && second == DvTableType.HUB);
+  }
+
+  private static boolean isLinkSatellitePair(DvTableType first, DvTableType second) {
+    return (first == DvTableType.LINK && second == DvTableType.SATELLITE)
+        || (first == DvTableType.SATELLITE && second == DvTableType.LINK);
+  }
+
   private boolean isValidRelationshipPair(IDvTable a, IDvTable b) {
     if (a == null || b == null || a == b) {
       return false;
     }
     DvTableType ta = a.getTableType();
     DvTableType tb = b.getTableType();
-    boolean hubSat =
-        (ta == DvTableType.HUB && tb == DvTableType.SATELLITE)
-            || (ta == DvTableType.SATELLITE && tb == DvTableType.HUB);
-    boolean hubLink =
-        (ta == DvTableType.HUB && tb == DvTableType.LINK)
-            || (ta == DvTableType.LINK && tb == DvTableType.HUB);
-    boolean linkSat =
-        (ta == DvTableType.LINK && tb == DvTableType.SATELLITE)
-            || (ta == DvTableType.SATELLITE && tb == DvTableType.LINK);
-    return hubSat || hubLink || linkSat;
+    return isHubSatellitePair(ta, tb) || isHubLinkPair(ta, tb) || isLinkSatellitePair(ta, tb);
   }
 
   /**
@@ -2152,66 +2150,16 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
     byte[] beforeChange = captureUndoSnapshot();
 
-    DvTableType t1 = from.getTableType();
-    DvTableType t2 = to.getTableType();
-    boolean modelChanged = false;
-
-    if ((t1 == DvTableType.HUB && t2 == DvTableType.SATELLITE)
-        || (t1 == DvTableType.SATELLITE && t2 == DvTableType.HUB)) {
-      DvSatellite sat = (t2 == DvTableType.SATELLITE) ? (DvSatellite) to : (DvSatellite) from;
-      DvHub hub = (t1 == DvTableType.HUB) ? (DvHub) from : (DvHub) to;
-      String hubName = hub.getName();
-      if (hubName != null) {
-        String current = sat.getHubName();
-        if (!java.util.Objects.equals(current, hubName)) {
-          sat.setHubName(hubName);
-          // Prefer hub over link for the parent; clear alternate to keep model clean
-          sat.setLinkName(null);
-          modelChanged = true;
-        }
-      }
-    } else if ((t1 == DvTableType.HUB && t2 == DvTableType.LINK)
-        || (t1 == DvTableType.LINK && t2 == DvTableType.HUB)) {
-      DvLink link = (t2 == DvTableType.LINK) ? (DvLink) to : (DvLink) from;
-      DvHub hub = (t1 == DvTableType.HUB) ? (DvHub) from : (DvHub) to;
-      String hubName = hub.getName();
-      if (hubName != null) {
-        List<String> currentHubs = link.getHubNames();
-        if (currentHubs == null) {
-          currentHubs = new ArrayList<>();
-        }
-        if (!currentHubs.contains(hubName)) {
-          List<String> newHubs = new ArrayList<>(currentHubs);
-          newHubs.add(hubName);
-          link.setHubNames(newHubs);
-          modelChanged = true;
-        }
-      }
-    } else if ((t1 == DvTableType.LINK && t2 == DvTableType.SATELLITE)
-        || (t1 == DvTableType.SATELLITE && t2 == DvTableType.LINK)) {
-      DvSatellite sat = (t2 == DvTableType.SATELLITE) ? (DvSatellite) to : (DvSatellite) from;
-      DvLink link = (t1 == DvTableType.LINK) ? (DvLink) from : (DvLink) to;
-      String linkName = link.getName();
-      String satName = sat.getName();
-      if (linkName != null) {
-        String current = sat.getLinkName();
-        if (!java.util.Objects.equals(current, linkName)) {
-          sat.setLinkName(linkName);
-          sat.setHubName(null);
-          modelChanged = true;
-        }
-      }
-      if (linkName != null && satName != null) {
-        List<String> currentSats = link.getLinkSatelliteNames();
-        if (currentSats == null) {
-          currentSats = new ArrayList<>();
-        }
-        if (!currentSats.contains(satName)) {
-          List<String> newSats = new ArrayList<>(currentSats);
-          newSats.add(satName);
-          link.setLinkSatelliteNames(newSats);
-          modelChanged = true;
-        }
+    DvTableType fromType = from.getTableType();
+    DvTableType toType = to.getTableType();
+    boolean modelChanged;
+    if (isHubSatellitePair(fromType, toType)) {
+      modelChanged = createHubSatelliteRelationship(from, to);
+    } else {
+      if (isHubLinkPair(fromType, toType)) {
+        modelChanged = createHubLinkRelationship(from, to);
+      } else {
+        modelChanged = createLinkSatelliteRelationship(from, to);
       }
     }
 
@@ -2219,6 +2167,89 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       commitDialogUndo(beforeChange);
       setChanged();
     }
+  }
+
+  /**
+   * Attach a satellite to a hub: the satellite stores the hub name as its parent. Any previous link
+   * parent is cleared so the satellite has a single, unambiguous parent in the model.
+   */
+  private boolean createHubSatelliteRelationship(IDvTable from, IDvTable to) {
+    DvSatellite satellite =
+        from.getTableType() == DvTableType.SATELLITE ? (DvSatellite) from : (DvSatellite) to;
+    DvHub hub = from.getTableType() == DvTableType.HUB ? (DvHub) from : (DvHub) to;
+
+    String hubName = hub.getName();
+    if (hubName == null) {
+      return false;
+    }
+
+    if (Objects.equals(satellite.getHubName(), hubName)) {
+      return false;
+    }
+
+    satellite.setHubName(hubName);
+    satellite.setLinkName(null);
+    return true;
+  }
+
+  /**
+   * Register a hub as a participant in a link. Hub names are stored on the link; duplicates are
+   * ignored.
+   */
+  private boolean createHubLinkRelationship(IDvTable from, IDvTable to) {
+    DvLink link = from.getTableType() == DvTableType.LINK ? (DvLink) from : (DvLink) to;
+    DvHub hub = from.getTableType() == DvTableType.HUB ? (DvHub) from : (DvHub) to;
+
+    String hubName = hub.getName();
+    if (hubName == null) {
+      return false;
+    }
+
+    List<String> currentHubs = link.getHubNames();
+    if (currentHubs != null && currentHubs.contains(hubName)) {
+      return false;
+    }
+
+    List<String> newHubs = new ArrayList<>(currentHubs != null ? currentHubs : List.of());
+    newHubs.add(hubName);
+    link.setHubNames(newHubs);
+    return true;
+  }
+
+  /**
+   * Attach a satellite to a link. Updates both sides of the relationship: the satellite stores the
+   * link name (and clears any hub parent), and the link records the satellite in its satellite
+   * list.
+   */
+  private boolean createLinkSatelliteRelationship(IDvTable from, IDvTable to) {
+    DvSatellite satellite =
+        from.getTableType() == DvTableType.SATELLITE ? (DvSatellite) from : (DvSatellite) to;
+    DvLink link = from.getTableType() == DvTableType.LINK ? (DvLink) from : (DvLink) to;
+
+    String linkName = link.getName();
+    String satelliteName = satellite.getName();
+    boolean modelChanged = false;
+
+    // Point the satellite at its link parent and drop any hub parent reference.
+    if (linkName != null && !Objects.equals(satellite.getLinkName(), linkName)) {
+      satellite.setLinkName(linkName);
+      satellite.setHubName(null);
+      modelChanged = true;
+    }
+
+    // Register the satellite on the link's satellite list (skip duplicates).
+    if (linkName != null && satelliteName != null) {
+      List<String> currentSatellites = link.getLinkSatelliteNames();
+      if (currentSatellites == null || !currentSatellites.contains(satelliteName)) {
+        List<String> newSatellites =
+            new ArrayList<>(currentSatellites != null ? currentSatellites : List.of());
+        newSatellites.add(satelliteName);
+        link.setLinkSatelliteNames(newSatellites);
+        modelChanged = true;
+      }
+    }
+
+    return modelChanged;
   }
 
   /**
@@ -2478,18 +2509,14 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   @Override
   public void selectAll() {
     if (model != null) {
-      if (model.getTables() != null) {
-        for (IDvTable t : model.getTables()) {
-          if (t != null) {
-            t.setSelected(true);
-          }
+      for (IDvTable t : model.getTables()) {
+        if (t != null) {
+          t.setSelected(true);
         }
       }
-      if (model.getNotes() != null) {
-        for (DvNote note : model.getNotes()) {
-          if (note != null) {
-            note.setSelected(true);
-          }
+      for (DvNote note : model.getNotes()) {
+        if (note != null) {
+          note.setSelected(true);
         }
       }
       redraw();
@@ -2608,29 +2635,25 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     boolean modelChanged = false;
     unselectAllOnCanvas();
 
-    if (tables != null && !tables.isEmpty()) {
-      if (model.getTables() == null) {
-        model.setTables(new ArrayList<>());
-      }
+    if (tables != null) {
       for (IDvTable table : tables) {
-        if (table != null) {
-          model.getTables().add(table);
-          table.setSelected(true);
-          modelChanged = true;
+        if (table == null) {
+          continue;
         }
+        model.getTables().add(table);
+        table.setSelected(true);
+        modelChanged = true;
       }
     }
 
-    if (notes != null && !notes.isEmpty()) {
-      if (model.getNotes() == null) {
-        model.setNotes(new ArrayList<>());
-      }
+    if (notes != null) {
       for (DvNote note : notes) {
-        if (note != null) {
-          model.getNotes().add(note);
-          note.setSelected(true);
-          modelChanged = true;
+        if (note == null) {
+          continue;
         }
+        model.getNotes().add(note);
+        note.setSelected(true);
+        modelChanged = true;
       }
     }
 

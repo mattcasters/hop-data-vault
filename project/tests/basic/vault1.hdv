@@ -1,5 +1,4 @@
 <data-vault-model>
-  <name>vault1</name>
   <filename>/home/matt/git/mattcasters/hop-data-vault/project/tests/basic/vault1.hdv</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description/>
@@ -340,4 +339,5 @@
       <height>32</height>
     </note>
   </notes>
+  <name>vault1</name>
 </data-vault-model>

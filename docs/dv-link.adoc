@@ -1,4 +1,8 @@
 = Data Vault Link
+:toc: macro
+:toclevels: 3
+
+toc::[]
 
 A Link represents a relationship or association between Hubs. Examples include "Customer placed Order", "Product supplied by Supplier", "Employee assigned to Department", or any many-to-many connection you need to track.
 
@@ -61,9 +65,6 @@ This mapping capability is one of the most practical features when integrating r
 
 |Has descriptive attributes (link satellite)
 |Check this box as a reminder that you intend to attach a satellite to this link. The flag itself does not change how the link is loaded, but the model check will emit a note when it is set.
-
-|Configuration
-|Optional. Lets this link use a different Data Vault Configuration than the model default.
 |===
 
 == Checks related to links

@@ -113,7 +113,7 @@ public class DataVaultModelPainter extends BasePainter {
   }
 
   public void drawDataVaultModel() {
-    if (model == null || model.getTables() == null || gc == null) {
+    if (model == null || gc == null) {
       return;
     }
     if (areaOwners != null) {
@@ -234,7 +234,7 @@ public class DataVaultModelPainter extends BasePainter {
   }
 
   private void drawNotes() {
-    if (model.getNotes() == null || model.getNotes().isEmpty()) {
+    if (model.getNotes().isEmpty()) {
       return;
     }
     for (DvNote note : model.getNotes()) {

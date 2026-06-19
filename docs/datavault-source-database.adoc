@@ -1,12 +1,20 @@
-= Data Vault Source (Database)
+= Data Vault Source — Database tab
+:toc: macro
+:toclevels: 3
 
-A Data Vault Database Source describes a table, view, or queryable object in a source system. It tells the Data Vault model what columns are available, which of them form the natural or primary key, and what their data types and lengths are.
+toc::[]
 
-This information is used in several important ways:
+Database-backed feeds store their physical definition on the **Database** tab of the **Data Vault Source** metadata editor. This is not a separate Hop metadata type; it is embedded inside each Data Vault Source alongside the General tab (record source indicator and group).
 
-* The "Get Keys" button in the hub dialog (Keys tab) and the "Get Attributes" button in the satellite dialog use it to populate business keys and attributes. For hubs with multiple sources, Get Keys reads from the source currently selected in the hub's Record sources list.
-* Pipeline generation uses the primary key flags to decide which columns to read for hash calculations.
-* Target table layouts (and therefore the DDL that creates your Data Vault tables) use the length and precision information so you get realistic column definitions instead of overly generic ones.
+The database definition tells the model what columns are available, which form the natural or primary key, and what their data types and lengths are.
+
+== Why the field layout matters
+
+Accurate column metadata is used throughout the plugin:
+
+* **Get Keys** (hub dialog) and **Get Attributes** (satellite dialog) read primary-key and attribute definitions from the source.
+* Pipeline generation uses primary-key flags to build SELECT lists and hash inputs.
+* Target table DDL uses length and precision so you get realistic column types (VARCHAR(50), DECIMAL(15,2), etc.) instead of generic large types.
 
 == Options
 
@@ -14,67 +22,51 @@ This information is used in several important ways:
 |===
 |Option |Description
 
-|Name
-|The name you give this source definition inside your project. Other objects (Data Vault Sources, Hubs, Links, Satellites) will refer to it by this name.
-
-|Description
-|Optional free-text description of the source system or data feed. Useful for documentation.
-
 |Database connection
-|The Hop database connection (DatabaseMeta) that points to the source system. This is required for the Import button and for the generated pipelines to know where to read data from.
+|The Hop database connection (DatabaseMeta) for the source system. Required for Import and for generated pipelines to read data.
 
 |Schema
-|Optional schema or catalog name that qualifies the table in the source database.
+|Optional schema or catalog that qualifies the table in the source database.
 
 |Source table / view
-|The physical table or view name in the source database. Can be left empty if the actual table name will be supplied at runtime (via variables or a parameter) or if you only use this source definition for its column layout.
+|Physical table or view name. Can be left empty when the table name is supplied at runtime via variables or when you use the definition only for its field layout.
 
 |Fields (row layout)
-|The list of columns that you expect to come from this source. Each field includes:
+|Expected columns from this source. Each field includes:
 
-* Field name (exactly as it appears in the source).
+* Field name (as in the source).
 * Optional description.
-* Source data type (the database type such as VARCHAR, NUMBER, DATE, etc.).
+* Source data type (VARCHAR, NUMBER, DATE, etc.).
 * Length and precision.
-* "Part of source primary key" flag – this is the most important piece of information for hubs and satellites. Fields marked as primary key become the business keys for hubs and the input used to calculate parent hashes for satellites and links.
+* **Part of source primary key** – Fields marked as primary key become hub business keys and parent-hash inputs for satellites and links.
 * Hop data type (used internally when building row layouts).
 
-The Fields grid is the single source of truth for column metadata that flows through the entire model.
+The Fields grid is the authoritative column metadata for this feed.
 |===
 
 == The Import button
 
-The easiest way to fill in the Fields list is to use the **Import** button in the editor.
+The fastest way to populate the Fields list:
 
 1. Select or enter a database connection.
-2. Optionally enter a schema and table name.
-3. Click Import.
+2. Optionally enter schema and table name.
+3. Click **Import**.
 
-The editor connects to the database, reads the column metadata (names, types, lengths, precision), and tries to detect the primary key columns. It then replaces the current Fields list with the imported information.
+The editor connects to the database, reads column metadata, and attempts to detect primary key columns. It replaces the current Fields list with the imported layout. You can edit the grid afterwards; saved changes become the definition the model uses even if the live source table changes later.
 
-You can still edit the grid afterwards. Any manual changes you make are saved with the metadata object and become the authoritative definition for the model, even if the underlying source table changes later.
+The model editor toolbar **Import sources** action can create new Data Vault Source objects from database tables in bulk, using the same import machinery.
 
-== How the source definition is used during loading
+== How the chain works at load time
 
-When a hub, link, or satellite needs to read data:
+When a hub, link, or satellite loads data:
 
-* It follows the chain from its "Default record source" → the Data Vault Source → the Data Vault Database Source.
-* Primary-key fields declared here are used to build the SELECT list for the source query and to decide what goes into hash calculations.
-* Length and precision values are copied into the target table layout. This is why you often see proper VARCHAR(50) or DECIMAL(15,2) columns created in your Data Vault instead of TEXT or unlimited strings.
-
-Keeping the source definitions accurate and up to date is one of the highest-leverage things you can do when working with the plugin.
-
-== Relationship with Data Vault Source
-
-A Data Vault Database Source contains the physical connection and column details.
-
-A (logical) Data Vault Source wraps it, adds the record source indicator settings (static value or source column), and is what hubs, links, and satellites actually reference in their dialogs.
-
-This separation keeps the model independent of the concrete source technology. Today only database sources are supported, but the structure allows other source types to be added later without changing your hub, link, and satellite definitions.
+1. The table references a **Data Vault Source** by name (hub: Record sources tab; link/satellite: Default record source).
+2. The source's **Database** tab supplies connection, table, and field layout.
+3. Primary-key fields drive hash calculations; lengths and precisions flow into target DDL.
 
 == Tips
 
-* Import early and review the primary key flags. Incorrect primary key information is the most common cause of wrong hash keys or missing business keys.
-* Adjust lengths and precisions in the source definition if the live database metadata is not quite what you want in the target Data Vault (for example you may want to be more conservative on string lengths).
-* Use meaningful names for your Data Vault Database Source objects. They often correspond to source tables or subject areas and will be referenced from many places.
-* If the same physical table is used by multiple logical feeds that need different record source values, create one Database Source for the column layout and multiple (logical) Data Vault Sources that point to it with different indicator settings.
+* Import early and verify primary key flags. Wrong PK metadata is the most common cause of incorrect hash keys.
+* Adjust lengths in the field grid when live database metadata is wider than you want in the vault.
+* When the same physical table is loaded with different record source values, create one Data Vault Source per feed (duplicate and change General tab indicator/group settings) rather than sharing one logical name.
+* Use meaningful source names on the General tab; the Database tab can point at the same connection and table for multiple feeds when needed.

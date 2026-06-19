@@ -1,4 +1,8 @@
 = Apache Hop Data Vault 2.0 Plugin
+:toc: macro
+:toclevels: 3
+
+toc::[]
 
 The Data Vault 2.0 plugin helps you design and load a Data Vault 2.0 data warehouse using Apache Hop. Instead of writing many similar pipelines by hand, you create a visual model of your Hubs, Links, and Satellites. Hop then generates the pipelines needed to load data into those structures.
 
@@ -24,28 +28,85 @@ The generated load processes follow the standard Data Vault 2.0 "insert-only" ap
 
 == Typical workflow
 
-1. Create a **Data Vault Configuration** that defines your hashing rules, column names (LOAD_DATE, RECORD_SOURCE, etc.), and the target database.
-2. Define **Data Vault Sources** that describe where your raw data lives (usually database tables or views, including which columns are keys and their data types/lengths).
-3. Create **Hub**, **Link**, and **Satellite** definitions.
-4. Group them into a **Data Vault Model** (saved as a `.hdv` file). You can lay the objects out visually, just like a pipeline.
-5. Use the **Check model** button on the model editor toolbar to catch missing pieces or broken references early.
-6. Use the **Debug** button to quickly generate and open a sample update pipeline for one or more tables so you can inspect what will happen.
-7. In a workflow, add the **Data Vault Update** action, point it at your `.hdv` model, choose a pipeline run configuration, and (optionally) have it validate the model and stop if problems are found before loading anything.
+1. Define **Data Vault Sources** that describe where your raw data lives (database connection, table, column layout, and record-source semantics).
+2. Create **Hub**, **Link**, and **Satellite** definitions and group them into a **Data Vault Model** (saved as a `.hdv` file). Each model carries its own embedded **configuration** (target database, hashing rules, column names, sentinel records, and pipeline options).
+3. Lay objects out on the visual canvas, connect relationships, and add annotation notes where helpful.
+4. Use the **Check model** toolbar button to catch missing pieces or broken references early.
+5. Use **Generate DDL** to preview CREATE/ALTER statements, or **Debug** to generate and open a sample update pipeline for selected tables.
+6. In a workflow, add the **Data Vault Update** action, point it at your `.hdv` model, choose a pipeline run configuration, and run the full load (with optional model checks and DDL handling).
 
 This approach gives you consistent, maintainable Data Vault loads that stay in sync with your model.
 
 == Visual model editor
 
-When you open a `.hdv` file you get a graphical editor where you can:
+When you open a `.hdv` file you get a graphical editor comparable to the pipeline graph in Hop GUI.
 
-* Drag and position Hubs, Links, and Satellites.
-* Double-click any object to edit its details.
-* Use the toolbar buttons **Check model** and **Debug**.
-* Right-click for context actions (add, edit, delete, check, debug).
+image::images/data-vault-model-rendered.png[Data Vault model canvas with tables and annotation notes,align="center"]
 
-The Check model feature runs a set of validations and shows the results in a familiar Hop dialog. It will warn you about missing business keys, satellites that are not attached to anything, links with fewer than two hubs, duplicate names, references to sources or hubs that don't exist, and many other common problems.
+=== Canvas interactions
 
-The Debug feature generates the actual update pipeline(s) for the selected table(s) and opens them in Hop so you can review or run them manually.
+* **Drag** Hubs, Links, and Satellites to position them on the canvas.
+* **Click** on any table to edit or delete it.
+* **Drag relationships** from one table to another using the middle mouse button or Shift+left-click on a table, then drop on a valid target. Supported pairs are hub↔satellite, hub↔link, and link↔satellite. The model stores the relationship by updating the appropriate name references on the table objects.
+* **Click** the background or a table for context actions (add, edit, delete, check, debug, and more).
+* **Lasso-select** multiple objects; use the selection toolbar buttons or keyboard shortcuts to copy, cut, paste, or delete.
+* **Annotation notes** document the model without affecting loads. Right-click the canvas to add a note, double-click to edit, and drag the resize handles to change size. Notes support types (General, Important, Warning, Information) and lightweight link syntax: `[Label](https://example.org)` opens a URL; `[Label](TableName)` navigates to a table in the model.
+
+image::images/data-vault-model-note-dialog.png[Edit note dialog,align="center"]
+
+Rendered like this:
+
+image::images/data-vault-model-note-rendered.png[Data Vault model canvas with tables and annotation notes,align="center"]
+
+=== Toolbar
+
+The model editor toolbar provides the main operations:
+
+image::images/hopgui-data-vault-model-toolbar.png[The data vault model toolbar in the Hop GUI,align="left"]
+
+
+[cols="1,3", options="header"]
+|===
+|Button |Purpose
+
+|Edit model
+|Opens the model properties dialog (name, description, and all configuration tabs). See link:datavault-configuration.adoc#_edit_model_dialog[Data Vault Configuration].
+
+|Import sources
+|Imports database tables as new Data Vault Source metadata objects (connection, schema, and field layout).
+
+|Check model
+|Runs validation and shows results in a Hop check dialog (missing keys, broken references, duplicate names, and more).
+
+|Generate DDL
+|Collects CREATE/ALTER statements for every table in the model against the configured target database and opens them in the SQL editor.
+
+|Debug
+|Generates update pipeline(s) for the selected table(s) and opens them in Hop for inspection or manual execution.
+
+|Copy / Cut / Paste / Delete
+|Clipboard operations for selected tables and notes (same pattern as pipeline graphs).
+
+|Undo / Redo
+|Snapshot-based undo/redo for model edits. The number of undo points kept in memory is configurable under Hop GUI → Configuration → Data Vault 2.0 (default 200).
+
+|Zoom
+|Zoom in, out, 100%, and fit-to-screen, plus a zoom level selector.
+|===
+
+=== Edit model and configuration
+
+Click **Edit model** on the toolbar to open the model dialog. The **General** tab holds the model name and description; the remaining tabs edit the embedded configuration (target database, hashing, sentinel records, standard columns, target loading, and generated pipeline options).
+
+image::images/data-vault-model-dialog.png[Edit Data Vault Model dialog — General tab,align="center"]
+
+See link:datavault-configuration.adoc[Data Vault Configuration] for a full description of every setting and tab screenshot.
+
+=== Check model and Debug
+
+**Check model** runs the same validations used by the Data Vault Update action. It warns about missing business keys, unattached satellites, links with fewer than two hubs, duplicate names, references to sources or hubs that do not exist, and many other common problems.
+
+**Debug** generates the actual update pipeline(s) for the selected table(s) and opens them in Hop so you can review or run them manually. When the model defines a generated-pipeline folder, debug pipelines can be saved there as well.
 
 == The Data Vault Update action
 
@@ -53,62 +114,79 @@ For production use you normally drive loads from a workflow using the **Data Vau
 
 * Loads the model from the `.hdv` file.
 * Optionally runs the same model checks that the visual editor uses.
-* Can be configured to simply log any issues or to abort the whole action if errors are found.
-* Generates an update pipeline for every table in the model.
-* Runs all of them using the pipeline run configuration you specify.
+* Can be configured to log issues or abort if errors are found.
+* Optionally ensures unknown and invalid sentinel rows exist in hubs and links before loading.
+* Generates CREATE/ALTER DDL for the single target database when schema changes are needed.
+* Generates an update pipeline for every table in the model (optionally filtered by record source group).
+* Runs all pipelines using the pipeline run configuration you specify.
 * Uses one consistent load date for the entire batch.
 * Collects row counts and error information from the generated pipelines.
 
-This makes it easy to integrate Data Vault loading into larger ETL workflows, with proper logging, error handling, and restartability.
+image::images/action-data-vault-update.png[Data Vault Update action dialog,align="center"]
+
+See link:datavault-update-action.adoc[Data Vault Update Action] for all options and tab descriptions.
 
 == What you can configure
 
-A **Data Vault Configuration** controls the technical details that affect the physical tables and the load behavior:
+Each Data Vault Model embeds a **configuration** object that controls:
 
-* Which database the Data Vault lives in.
-* Hash algorithm (MD5, SHA-256, etc.) and how hash keys are stored (BINARY is usually best for production; HEX and STRING are easier when you need to look at the values directly).
+* Which database the Data Vault lives in (one target database per model).
+* Hash algorithm (MD5, SHA-256, etc.) and how hash keys are stored (BINARY is usually best for production; HEX and STRING are easier when you need to read values directly).
 * Names for standard columns such as LOAD_DATE and RECORD_SOURCE.
 * Whether business keys should be trimmed and upper-cased before hashing.
 * A placeholder to use for NULL values during hashing.
-* Whether to support "unknown" / ghost records for missing keys.
+* Unknown and invalid sentinel record generation and values.
+* Target table batch size and optional folder/prefix settings for generated pipelines.
 
-Most of these settings can be overridden on individual Hubs, Links, or Satellites when you need something different for one table.
+Most hashing and naming settings apply model-wide. Individual hubs, links, and satellites can still override specific column names (for example the hash key field name or record source field name on a hub) where the dialog provides that option.
 
 == Sources
 
-Before you can load a Hub, Link, or Satellite you need to tell the model where the data comes from. You do this with **Data Vault Source** definitions.
+Before you can load a Hub, Link, or Satellite you need **Data Vault Source** metadata that describes where the data comes from and how rows should be tagged with a record source value.
 
-* A Data Vault Source gives the data a logical name and lets you specify a static record source value (for example "ERP" or "ORDERS-FEED") or point to a column in the source that contains the value.
-* For database sources you also create a **Data Vault Database Source** that points at a Hop database connection, optionally a schema and table, and lists the expected columns (including which ones form the natural/primary key and their lengths and data types).
+* A Data Vault Source gives the feed a logical name, optional static or column-based record source indicator, and an optional **group** tag used to filter which sources are processed in a given workflow run.
+* For database feeds, the source editor includes a **Database** tab with the connection, schema, table, and field layout (including primary-key flags). Physical source details are embedded in the Data Vault Source rather than maintained as a separate metadata type.
 
-The "Import" button in the database source editor can read the live column list from the database, which saves a lot of typing and helps ensure the lengths and types are accurate. Accurate source definitions power the "Get Keys" and "Get Attributes" helpers and produce realistic target column definitions.
+The Import button (in the source editor and on the model toolbar) can read the live column list from a database, which saves typing and helps ensure lengths and types are accurate.
 
-Hubs are special: they have a dedicated **Record sources** tab where you can attach multiple sources to a single hub table. Business keys on the hub can then be tagged with a Source system so each source can use its own column names. Links and satellites continue to reference a single (default) record source.
+Hubs have a dedicated **Record sources** tab where you attach multiple sources to a single hub table. Business keys on the hub can be tagged with a Source system so each source can use its own column names. Links and satellites reference a single default record source.
+
+See link:datavault-source.adoc[Data Vault Source] and link:datavault-source-database.adoc[Database source details].
 
 == Hubs, Links, and Satellites
 
-Each definition has its own dialog with the fields that are relevant for that type:
+Each definition has its own dialog with the fields relevant for that type:
 
-* **Hubs** need one or more business keys. A hub can be fed by multiple record sources (listed on the Record sources tab). Use the "Get Keys" button (after adding sources) to pull business keys from a chosen source; the Source system column on each business key row lets you map different source columns per originating system. You can also give the hash key column a specific name and override the record source column name for that hub.
-* **Satellites** are attached to a Hub or a Link. You list the attributes you want to historize. The "Get Attributes" button helps populate the list. Satellites automatically detect real changes in the attribute values.
-* **Links** connect two or more Hubs. You can define driving keys when the same hub participates more than once with different roles. When the source columns for a link have different names than the business keys in the hubs, you can map them explicitly in the "Hub source key fields" section of the link dialog.
+* **Hubs** need one or more business keys and one or more record sources. Use **Get Keys** to pull business keys from a chosen source.
+* **Satellites** attach to a Hub or a Link. Use **Get Attributes** to populate the attribute list from the source.
+* **Links** connect two or more Hubs, with optional driving keys and explicit hub source key field mappings when column names differ from the hub definitions.
 
-All three table types support an optional reference to a specific Data Vault Configuration so you can vary hashing or naming rules for individual tables.
+See link:dv-hub.adoc[Hubs], link:dv-link.adoc[Links], and link:dv-satellite.adoc[Satellites] for field-level reference.
+
+== Plugin-wide GUI options
+
+Under **Hop GUI → Configuration → Data Vault 2.0** you can set options that apply across all open models:
+
+image::images/hopgui-configuration-perspecive-data-vault-options.png[Data Vault 2.0 options in the Hop configuration perspective,align="center"]
+
+* **Draw hash keys in model** – When enabled, hash key column names are shown on table cards in the visual editor.
+* **Maximum undo/redo operations kept in memory** – Size of the snapshot undo stack for `.hdv` files (default 200).
 
 == Current capabilities
 
 Today the plugin fully supports modeling and incremental loading of Hubs, Links, and Satellites, including:
 
-* Composite business keys.
-* Multi-active satellites.
+* Composite business keys and multi-active satellites.
 * Role-playing hubs in links via driving keys.
 * Explicit source-to-hub key mappings for links.
-* Static or column-based record source indicators.
+* Static or column-based record source indicators and record source groups for partial loads.
+* Unknown and invalid sentinel rows in hubs and links.
 * Choice of hash algorithm and hash key storage format.
 * Automatic creation or alteration of target tables (DDL) before loading.
 * Model validation that catches many problems before you run a load.
-* Both visual debugging and production execution via workflow actions.
+* Visual debugging, DDL preview, clipboard editing, undo/redo, and production execution via workflow actions.
+* Canvas annotation notes with typed styling and in-model navigation links.
 
 The plugin is designed to grow. Future additions may include more source types, point-in-time (PIT) tables, bridge tables, and more declarative DDL options.
 
-If you are new to Data Vault 2.0, the plugin encourages good practices by making the key decisions (hashing, naming, source tracking, change detection) explicit and reusable through the configuration and source metadata objects.
+If you are new to Data Vault 2.0, the plugin encourages good practices by making the key decisions (hashing, naming, source tracking, change detection) explicit and reusable through the model configuration and source metadata objects.

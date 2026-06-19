@@ -20,8 +20,6 @@ package org.apache.hop.datavault.metadata;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.base.IBaseMeta;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.ICheckResultSource;
@@ -106,11 +104,11 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
    * @param metadataProvider for loading configuration, database connections, etc.
    * @param variables for variable resolution
    * @param model the containing DataVaultModel
-   * @return a map from target {@link DatabaseMeta} to the list of DDL scripts (in execution order)
-   *     that should be run against that database. An empty map means no DDL is required.
+   * @return DDL scripts (in execution order) for the model target database. An empty list means no
+   *     DDL is required.
    * @throws HopException on errors while determining target layout or connections
    */
-  Map<DatabaseMeta, List<String>> generateUpdateDdl(
+  List<String> generateUpdateDdl(
       IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
       throws HopException;
 
