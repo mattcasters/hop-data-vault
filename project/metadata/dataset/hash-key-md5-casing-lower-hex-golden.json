@@ -1,0 +1,24 @@
+{
+  "base_filename": "hash-key-md5-casing-lower-hex-golden.csv",
+  "name": "hash-key-md5-casing-lower-hex-golden",
+  "description": "",
+  "dataset_fields": [
+    {
+      "field_comment": "row_id",
+      "field_length": 9,
+      "field_type": 5,
+      "field_precision": 0,
+      "field_name": "row_id",
+      "field_format": "####0;-####0"
+    },
+    {
+      "field_comment": "hash_key",
+      "field_length": 32,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "hash_key",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}

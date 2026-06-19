@@ -1,0 +1,32 @@
+{
+  "database_replacements": [],
+  "autoOpening": true,
+  "description": "DvHashKey integration test: md5-single-string-upper",
+  "persist_filename": "",
+  "test_type": "UNIT_TEST",
+  "variableValues": [],
+  "basePath": "${HOP_UNIT_TESTS_FOLDER}",
+  "golden_data_sets": [
+    {
+      "field_mappings": [
+        {
+          "transform_field": "row_id",
+          "data_set_field": "row_id"
+        },
+        {
+          "transform_field": "hash_key",
+          "data_set_field": "hash_key"
+        }
+      ],
+      "field_order": [
+        "row_id"
+      ],
+      "data_set_name": "hash-key-md5-single-string-upper-golden",
+      "transform_name": "Validate"
+    }
+  ],
+  "input_data_sets": [],
+  "name": "validate-hash-key-md5-single-string-upper UNIT",
+  "trans_test_tweaks": [],
+  "pipeline_filename": "./tests/hash-key/validate-hash-key-md5-single-string-upper.hpl"
+}

@@ -1,0 +1,32 @@
+{
+  "base_filename": "hash-key-md5-null-placeholder-input.csv",
+  "name": "hash-key-md5-null-placeholder-input",
+  "description": "",
+  "dataset_fields": [
+    {
+      "field_comment": "row_id",
+      "field_length": 9,
+      "field_type": 5,
+      "field_precision": 0,
+      "field_name": "row_id",
+      "field_format": "####0;-####0"
+    },
+    {
+      "field_comment": "bk1",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "bk1",
+      "field_format": ""
+    },
+    {
+      "field_comment": "bk2",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "bk2",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}
