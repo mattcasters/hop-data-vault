@@ -287,7 +287,7 @@
       <height>48</height>
     </note>
     <note>
-      <text>Important note</text>
+      <text>Important note: see table [hub_customer](hub_customer)</text>
       <noteType>IMPORTANT</noteType>
       <xloc>208</xloc>
       <yloc>464</yloc>
@@ -295,18 +295,18 @@
       <height>32</height>
     </note>
     <note>
-      <text>Dangerous / Warning</text>
-      <noteType>DANGEROUS</noteType>
-      <xloc>208</xloc>
-      <yloc>528</yloc>
+      <text>Warning note</text>
+      <noteType>WARNING</noteType>
+      <xloc>656</xloc>
+      <yloc>400</yloc>
       <width>176</width>
       <height>32</height>
     </note>
     <note>
       <text>Information</text>
       <noteType>INFORMATION</noteType>
-      <xloc>208</xloc>
-      <yloc>592</yloc>
+      <xloc>656</xloc>
+      <yloc>448</yloc>
       <width>128</width>
       <height>32</height>
     </note>

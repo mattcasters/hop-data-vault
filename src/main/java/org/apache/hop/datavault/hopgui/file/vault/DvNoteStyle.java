@@ -49,7 +49,7 @@ public final class DvNoteStyle {
     return switch (type) {
       case GENERAL -> fromColor(res.getColorDemoGray());
       case IMPORTANT -> fromColor(res.getColorYellow());
-      case DANGEROUS -> fromColor(res.getColorLightRed());
+      case WARNING -> fromColor(res.getColorLightRed());
       case INFORMATION -> fromColor(res.getColorBlueCustomGrid());
     };
   }
@@ -62,7 +62,7 @@ public final class DvNoteStyle {
     return switch (type) {
       case GENERAL -> fromColor(res.getColorDarkGray());
       case IMPORTANT, INFORMATION -> fromColor(res.getColorWhite());
-      case DANGEROUS -> fromColor(res.getColorRed());
+      case WARNING -> fromColor(res.getColorRed());
     };
   }
 
@@ -92,7 +92,7 @@ public final class DvNoteStyle {
   public static int borderWidth(DvNoteType type, boolean selected) {
     int base =
         switch (type == null ? DvNoteType.GENERAL : type) {
-          case DANGEROUS, IMPORTANT -> 2;
+          case WARNING, IMPORTANT -> 2;
           default -> 1;
         };
     return selected ? base + 1 : base;
@@ -105,7 +105,7 @@ public final class DvNoteStyle {
     }
     return switch (type) {
       case IMPORTANT -> IGc.EImage.INFO;
-      case DANGEROUS -> IGc.EImage.ERROR;
+      case WARNING -> IGc.EImage.ERROR;
       case INFORMATION -> IGc.EImage.INFO_DISABLED;
       default -> null;
     };

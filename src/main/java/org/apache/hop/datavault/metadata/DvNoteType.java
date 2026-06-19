@@ -24,6 +24,6 @@ package org.apache.hop.datavault.metadata;
 public enum DvNoteType {
   GENERAL,
   IMPORTANT,
-  DANGEROUS,
+  WARNING,
   INFORMATION
 }
