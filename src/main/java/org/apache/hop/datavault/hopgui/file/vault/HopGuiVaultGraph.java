@@ -57,8 +57,9 @@ import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.config.DataVaultConfigSingleton;
+import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultClipboardDelegate;
+import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultSnapshotUndo;
 import org.apache.hop.datavault.metadata.DataVaultModel;
-import org.apache.hop.datavault.metadata.database.DvDatabaseSourceImportSupport;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvNote;
@@ -67,8 +68,7 @@ import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
-import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultClipboardDelegate;
-import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultSnapshotUndo;
+import org.apache.hop.datavault.metadata.database.DvDatabaseSourceImportSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.ui.core.ConstUi;
@@ -95,9 +95,6 @@ import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.hopgui.shared.SwtGc;
 import org.apache.hop.ui.util.EnvironmentUtils;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.MouseAdapter;
-import org.eclipse.swt.events.MouseEvent;
-import org.eclipse.swt.events.MouseTrackAdapter;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.graphics.Cursor;
 import org.eclipse.swt.graphics.GC;
@@ -105,13 +102,12 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
-import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.ToolItem;
 import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Node;
 
@@ -205,7 +201,6 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   // Drag state for moving notes on the canvas.
   private DvNote currentNote;
   private DvNote selectedNote;
-  private Point noteOffset;
   private Point noteDragStart;
   private boolean noteWasMoved;
 
@@ -274,43 +269,14 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
     // Mouse listener for context dialog on left click (background) + table edit + relationship drag
     // (middle/shift)
-    canvas.addMouseListener(
-        new MouseAdapter() {
-          @Override
-          public void mouseDown(MouseEvent e) {
-            mouseDownEvent(e);
-          }
-        });
-    canvas.addMouseListener(
-        new MouseAdapter() {
-          @Override
-          public void mouseUp(MouseEvent e) {
-            mouseUpEvent(e);
-          }
-        });
-    canvas.addMouseMoveListener(e -> mouseMoveEvent(e));
+    canvas.addListener(SWT.MouseDown, this::mouseDownEvent);
+    canvas.addListener(SWT.MouseUp, this::mouseUpEvent);
+    canvas.addListener(SWT.MouseMove, this::mouseMoveEvent);
     canvas.addMouseWheelListener(this::mouseScrolled);
-    canvas.addMouseListener(
-        new MouseAdapter() {
-          @Override
-          public void mouseDoubleClick(MouseEvent e) {
-            mouseDoubleClickEvent(e);
-          }
-        });
+    canvas.addListener(SWT.MouseDoubleClick, this::mouseDoubleClickEvent);
 
     // Track listener to clear tooltips (and hover state) when mouse leaves the canvas area.
-    canvas.addMouseTrackListener(
-        new MouseTrackAdapter() {
-          @Override
-          public void mouseExit(MouseEvent e) {
-            canvas.setToolTipText(null);
-            if (mouseOverTableName != null || mouseOverNoteLink != null) {
-              mouseOverTableName = null;
-              mouseOverNoteLink = null;
-              redraw();
-            }
-          }
-        });
+    canvas.addListener(SWT.MouseExit, this::mouseExitEvent);
 
     hopGui.replaceKeyboardShortcutListeners(this);
 
@@ -324,10 +290,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     layout(true, true);
   }
 
-  private void mouseMoveEvent(MouseEvent e) {
+  private void mouseMoveEvent(Event e) {
     Point real = screen2real(e.x, e.y);
-    boolean shift = (e.stateMask & SWT.SHIFT) != 0;
-    boolean control = (e.stateMask & SWT.MOD1) != 0;
 
     // Drag the view around with middle button on the background?
     //
@@ -399,7 +363,6 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       // drag/rel/lasso)
       //
       AreaOwner areaOwner = getVisibleAreaOwner(real.x, real.y);
-      IDvTable hit = getAreaOwnerTable(areaOwner);
 
       // Show description tooltip when hovering over the info icon (if present for the table)
       mouseMoveShowInfoTooltip(areaOwner);
@@ -478,7 +441,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     return doRedraw;
   }
 
-  private void mouseMoveViewport(MouseEvent e) {
+  private void mouseMoveViewport(Event e) {
     int desiredLeft = e.x - navigationGrabOffset.x;
     int desiredTop = e.y - navigationGrabOffset.y;
 
@@ -494,8 +457,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (maxL < minL) maxL = minL;
     if (maxT < minT) maxT = minT;
 
-    int clampedLeft = Math.max(minL, Math.min(desiredLeft, maxL));
-    int clampedTop = Math.max(minT, Math.min(desiredTop, maxT));
+    int clampedLeft = Math.clamp(desiredLeft, minL, maxL);
+    int clampedTop = Math.clamp(desiredTop, minT, maxT);
 
     // Map the clamped view rect position back to graph visible area using the captured
     // navigation transform (same math as painter used to place the view rect).
@@ -511,10 +474,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       redraw();
       updateGui();
     }
-    return;
   }
 
-  private void mouseUpEvent(MouseEvent e) {
+  private void mouseUpEvent(Event e) {
     canvas.setToolTipText(null);
     Point real = screen2real(e.x, e.y);
 
@@ -689,7 +651,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     updateGui();
   }
 
-  private void mouseUpCreateRelationship(MouseEvent e) {
+  private void mouseUpCreateRelationship(Event e) {
     // Complete relationship drag if dropped on a different valid table
     IDvTable target = findTableAtScreen(e.x, e.y);
     if (target != null && target != startRelationshipTable) {
@@ -701,7 +663,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     redraw();
   }
 
-  private void mouseDownEvent(MouseEvent e) {
+  private void mouseDownEvent(Event e) {
     canvas.setToolTipText(null);
     Point real = screen2real(e.x, e.y);
     lastClick = new Point(real.x, real.y);
@@ -790,12 +752,11 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       currentNote = noteHit;
       selectedNote = noteHit;
       noteWasMoved = false;
-      if (!control) {
-        if (!noteHit.isSelected()) {
-          unselectAllOnCanvas();
-          noteHit.setSelected(true);
-        }
+      if (!control && !noteHit.isSelected()) {
+        unselectAllOnCanvas();
+        noteHit.setSelected(true);
       }
+
       Point loc = noteHit.getLocation() != null ? noteHit.getLocation() : new Point(0, 0);
       noteOffset = new Point(real.x - loc.x, real.y - loc.y);
       noteDragStart = new Point(real.x, real.y);
@@ -963,7 +924,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       MessageBox box = new MessageBox(getShell(), SWT.OK | SWT.ICON_WARNING);
       box.setText(BaseMessages.getString(PKG, "HopGuiVaultGraph.NoteLink.Error.Title"));
       box.setMessage(
-          BaseMessages.getString(PKG, "HopGuiVaultGraph.NoteLink.TableNotFound.Message", tableName));
+          BaseMessages.getString(
+              PKG, "HopGuiVaultGraph.NoteLink.TableNotFound.Message", tableName));
       box.open();
       return;
     }
@@ -1001,12 +963,21 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     validateOffset();
   }
 
-  private void mouseDoubleClickEvent(MouseEvent e) {
+  private void mouseDoubleClickEvent(Event e) {
     Point real = screen2real(e.x, e.y);
     AreaOwner areaOwner = getVisibleAreaOwner(real.x, real.y);
     DvNote note = getAreaOwnerNote(areaOwner);
     if (note != null) {
       editNote(note);
+    }
+  }
+
+  private void mouseExitEvent(Event e) {
+    canvas.setToolTipText(null);
+    if (mouseOverTableName != null || mouseOverNoteLink != null) {
+      mouseOverTableName = null;
+      mouseOverNoteLink = null;
+      redraw();
     }
   }
 
@@ -1041,7 +1012,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (areaOwner != null && areaOwner.getAreaType() == AreaOwner.AreaType.NOTE) {
       resizeOver = getResize(areaOwner.getArea(), real);
     }
-    Cursor cursor = resizeOver != null ? getDisplay().getSystemCursor(resizeOver.getCursor()) : null;
+    Cursor cursor =
+        resizeOver != null ? getDisplay().getSystemCursor(resizeOver.getCursor()) : null;
     if (!java.util.Objects.equals(canvas.getCursor(), cursor)) {
       setCursor(cursor);
       doRedraw = true;
@@ -1174,8 +1146,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
           y = resizeArea.y + resizeArea.height - note.getMinimumHeight();
         }
         PropsUi.setLocation(note, resizeArea.x, y);
-        PropsUi.setSize(
-            note, width, resizeArea.y + resizeArea.height - note.getLocation().y);
+        PropsUi.setSize(note, width, resizeArea.y + resizeArea.height - note.getLocation().y);
       }
       case NORTH_WEST -> {
         int x = Math.max(0, real.x);
@@ -1220,8 +1191,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
           height = note.getMinimumHeight();
         }
         PropsUi.setLocation(note, x, resizeArea.y);
-        PropsUi.setSize(
-            note, resizeArea.x + resizeArea.width - note.getLocation().x, height);
+        PropsUi.setSize(note, resizeArea.x + resizeArea.width - note.getLocation().x, height);
       }
       case WEST -> {
         int x = Math.max(0, real.x);
@@ -1253,7 +1223,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
   }
 
-  private void showNoteContextDialog(MouseEvent e, DvNote note, Point real) {
+  private void showNoteContextDialog(Event e, DvNote note, Point real) {
     if (note == null) {
       return;
     }
@@ -1266,13 +1236,14 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
           GuiContextUtil.getInstance()
               .handleActionSelection(parent, message, new Point(p.x, p.y), contextHandler);
     } catch (Exception ex) {
-      System.err.println("Error showing note context dialog: " + ex.getMessage());
+      new ErrorDialog(
+          HopGui.getInstance().getShell(), "Error", "Error showing note context dialog: ", ex);
     } finally {
       canvas.setFocus();
     }
   }
 
-  private void mouseDownOnViewport(MouseEvent e) {
+  private void mouseDownOnViewport(Event e) {
     // Clear the other options
     //
     avoidContextDialog = true;
@@ -1323,9 +1294,10 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       //
       updateGui();
 
-    } catch (Throwable t) {
-      // Log error minimally without requiring a log channel in this graph (no undo/redo etc)
-      System.err.println("Error setting up the toolbar for HopGuiVaultGraph: " + t.getMessage());
+    } catch (Exception e) {
+      HopGui.getInstance()
+          .getLog()
+          .logError("Error setting up the toolbar for HopGuiVaultGraph: ", e);
     }
   }
 
@@ -2042,7 +2014,6 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   public AreaOwner getVisibleAreaOwner(int x, int y) {
     for (int i = areaOwners.size() - 1; i >= 0; i--) {
       AreaOwner areaOwner = areaOwners.get(i);
-      Rectangle area = areaOwner.getArea();
       if (areaOwner.contains(x, y)) {
         return areaOwner;
       }
@@ -2098,21 +2069,20 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       return;
     }
     byte[] beforeChange = captureUndoSnapshot();
-    boolean changed = false;
+    boolean modelChanged = false;
     Shell parentShell = getShell();
     if (table.getTableType() == DvTableType.HUB) {
       DvHubDialog dialog = new DvHubDialog(parentShell, hopGui, (DvHub) table);
-      changed = dialog.open();
+      modelChanged = dialog.open();
     } else if (table.getTableType() == DvTableType.SATELLITE) {
       DvSatelliteDialog dialog =
           new DvSatelliteDialog(parentShell, hopGui, (DvSatellite) table, model);
-      changed = dialog.open();
+      modelChanged = dialog.open();
     } else if (table.getTableType() == DvTableType.LINK) {
-      DvLinkDialog dialog =
-          new DvLinkDialog(parentShell, hopGui, (DvLink) table, model);
-      changed = dialog.open();
+      DvLinkDialog dialog = new DvLinkDialog(parentShell, hopGui, (DvLink) table, model);
+      modelChanged = dialog.open();
     }
-    if (changed) {
+    if (modelChanged) {
       commitDialogUndo(beforeChange);
       table.setChanged();
       setChanged();
@@ -2255,7 +2225,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
    * Draw a temporary dashed line from the center of the source table to the current mouse position
    * while dragging a relationship. Uses screen coordinates (overlay after painter).
    */
-  private void showVaultContextDialog(MouseEvent e, Point real) {
+  private void showVaultContextDialog(Event e, Point real) {
     try {
       Shell parent = getShell();
       org.eclipse.swt.graphics.Point p = parent.getDisplay().map(canvas, null, e.x, e.y);
@@ -2265,13 +2235,14 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
           GuiContextUtil.getInstance()
               .handleActionSelection(parent, message, new Point(p.x, p.y), contextHandler);
     } catch (Exception ex) {
-      System.err.println("Error showing vault context dialog: " + ex.getMessage());
+      new ErrorDialog(
+          HopGui.getInstance().getShell(), "Error", "Error showing vault context dialog: ", ex);
     } finally {
       canvas.setFocus();
     }
   }
 
-  private void showTableContextDialog(MouseEvent e, IDvTable table) {
+  private void showTableContextDialog(Event e, IDvTable table) {
     if (table == null) return;
     try {
       Point real = screen2real(e.x, e.y);
@@ -2283,7 +2254,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
           GuiContextUtil.getInstance()
               .handleActionSelection(parent, message, new Point(p.x, p.y), contextHandler);
     } catch (Exception ex) {
-      System.err.println("Error showing table context dialog: " + ex.getMessage());
+      new ErrorDialog(
+          HopGui.getInstance().getShell(), "Error", "Error showing table context dialog: ", ex);
     } finally {
       canvas.setFocus();
     }
@@ -2370,10 +2342,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
               model, 1.0f, variables, showHashKeyFieldNames);
 
       String proposedName = Const.NVL(model.getName(), "data-vault-model") + ".svg";
-      String proposedFilename =
-          variables.getVariable("user.home") + File.separator + proposedName;
+      String proposedFilename = variables.getVariable("user.home") + File.separator + proposedName;
 
-      String filename =
+      String filenameFromUser =
           BaseDialog.presentFileDialog(
               true,
               hopGui.getShell(),
@@ -2383,18 +2354,16 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
               new String[] {"*.svg"},
               new String[] {"SVG Files"},
               true);
-      if (filename == null) {
+      if (filenameFromUser == null) {
         return;
       }
 
-      String realFilename = variables.resolve(filename);
+      String realFilename = variables.resolve(filenameFromUser);
       var file = HopVfs.getFileObject(realFilename);
       if (file.exists()) {
-        MessageBox box =
-            new MessageBox(hopGui.getShell(), SWT.YES | SWT.NO | SWT.ICON_QUESTION);
+        MessageBox box = new MessageBox(hopGui.getShell(), SWT.YES | SWT.NO | SWT.ICON_QUESTION);
         box.setText(BaseMessages.getString(PKG, "HopGuiVaultGraph.ExportSvg.Exists.Title"));
-        box.setMessage(
-            BaseMessages.getString(PKG, "HopGuiVaultGraph.ExportSvg.Exists.Message"));
+        box.setMessage(BaseMessages.getString(PKG, "HopGuiVaultGraph.ExportSvg.Exists.Message"));
         if ((box.open() & SWT.YES) == 0) {
           return;
         }
@@ -2596,15 +2565,15 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
 
     markUndoPoint();
-    boolean changed = false;
+    boolean modelChanged = false;
     for (IDvTable table : tablesToDelete) {
-      changed |= removeTableFromModel(model, table);
+      modelChanged |= removeTableFromModel(model, table);
     }
     if (removeNotesFromModel(model, notesToDelete)) {
-      changed = true;
+      modelChanged = true;
       selectedNote = null;
     }
-    if (changed) {
+    if (modelChanged) {
       setChanged();
       redraw();
     }
@@ -2636,7 +2605,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (model == null) {
       return;
     }
-    boolean changed = false;
+    boolean modelChanged = false;
     unselectAllOnCanvas();
 
     if (tables != null && !tables.isEmpty()) {
@@ -2647,7 +2616,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
         if (table != null) {
           model.getTables().add(table);
           table.setSelected(true);
-          changed = true;
+          modelChanged = true;
         }
       }
     }
@@ -2660,12 +2629,12 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
         if (note != null) {
           model.getNotes().add(note);
           note.setSelected(true);
-          changed = true;
+          modelChanged = true;
         }
       }
     }
 
-    if (changed) {
+    if (modelChanged) {
       setChanged();
       redraw();
     }
