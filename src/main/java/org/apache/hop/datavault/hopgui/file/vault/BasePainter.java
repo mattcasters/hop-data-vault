@@ -64,6 +64,7 @@ public abstract class BasePainter {
   protected Rectangle graphPort;
   protected Rectangle viewPort;
   protected String mouseOverTableName;
+  protected DvNoteLinkHit mouseOverNoteLink;
 
   /**
    * Navigation minimap mapping info captured during last drawNavigationView (for panning support).

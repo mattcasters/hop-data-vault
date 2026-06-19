@@ -124,6 +124,13 @@ public class DataVaultModel extends HopMetadataBase
   @HopMetadataProperty(key = "table", groupKey = "tables")
   private List<IDvTable> tables = new ArrayList<>();
 
+  /**
+   * Typed annotation notes on the visual model canvas. Documentation only; does not affect DV Update
+   * or DDL generation.
+   */
+  @HopMetadataProperty(key = "note", groupKey = "notes")
+  private List<DvNote> notes = new ArrayList<>();
+
   protected final ChangedFlag changedFlag = new ChangedFlag();
 
   public DataVaultModel() {
@@ -397,14 +404,44 @@ public class DataVaultModel extends HopMetadataBase
     int maxy = 0;
     for (IDvTable table : tables) {
       Point loc = table.getLocation();
-      if (loc.x > maxx) {
-        maxx = loc.x;
+      if (loc != null) {
+        if (loc.x > maxx) {
+          maxx = loc.x;
+        }
+        if (loc.y > maxy) {
+          maxy = loc.y;
+        }
       }
-      if (loc.y > maxy) {
-        maxy = loc.y;
+    }
+    if (notes != null) {
+      for (DvNote note : notes) {
+        Point loc = note.getLocation();
+        if (loc != null) {
+          int noteMaxX = loc.x + Math.max(0, note.getWidth());
+          int noteMaxY = loc.y + Math.max(0, note.getHeight());
+          if (noteMaxX > maxx) {
+            maxx = noteMaxX;
+          }
+          if (noteMaxY > maxy) {
+            maxy = noteMaxY;
+          }
+        }
       }
     }
     return new Point(maxx + 100, maxy + 100);
+  }
+
+  /** Count the number of selected notes on the canvas. */
+  public int nrSelectedNotes() {
+    int nr = 0;
+    if (notes != null) {
+      for (DvNote note : notes) {
+        if (note != null && note.isSelected()) {
+          nr++;
+        }
+      }
+    }
+    return nr;
   }
 
   // TODO: implement undo

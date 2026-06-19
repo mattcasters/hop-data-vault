@@ -54,12 +54,15 @@ import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
+import org.apache.hop.datavault.metadata.DvNote;
+import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.database.dialog.SqlEditor;
 import org.apache.hop.ui.core.dialog.CheckResultDialog;
@@ -79,11 +82,13 @@ import org.apache.hop.ui.hopgui.file.shared.HopGuiAbstractGraph;
 import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.hopgui.shared.SwtGc;
+import org.apache.hop.ui.util.EnvironmentUtils;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseTrackAdapter;
 import org.eclipse.swt.events.PaintEvent;
+import org.eclipse.swt.graphics.Cursor;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FormAttachment;
@@ -155,6 +160,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   // Used for mouse-over underline on name, click-name=edit, click-body=context.
   private final List<AreaOwner> areaOwners = new ArrayList<>();
   private String mouseOverTableName;
+  private DvNoteLinkHit mouseOverNoteLink;
 
   // Relationship drag state (middle-mouse-button or shift+left-button drag from table to table)
   // to create hub<->satellite or hub<->link relationships (stored as name refs in the tables).
@@ -172,6 +178,13 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   private boolean iconDragCommitted;
   private boolean dragSelection;
   private IDvTable currentTable;
+
+  // Drag state for moving notes on the canvas.
+  private DvNote currentNote;
+  private DvNote selectedNote;
+  private Point noteOffset;
+  private Point noteDragStart;
+  private boolean noteWasMoved;
 
   // Lasso / rubber-band multi-select: started on background left-click+drag.
   // Uses SCREEN coordinates (drawn on raw GC after painter, untransformed).
@@ -237,6 +250,13 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
         });
     canvas.addMouseMoveListener(e -> mouseMoveEvent(e));
     canvas.addMouseWheelListener(this::mouseScrolled);
+    canvas.addMouseListener(
+        new MouseAdapter() {
+          @Override
+          public void mouseDoubleClick(MouseEvent e) {
+            mouseDoubleClickEvent(e);
+          }
+        });
 
     // Track listener to clear tooltips (and hover state) when mouse leaves the canvas area.
     canvas.addMouseTrackListener(
@@ -244,8 +264,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
           @Override
           public void mouseExit(MouseEvent e) {
             canvas.setToolTipText(null);
-            if (mouseOverTableName != null) {
+            if (mouseOverTableName != null || mouseOverNoteLink != null) {
               mouseOverTableName = null;
+              mouseOverNoteLink = null;
               redraw();
             }
           }
@@ -286,6 +307,13 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
 
     boolean doRedraw = false;
+
+    // Resizing the current note
+    if (resize != null && selectedNote != null) {
+      resizeDvNote(selectedNote, real);
+      return;
+    }
+
     if (startRelationshipTable != null) {
       relationshipDragEndLocation = new Point(e.x, e.y);
       candidateRelationshipTarget = findTableAtScreen(e.x, e.y);
@@ -295,9 +323,18 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     // Table drag move (left button on body after threshold)
     if (currentTable != null
         && (e.stateMask & SWT.BUTTON1) != 0
-        && startRelationshipTable == null) {
+        && startRelationshipTable == null
+        && resize == null) {
       currentTable.setSelected(true);
       doRedraw = mouseMoveTable(real, doRedraw);
+    }
+
+    // Note drag move (left button; mirrors Hop pipeline graph note dragging)
+    if (selectedNote != null
+        && (e.stateMask & SWT.BUTTON1) != 0
+        && startRelationshipTable == null
+        && resize == null) {
+      doRedraw = mouseMoveNote(real, doRedraw);
     }
 
     // Update lasso rubber band if active (bg left drag)
@@ -309,8 +346,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       doRedraw = true;
     }
 
-    if (selectionRegion != null && mouseOverTableName != null) {
+    if (selectionRegion != null && (mouseOverTableName != null || mouseOverNoteLink != null)) {
       mouseOverTableName = null;
+      mouseOverNoteLink = null;
       doRedraw = true;
     }
 
@@ -327,6 +365,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       mouseMoveShowInfoTooltip(areaOwner);
 
       doRedraw = mouseMoveOverTableName(areaOwner, doRedraw);
+      doRedraw = mouseMoveOverNoteLink(areaOwner, doRedraw);
+      doRedraw = mouseMoveOverNoteResize(areaOwner, real, doRedraw);
     }
 
     if (doRedraw) {
@@ -390,7 +430,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (iconDragCommitted && currentTable != null && currentTable.isSelected()) {
       int dx = icon.x - currentTable.getLocation().x;
       int dy = icon.y - currentTable.getLocation().y;
-      moveSelectedTables(dx, dy);
+      moveSelectedObjects(dx, dy);
       avoidContextDialog = true;
       doRedraw = true;
     }
@@ -452,6 +492,20 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       viewDragStart = null;
     }
 
+    if (resize != null && selectedNote != null) {
+      if (model != null) {
+        model.setChanged();
+      }
+      resize = null;
+      selectedNote = null;
+      resizeArea = null;
+      setCursor(null);
+      clearNoteDragState();
+      avoidContextDialog = true;
+      redraw();
+      return;
+    }
+
     // A single click on the background isn't a selection.
     // We need to show the context dialog for the model.
     //
@@ -481,12 +535,13 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
 
     if (e.button == 1) {
-      if (iconDragCommitted || dragSelection) {
-        // end table drag (moves were applied live during mouseMove)
+      if (iconDragCommitted || dragSelection || noteWasMoved) {
+        // end table/note drag (moves were applied live during mouseMove)
         if (model != null) {
           model.setChanged();
         }
         clearTableDragState();
+        clearNoteDragState();
         avoidContextDialog = false;
         redraw();
         return;
@@ -494,6 +549,29 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
       if (lastClick != null && lastClick.x == real.x && lastClick.y == real.y) {
         // pure click (no drag)
+        DvNoteLinkHit linkHit = getAreaOwnerNoteLink(getVisibleAreaOwner(real.x, real.y));
+        if (linkHit != null) {
+          followNoteLink(linkHit);
+          clearTableDragState();
+          clearNoteDragState();
+          avoidContextDialog = false;
+          return;
+        }
+
+        DvNote noteHit = currentNote;
+        if (noteHit != null) {
+          boolean control = (e.stateMask & SWT.MOD1) != 0;
+          if (control) {
+            noteHit.setSelected(!noteHit.isSelected());
+            redraw();
+          } else if (!avoidContextDialog) {
+            showNoteContextDialog(e, noteHit, real);
+          }
+          avoidContextDialog = false;
+          clearNoteDragState();
+          return;
+        }
+
         IDvTable hit = currentTable;
         if (hit == null) {
           // A single click on the background
@@ -519,6 +597,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       } else {
         // moved without committing drag
         clearTableDragState();
+        clearNoteDragState();
         avoidContextDialog = false;
       }
     } else if (avoidContextDialog) {
@@ -556,6 +635,13 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       for (IDvTable table : model.getTables()) {
         if (isTableInLassoScreenRect(table, minX, minY, maxX, maxY)) {
           table.setSelected(true);
+        }
+      }
+    }
+    if (model != null && model.getNotes() != null) {
+      for (DvNote note : model.getNotes()) {
+        if (isNoteInLassoScreenRect(note, minX, minY, maxX, maxY)) {
+          note.setSelected(true);
         }
       }
     }
@@ -653,10 +739,44 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
         iconDragCommitted = false;
         Point p = hit.getLocation() != null ? hit.getLocation() : new Point(0, 0);
         iconOffset = new Point(real.x - p.x, real.y - p.y);
+        clearNoteDragState();
         clearSelectionRegion();
         redraw();
         return;
       }
+    }
+
+    DvNote noteHit = getAreaOwnerNote(areaOwner);
+    if (noteHit != null
+        && areaOwner != null
+        && areaOwner.getAreaType() == AreaOwner.AreaType.NOTE
+        && e.button == 1
+        && startRelationshipTable == null) {
+      currentNote = noteHit;
+      selectedNote = noteHit;
+      noteWasMoved = false;
+      if (!control) {
+        if (!noteHit.isSelected()) {
+          unselectAllOnCanvas();
+          noteHit.setSelected(true);
+        }
+      }
+      Point loc = noteHit.getLocation() != null ? noteHit.getLocation() : new Point(0, 0);
+      noteOffset = new Point(real.x - loc.x, real.y - loc.y);
+      noteDragStart = new Point(real.x, real.y);
+      resize = getResize(areaOwner.getArea(), real);
+      if (resize != null) {
+        resizeArea =
+            new Rectangle(
+                loc.x,
+                loc.y,
+                Math.max(noteHit.getWidth(), noteHit.getMinimumWidth()),
+                Math.max(noteHit.getHeight(), noteHit.getMinimumHeight()));
+      }
+      clearTableDragState();
+      clearSelectionRegion();
+      redraw();
+      return;
     }
 
     // Background click: cancel active relationship drag or table drag (like hop drag cancel
@@ -665,9 +785,12 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (startRelationshipTable != null
         || currentTable != null
         || iconDragStart != null
+        || currentNote != null
+        || noteDragStart != null
         || selectionRegion != null) {
       cancelRelationshipDrag();
       clearTableDragState();
+      clearNoteDragState();
       clearSelectionRegion();
       avoidContextDialog = true;
       redraw();
@@ -677,9 +800,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     // Start lasso (rubber-band) selection on left-click background drag.
     // Unless CTRL is held, unselect all tables at start of lasso (per spec).
     //
-    if (e.button == 1 && hit == null) {
+    if (e.button == 1 && hit == null && noteHit == null) {
       if (!control) {
-        unselectAllTables();
+        unselectAllOnCanvas();
       }
 
       selectionRegion = new Rectangle((int) (real.x + offset.x), (int) (real.y + offset.y), 0, 0);
@@ -711,12 +834,408 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     return null;
   }
 
+  private @Nullable DvNote getAreaOwnerNote(AreaOwner areaOwner) {
+    if (areaOwner != null
+        && areaOwner.getAreaType() == AreaOwner.AreaType.NOTE
+        && areaOwner.getOwner() instanceof DvNote note) {
+      return note;
+    }
+    return null;
+  }
+
+  private @Nullable DvNoteLinkHit getAreaOwnerNoteLink(AreaOwner areaOwner) {
+    if (areaOwner != null
+        && areaOwner.getAreaType() == AreaOwner.AreaType.CUSTOM
+        && areaOwner.getOwner() instanceof DvNoteLinkHit linkHit) {
+      return linkHit;
+    }
+    return null;
+  }
+
+  private boolean mouseMoveOverNoteLink(AreaOwner areaOwner, boolean doRedraw) {
+    DvNoteLinkHit newOver = getAreaOwnerNoteLink(areaOwner);
+    if ((mouseOverNoteLink == null && newOver != null)
+        || (mouseOverNoteLink != null && !noteLinksEqual(mouseOverNoteLink, newOver))) {
+      doRedraw = true;
+    }
+    mouseOverNoteLink = newOver;
+
+    Cursor hand = getDisplay().getSystemCursor(SWT.CURSOR_HAND);
+    if (newOver != null) {
+      if (!java.util.Objects.equals(canvas.getCursor(), hand)) {
+        setCursor(hand);
+        doRedraw = true;
+      }
+      String target = newOver.link().target().trim();
+      String tip =
+          DvNoteTextParser.isUrlTarget(target)
+              ? target
+              : BaseMessages.getString(PKG, "HopGuiVaultGraph.NoteLink.TableTooltip", target);
+      if (!java.util.Objects.equals(canvas.getToolTipText(), tip)) {
+        canvas.setToolTipText(tip);
+      }
+    } else if (canvas.getCursor() == hand) {
+      setCursor(null);
+      doRedraw = true;
+    }
+    return doRedraw;
+  }
+
+  private static boolean noteLinksEqual(DvNoteLinkHit a, DvNoteLinkHit b) {
+    if (a == b) {
+      return true;
+    }
+    if (a == null || b == null) {
+      return false;
+    }
+    DvNoteTextParser.Segment linkA = a.link();
+    DvNoteTextParser.Segment linkB = b.link();
+    return a.note() == b.note()
+        && linkA != null
+        && linkB != null
+        && linkA.link() == linkB.link()
+        && java.util.Objects.equals(linkA.label(), linkB.label())
+        && java.util.Objects.equals(linkA.target(), linkB.target());
+  }
+
+  private void followNoteLink(DvNoteLinkHit linkHit) {
+    if (linkHit == null || linkHit.link() == null || Utils.isEmpty(linkHit.link().target())) {
+      return;
+    }
+    String target = linkHit.link().target().trim();
+    if (DvNoteTextParser.isUrlTarget(target)) {
+      try {
+        EnvironmentUtils.getInstance().openUrl(target);
+      } catch (HopException e) {
+        new ErrorDialog(
+            getShell(),
+            BaseMessages.getString(PKG, "HopGuiVaultGraph.NoteLink.Error.Title"),
+            BaseMessages.getString(PKG, "HopGuiVaultGraph.NoteLink.UrlError.Message", target),
+            e);
+      }
+      return;
+    }
+    navigateToTable(target);
+  }
+
+  private void navigateToTable(String tableName) {
+    if (model == null || Utils.isEmpty(tableName)) {
+      return;
+    }
+    IDvTable table = model.findTable(tableName);
+    if (table == null) {
+      MessageBox box = new MessageBox(getShell(), SWT.OK | SWT.ICON_WARNING);
+      box.setText(BaseMessages.getString(PKG, "HopGuiVaultGraph.NoteLink.Error.Title"));
+      box.setMessage(
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.NoteLink.TableNotFound.Message", tableName));
+      box.open();
+      return;
+    }
+    unselectAllOnCanvas();
+    table.setSelected(true);
+    centerOnTable(table);
+    redraw();
+    updateGui();
+  }
+
+  private void centerOnTable(IDvTable table) {
+    if (table == null || canvas == null || canvas.isDisposed()) {
+      return;
+    }
+    Point loc = table.getLocation();
+    if (loc == null) {
+      return;
+    }
+    int boxW = 140;
+    int boxH = 70;
+    if (table instanceof DvTableBase base) {
+      if (base.getDrawnBoxWidth() > 0) {
+        boxW = base.getDrawnBoxWidth();
+      }
+      if (base.getDrawnBoxHeight() > 0) {
+        boxH = base.getDrawnBoxHeight();
+      }
+    }
+    float mag = calculateCorrectedMagnification();
+    org.eclipse.swt.graphics.Rectangle bounds = canvas.getBounds();
+    double tableCenterX = loc.x + boxW / 2.0;
+    double tableCenterY = loc.y + boxH / 2.0;
+    offset.x = bounds.width / (2.0 * mag) - tableCenterX;
+    offset.y = bounds.height / (2.0 * mag) - tableCenterY;
+    validateOffset();
+  }
+
+  private void mouseDoubleClickEvent(MouseEvent e) {
+    Point real = screen2real(e.x, e.y);
+    AreaOwner areaOwner = getVisibleAreaOwner(real.x, real.y);
+    DvNote note = getAreaOwnerNote(areaOwner);
+    if (note != null) {
+      editNote(note);
+    }
+  }
+
+  private boolean mouseMoveNote(Point real, boolean doRedraw) {
+    if (selectedNote == null || noteOffset == null) {
+      return doRedraw;
+    }
+    Point notePos = new Point(real.x - noteOffset.x, real.y - noteOffset.y);
+    int dx = notePos.x - selectedNote.getLocation().x;
+    int dy = notePos.y - selectedNote.getLocation().y;
+    if (dx != 0 || dy != 0) {
+      moveSelectedObjects(dx, dy);
+      noteWasMoved = true;
+      avoidContextDialog = true;
+      doRedraw = true;
+    }
+    return doRedraw;
+  }
+
+  private boolean mouseMoveOverNoteResize(AreaOwner areaOwner, Point real, boolean doRedraw) {
+    if (startRelationshipTable != null
+        || dragSelection
+        || selectionRegion != null
+        || noteWasMoved
+        || iconDragCommitted) {
+      return doRedraw;
+    }
+    Resize resizeOver = null;
+    if (areaOwner != null && areaOwner.getAreaType() == AreaOwner.AreaType.NOTE) {
+      resizeOver = getResize(areaOwner.getArea(), real);
+    }
+    Cursor cursor = resizeOver != null ? getDisplay().getSystemCursor(resizeOver.getCursor()) : null;
+    if (!java.util.Objects.equals(canvas.getCursor(), cursor)) {
+      setCursor(cursor);
+      doRedraw = true;
+    }
+    return doRedraw;
+  }
+
+  private void clearNoteDragState() {
+    noteDragStart = null;
+    noteWasMoved = false;
+    noteOffset = null;
+    currentNote = null;
+    if (resize == null) {
+      selectedNote = null;
+      resizeArea = null;
+    }
+  }
+
+  private void unselectAllOnCanvas() {
+    unselectAllTables();
+    unselectAllNotes();
+  }
+
+  private void unselectAllNotes() {
+    if (model != null && model.getNotes() != null) {
+      for (DvNote note : model.getNotes()) {
+        if (note != null) {
+          note.setSelected(false);
+        }
+      }
+    }
+  }
+
+  private List<DvNote> getSelectedNotes() {
+    List<DvNote> list = new ArrayList<>();
+    if (model != null && model.getNotes() != null) {
+      for (DvNote note : model.getNotes()) {
+        if (note != null && note.isSelected()) {
+          list.add(note);
+        }
+      }
+    }
+    return list;
+  }
+
+  private void moveSelectedObjects(int dx, int dy) {
+    List<IDvTable> selectedTables = getSelectedTables();
+    List<DvNote> selectedNotes = getSelectedNotes();
+    if (selectedTables.isEmpty() && selectedNotes.isEmpty()) {
+      return;
+    }
+    for (IDvTable table : selectedTables) {
+      Point loc = table.getLocation();
+      if (loc.x + dx < 0) {
+        dx = -loc.x;
+      }
+      if (loc.y + dy < 0) {
+        dy = -loc.y;
+      }
+    }
+    for (DvNote note : selectedNotes) {
+      Point loc = note.getLocation();
+      if (loc.x + dx < 0) {
+        dx = -loc.x;
+      }
+      if (loc.y + dy < 0) {
+        dy = -loc.y;
+      }
+    }
+    for (IDvTable table : selectedTables) {
+      Point loc = table.getLocation();
+      PropsUi.setLocation(table, loc.x + dx, loc.y + dy);
+      table.setChanged();
+    }
+    for (DvNote note : selectedNotes) {
+      Point loc = note.getLocation();
+      PropsUi.setLocation(note, loc.x + dx, loc.y + dy);
+    }
+  }
+
+  private boolean isNoteInLassoScreenRect(
+      DvNote note, int lassoMinX, int lassoMinY, int lassoMaxX, int lassoMaxY) {
+    if (note == null) {
+      return false;
+    }
+    Point loc = note.getLocation();
+    if (loc == null) {
+      return false;
+    }
+    int nw = Math.max(1, Math.max(note.getWidth(), note.getMinimumWidth()));
+    int nh = Math.max(1, Math.max(note.getHeight(), note.getMinimumHeight()));
+    int nMinX = loc.x + (int) offset.x;
+    int nMinY = loc.y + (int) offset.y;
+    int nMaxX = nMinX + nw;
+    int nMaxY = nMinY + nh;
+    boolean xOverlap = Math.max(lassoMinX, nMinX) < Math.min(lassoMaxX, nMaxX);
+    boolean yOverlap = Math.max(lassoMinY, nMinY) < Math.min(lassoMaxY, nMaxY);
+    return xOverlap && yOverlap;
+  }
+
+  private void resizeDvNote(DvNote note, Point real) {
+    if (note == null || resize == null || resizeArea == null) {
+      return;
+    }
+    switch (resize) {
+      case EAST -> {
+        int width = real.x - resizeArea.x;
+        if (width < note.getMinimumWidth()) {
+          width = note.getMinimumWidth();
+        }
+        PropsUi.setSize(note, width, note.getHeight());
+      }
+      case NORTH -> {
+        int y = Math.max(0, real.y);
+        if (y > resizeArea.y + resizeArea.height - note.getMinimumHeight()) {
+          y = resizeArea.y + resizeArea.height - note.getMinimumHeight();
+        }
+        PropsUi.setLocation(note, resizeArea.x, y);
+        PropsUi.setSize(
+            note, note.getWidth(), resizeArea.y + resizeArea.height - note.getLocation().y);
+      }
+      case NORTH_EAST -> {
+        int width = real.x - resizeArea.x;
+        if (width < note.getMinimumWidth()) {
+          width = note.getMinimumWidth();
+        }
+        int y = Math.max(0, real.y);
+        if (y > resizeArea.y + resizeArea.height - note.getMinimumHeight()) {
+          y = resizeArea.y + resizeArea.height - note.getMinimumHeight();
+        }
+        PropsUi.setLocation(note, resizeArea.x, y);
+        PropsUi.setSize(
+            note, width, resizeArea.y + resizeArea.height - note.getLocation().y);
+      }
+      case NORTH_WEST -> {
+        int x = Math.max(0, real.x);
+        if (x > resizeArea.x + resizeArea.width - note.getMinimumWidth()) {
+          x = resizeArea.x + resizeArea.width - note.getMinimumWidth();
+        }
+        int y = Math.max(0, real.y);
+        if (y > resizeArea.y + resizeArea.height - note.getMinimumHeight()) {
+          y = resizeArea.y + resizeArea.height - note.getMinimumHeight();
+        }
+        PropsUi.setLocation(note, x, y);
+        PropsUi.setSize(
+            note,
+            resizeArea.x + resizeArea.width - note.getLocation().x,
+            resizeArea.height + resizeArea.y - note.getLocation().y);
+      }
+      case SOUTH -> {
+        int height = real.y - resizeArea.y;
+        if (height < note.getMinimumHeight()) {
+          height = note.getMinimumHeight();
+        }
+        PropsUi.setSize(note, note.getWidth(), height);
+      }
+      case SOUTH_EAST -> {
+        int width = real.x - resizeArea.x;
+        if (width < note.getMinimumWidth()) {
+          width = note.getMinimumWidth();
+        }
+        int height = real.y - resizeArea.y;
+        if (height < note.getMinimumHeight()) {
+          height = note.getMinimumHeight();
+        }
+        PropsUi.setSize(note, width, height);
+      }
+      case SOUTH_WEST -> {
+        int x = Math.max(0, real.x);
+        if (x > resizeArea.x + resizeArea.width - note.getMinimumWidth()) {
+          x = resizeArea.x + resizeArea.width - note.getMinimumWidth();
+        }
+        int height = real.y - resizeArea.y;
+        if (height < note.getMinimumHeight()) {
+          height = note.getMinimumHeight();
+        }
+        PropsUi.setLocation(note, x, resizeArea.y);
+        PropsUi.setSize(
+            note, resizeArea.x + resizeArea.width - note.getLocation().x, height);
+      }
+      case WEST -> {
+        int x = Math.max(0, real.x);
+        if (x > resizeArea.x + resizeArea.width - note.getMinimumWidth()) {
+          x = resizeArea.x + resizeArea.width - note.getMinimumWidth();
+        }
+        PropsUi.setLocation(note, x, resizeArea.y);
+        PropsUi.setSize(
+            note, resizeArea.x + resizeArea.width - note.getLocation().x, note.getHeight());
+      }
+    }
+    redraw();
+  }
+
+  private void editNote(DvNote note) {
+    if (note == null) {
+      return;
+    }
+    DvNoteDialog dialog = new DvNoteDialog(getShell(), note);
+    if (dialog.open()) {
+      if (model != null) {
+        model.setChanged();
+      }
+      redraw();
+      canvas.setFocus();
+    }
+  }
+
+  private void showNoteContextDialog(MouseEvent e, DvNote note, Point real) {
+    if (note == null) {
+      return;
+    }
+    try {
+      Shell parent = getShell();
+      org.eclipse.swt.graphics.Point p = parent.getDisplay().map(canvas, null, e.x, e.y);
+      String message = BaseMessages.getString(PKG, "HopGuiVaultGraph.NoteContext.Message");
+      IGuiContextHandler contextHandler = new HopGuiVaultNoteContext(model, this, note, real);
+      avoidContextDialog =
+          GuiContextUtil.getInstance()
+              .handleActionSelection(parent, message, new Point(p.x, p.y), contextHandler);
+    } catch (Exception ex) {
+      System.err.println("Error showing note context dialog: " + ex.getMessage());
+    } finally {
+      canvas.setFocus();
+    }
+  }
+
   private void mouseDownOnViewport(MouseEvent e) {
     // Clear the other options
     //
     avoidContextDialog = true;
     cancelRelationshipDrag();
     clearTableDragState();
+    clearNoteDragState();
     clearSelectionRegion();
 
     // Retain the viewport and flag
@@ -814,6 +1333,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       painter.setSelectionRegion(selectionRegion);
       painter.setAreaOwners(areaOwners);
       painter.setMouseOverTableName(mouseOverTableName);
+      painter.setMouseOverNoteLink(mouseOverNoteLink);
       painter.setShowingNavigationView(!propsUi.isHideViewportEnabled());
       painter.setShowHashKeyFieldNames(
           DataVaultConfigSingleton.getConfig().isDrawingHashKeysInModel());
@@ -1145,6 +1665,37 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   @GuiContextAction(
+      id = "vault-graph-add-note",
+      parentId = HopGuiVaultContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiVaultGraph.AddNote.Name",
+      tooltip = "i18n::HopGuiVaultGraph.AddNote.Tooltip",
+      image = "ui/images/note.svg",
+      category = "Data Vault",
+      categoryOrder = "4")
+  public void addNote(HopGuiVaultContext context) {
+    Point click = context.getClick();
+    HopGuiVaultGraph realGraph = context.getVaultGraph();
+    DataVaultModel realModel = context.getModel();
+    if (realModel == null || realGraph == null) {
+      return;
+    }
+    if (realModel.getNotes() == null) {
+      realModel.setNotes(new ArrayList<>());
+    }
+    DvNote note = new DvNote();
+    note.setNoteType(DvNoteType.GENERAL);
+    note.setText("");
+    PropsUi.setLocation(note, click != null ? click.x : 50, click != null ? click.y : 50);
+    PropsUi.setSize(note, ConstUi.NOTE_MIN_SIZE, ConstUi.NOTE_MIN_SIZE);
+    realModel.getNotes().add(note);
+    realModel.setChanged();
+    realGraph.editNote(note);
+    realGraph.redraw();
+    realGraph.updateGui();
+  }
+
+  @GuiContextAction(
       id = "vault-graph-edit-model",
       parentId = HopGuiVaultContext.CONTEXT_ID,
       type = GuiActionType.Modify,
@@ -1219,6 +1770,46 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     HopGuiVaultGraph realGraph = context.getVaultGraph();
     if (t != null && realGraph != null) {
       realGraph.openUpdatePipeline(t);
+    }
+  }
+
+  @GuiContextAction(
+      id = "vault-graph-edit-note",
+      parentId = HopGuiVaultNoteContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiVaultGraph.EditNote.Name",
+      tooltip = "i18n::HopGuiVaultGraph.EditNote.Tooltip",
+      image = "ui/images/edit.svg",
+      category = "Data Vault",
+      categoryOrder = "1")
+  public void editNoteAction(HopGuiVaultNoteContext context) {
+    DvNote note = context.getNote();
+    HopGuiVaultGraph realGraph = context.getVaultGraph();
+    if (note != null && realGraph != null) {
+      realGraph.editNote(note);
+    }
+  }
+
+  @GuiContextAction(
+      id = "vault-graph-delete-note",
+      parentId = HopGuiVaultNoteContext.CONTEXT_ID,
+      type = GuiActionType.Delete,
+      name = "i18n::HopGuiVaultGraph.DeleteNote.Name",
+      tooltip = "i18n::HopGuiVaultGraph.DeleteNote.Tooltip",
+      image = "ui/images/delete.svg",
+      category = "Data Vault",
+      categoryOrder = "2")
+  public void deleteNoteAction(HopGuiVaultNoteContext context) {
+    DvNote note = context.getNote();
+    HopGuiVaultGraph realGraph = context.getVaultGraph();
+    DataVaultModel realModel = context.getModel();
+    if (note != null && realModel != null && realModel.getNotes() != null) {
+      realModel.getNotes().remove(note);
+      realModel.setChanged();
+      if (realGraph != null) {
+        realGraph.redraw();
+        realGraph.updateGui();
+      }
     }
   }
 
@@ -1404,28 +1995,6 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       canvas.setToolTipText(null);
       canvas.setData("mode", "null");
       setCursor(null);
-    }
-  }
-
-  private void moveSelectedTables(int dx, int dy) {
-    List<IDvTable> selected = getSelectedTables();
-    if (selected.isEmpty()) {
-      return;
-    }
-    // prevent negative coordinates
-    for (IDvTable t : selected) {
-      Point loc = t.getLocation();
-      if (loc.x + dx < 0) {
-        dx = -loc.x;
-      }
-      if (loc.y + dy < 0) {
-        dy = -loc.y;
-      }
-    }
-    for (IDvTable t : selected) {
-      Point loc = t.getLocation();
-      PropsUi.setLocation(t, loc.x + dx, loc.y + dy);
-      t.setChanged();
     }
   }
 
@@ -1735,10 +2304,19 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       image = "ui/images/select-all.svg")
   @Override
   public void selectAll() {
-    if (model != null && model.getTables() != null) {
-      for (IDvTable t : model.getTables()) {
-        if (t != null) {
-          t.setSelected(true);
+    if (model != null) {
+      if (model.getTables() != null) {
+        for (IDvTable t : model.getTables()) {
+          if (t != null) {
+            t.setSelected(true);
+          }
+        }
+      }
+      if (model.getNotes() != null) {
+        for (DvNote note : model.getNotes()) {
+          if (note != null) {
+            note.setSelected(true);
+          }
         }
       }
       redraw();
@@ -1755,7 +2333,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       image = "ui/images/unselect-all.svg")
   @Override
   public void unselectAll() {
-    unselectAllTables();
+    unselectAllOnCanvas();
     clearSelectionRegion();
     redraw();
   }
@@ -1893,6 +2471,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     clearSelectionRegion();
     areaOwners.clear();
     mouseOverTableName = null;
+    mouseOverNoteLink = null;
     if (canvas != null && !canvas.isDisposed()) {
       canvas.setToolTipText(null);
     }
