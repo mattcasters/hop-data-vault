@@ -13,6 +13,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hop.datavault.hopgui.file.vault;
@@ -66,6 +67,7 @@ import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultClipboardDelegate;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.ui.core.ConstUi;
@@ -75,6 +77,7 @@ import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.CheckResultDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.dialog.MessageBox;
+import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.core.gui.GuiToolbarWidgets;
 import org.apache.hop.ui.core.gui.IToolbarContainer;
 import org.apache.hop.ui.hopgui.CanvasFacade;
@@ -133,6 +136,10 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   public static final String TOOLBAR_ITEM_SELECT_ALL = "HopGuiVaultGraph-ToolBar-20010-Select-All";
   public static final String TOOLBAR_ITEM_UNSELECT_ALL =
       "HopGuiVaultGraph-ToolBar-20020-Unselect-All";
+  public static final String TOOLBAR_ITEM_COPY = "HopGuiVaultGraph-ToolBar-20030-Copy";
+  public static final String TOOLBAR_ITEM_CUT = "HopGuiVaultGraph-ToolBar-20040-Cut";
+  public static final String TOOLBAR_ITEM_PASTE = "HopGuiVaultGraph-ToolBar-20050-Paste";
+  public static final String TOOLBAR_ITEM_DELETE = "HopGuiVaultGraph-ToolBar-20060-Delete";
 
   public static final String TOOLBAR_ITEM_EDIT_MODEL = "HopGuiVaultGraph-ToolBar-10050-Edit-Model";
 
@@ -156,6 +163,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
   private final ExplorerPerspective perspective;
   private final HopVaultFileType fileType;
+  private final HopGuiVaultClipboardDelegate clipboardDelegate;
   private DataVaultModel model;
 
   private Control toolBar;
@@ -232,6 +240,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     this.perspective = perspective;
     this.model = model;
     this.fileType = fileType;
+    this.clipboardDelegate = new HopGuiVaultClipboardDelegate(hopGui, this);
 
     this.variables = new Variables();
     this.variables.copyFrom(hopGui.getVariables());
@@ -1686,6 +1695,22 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   @GuiContextAction(
+      id = "vault-graph-paste-clipboard",
+      parentId = HopGuiVaultContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiVaultGraph.PasteFromClipboard.Name",
+      tooltip = "i18n::HopGuiVaultGraph.PasteFromClipboard.Tooltip",
+      image = "ui/images/paste.svg",
+      category = "Data Vault",
+      categoryOrder = "4")
+  public void pasteFromClipboard(HopGuiVaultContext context) {
+    HopGuiVaultGraph realGraph = context.getVaultGraph();
+    if (realGraph != null) {
+      realGraph.pasteFromClipboard(context.getClick());
+    }
+  }
+
+  @GuiContextAction(
       id = "vault-graph-add-note",
       parentId = HopGuiVaultContext.CONTEXT_ID,
       type = GuiActionType.Create,
@@ -1693,7 +1718,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       tooltip = "i18n::HopGuiVaultGraph.AddNote.Tooltip",
       image = "ui/images/note.svg",
       category = "Data Vault",
-      categoryOrder = "4")
+      categoryOrder = "5")
   public void addNote(HopGuiVaultContext context) {
     Point click = context.getClick();
     HopGuiVaultGraph realGraph = context.getVaultGraph();
@@ -1778,11 +1803,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     IDvTable t = context.getTable();
     HopGuiVaultGraph realGraph = context.getVaultGraph();
     DataVaultModel realModel = context.getModel();
-    if (t != null && realModel != null && realModel.getTables() != null) {
-      realModel.getTables().remove(t);
-      if (realGraph != null) {
-        realGraph.setChanged();
-      }
+    if (t != null && realModel != null && removeTableFromModel(realModel, t) && realGraph != null) {
+      realGraph.setChanged();
+      realGraph.redraw();
     }
   }
 
@@ -1833,12 +1856,31 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     DvNote note = context.getNote();
     HopGuiVaultGraph realGraph = context.getVaultGraph();
     DataVaultModel realModel = context.getModel();
-    if (note != null && realModel != null && realModel.getNotes() != null) {
-      realModel.getNotes().remove(note);
-      if (realGraph != null) {
-        realGraph.setChanged();
-      }
+    if (note != null
+        && realModel != null
+        && removeNotesFromModel(realModel, List.of(note))
+        && realGraph != null) {
+      realGraph.setChanged();
+      realGraph.redraw();
     }
+  }
+
+  private boolean removeTableFromModel(DataVaultModel targetModel, IDvTable table) {
+    if (targetModel == null || table == null || targetModel.getTables() == null) {
+      return false;
+    }
+    if (!targetModel.getTables().remove(table)) {
+      return false;
+    }
+    DataVaultModelReferenceCleanup.cleanupAfterTableRemoved(targetModel, table);
+    return true;
+  }
+
+  private boolean removeNotesFromModel(DataVaultModel targetModel, List<DvNote> notes) {
+    if (targetModel == null || notes == null || notes.isEmpty() || targetModel.getNotes() == null) {
+      return false;
+    }
+    return targetModel.getNotes().removeAll(notes);
   }
 
   // Small helper so the action methods (which may be called on a dummy graph instance via
@@ -2384,6 +2426,36 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   @Override
   public void updateGui() {
     hopGui.handleFileCapabilities(fileType, this, hasChanged(), false, false);
+    enableClipboardToolbarItems();
+  }
+
+  private void enableClipboardToolbarItems() {
+    if (toolBarWidgets == null) {
+      return;
+    }
+    boolean hasSelection = hasCanvasSelection();
+    boolean hasClipboard = hasClipboardContent();
+
+    toolBarWidgets.enableToolbarItem(
+        fileType, this, TOOLBAR_ITEM_COPY, IHopFileType.CAPABILITY_COPY, hasSelection);
+    toolBarWidgets.enableToolbarItem(
+        fileType, this, TOOLBAR_ITEM_CUT, IHopFileType.CAPABILITY_CUT, hasSelection);
+    toolBarWidgets.enableToolbarItem(
+        fileType, this, TOOLBAR_ITEM_DELETE, IHopFileType.CAPABILITY_DELETE, hasSelection);
+    toolBarWidgets.enableToolbarItem(
+        fileType, this, TOOLBAR_ITEM_PASTE, IHopFileType.CAPABILITY_PASTE, hasClipboard);
+  }
+
+  private boolean hasCanvasSelection() {
+    return !getSelectedTables().isEmpty() || !getSelectedNotes().isEmpty();
+  }
+
+  private boolean hasClipboardContent() {
+    try {
+      return !Utils.isEmpty(GuiResource.getInstance().fromClipboard());
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   @GuiKeyboardShortcut(control = true, key = 'a')
@@ -2430,24 +2502,131 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     redraw();
   }
 
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_COPY,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.Copy.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/copy.svg",
+      separator = true)
+  @GuiKeyboardShortcut(control = true, key = 'c')
+  @GuiOsxKeyboardShortcut(command = true, key = 'c')
   @Override
   public void copySelectedToClipboard() {
-    // TODO
+    if (clipboardDelegate == null || model == null) {
+      return;
+    }
+    clipboardDelegate.copySelected(getSelectedTables(), getSelectedNotes());
   }
 
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_CUT,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.Cut.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/cut.svg")
+  @GuiKeyboardShortcut(control = true, key = 'x')
+  @GuiOsxKeyboardShortcut(command = true, key = 'x')
   @Override
   public void cutSelectedToClipboard() {
-    // TODO
+    if (clipboardDelegate == null || model == null) {
+      return;
+    }
+    clipboardDelegate.copySelected(getSelectedTables(), getSelectedNotes());
+    deleteSelected();
   }
 
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_DELETE,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.Delete.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/delete.svg")
+  @GuiKeyboardShortcut(key = SWT.DEL)
+  @GuiOsxKeyboardShortcut(key = SWT.DEL)
   @Override
   public void deleteSelected() {
-    // TODO
+    if (model == null) {
+      return;
+    }
+    List<IDvTable> tablesToDelete = getSelectedTables();
+    List<DvNote> notesToDelete = getSelectedNotes();
+    if (tablesToDelete.isEmpty() && notesToDelete.isEmpty()) {
+      return;
+    }
+
+    boolean changed = false;
+    for (IDvTable table : tablesToDelete) {
+      changed |= removeTableFromModel(model, table);
+    }
+    if (removeNotesFromModel(model, notesToDelete)) {
+      changed = true;
+      selectedNote = null;
+    }
+    if (changed) {
+      setChanged();
+      redraw();
+    }
   }
 
+  public void pasteFromClipboard(Point location) {
+    if (clipboardDelegate == null || model == null) {
+      return;
+    }
+    clipboardDelegate.pasteXml(model, clipboardDelegate.fromClipboard(), location);
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_PASTE,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.Paste.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/paste.svg")
+  @GuiKeyboardShortcut(control = true, key = 'v')
+  @GuiOsxKeyboardShortcut(command = true, key = 'v')
   @Override
   public void pasteFromClipboard() {
-    // TODO
+    Point location = lastClick != null ? new Point(lastClick.x, lastClick.y) : null;
+    pasteFromClipboard(location);
+  }
+
+  public void applyPasteResult(List<IDvTable> tables, List<DvNote> notes) {
+    if (model == null) {
+      return;
+    }
+    boolean changed = false;
+    unselectAllOnCanvas();
+
+    if (tables != null && !tables.isEmpty()) {
+      if (model.getTables() == null) {
+        model.setTables(new ArrayList<>());
+      }
+      for (IDvTable table : tables) {
+        if (table != null) {
+          model.getTables().add(table);
+          table.setSelected(true);
+          changed = true;
+        }
+      }
+    }
+
+    if (notes != null && !notes.isEmpty()) {
+      if (model.getNotes() == null) {
+        model.setNotes(new ArrayList<>());
+      }
+      for (DvNote note : notes) {
+        if (note != null) {
+          model.getNotes().add(note);
+          note.setSelected(true);
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      setChanged();
+      redraw();
+    }
   }
 
   @Override

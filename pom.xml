@@ -14,6 +14,7 @@
   ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
+  ~
   -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -37,6 +38,7 @@
     <maven.compiler.target>21</maven.compiler.target>
     <jandex.version>3.5.3</jandex.version>
     <lombok.version>1.18.42</lombok.version>
+    <apache.rat.version>0.16.1</apache.rat.version>
   </properties>
 
   <dependencies>
@@ -180,6 +182,33 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <version>${apache.rat.version}</version>
+        <configuration>
+          <consoleOutput>true</consoleOutput>
+          <excludes>
+            <exclude>LICENSE</exclude>
+            <exclude>NOTICE</exclude>
+            <exclude>**/target/**</exclude>
+            <exclude>**/*.svg</exclude>
+            <exclude>**/*.json</exclude>
+            <exclude>**/*.hdv</exclude>
+            <exclude>**/*.hpl</exclude>
+            <exclude>**/*.hwf</exclude>
+            <exclude>**/datasets/*.csv</exclude>
+            <exclude>**/*.jpg</exclude>
+            <exclude>**/*.png</exclude>
+            <exclude>**/*.iml</exclude>
+            <exclude>.gitignore</exclude>
+            <exclude>AGENTS.md</exclude>
+            <exclude>docs/**</exclude>
+            <exclude>project/**</exclude>
+          </excludes>
+        </configuration>
       </plugin>
 
       <!-- Assembly to create a plugin distribution zip for easy install -->

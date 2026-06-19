@@ -13,10 +13,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.hop.datavault.hopgui.file.vault;
 
+import java.io.File;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
@@ -36,6 +38,7 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
+import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.hopgui.HopGui;
@@ -96,7 +99,18 @@ public class HopVaultFileType extends HopFileTypeBase {
     caps.setProperty(IHopFileType.CAPABILITY_SAVE, "true");
     caps.setProperty(IHopFileType.CAPABILITY_SAVE_AS, "true");
     caps.setProperty(IHopFileType.CAPABILITY_CLOSE, "true");
-    caps.setProperty(IHopFileType.CAPABILITY_SELECT, "true"); // basic
+    caps.setProperty(IHopFileType.CAPABILITY_SELECT, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_COPY, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_PASTE, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_CUT, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_DELETE, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_SNAP_TO_GRID, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_ALIGN_LEFT, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_ALIGN_RIGHT, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_ALIGN_TOP, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_ALIGN_BOTTOM, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_DISTRIBUTE_HORIZONTAL, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_DISTRIBUTE_VERTICAL, "true");
     caps.setProperty(IHopFileType.CAPABILITY_EXPORT_TO_SVG, "true");
     caps.setProperty(IHopFileType.CAPABILITY_FILE_HISTORY, "true");
     return caps;
@@ -275,9 +289,33 @@ public class HopVaultFileType extends HopFileTypeBase {
   public void saveFileAs(HopGui hopGui, HopGuiVaultGraph graph, String filename)
       throws HopException {
     if (filename == null) {
-      // TODO: show file dialog for .hdv
-      filename = "/tmp/new-model.hdv"; // placeholder, use HopGuiFileDialog
+      try {
+        DataVaultModel model = graph.getModel();
+        IVariables variables = hopGui.getVariables();
+        String proposedName =
+            Const.NVL(model != null ? model.getName() : null, "data-vault-model")
+                + VAULT_FILE_EXTENSION;
+        String proposedFilename =
+            variables.getVariable("user.home") + File.separator + proposedName;
+
+        filename =
+            BaseDialog.presentFileDialog(
+                true,
+                hopGui.getActiveShell(),
+                null,
+                variables,
+                HopVfs.getFileObject(proposedFilename),
+                getFilterExtensions(),
+                getFilterNames(),
+                true);
+        if (filename == null) {
+          return;
+        }
+      } catch (Exception e) {
+        throw new HopException("Error showing save file dialog", e);
+      }
     }
+    filename = hopGui.getVariables().resolve(filename);
     saveModelToFile(
         graph.getModel(), filename, hopGui.getVariables(), hopGui.getMetadataProvider());
     graph.setFilename(filename);
