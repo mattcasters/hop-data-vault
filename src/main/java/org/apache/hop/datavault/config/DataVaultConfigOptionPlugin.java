@@ -37,6 +37,7 @@ import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.hopgui.perspective.configuration.tabs.ConfigPluginOptionsTab;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Text;
 import picocli.CommandLine;
 
 @ConfigPlugin(
@@ -53,6 +54,7 @@ public class DataVaultConfigOptionPlugin
   protected static final Class<?> PKG = DataVaultConfigOptionPlugin.class;
 
   private static final String WIDGET_ID_DRAW_HASH_KEYS_IN_MODEL = "10000-draw-hash-keys-in-model";
+  private static final String WIDGET_ID_MAX_UNDO_OPERATIONS = "10010-max-undo-operations";
 
   @GuiWidgetElement(
       id = WIDGET_ID_DRAW_HASH_KEYS_IN_MODEL,
@@ -64,6 +66,16 @@ public class DataVaultConfigOptionPlugin
           description = "Enable or disable the projects plugin")
   private Boolean drawingHashKeysInModel;
 
+  @GuiWidgetElement(
+      id = WIDGET_ID_MAX_UNDO_OPERATIONS,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      label = "i18n::DataVaultConfigOptionPlugin.MaxUndoOperations.Message")
+  @CommandLine.Option(
+      names = {"--dv-max-undo-operations"},
+      description = "Maximum number of undo/redo snapshots kept in memory for Data Vault models")
+  private String maxUndoOperations;
+
   /**
    * Gets instance
    *
@@ -74,6 +86,7 @@ public class DataVaultConfigOptionPlugin
 
     DataVaultConfig config = DataVaultConfigSingleton.getConfig();
     instance.drawingHashKeysInModel = config.isDrawingHashKeysInModel();
+    instance.maxUndoOperations = Integer.toString(config.getMaxUndoOperations());
     return instance;
   }
 
@@ -91,6 +104,12 @@ public class DataVaultConfigOptionPlugin
         } else {
           log.logBasic("Disabled drawing hash keys in model");
         }
+        changed = true;
+      }
+      if (maxUndoOperations != null) {
+        config.setMaxUndoOperations(parseMaxUndoOperations(maxUndoOperations));
+        log.logBasic(
+            "Set maximum Data Vault undo/redo operations to " + config.getMaxUndoOperations());
         changed = true;
       }
 
@@ -130,6 +149,11 @@ public class DataVaultConfigOptionPlugin
           drawingHashKeysInModel = ((Button) control).getSelection();
           DataVaultConfigSingleton.getConfig().setDrawingHashKeysInModel(drawingHashKeysInModel);
           break;
+        case WIDGET_ID_MAX_UNDO_OPERATIONS:
+          maxUndoOperations = ((Text) control).getText();
+          DataVaultConfigSingleton.getConfig()
+              .setMaxUndoOperations(parseMaxUndoOperations(maxUndoOperations));
+          break;
         default:
           break;
       }
@@ -144,6 +168,18 @@ public class DataVaultConfigOptionPlugin
           BaseMessages.getString(PKG, "DataVaultConfigOptionPlugin.SavingOption.ErrorDialog.Header"),
           BaseMessages.getString(PKG, "DataVaultConfigOptionPlugin.SavingOption.ErrorDialog.Message"),
           e);
+    }
+  }
+
+  private static int parseMaxUndoOperations(String value) {
+    if (value == null || value.isBlank()) {
+      return DataVaultConfig.DEFAULT_MAX_UNDO_OPERATIONS;
+    }
+    try {
+      int parsed = Integer.parseInt(value.trim());
+      return Math.max(1, parsed);
+    } catch (NumberFormatException e) {
+      return DataVaultConfig.DEFAULT_MAX_UNDO_OPERATIONS;
     }
   }
 }

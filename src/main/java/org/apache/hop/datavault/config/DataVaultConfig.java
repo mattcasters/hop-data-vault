@@ -26,8 +26,10 @@ import lombok.Setter;
 public class DataVaultConfig {
 
   public static final String HOP_CONFIG_DATA_VAULT_CONFIG_KEY = "dataVaultConfig";
+  public static final int DEFAULT_MAX_UNDO_OPERATIONS = 200;
 
   private boolean drawingHashKeysInModel;
+  private int maxUndoOperations = DEFAULT_MAX_UNDO_OPERATIONS;
 
   public DataVaultConfig() {
     drawingHashKeysInModel = true;
@@ -36,5 +38,15 @@ public class DataVaultConfig {
   public DataVaultConfig(DataVaultConfig config) {
     this();
     drawingHashKeysInModel = config.drawingHashKeysInModel;
+    setMaxUndoOperations(config.maxUndoOperations);
+  }
+
+  public int getMaxUndoOperations() {
+    return maxUndoOperations > 0 ? maxUndoOperations : DEFAULT_MAX_UNDO_OPERATIONS;
+  }
+
+  public void setMaxUndoOperations(int maxUndoOperations) {
+    this.maxUndoOperations =
+        maxUndoOperations > 0 ? maxUndoOperations : DEFAULT_MAX_UNDO_OPERATIONS;
   }
 }

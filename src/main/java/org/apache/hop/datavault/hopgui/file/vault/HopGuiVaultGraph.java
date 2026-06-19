@@ -68,6 +68,7 @@ import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultClipboardDelegate;
+import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultSnapshotUndo;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.ui.core.ConstUi;
@@ -116,7 +117,7 @@ import org.w3c.dom.Node;
 
 /**
  * Basic implementation of the vault graph / editor for Data Vault models in Hop GUI. Uses a canvas
- * and DataVaultModelPainter to draw the model. No undo/redo support for this initial version.
+ * and DataVaultModelPainter to draw the model. Undo/redo uses gzip-compressed XML snapshots.
  * Implements IHopFileTypeHandler so it can be used as a tab in the explorer perspective.
  */
 @GuiPlugin(id = "HopGuiVaultGraph", description = "i18n::HopGuiVaultGraph.Description")
@@ -140,6 +141,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   public static final String TOOLBAR_ITEM_CUT = "HopGuiVaultGraph-ToolBar-20040-Cut";
   public static final String TOOLBAR_ITEM_PASTE = "HopGuiVaultGraph-ToolBar-20050-Paste";
   public static final String TOOLBAR_ITEM_DELETE = "HopGuiVaultGraph-ToolBar-20060-Delete";
+  public static final String TOOLBAR_ITEM_UNDO = "HopGuiVaultGraph-ToolBar-20070-Undo";
+  public static final String TOOLBAR_ITEM_REDO = "HopGuiVaultGraph-ToolBar-20080-Redo";
 
   public static final String TOOLBAR_ITEM_EDIT_MODEL = "HopGuiVaultGraph-ToolBar-10050-Edit-Model";
 
@@ -164,7 +167,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   private final ExplorerPerspective perspective;
   private final HopVaultFileType fileType;
   private final HopGuiVaultClipboardDelegate clipboardDelegate;
+  private final HopGuiVaultSnapshotUndo snapshotUndo = new HopGuiVaultSnapshotUndo();
   private DataVaultModel model;
+  private boolean positionChangeUndoMarked;
 
   private Control toolBar;
   private GuiToolbarWidgets toolBarWidgets;
@@ -458,6 +463,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       if (dxs * dxs + dys * dys > threshSq) {
         iconDragCommitted = true;
         dragSelection = true;
+        markPositionUndoPoint();
         doRedraw = true;
       }
     }
@@ -795,6 +801,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       noteDragStart = new Point(real.x, real.y);
       resize = getResize(areaOwner.getArea(), real);
       if (resize != null) {
+        markPositionUndoPoint();
         resizeArea =
             new Rectangle(
                 loc.x,
@@ -1011,6 +1018,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     int dx = notePos.x - selectedNote.getLocation().x;
     int dy = notePos.y - selectedNote.getLocation().y;
     if (dx != 0 || dy != 0) {
+      if (!noteWasMoved) {
+        markPositionUndoPoint();
+      }
       moveSelectedObjects(dx, dy);
       noteWasMoved = true;
       avoidContextDialog = true;
@@ -1040,6 +1050,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   private void clearNoteDragState() {
+    positionChangeUndoMarked = false;
     noteDragStart = null;
     noteWasMoved = false;
     noteOffset = null;
@@ -1226,11 +1237,17 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   private void editNote(DvNote note) {
+    editNote(note, true);
+  }
+
+  private void editNote(DvNote note, boolean recordUndo) {
     if (note == null) {
       return;
     }
+    byte[] beforeChange = recordUndo ? captureUndoSnapshot() : null;
     DvNoteDialog dialog = new DvNoteDialog(getShell(), note);
     if (dialog.open()) {
+      commitDialogUndo(beforeChange);
       setChanged();
       canvas.setFocus();
     }
@@ -1644,6 +1661,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (realModel == null) {
       return;
     }
+    realGraph.markUndoPoint();
     DvHub hub = new DvHub(getUniqueTableNameFromModel("Hub", realModel));
     PropsUi.setLocation(hub, click != null ? click.x : 50, click != null ? click.y : 50);
     realModel.getTables().add(hub);
@@ -1666,6 +1684,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (realModel == null) {
       return;
     }
+    realGraph.markUndoPoint();
     DvSatellite sat = new DvSatellite(getUniqueTableNameFromModel("Satellite", realModel));
     PropsUi.setLocation(sat, click != null ? click.x : 50, click != null ? click.y : 50);
     realModel.getTables().add(sat);
@@ -1688,6 +1707,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (realModel == null) {
       return;
     }
+    realGraph.markUndoPoint();
     DvLink link = new DvLink(getUniqueTableNameFromModel("Link", realModel));
     PropsUi.setLocation(link, click.x, click.y);
     realModel.getTables().add(link);
@@ -1726,6 +1746,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (realModel == null || realGraph == null) {
       return;
     }
+    realGraph.markUndoPoint();
     if (realModel.getNotes() == null) {
       realModel.setNotes(new ArrayList<>());
     }
@@ -1735,7 +1756,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     PropsUi.setLocation(note, click != null ? click.x : 50, click != null ? click.y : 50);
     PropsUi.setSize(note, ConstUi.NOTE_MIN_SIZE, ConstUi.NOTE_MIN_SIZE);
     realModel.getNotes().add(note);
-    realGraph.editNote(note);
+    realGraph.editNote(note, false);
     realGraph.setChanged();
   }
 
@@ -1803,9 +1824,12 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     IDvTable t = context.getTable();
     HopGuiVaultGraph realGraph = context.getVaultGraph();
     DataVaultModel realModel = context.getModel();
-    if (t != null && realModel != null && removeTableFromModel(realModel, t) && realGraph != null) {
-      realGraph.setChanged();
-      realGraph.redraw();
+    if (t != null && realModel != null && realGraph != null) {
+      realGraph.markUndoPoint();
+      if (removeTableFromModel(realModel, t)) {
+        realGraph.setChanged();
+        realGraph.redraw();
+      }
     }
   }
 
@@ -1856,12 +1880,12 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     DvNote note = context.getNote();
     HopGuiVaultGraph realGraph = context.getVaultGraph();
     DataVaultModel realModel = context.getModel();
-    if (note != null
-        && realModel != null
-        && removeNotesFromModel(realModel, List.of(note))
-        && realGraph != null) {
-      realGraph.setChanged();
-      realGraph.redraw();
+    if (note != null && realModel != null && realGraph != null) {
+      realGraph.markUndoPoint();
+      if (removeNotesFromModel(realModel, List.of(note))) {
+        realGraph.setChanged();
+        realGraph.redraw();
+      }
     }
   }
 
@@ -2049,6 +2073,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   private void clearTableDragState() {
+    positionChangeUndoMarked = false;
     iconDragStart = null;
     iconDragCommitted = false;
     dragSelection = false;
@@ -2072,6 +2097,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (table == null) {
       return;
     }
+    byte[] beforeChange = captureUndoSnapshot();
     boolean changed = false;
     Shell parentShell = getShell();
     if (table.getTableType() == DvTableType.HUB) {
@@ -2087,6 +2113,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       changed = dialog.open();
     }
     if (changed) {
+      commitDialogUndo(beforeChange);
       table.setChanged();
       setChanged();
       canvas.setFocus();
@@ -2097,9 +2124,11 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (modelToEdit == null) {
       return;
     }
+    byte[] beforeChange = captureUndoSnapshot();
     HopGuiDataVaultModelDialog dialog =
         new HopGuiDataVaultModelDialog(getShell(), hopGui, modelToEdit);
     if (dialog.open()) {
+      commitDialogUndo(beforeChange);
       setChanged();
       if (perspective != null) {
         perspective.updateTabItem(this);
@@ -2150,6 +2179,8 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (!isValidRelationshipPair(from, to)) {
       return;
     }
+
+    byte[] beforeChange = captureUndoSnapshot();
 
     DvTableType t1 = from.getTableType();
     DvTableType t2 = to.getTableType();
@@ -2215,6 +2246,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
 
     if (modelChanged) {
+      commitDialogUndo(beforeChange);
       setChanged();
     }
   }
@@ -2272,6 +2304,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   @Override
   public void setName(String name) {
     if (model != null) {
+      markUndoPoint();
       model.setName(name);
       setChanged();
     }
@@ -2426,7 +2459,14 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   @Override
   public void updateGui() {
     hopGui.handleFileCapabilities(fileType, this, hasChanged(), false, false);
+
+    // Update the tab text and font
+    perspective.updateTabItem(this);
+    // Correct the tree if needed
+    perspective.updateTreeItem(this);
+
     enableClipboardToolbarItems();
+    enableUndoToolbarItems();
   }
 
   private void enableClipboardToolbarItems() {
@@ -2555,6 +2595,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       return;
     }
 
+    markUndoPoint();
     boolean changed = false;
     for (IDvTable table : tablesToDelete) {
       changed |= removeTableFromModel(model, table);
@@ -2573,6 +2614,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (clipboardDelegate == null || model == null) {
       return;
     }
+    markUndoPoint();
     clipboardDelegate.pasteXml(model, clipboardDelegate.fromClipboard(), location);
   }
 
@@ -2716,14 +2758,126 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     redraw();
   }
 
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_UNDO,
+      toolTip = "i18n:org.apache.hop.ui.hopgui:HopGui.Toolbar.Undo.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/undo.svg",
+      separator = true)
+  @GuiKeyboardShortcut(control = true, key = 'z')
+  @GuiOsxKeyboardShortcut(command = true, key = 'z')
   @Override
   public void undo() {
-    // no undo for basic version
+    try {
+      applySnapshotChange(snapshotUndo.undo(model, hopGui.getMetadataProvider(), getFilename()));
+    } catch (HopException e) {
+      showUndoError(
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.Undo.Error.Apply.Title"),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.Undo.Error.Apply.Message"),
+          e);
+    }
   }
 
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_REDO,
+      toolTip = "i18n:org.apache.hop.ui.hopgui:HopGui.Toolbar.Redo.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/redo.svg")
+  @GuiKeyboardShortcut(control = true, shift = true, key = 'z')
+  @GuiOsxKeyboardShortcut(command = true, shift = true, key = 'z')
   @Override
   public void redo() {
-    // no redo for basic version
+    try {
+      applySnapshotChange(snapshotUndo.redo(model, hopGui.getMetadataProvider(), getFilename()));
+    } catch (HopException e) {
+      showUndoError(
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.Undo.Error.Apply.Title"),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.Undo.Error.Apply.Message"),
+          e);
+    }
+  }
+
+  void markUndoPoint() {
+    if (model == null || snapshotUndo.isApplyingSnapshot()) {
+      return;
+    }
+    try {
+      snapshotUndo.markChange(model, hopGui.getMetadataProvider());
+    } catch (HopException e) {
+      showUndoError(
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.Undo.Error.Record.Title"),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.Undo.Error.Record.Message"),
+          e);
+    }
+  }
+
+  private void markPositionUndoPoint() {
+    if (!positionChangeUndoMarked) {
+      markUndoPoint();
+      positionChangeUndoMarked = true;
+    }
+  }
+
+  private byte[] captureUndoSnapshot() {
+    if (model == null || snapshotUndo.isApplyingSnapshot()) {
+      return null;
+    }
+    try {
+      return snapshotUndo.captureSnapshot(model, hopGui.getMetadataProvider());
+    } catch (HopException e) {
+      showUndoError(
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.Undo.Error.Record.Title"),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.Undo.Error.Record.Message"),
+          e);
+      return null;
+    }
+  }
+
+  private void commitDialogUndo(byte[] beforeChange) {
+    if (beforeChange != null) {
+      snapshotUndo.pushSnapshot(beforeChange);
+    }
+  }
+
+  private void applySnapshotChange(DataVaultModel restored) {
+    if (restored == null) {
+      return;
+    }
+    try {
+      restoreModelSnapshot(restored);
+    } catch (Exception e) {
+      showUndoError(
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.Undo.Error.Apply.Title"),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.Undo.Error.Apply.Message"),
+          e);
+    }
+  }
+
+  private void restoreModelSnapshot(DataVaultModel restored) {
+    cancelRelationshipDrag();
+    clearTableDragState();
+    clearNoteDragState();
+    clearSelectionRegion();
+    setModel(restored);
+    setChanged();
+    if (perspective != null) {
+      perspective.updateTabItem(this);
+    }
+    canvas.setFocus();
+  }
+
+  private void enableUndoToolbarItems() {
+    if (toolBarWidgets == null) {
+      return;
+    }
+    toolBarWidgets.enableToolbarItem(TOOLBAR_ITEM_UNDO, snapshotUndo.canUndo());
+    toolBarWidgets.enableToolbarItem(TOOLBAR_ITEM_REDO, snapshotUndo.canRedo());
+  }
+
+  private void showUndoError(String title, String message, Exception e) {
+    new ErrorDialog(hopGui.getShell(), title, message, e);
   }
 
   @Override
@@ -2769,7 +2923,49 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     List<IDvTable> selection = getSelectedTables();
     int[] indices = getSelectedTableIndices(selection);
 
-    return new SnapAllignDistribute(model, selection, indices, hopGui.undoDelegate, this);
+    return new SnapAllignDistribute(model, selection, indices, null, this);
+  }
+
+  @Override
+  public void snapToGrid() {
+    markUndoPoint();
+    super.snapToGrid();
+  }
+
+  @Override
+  public void alignLeft() {
+    markUndoPoint();
+    super.alignLeft();
+  }
+
+  @Override
+  public void alignRight() {
+    markUndoPoint();
+    super.alignRight();
+  }
+
+  @Override
+  public void alignTop() {
+    markUndoPoint();
+    super.alignTop();
+  }
+
+  @Override
+  public void alignBottom() {
+    markUndoPoint();
+    super.alignBottom();
+  }
+
+  @Override
+  public void distributeHorizontal() {
+    markUndoPoint();
+    super.distributeHorizontal();
+  }
+
+  @Override
+  public void distributeVertical() {
+    markUndoPoint();
+    super.distributeVertical();
   }
 
   @Override
