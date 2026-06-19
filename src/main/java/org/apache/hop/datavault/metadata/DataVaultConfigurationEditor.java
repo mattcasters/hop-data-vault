@@ -18,17 +18,23 @@
 package org.apache.hop.datavault.metadata;
 
 import org.apache.hop.core.Const;
+import org.apache.hop.core.Props;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgetsAdapter;
+import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.core.metadata.MetadataEditor;
 import org.apache.hop.ui.core.metadata.MetadataManager;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
+import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
@@ -45,12 +51,12 @@ public class DataVaultConfigurationEditor extends MetadataEditor<DataVaultConfig
 
   private static final Class<?> PKG = DataVaultConfigurationEditor.class;
 
-  public static final String PARENT_WIDGET_ID =
-      DataVaultConfiguration.GUI_PLUGIN_ELEMENT_PARENT_ID;
-
-  private Composite parent;
   private Text wName;
   private GuiCompositeWidgets widgets;
+  private Composite wGeneralTabComp;
+  private Composite wUnknownTabComp;
+  private Composite wInvalidTabComp;
+  private Composite wColumnsTabComp;
 
   public DataVaultConfigurationEditor(
       HopGui hopGui,
@@ -61,14 +67,10 @@ public class DataVaultConfigurationEditor extends MetadataEditor<DataVaultConfig
 
   @Override
   public void createControl(Composite parent) {
-    this.parent = parent;
-
     PropsUi props = PropsUi.getInstance();
     int margin = PropsUi.getMargin();
     int middle = props.getMiddlePct();
 
-    // Name...
-    //
     Label wlName = new Label(parent, SWT.RIGHT);
     PropsUi.setLook(wlName);
     wlName.setText(BaseMessages.getString(PKG, "DataVaultConfigurationEditor.Name.Label"));
@@ -77,6 +79,7 @@ public class DataVaultConfigurationEditor extends MetadataEditor<DataVaultConfig
     fdlName.left = new FormAttachment(0, 0);
     fdlName.right = new FormAttachment(middle, -margin);
     wlName.setLayoutData(fdlName);
+
     wName = new Text(parent, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
     PropsUi.setLook(wName);
     FormData fdName = new FormData();
@@ -85,19 +88,68 @@ public class DataVaultConfigurationEditor extends MetadataEditor<DataVaultConfig
     fdName.right = new FormAttachment(100, 0);
     wName.setLayoutData(fdName);
 
-    // Rest of the widgets are created automatically from the @GuiWidgetElement annotations
-    //
+    CTabFolder wTabFolder = new CTabFolder(parent, SWT.BORDER);
+    PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
+    wTabFolder.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(new FormAttachment(wName, margin))
+            .right()
+            .bottom()
+            .result());
+
+    wGeneralTabComp =
+        addTab(
+            wTabFolder,
+            BaseMessages.getString(PKG, "DataVaultConfigurationEditor.Tab.General.Label"),
+            BaseMessages.getString(PKG, "DataVaultConfigurationEditor.Tab.General.ToolTip"));
+    wUnknownTabComp =
+        addTab(
+            wTabFolder,
+            BaseMessages.getString(PKG, "DataVaultConfigurationEditor.Tab.Unknown.Label"),
+            BaseMessages.getString(PKG, "DataVaultConfigurationEditor.Tab.Unknown.ToolTip"));
+    wInvalidTabComp =
+        addTab(
+            wTabFolder,
+            BaseMessages.getString(PKG, "DataVaultConfigurationEditor.Tab.Invalid.Label"),
+            BaseMessages.getString(PKG, "DataVaultConfigurationEditor.Tab.Invalid.ToolTip"));
+    wColumnsTabComp =
+        addTab(
+            wTabFolder,
+            BaseMessages.getString(PKG, "DataVaultConfigurationEditor.Tab.Columns.Label"),
+            BaseMessages.getString(PKG, "DataVaultConfigurationEditor.Tab.Columns.ToolTip"));
+
     widgets = new GuiCompositeWidgets(manager.getVariables());
-    widgets.createCompositeWidgets(getMetadata(), null, parent, PARENT_WIDGET_ID, wName);
+    widgets.createCompositeWidgets(
+        getMetadata(),
+        null,
+        wGeneralTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        getMetadata(),
+        null,
+        wUnknownTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        getMetadata(),
+        null,
+        wInvalidTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_INVALID_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        getMetadata(),
+        null,
+        wColumnsTabComp,
+        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID,
+        null);
 
-    // Set content on the widgets...
-    //
+    wTabFolder.setSelection(0);
+
     setWidgetsContent();
-
-    // Some widget set changed
     resetChanged();
 
-    // Add changed listeners
     wName.addListener(SWT.Modify, e -> setChanged());
     widgets.setWidgetsListener(
         new GuiCompositeWidgetsAdapter() {
@@ -109,16 +161,42 @@ public class DataVaultConfigurationEditor extends MetadataEditor<DataVaultConfig
         });
   }
 
+  private Composite addTab(CTabFolder tabFolder, String title, String toolTip) {
+    CTabItem tabItem = new CTabItem(tabFolder, SWT.NONE);
+    tabItem.setFont(GuiResource.getInstance().getFontDefault());
+    tabItem.setText(title);
+    tabItem.setToolTipText(toolTip);
+
+    Composite composite = new Composite(tabFolder, SWT.NONE);
+    PropsUi.setLook(composite);
+    FormLayout layout = new FormLayout();
+    layout.marginWidth = PropsUi.getFormMargin();
+    layout.marginHeight = PropsUi.getFormMargin();
+    composite.setLayout(layout);
+    tabItem.setControl(composite);
+    return composite;
+  }
+
   @Override
   public void setWidgetsContent() {
     DataVaultConfiguration meta = getMetadata();
     wName.setText(Const.NVL(meta.getName(), ""));
-    widgets.setWidgetsContents(meta, parent, PARENT_WIDGET_ID);
+    widgets.setWidgetsContents(
+        meta, wGeneralTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID);
+    widgets.setWidgetsContents(
+        meta, wUnknownTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID);
+    widgets.setWidgetsContents(
+        meta, wInvalidTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_INVALID_TAB_ID);
+    widgets.setWidgetsContents(
+        meta, wColumnsTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID);
   }
 
   @Override
   public void getWidgetsContent(DataVaultConfiguration meta) {
     meta.setName(wName.getText());
-    widgets.getWidgetsContents(meta, PARENT_WIDGET_ID);
+    widgets.getWidgetsContents(meta, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID);
+    widgets.getWidgetsContents(meta, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID);
+    widgets.getWidgetsContents(meta, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_INVALID_TAB_ID);
+    widgets.getWidgetsContents(meta, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID);
   }
 }

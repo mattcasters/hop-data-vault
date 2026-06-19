@@ -60,7 +60,17 @@ import org.apache.hop.metadata.api.IHopMetadata;
 @Setter
 public class DataVaultConfiguration extends HopMetadataBase implements IHopMetadata, IHasName {
 
-  public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DATAVAULT_CONFIGURATION_DIALOG";
+  public static final String GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID =
+      "DATAVAULT_CONFIGURATION_GENERAL_TAB";
+
+  public static final String GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID =
+      "DATAVAULT_CONFIGURATION_UNKNOWN_TAB";
+
+  public static final String GUI_PLUGIN_ELEMENT_INVALID_TAB_ID =
+      "DATAVAULT_CONFIGURATION_INVALID_TAB";
+
+  public static final String GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID =
+      "DATAVAULT_CONFIGURATION_COLUMNS_TAB";
 
   @HopMetadataProperty private String name;
 
@@ -74,7 +84,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       metadata = DatabaseMeta.class,
       label = "i18n::DataVaultConfiguration.TargetDatabase.Label",
       toolTip = "i18n::DataVaultConfiguration.TargetDatabase.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
   @HopMetadataProperty(key = "targetDatabase")
   private String targetDatabase;
 
@@ -84,7 +94,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       type = GuiElementType.COMBO,
       label = "i18n::DataVaultConfiguration.HashAlgorithm.Label",
       toolTip = "i18n::DataVaultConfiguration.HashAlgorithm.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
   @HopMetadataProperty
   private HashAlgorithm hashAlgorithm = HashAlgorithm.MD5;
 
@@ -93,7 +103,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       type = GuiElementType.COMBO,
       label = "i18n::DataVaultConfiguration.HashKeyDataType.Label",
       toolTip = "i18n::DataVaultConfiguration.HashKeyDataType.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
   @HopMetadataProperty
   private HashKeyDataType hashKeyDataType = HashKeyDataType.BINARY;
 
@@ -103,7 +113,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       type = GuiElementType.CHECKBOX,
       label = "i18n::DataVaultConfiguration.GenerateUnknownRecord.Label",
       toolTip = "i18n::DataVaultConfiguration.GenerateUnknownRecord.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID)
   @HopMetadataProperty
   private boolean generateUnknownRecord = true;
 
@@ -113,7 +123,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       variables = true,
       label = "i18n::DataVaultConfiguration.UnknownBusinessKeyValue.Label",
       toolTip = "i18n::DataVaultConfiguration.UnknownBusinessKeyValue.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID)
   @HopMetadataProperty
   private String unknownBusinessKeyValue;
 
@@ -123,7 +133,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       variables = true,
       label = "i18n::DataVaultConfiguration.UnknownHashKeyValue.Label",
       toolTip = "i18n::DataVaultConfiguration.UnknownHashKeyValue.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID)
   @HopMetadataProperty
   private String unknownHashKeyValue;
 
@@ -133,7 +143,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       variables = true,
       label = "i18n::DataVaultConfiguration.UnknownLinkHashKeyValue.Label",
       toolTip = "i18n::DataVaultConfiguration.UnknownLinkHashKeyValue.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID)
   @HopMetadataProperty
   private String unknownLinkHashKeyValue;
 
@@ -143,7 +153,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       variables = true,
       label = "i18n::DataVaultConfiguration.UnknownRecordSource.Label",
       toolTip = "i18n::DataVaultConfiguration.UnknownRecordSource.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID)
   @HopMetadataProperty
   private String unknownRecordSource;
 
@@ -153,7 +163,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       type = GuiElementType.CHECKBOX,
       label = "i18n::DataVaultConfiguration.GenerateInvalidRecord.Label",
       toolTip = "i18n::DataVaultConfiguration.GenerateInvalidRecord.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_INVALID_TAB_ID)
   @HopMetadataProperty
   private boolean generateInvalidRecord = true;
 
@@ -163,7 +173,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       variables = true,
       label = "i18n::DataVaultConfiguration.InvalidBusinessKeyValue.Label",
       toolTip = "i18n::DataVaultConfiguration.InvalidBusinessKeyValue.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_INVALID_TAB_ID)
   @HopMetadataProperty
   private String invalidBusinessKeyValue;
 
@@ -173,7 +183,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       variables = true,
       label = "i18n::DataVaultConfiguration.InvalidHashKeyValue.Label",
       toolTip = "i18n::DataVaultConfiguration.InvalidHashKeyValue.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_INVALID_TAB_ID)
   @HopMetadataProperty
   private String invalidHashKeyValue;
 
@@ -183,7 +193,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       variables = true,
       label = "i18n::DataVaultConfiguration.InvalidLinkHashKeyValue.Label",
       toolTip = "i18n::DataVaultConfiguration.InvalidLinkHashKeyValue.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_INVALID_TAB_ID)
   @HopMetadataProperty
   private String invalidLinkHashKeyValue;
 
@@ -193,7 +203,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       variables = true,
       label = "i18n::DataVaultConfiguration.InvalidRecordSource.Label",
       toolTip = "i18n::DataVaultConfiguration.InvalidRecordSource.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_INVALID_TAB_ID)
   @HopMetadataProperty
   private String invalidRecordSource;
 
@@ -202,7 +212,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
         type = GuiElementType.COMBO,
         label = "i18n::DataVaultConfiguration.HashContentCasing.Label",
         toolTip = "i18n::DataVaultConfiguration.HashContentCasing.ToolTip",
-        parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+        parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
     @HopMetadataProperty
     private HashContentCasing hashContentCasing = HashContentCasing.UPPER;
 
@@ -211,7 +221,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
         type = GuiElementType.TEXT,
         label = "i18n::DataVaultConfiguration.BusinessKeyDelimiter.Label",
         toolTip = "i18n::DataVaultConfiguration.BusinessKeyDelimiter.ToolTip",
-        parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+        parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
     @HopMetadataProperty
     private String businessKeyDelimiter = "||";
 
@@ -220,7 +230,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
         type = GuiElementType.CHECKBOX,
         label = "i18n::DataVaultConfiguration.TrimBusinessKeys.Label",
         toolTip = "i18n::DataVaultConfiguration.TrimBusinessKeys.ToolTip",
-        parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+        parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
     @HopMetadataProperty
     private boolean trimBusinessKeys = true;
 */
@@ -231,7 +241,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       type = GuiElementType.TEXT,
       label = "i18n::DataVaultConfiguration.LoadDateField.Label",
       toolTip = "i18n::DataVaultConfiguration.LoadDateField.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID)
   @HopMetadataProperty
   private String loadDateField = "LOAD_DATE";
 
@@ -240,7 +250,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       type = GuiElementType.TEXT,
       label = "i18n::DataVaultConfiguration.LoadEndDateField.Label",
       toolTip = "i18n::DataVaultConfiguration.LoadEndDateField.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID)
   @HopMetadataProperty
   private String loadEndDateField = "LOAD_END_DATE";
 
@@ -249,7 +259,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       type = GuiElementType.TEXT,
       label = "i18n::DataVaultConfiguration.RecordSourceField.Label",
       toolTip = "i18n::DataVaultConfiguration.RecordSourceField.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID)
   @HopMetadataProperty
   private String recordSourceField = "RECORD_SOURCE";
 
@@ -259,7 +269,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       variables = true,
       label = "i18n::DataVaultConfiguration.RecordSourceFieldLength.Label",
       toolTip = "i18n::DataVaultConfiguration.RecordSourceFieldLength.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID)
   @HopMetadataProperty
   private String recordSourceFieldLength = "100";
 
@@ -268,7 +278,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       type = GuiElementType.TEXT,
       label = "i18n::DataVaultConfiguration.SourceField.Label",
       toolTip = "i18n::DataVaultConfiguration.SourceField.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID)
   @HopMetadataProperty
   private String sourceField = "SOURCE";*/
 
@@ -277,7 +287,7 @@ public class DataVaultConfiguration extends HopMetadataBase implements IHopMetad
       type = GuiElementType.CHECKBOX,
       label = "i18n::DataVaultConfiguration.UseLoadEndDate.Label",
       toolTip = "i18n::DataVaultConfiguration.UseLoadEndDate.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      parentId = GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID)
   @HopMetadataProperty
   private boolean useLoadEndDate = false;
 
