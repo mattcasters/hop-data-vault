@@ -14,7 +14,8 @@ At runtime the action:
 * Optionally validates the model before any work is done.
 * Optionally ensures unknown and invalid sentinel rows exist in hubs and links (per the model configuration).
 * Optionally generates DDL (CREATE/ALTER statements) for the model's target database. DDL handling is independent of the data load: you can execute it on the database, write it to a SQL file, require that no DDL is needed, or combine these options.
-* Generates and executes update pipelines for every hub, link, and satellite in the model (unless you choose to skip the data load or filter by record source group).
+* Generates update pipelines for every hub, link, and satellite in the model (unless you choose to skip the data load or filter by record source group).
+* Stages pipelines to a folder and runs them through a **parallel orchestrator** (configurable copy count).
 * Uses a single load date for the entire batch, so every row written during one run of the action receives the same `LOAD_DATE` value.
 * Aggregates row counts and errors from all generated pipelines into the workflow action result.
 
@@ -42,10 +43,19 @@ image::images/action-data-vault-update.png[Data Vault Update action dialog,align
 |Pipeline Run Configuration used to execute every generated update pipeline. Required whenever data load pipelines run. Use the icons next to the field to create or manage run configurations.
 
 |Log model check failures
-|When enabled (default: on), runs `DataVaultModel.check()` before generating pipelines or DDL. Warnings and errors are written to the log.
+|When enabled (default: on), runs `DataVaultModel.check()` before generating pipelines or DDL. Warnings are written with `logBasic`; errors are written with `logError`.
 
 |Abort on model check failures
 |When enabled (default: on), stops immediately if any check returns an error. Warnings alone do not abort.
+
+|Detailed data type checking
+|When enabled (default: on), model check validates source-to-target field type compatibility using the live source schema for database sources. Disable to validate using stored source field metadata only (faster, no database round-trip).
+
+|Parallel pipeline copies
+|Number of Pipeline Executor copies used to run staged update pipelines in parallel (round-robin distribution). Default is `1` (sequential orchestration with one worker).
+
+|Pipeline staging folder
+|Folder where generated update pipelines are written before execution. When empty, defaults to `${java.io.tmpdir}/dv2/<model-name>/`. The folder is removed after a successful run.
 |===
 
 === DDL tab
@@ -82,7 +92,9 @@ image::images/action-data-vault-update.png[Data Vault Update action dialog,align
 
 == Typical option combinations
 
-* **Full load (default)** – All Model and DDL defaults on, Source tab options off. Validates the model, applies DDL if needed, ensures sentinel rows, runs all pipelines.
+* **Full load (default)** – All Model and DDL defaults on, Source tab options off. Validates the model (with detailed type checking), applies DDL if needed, ensures sentinel rows, stages and runs all pipelines.
+* **Fast model check** – Disable **Detailed data type checking** when you only want structural validation and stored-metadata type checks (for example in CI without database connectivity).
+* **Parallel load** – Set **Parallel pipeline copies** to `2` or higher on large models to run staged table pipelines concurrently.
 * **Schema export only** – Enable **DDL SQL filename**, disable **Update target database structure**, enable **Do not update target database**. Writes DDL to a file without loading data.
 * **Partial load by feed group** – Set **Record source group** to match the `Group` on selected Data Vault Sources (for example only `nightly` feeds).
 * **Production guard** – Enable **Fail if DDL is needed** so the action fails if the target schema is not already aligned with the model.

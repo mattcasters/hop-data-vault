@@ -76,6 +76,7 @@ Clicking **Check model** will flag issues such as:
 * Driving keys are listed but one or more of them have no name.
 * A referenced hub does not exist in the current model.
 * The "Has descriptive attributes" flag is on (informational note).
+* **Source-to-target type mismatches** for hub-key field mappings: each `BusinessKeySource` entry is validated against the source column and the corresponding hub business key definition.
 
 These checks run early and prevent many runtime surprises.
 

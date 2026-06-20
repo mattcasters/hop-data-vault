@@ -75,6 +75,9 @@ When you click **Check model** on the model editor toolbar, the plugin validates
 * The hub has no record sources listed in the Record sources tab.
 * One or more of the listed record sources do not exist in the project.
 * Business keys that reference a Source system that is not present in the Record sources list.
+* **Source-to-target type mismatches** for each business key mapping (per record source): incompatible Hop types, or source column length/precision larger than the hub business key definition.
+
+Type validation uses the live database schema when **detailed data type checking** is active (always in the GUI; configurable on the Data Vault Update action). A warning is raised when stored source field metadata in the Data Vault Source differs from the live schema.
 
 These checks run before any pipelines are generated, so you catch problems early.
 

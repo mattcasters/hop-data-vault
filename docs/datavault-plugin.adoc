@@ -45,12 +45,16 @@ image::images/data-vault-model-rendered.png[Data Vault model canvas with tables 
 
 === Canvas interactions
 
-* **Drag** Hubs, Links, and Satellites to position them on the canvas.
-* **Click** on any table to edit or delete it.
-* **Drag relationships** from one table to another using the middle mouse button or Shift+left-click on a table, then drop on a valid target. Supported pairs are hub↔satellite, hub↔link, and link↔satellite. The model stores the relationship by updating the appropriate name references on the table objects.
-* **Click** the background or a table for context actions (add, edit, delete, check, debug, and more).
+The model editor follows the same touch-friendly interaction model as the rest of Hop GUI: **left-click context menus with icon actions**. There is no right-click menu and no double-click editing.
+
+* **Drag** Hubs, Links, and Satellites to position them on the canvas (drag the table icon body, not the name).
+* **Left-click the canvas background** to open the model context menu: Add Hub, Add Satellite, Add Link, Add note, Paste, Import sources, Edit model properties, and more.
+* **Left-click a table icon** (the body of the card, not the name) to open the table context menu: Edit, Delete, Show update pipeline.
+* **Left-click a table name** to open that table's properties dialog directly (the name is shown underlined on hover).
+* **Left-click a note** to open the note context menu: Edit, Delete.
+* **Drag relationships** from one table to another using the middle mouse button or Shift+left-click on a table icon, then drop on a valid target. Supported pairs are hub↔satellite, hub↔link, and link↔satellite. The model stores the relationship by updating the appropriate name references on the table objects.
 * **Lasso-select** multiple objects; use the selection toolbar buttons or keyboard shortcuts to copy, cut, paste, or delete.
-* **Annotation notes** document the model without affecting loads. Right-click the canvas to add a note, double-click to edit, and drag the resize handles to change size. Notes support types (General, Important, Warning, Information) and lightweight link syntax: `[Label](https://example.org)` opens a URL; `[Label](TableName)` navigates to a table in the model.
+* **Annotation notes** document the model without affecting loads. Add a note from the canvas context menu, edit or delete from the note context menu, and drag the resize handles to change size. Notes support types (General, Important, Warning, Information) and lightweight link syntax: `[Label](https://example.org)` opens a URL; `[Label](TableName)` navigates to a table in the model.
 
 image::images/data-vault-model-note-dialog.png[Edit note dialog,align="center"]
 
@@ -76,7 +80,7 @@ image::images/hopgui-data-vault-model-toolbar.png[The data vault model toolbar i
 |Imports database tables as new Data Vault Source metadata objects (connection, schema, and field layout).
 
 |Check model
-|Runs validation and shows results in a Hop check dialog (missing keys, broken references, duplicate names, and more).
+|Runs validation and shows results in a Hop check dialog (missing keys, broken references, duplicate names, source-to-target type compatibility, and more). Always uses detailed data type checking (live source schema where supported).
 
 |Generate DDL
 |Collects CREATE/ALTER statements for every table in the model against the configured target database and opens them in the SQL editor.
@@ -104,20 +108,39 @@ See link:datavault-configuration.adoc[Data Vault Configuration] for a full descr
 
 === Check model and Debug
 
-**Check model** runs the same validations used by the Data Vault Update action. It warns about missing business keys, unattached satellites, links with fewer than two hubs, duplicate names, references to sources or hubs that do not exist, and many other common problems.
+**Check model** runs the same validations used by the Data Vault Update action. It reports structural problems (missing business keys, unattached satellites, links with fewer than two hubs, duplicate names, references to sources or hubs that do not exist) and **source-to-target field type compatibility** before any load pipelines are generated.
 
-**Debug** generates the actual update pipeline(s) for the selected table(s) and opens them in Hop so you can review or run them manually. When the model defines a generated-pipeline folder, debug pipelines can be saved there as well.
+==== Source-to-target type validation
+
+For every mapped field the check compares the source column type to the target column type:
+
+* **Hub** business keys (per record source on the hub)
+* **Satellite** explicit attributes, auto-attributes (when no attribute list is defined), and driving keys
+* **Link** hub-key mappings (`BusinessKeySource` entries)
+
+Validation always uses **detailed data type checking** in the GUI: for database sources the plugin reads the live table schema. Stored `SourceField` metadata in the Data Vault Source is still used for target lengths and as a fallback when live resolution is unavailable.
+
+Results use standard Hop check severities:
+
+* **Error** — type mismatch; source string/binary length or numeric precision exceeds the target definition
+* **Warning** — source length smaller than target (informational); stored source metadata differs from the live schema (possible DDL drift)
+* **Comment** — fast-check mode notice, or live resolution skipped for non-database sources
+
+The Data Vault Update action exposes the same validation with a **Detailed data type checking** checkbox on the Model tab (default: enabled). When model check logging is on, errors are written with `logError` and warnings with `logBasic`.
+
+**Debug** generates the actual update pipeline(s) for the selected table(s) and opens them in Hop so you can review or run them manually. Use **Show update pipeline** from a table's context menu, or the toolbar **Debug** button when tables are selected. When the model defines a generated-pipeline folder, debug pipelines can be saved there as well.
 
 == The Data Vault Update action
 
 For production use you normally drive loads from a workflow using the **Data Vault Update** action. It:
 
 * Loads the model from the `.hdv` file.
-* Optionally runs the same model checks that the visual editor uses.
-* Can be configured to log issues or abort if errors are found.
+* Optionally runs the same model checks that the visual editor uses (with optional detailed data type checking).
+* Can be configured to log issues or abort if errors are found (check errors are logged with `logError`).
 * Optionally ensures unknown and invalid sentinel rows exist in hubs and links before loading.
 * Generates CREATE/ALTER DDL for the single target database when schema changes are needed.
 * Generates an update pipeline for every table in the model (optionally filtered by record source group).
+* Stages generated pipelines and runs them through a parallel orchestrator (`parallelPipelineCopies`, optional staging folder).
 * Runs all pipelines using the pipeline run configuration you specify.
 * Uses one consistent load date for the entire batch.
 * Collects row counts and error information from the generated pipelines.
@@ -183,7 +206,8 @@ Today the plugin fully supports modeling and incremental loading of Hubs, Links,
 * Unknown and invalid sentinel rows in hubs and links.
 * Choice of hash algorithm and hash key storage format.
 * Automatic creation or alteration of target tables (DDL) before loading.
-* Model validation that catches many problems before you run a load.
+* Model validation that catches structural problems and source-to-target type mismatches before you run a load.
+* Parallel staged pipeline execution for faster multi-table updates.
 * Visual debugging, DDL preview, clipboard editing, undo/redo, and production execution via workflow actions.
 * Canvas annotation notes with typed styling and in-model navigation links.
 

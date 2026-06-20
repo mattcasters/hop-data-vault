@@ -61,6 +61,10 @@ The **Import** button on the Database tab (and the model toolbar **Import source
 
 When you click **Check model** (or when the Data Vault Update action runs with model checking enabled), the plugin verifies that every table's chosen record source exists and that source field definitions are present. A missing reference or empty field list is reported as an error.
 
+When **detailed data type checking** is active, database sources additionally resolve field types from the live table or view (`connection`, `schema`, `table`). The stored field layout on the Database tab remains the baseline for target column definitions and drift detection. If live resolution fails, the check falls back to stored metadata and reports the failure.
+
+Non-database source types (planned: Parquet, Avro, Iceberg) use stored metadata until live resolution is implemented for those types.
+
 == Practical advice
 
 * Name sources after the business feed, not only the physical table name.

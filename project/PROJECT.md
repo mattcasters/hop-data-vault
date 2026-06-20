@@ -248,8 +248,16 @@ Typical settings for a first run in these tests:
 - **Update target database structure:** yes (creates vault tables)
 - **Ensure special records:** yes (UNKNOWN / INVALID hub rows)
 - **Log / abort on model check failures:** yes on first run
+- **Detailed data type checking:** yes (validates source-to-target field types against live CRM schema)
+- **Parallel pipeline copies:** `1` (default; increase for faster multi-table loads on larger models)
 
 Second runs in the same workflow usually disable DDL and special-record steps and only apply deltas.
+
+### Model validation in the GUI
+
+Before running workflows you can validate any `.hdv` file with **Check model** on the model toolbar. The same checks run in the update action when logging or abort-on-failure is enabled. Validation includes structural rules and source-to-target type compatibility (detailed mode reads live database column metadata).
+
+In the visual model editor, use **left-click context menus with icon actions** to add and edit tables and notes — there is no right-click or double-click interaction.
 
 ---
 
@@ -259,4 +267,4 @@ Second runs in the same workflow usually disable DDL and special-record steps an
 - The Data Vault Update action supports **`recordSourceGroup`** on record sources tagged with **`group`** in metadata — useful for partial scheduled loads (not exercised in these sample workflows; all groups are empty).
 - All connections, run configurations, sources, and unit tests are under `metadata/`.
 - Source CSVs under `files/` are inputs to load pipelines; `datasets/` holds expected outputs for Hop unit tests.
-- Plugin reference documentation (AsciiDoc) is in the repository root under `docs/`.
+- Plugin reference documentation (AsciiDoc) is in the repository root under `docs/`. See [`docs/datavault-plugin.adoc`](../docs/datavault-plugin.adoc) for the visual editor, context menus, and **Check model** behaviour.

@@ -66,21 +66,38 @@ Each `.hdv` file carries its own settings (edited via **Edit model** on the tool
 
 - Hop file type plugin for **Data Vault Model** files (`.hdv`) with **Save As** support
 - Graphical canvas: drag tables, lasso-select, copy/cut/paste/delete, snapshot **undo/redo**
+- **Context menus with icon actions** (left-click) — no right-click or double-click; designed for web/tablet use
+  - Click the **background** to add hubs, links, satellites, notes, paste, import sources, or edit model properties
+  - Click a **table icon** (not the name) for Edit, Delete, or Show update pipeline
+  - Click a **table name** to open its properties dialog directly
+  - Click a **note** for Edit or Delete
 - Drag relationships (middle-click or Shift+left) between hub↔satellite, hub↔link, and link↔satellite
 - **Annotation notes** with types, resize handles, and link syntax (`[Label](TableName)` navigates in-model)
-- Toolbar: Edit model, Import sources, Check model, **Generate DDL**, Debug, zoom
+- Toolbar: Edit model, Import sources, **Check model**, **Generate DDL**, Debug, zoom
 - Optional display of hash key names on table cards (Hop GUI configuration)
 
 ![Model canvas with notes](docs/images/data-vault-model-note-rendered.png)
+
+### Model validation (Check model)
+
+**Check model** (toolbar) and the Data Vault Update action share the same validation engine. Beyond structural checks (missing keys, broken references, duplicate names), the plugin validates **source-to-target field type compatibility** before load pipelines run:
+
+- **Hub** business keys vs source columns (per record source)
+- **Satellite** attributes, auto-attributes, and driving keys vs source columns
+- **Link** hub-key mappings vs source columns and hub business key definitions
+
+**Detailed data type checking** (default in the GUI and in the update action) resolves types from the **live source schema** for database sources. **Fast** mode uses stored field metadata only (no database round-trip). Mismatched types and source lengths/precisions larger than the target are reported as errors; stored-metadata drift from the live schema is reported as a warning.
 
 ### Data Vault Update workflow action
 
 The **`DATA_VAULT_UPDATE`** action reads a `.hdv` model and:
 
-- Runs model checks (optional log / abort on failure)
+- Runs model checks (optional log / abort on failure; errors are written with `logError`)
+- **Detailed data type checking** checkbox on the Model tab (default: enabled)
 - Optionally ensures unknown and invalid sentinel rows in hubs and links
 - Generates CREATE/ALTER DDL for the model's target database (execute, export to file, or fail if DDL needed)
 - Generates update pipelines per table (and per hub record source where applicable)
+- Stages pipelines and runs them via a **parallel orchestrator** (`parallelPipelineCopies`, optional staging folder)
 - Executes pipelines using a selected pipeline run configuration
 - Supports **`recordSourceGroup`** to load only sources whose `group` matches (empty = all sources)
 
@@ -111,6 +128,7 @@ AsciiDoc reference material lives under `docs/`:
 | [`docs/datavault-source-database.adoc`](docs/datavault-source-database.adoc) | Database tab (embedded in each source) |
 | [`docs/dv-hub.adoc`](docs/dv-hub.adoc) / [`dv-link.adoc`](docs/dv-link.adoc) / [`dv-satellite.adoc`](docs/dv-satellite.adoc) | Table metadata |
 | [`docs/datavault-update-action.adoc`](docs/datavault-update-action.adoc) | Workflow action (Model / DDL / Source tabs) |
+| [`docs/issue-27-source-target-type-validation.md`](docs/issue-27-source-target-type-validation.md) | Source-to-target type validation (design summary) |
 
 Screenshots for the model dialog tabs, notes, and the update action are in [`docs/images/`](docs/images/).
 
@@ -159,7 +177,7 @@ Artifacts:
 1. Define **Data Vault Sources** for your staging / CRM tables (General tab for record source indicator and group; Database tab for connection and field layout).
 2. Create a **Data Vault Model** (`.hdv`): add hubs, links, and satellites on the canvas, connect relationships, and add notes as needed.
 3. Click **Edit model** to set the target database, hashing rules, sentinel records, and pipeline options.
-4. Use **Check model**, **Generate DDL**, or **Debug** on the toolbar to validate and inspect before production loads.
+4. Use **Check model**, **Generate DDL**, or **Debug** on the toolbar to validate and inspect before production loads. Use the canvas or table **context menus** (icon actions) to add and edit objects.
 5. Add a **Data Vault Update** action to a workflow, point it at the `.hdv` file, and run.
 
 For multi-active satellites, set **`drivingKey`** (vault column) and **`drivingKeySourceField`** (source column). For scheduled partial loads, tag sources with **`group`** and set **`recordSourceGroup`** on the update action.
