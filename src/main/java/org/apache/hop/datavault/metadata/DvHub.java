@@ -349,6 +349,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
         result.add(pipelineMeta);
       }
+      DvGeneratedPipelineSupport.applyLayout(result);
       return result;
     } catch (Exception e) {
       throw new HopException("Error generating update pipeline(s) for Hub target " + getName(), e);
@@ -608,6 +609,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       }
 
       TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
+      tm.setCopiesString(ctx.config.resolveTargetTableParallelCopies(ctx.variables));
       tm.setLocation(LOCATION_START_LINE_3.x + 6 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
       pipelineMeta.addTransform(tm);
       pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));

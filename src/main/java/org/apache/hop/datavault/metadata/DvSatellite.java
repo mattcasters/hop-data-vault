@@ -81,12 +81,14 @@ import org.apache.hop.pipeline.transforms.update.UpdateField;
 import org.apache.hop.pipeline.transforms.update.UpdateKeyField;
 import org.apache.hop.pipeline.transforms.update.UpdateLookupField;
 import org.apache.hop.pipeline.transforms.update.UpdateMeta;
+import org.apache.hop.pipeline.transforms.selectvalues.DeleteField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectMetadataChange;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.sort.SortRowsField;
 import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
+import org.apache.hop.pipeline.transforms.append.AppendMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
 
@@ -173,8 +175,60 @@ public class DvSatellite extends DvTableBase
   @HopMetadataProperty(storeWithName = true)
   private DataVaultSource recordSource;
 
+  /** When enabled, a separate STS table tracks active/deleted status per load (full snapshot only). */
+  @HopMetadataProperty private boolean statusTrackingEnabled;
+
+  /** Physical table for status history (defaults to sts_ plus parent name when empty). */
+  @HopMetadataProperty private String statusTableName;
+
+  @HopMetadataProperty private String statusFieldName = "record_status";
+
+  @HopMetadataProperty private String activeStatusValue = "ACTIVE";
+
+  @HopMetadataProperty private String deletedStatusValue = "DELETED";
+
+  public static final String DEFAULT_STATUS_FIELD_NAME = "record_status";
+  public static final String DEFAULT_ACTIVE_STATUS_VALUE = "ACTIVE";
+  public static final String DEFAULT_DELETED_STATUS_VALUE = "DELETED";
+  public static final int DEFAULT_STATUS_FIELD_LENGTH = 20;
+
   public boolean hasDrivingKey() {
     return !Utils.isEmpty(drivingKey) && !Utils.isEmpty(drivingKeySourceField);
+  }
+
+  public boolean isStatusTrackingEnabled() {
+    return statusTrackingEnabled;
+  }
+
+  public String resolveStatusTableName(IVariables variables, DataVaultModel model) {
+    if (!Utils.isEmpty(statusTableName)) {
+      return variables.resolve(statusTableName);
+    }
+    String parent =
+        !Utils.isEmpty(hubName)
+            ? hubName
+            : (!Utils.isEmpty(linkName)
+                ? linkName
+                : (!Utils.isEmpty(getTableName()) ? getTableName() : getName()));
+    return "sts_" + variables.resolve(parent);
+  }
+
+  public String resolveStatusFieldName(IVariables variables) {
+    String name =
+        Utils.isEmpty(statusFieldName) ? DEFAULT_STATUS_FIELD_NAME : statusFieldName;
+    return variables.resolve(name);
+  }
+
+  public String resolveActiveStatusValue(IVariables variables) {
+    String value =
+        Utils.isEmpty(activeStatusValue) ? DEFAULT_ACTIVE_STATUS_VALUE : activeStatusValue;
+    return variables.resolve(value);
+  }
+
+  public String resolveDeletedStatusValue(IVariables variables) {
+    String value =
+        Utils.isEmpty(deletedStatusValue) ? DEFAULT_DELETED_STATUS_VALUE : deletedStatusValue;
+    return variables.resolve(value);
   }
 
   public DvSatellite() {
@@ -286,6 +340,69 @@ public class DvSatellite extends DvTableBase
                   PKG, "DvSatellite.CheckResult.HasDrivingKeySourceField", drivingKeySourceField),
               this));
     }
+
+    if (isStatusTrackingEnabled()) {
+      checkStatusTracking(remarks, metadataProvider, variables);
+    }
+  }
+
+  private void checkStatusTracking(
+      List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
+    if (recordSource == null) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.StsNoRecordSource"),
+              this));
+      return;
+    }
+    if (!recordSource.isFullSnapshotFeed()) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DvSatellite.CheckResult.StsRequiresFullSnapshot",
+                  recordSource.getName() != null ? recordSource.getName() : ""),
+              this));
+    }
+    String stsTable = resolveStatusTableName(variables, null);
+    if (Utils.isEmpty(stsTable)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.StsNoTableName"),
+              this));
+    }
+    String statusField = resolveStatusFieldName(variables);
+    if (Utils.isEmpty(statusField)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.StsNoStatusField"),
+              this));
+    }
+    String active = resolveActiveStatusValue(variables);
+    String deleted = resolveDeletedStatusValue(variables);
+    if (Utils.isEmpty(active) || Utils.isEmpty(deleted)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.StsEmptyStatusValue"),
+              this));
+    } else if (active.equals(deleted)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.StsEqualStatusValues"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvSatellite.CheckResult.StsEnabled", stsTable),
+              this));
+    }
   }
 
   @Override
@@ -371,10 +488,118 @@ public class DvSatellite extends DvTableBase
         addUpdateLoadEndDate(ctx, pipelineMeta, filterPreviousTransform);
       }
 
-      return List.of(pipelineMeta);
+      List<PipelineMeta> pipelines = new ArrayList<>();
+      pipelines.add(pipelineMeta);
+
+      if (isStatusTrackingEnabled() && recordSource != null && recordSource.isFullSnapshotFeed()) {
+        pipelines.add(generateStatusTrackingPipeline(ctx, loadDate));
+      }
+
+      DvGeneratedPipelineSupport.applyLayout(pipelines);
+      return pipelines;
     } catch (Exception e) {
       throw new HopException(
           "Error generating update pipeline for Satellite target " + getName(), e);
+    }
+  }
+
+  @Override
+  public List<String> generateUpdateDdl(
+      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
+      throws HopException {
+    List<String> result = super.generateUpdateDdl(metadataProvider, variables, model);
+    if (metadataProvider == null || model == null) {
+      return result;
+    }
+
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
+    if (config != null && config.isUseLoadEndDate()) {
+      appendLoadEndDateHashKeyIndexDdl(result, metadataProvider, variables, model, config);
+    }
+
+    if (!isStatusTrackingEnabled()) {
+      return result;
+    }
+
+    DatabaseMeta targetDatabaseMeta =
+        DvSpecialRecordSupport.loadTargetDatabase(metadataProvider, config);
+    if (targetDatabaseMeta == null) {
+      return result;
+    }
+
+    String stsTableName = resolveStatusTableName(variables, model);
+    IRowMeta stsLayout = getStatusTargetTableLayout(metadataProvider, variables, model);
+    if (stsLayout == null || Utils.isEmpty(stsTableName)) {
+      return result;
+    }
+
+    ILoggingObject loggingObject =
+        new SimpleLoggingObject(
+            getClass().getSimpleName() + ".generateUpdateDdl.sts",
+            LoggingObjectType.GENERAL,
+            null);
+    try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
+      db.connect();
+      String ddl = db.getDDL(stsTableName, stsLayout);
+      if (!Utils.isEmpty(ddl)) {
+        result.add(ddl);
+      }
+    } catch (Exception e) {
+      throw new HopException("Error getting DDL for STS target table: " + stsTableName, e);
+    }
+    return result;
+  }
+
+  /**
+   * Adds a hash-key index on the satellite target table when load-end-date updates are enabled.
+   * Supports the Update transform that closes prior satellite rows by parent hash key.
+   */
+  private void appendLoadEndDateHashKeyIndexDdl(
+      List<String> result,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model,
+      DataVaultConfiguration config)
+      throws HopException {
+    DatabaseMeta targetDatabaseMeta =
+        DvSpecialRecordSupport.loadTargetDatabase(metadataProvider, config);
+    if (targetDatabaseMeta == null) {
+      return;
+    }
+
+    IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
+    if (targetLayout == null || targetLayout.isEmpty()) {
+      return;
+    }
+
+    String hashKeyField = targetLayout.getValueMeta(0).getName();
+    String targetTableName = !Utils.isEmpty(getTableName()) ? getTableName() : getName();
+    if (Utils.isEmpty(hashKeyField) || Utils.isEmpty(targetTableName)) {
+      return;
+    }
+
+    String schemaTable =
+        targetDatabaseMeta.getQuotedSchemaTableCombination(variables, null, targetTableName);
+    String[] idxFields = new String[] {hashKeyField};
+
+    ILoggingObject loggingObject =
+        new SimpleLoggingObject(
+            getClass().getSimpleName() + ".generateUpdateDdl.index",
+            LoggingObjectType.GENERAL,
+            null);
+    try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
+      db.connect();
+      if (!db.checkIndexExists(schemaTable, idxFields)) {
+        String indexName = "idx_" + targetTableName + "_hk";
+        String indexDdl =
+            db.getCreateIndexStatement(schemaTable, indexName, idxFields, false, false, false, true);
+        if (!Utils.isEmpty(indexDdl)) {
+          result.add(indexDdl);
+        }
+      }
+    } catch (Exception e) {
+      throw new HopException(
+          "Error getting hash key index DDL for satellite target table: " + targetTableName, e);
     }
   }
 
@@ -546,6 +771,131 @@ public class DvSatellite extends DvTableBase
     } catch (Exception e) {
       throw new HopException("Error building target table layout for satellite", e);
     }
+  }
+
+  /**
+   * Target row layout for the optional Status Tracking Satellite table (parent hash, optional
+   * driving key, status column, record source, load date).
+   */
+  public IRowMeta getStatusTargetTableLayout(
+      IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
+      throws HopException {
+    if (metadataProvider == null || model == null) {
+      return null;
+    }
+
+    IRowMeta rowMeta = new RowMeta();
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
+
+    String hashKeyName = resolveParentHashKeyFieldName(model, variables);
+    rowMeta.addValueMeta(createHashKeyValueMeta(hashKeyName, config));
+
+    if (hasDrivingKey()) {
+      List<SourceField> sourceFields = getRecordSource().getFields(metadataProvider);
+      String drivingKeyName = variables.resolve(drivingKey);
+      IValueMeta drivingKeyMeta = null;
+      for (SourceField sf : sourceFields) {
+        if (drivingKeySourceField.equals(sf.getName())) {
+          drivingKeyMeta = createValueMetaFromSourceField(sf);
+          drivingKeyMeta.setName(drivingKeyName);
+          break;
+        }
+      }
+      if (drivingKeyMeta == null) {
+        throw new HopException(
+            "Driving key source field '"
+                + drivingKeySourceField
+                + "' not found in record source for satellite "
+                + getName());
+      }
+      rowMeta.addValueMeta(drivingKeyMeta);
+    }
+
+    String statusField = resolveStatusFieldName(variables);
+    IValueMeta statusMeta = new ValueMetaString(statusField);
+    int statusLength = DEFAULT_STATUS_FIELD_LENGTH;
+    if (config != null && !Utils.isEmpty(config.getRecordSourceFieldLength())) {
+      statusLength = Const.toInt(variables.resolve(config.getRecordSourceFieldLength()), statusLength);
+    }
+    statusMeta.setLength(statusLength);
+    rowMeta.addValueMeta(statusMeta);
+
+    String rsFieldName = "RECORD_SOURCE";
+    if (config != null && !Utils.isEmpty(config.getRecordSourceField())) {
+      rsFieldName = config.getRecordSourceField();
+    }
+    rsFieldName = variables.resolve(rsFieldName);
+    if (Utils.isEmpty(rsFieldName)) {
+      rsFieldName = "RECORD_SOURCE";
+    }
+    String lengthString =
+        (config != null && !Utils.isEmpty(config.getRecordSourceFieldLength()))
+            ? config.getRecordSourceFieldLength()
+            : "100";
+    int rsLength = Const.toInt(variables.resolve(lengthString), 100);
+    IValueMeta rsMeta = new ValueMetaString(rsFieldName);
+    rsMeta.setLength(rsLength);
+    rowMeta.addValueMeta(rsMeta);
+
+    String loadDateField = config.getLoadDateField();
+    if (Utils.isEmpty(loadDateField)) {
+      loadDateField = "LOAD_DATE";
+    }
+    loadDateField = variables.resolve(loadDateField);
+    rowMeta.addValueMeta(new ValueMetaTimestamp(loadDateField));
+
+    return rowMeta;
+  }
+
+  private String resolveParentHashKeyFieldName(DataVaultModel model, IVariables variables)
+      throws HopException {
+    if (!Utils.isEmpty(hubName)) {
+      DvHub linkedHub = model.findHub(hubName);
+      if (linkedHub == null) {
+        throw new HopException("Please provide an existing hub in satellite " + getName());
+      }
+      String hashKeyName = linkedHub.getHashKeyFieldName();
+      if (Utils.isEmpty(hashKeyName) && !Utils.isEmpty(linkedHub.getBusinessKeys())) {
+        hashKeyName = linkedHub.getBusinessKeys().get(0).getName() + "_hk";
+      }
+      return hashKeyName;
+    }
+    if (!Utils.isEmpty(linkName)) {
+      DvLink linkedLink = model.findLink(linkName);
+      if (linkedLink == null) {
+        throw new HopException("Please provide an existing link in satellite " + getName());
+      }
+      String hashKeyName = variables.resolve(linkedLink.getLinkHashKeyFieldName());
+      if (Utils.isEmpty(hashKeyName)) {
+        hashKeyName = linkedLink.getName() + "_LK";
+      }
+      return hashKeyName;
+    }
+    throw new HopException("Satellite " + getName() + " is not linked to a hub or link");
+  }
+
+  private IValueMeta createHashKeyValueMeta(String hashKeyName, DataVaultConfiguration config)
+      throws HopException {
+    HashKeyDataType hdt = config.getHashKeyDataType();
+    HashAlgorithm algo = config.getHashAlgorithm();
+    if (algo == null) {
+      algo = HashAlgorithm.MD5;
+    }
+    int digestBytes = algo.getDigestLength();
+
+    IValueMeta hashMeta;
+    if (hdt == HashKeyDataType.BINARY) {
+      hashMeta = new ValueMetaBinary(hashKeyName);
+      hashMeta.setLength(digestBytes);
+    } else if (hdt == HashKeyDataType.HEX) {
+      hashMeta = new ValueMetaString(hashKeyName);
+      hashMeta.setLength(digestBytes * 2);
+    } else {
+      int stringMax = digestBytes * 3 + (digestBytes > 0 ? digestBytes - 1 : 0);
+      hashMeta = new ValueMetaString(hashKeyName);
+      hashMeta.setLength(stringMax);
+    }
+    return hashMeta;
   }
 
   @Override
@@ -737,6 +1087,14 @@ public class DvSatellite extends DvTableBase
 
   private TransformMeta addSortRows(
       SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor) {
+    return addSortRows(ctx, pipelineMeta, predecessor, "sort " + ctx.hashKeyFieldName);
+  }
+
+  private TransformMeta addSortRows(
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      String sortTransformName) {
     SortRowsMeta sortRowsMeta = new SortRowsMeta();
     SortRowsField sortField = new SortRowsField();
     sortField.setFieldName(ctx.hashKeyFieldName);
@@ -756,7 +1114,6 @@ public class DvSatellite extends DvTableBase
     // Other SortRowsMeta defaults (tmp dir, sort size, no compress, not unique-only) are
     // acceptable.
 
-    String sortTransformName = "sort " + ctx.hashKeyFieldName;
     TransformMeta tm = new TransformMeta("SortRows", sortTransformName, sortRowsMeta);
     tm.setLocation(
         LOCATION_START_LINE_2.x + (ctx.hashChainLength() + 2) * SPACING_WIDTH,
@@ -1185,6 +1542,7 @@ public class DvSatellite extends DvTableBase
       }
 
       TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
+      tm.setCopiesString(ctx.config.resolveTargetTableParallelCopies(ctx.variables));
       tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
       pipelineMeta.addTransform(tm);
       pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
@@ -1192,6 +1550,484 @@ public class DvSatellite extends DvTableBase
     } catch (Exception e) {
       throw new HopException("Error creating Table Output transform", e);
     }
+  }
+
+  private static final Point LOCATION_STS_LINE_1 = new Point(160, 48);
+  private static final Point LOCATION_STS_LINE_2 = new Point(160, 200);
+  private static final Point LOCATION_STS_LINE_3 = new Point(160, 360);
+
+  private PipelineMeta generateStatusTrackingPipeline(SatelliteUpdateContext ctx, Date loadDate)
+      throws HopException {
+    PipelineMeta pipelineMeta = new PipelineMeta();
+    String stsTableName = resolveStatusTableName(ctx.variables, ctx.model);
+    String pipelineName =
+        ctx.config.buildStsPipelineName(
+            ctx.variables, stsTableName, ctx.dataVaultSource.getName());
+    pipelineMeta.setName(pipelineName);
+
+    TransformMeta sourceInputTransform =
+        addSourceTableInput(ctx, recordSource, pipelineMeta, LOCATION_STS_LINE_2);
+
+    TransformMeta hashChainEndTransform =
+        ctx.linkSatellite
+            ? addLinkHashKeyChain(ctx, pipelineMeta, sourceInputTransform, LOCATION_STS_LINE_2)
+            : addDvHashKey(ctx, pipelineMeta, sourceInputTransform, LOCATION_STS_LINE_2);
+
+    TransformMeta sourceKeysTransform =
+        addStsSourceKeySelect(ctx, pipelineMeta, hashChainEndTransform);
+
+    TransformMeta sortedSourceKeys =
+        addSortRows(ctx, pipelineMeta, sourceKeysTransform, "sts_sort_source_" + ctx.hashKeyFieldName);
+    // Fan out to both the active-status branch and the deletion merge compare leg.
+    sortedSourceKeys.setDistributes(false);
+
+    TransformMeta activeStatusTransform =
+        addStsSelectOutputFields(
+            ctx,
+            pipelineMeta,
+            addConstantStatusValue(
+                ctx, pipelineMeta, sortedSourceKeys, resolveActiveStatusValue(ctx.variables)),
+            resolveStatusFieldName(ctx.variables),
+            "sts_active_output_fields");
+
+    TransformMeta stsTargetInput = addStsTargetTableInput(ctx, pipelineMeta, stsTableName);
+    TransformMeta deletedStatusTransform = null;
+    if (stsTargetInput != null) {
+      TransformMeta sortedStsKeys =
+          addSortRows(ctx, pipelineMeta, stsTargetInput, "sts_sort_target_" + ctx.hashKeyFieldName);
+      TransformMeta mergeTransform =
+          addStsDeletionMerge(ctx, pipelineMeta, sortedSourceKeys, sortedStsKeys);
+      deletedStatusTransform =
+          addStsSelectOutputFields(
+              ctx,
+              pipelineMeta,
+              addConstantStatusValue(
+                  ctx,
+                  pipelineMeta,
+                  addDropFlagField(pipelineMeta, addFilterDeletedRows(pipelineMeta, mergeTransform)),
+                  resolveDeletedStatusValue(ctx.variables)),
+              resolveStatusFieldName(ctx.variables),
+              "sts_deleted_output_fields");
+    }
+
+    TransformMeta unionTransform = activeStatusTransform;
+    if (deletedStatusTransform != null) {
+      unionTransform = addAppendRows(pipelineMeta, activeStatusTransform, deletedStatusTransform);
+    }
+
+    TransformMeta withLoadDate =
+        addConstantForLoadDate(ctx, pipelineMeta, loadDate, unionTransform);
+    IRowMeta stsLayout = getStatusTargetTableLayout(ctx.metadataProvider, ctx.variables, ctx.model);
+    addStsTableOutput(ctx, pipelineMeta, stsTableName, stsLayout, withLoadDate);
+
+    return pipelineMeta;
+  }
+
+  private TransformMeta addSourceTableInput(
+      SatelliteUpdateContext ctx,
+      DataVaultSource dataVaultSource,
+      PipelineMeta pipelineMeta,
+      Point startLine)
+      throws HopException {
+    DvDatabaseSatelliteSourcePipelineBuilder builder =
+        new DvDatabaseSatelliteSourcePipelineBuilder(
+            ctx.variables,
+            ctx.metadataProvider,
+            ctx.model,
+            pipelineMeta,
+            dataVaultSource,
+            ctx.dvSource,
+            this,
+            new Point(startLine.x, startLine.y));
+    if (ctx.linkSatellite) {
+      builder.setLinkedLink(ctx.linkedLink);
+      builder.setDvLinkHubSource(ctx.linkHubSource);
+      builder.setDvLinkSatelliteSource(ctx.linkSatelliteSource);
+    }
+    builder.build();
+    return builder.getResultTransform();
+  }
+
+  private TransformMeta addLinkHashKeyChain(
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      Point startLine) {
+    TransformMeta current = predecessor;
+    List<String> hubHashNames = new ArrayList<>();
+    int index = 0;
+    for (SatelliteUpdateContext.HubHashCalcStep step : ctx.hubHashCalcSteps) {
+      current =
+          addDvHashKeyForFields(
+              ctx,
+              pipelineMeta,
+              current,
+              step.inputFieldNames(),
+              step.hashKeyFieldName(),
+              index++,
+              startLine);
+      hubHashNames.add(step.hashKeyFieldName());
+    }
+    return addDvHashKeyForFields(
+        ctx,
+        pipelineMeta,
+        current,
+        hubHashNames,
+        ctx.hashKeyFieldName,
+        index,
+        startLine);
+  }
+
+  private TransformMeta addDvHashKey(
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      Point startLine) {
+    DvHashKeyMeta hashKeyMeta =
+        DvHashKeyMetaFactory.create(ctx.config, ctx.pkSourceFieldNames, ctx.hashKeyFieldName);
+    TransformMeta tm = new TransformMeta("DvHashKey", "calc_" + ctx.hashKeyFieldName, hashKeyMeta);
+    tm.setLocation(startLine.x + SPACING_WIDTH, startLine.y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private TransformMeta addDvHashKeyForFields(
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      List<String> inputFieldNames,
+      String resultFieldName,
+      int index,
+      Point startLine) {
+    DvHashKeyMeta hashKeyMeta =
+        DvHashKeyMetaFactory.create(ctx.config, inputFieldNames, resultFieldName);
+    TransformMeta tm = new TransformMeta("DvHashKey", "calc_" + resultFieldName, hashKeyMeta);
+    tm.setLocation(startLine.x + (index + 1) * SPACING_WIDTH, startLine.y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private TransformMeta addStsSourceKeySelect(
+      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, TransformMeta predecessor)
+      throws HopException {
+    SelectValuesMeta selectMeta = new SelectValuesMeta();
+    List<SelectField> selectFields = selectMeta.getSelectOption().getSelectFields();
+
+    SelectField hashField = new SelectField();
+    hashField.setName(ctx.hashKeyFieldName);
+    selectFields.add(hashField);
+
+    if (ctx.hasDrivingKey()) {
+      SelectField drivingKeyField = new SelectField();
+      drivingKeyField.setName(ctx.drivingKeySourceFieldName);
+      drivingKeyField.setRename(ctx.drivingKeyFieldName);
+      selectFields.add(drivingKeyField);
+    }
+
+    SelectField recordSourceSelect = new SelectField();
+    recordSourceSelect.setName(ctx.recordSourceField);
+    selectFields.add(recordSourceSelect);
+
+    TransformMeta tm = new TransformMeta("SelectValues", "sts source keys", selectMeta);
+    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private TransformMeta addStsTargetTableInput(
+      SatelliteUpdateContext ctx, PipelineMeta pipelineMeta, String stsTableName) {
+    if (ctx.targetDatabaseMeta == null) {
+      return null;
+    }
+
+    String statusField = resolveStatusFieldName(ctx.variables);
+    String activeValue = resolveActiveStatusValue(ctx.variables);
+    String loadDateField = determineTargetLoadDateField(ctx);
+    String quotedHash = ctx.targetDatabaseMeta.quoteField(ctx.hashKeyFieldName);
+    String quotedStatus = ctx.targetDatabaseMeta.quoteField(statusField);
+    String quotedLoadDate = ctx.targetDatabaseMeta.quoteField(loadDateField);
+    String quotedRecordSource = ctx.targetDatabaseMeta.quoteField(ctx.recordSourceField);
+
+    List<String> selectFields = new ArrayList<>();
+    selectFields.add(quotedStatus);
+    if (ctx.hasDrivingKey()) {
+      selectFields.add(ctx.targetDatabaseMeta.quoteField(ctx.drivingKeyFieldName));
+    }
+    selectFields.add(quotedRecordSource);
+    selectFields.add(quotedLoadDate);
+    selectFields.add(quotedHash);
+
+    StringBuilder sql = new StringBuilder("SELECT ");
+    sql.append(String.join(", ", selectFields));
+    sql.append(" FROM ");
+    sql.append(
+        ctx.targetDatabaseMeta.getQuotedSchemaTableCombination(
+            ctx.variables, null, stsTableName));
+    sql.append(" ORDER BY ");
+    sql.append(quotedHash);
+    if (ctx.hasDrivingKey()) {
+      sql.append(", ");
+      sql.append(ctx.targetDatabaseMeta.quoteField(ctx.drivingKeyFieldName));
+    }
+    sql.append(", ");
+    sql.append(quotedLoadDate);
+
+    TableInputMeta targetTableInputMeta = new TableInputMeta();
+    targetTableInputMeta.setConnection(ctx.targetDbName);
+    targetTableInputMeta.setSql(sql.toString());
+
+    TransformMeta tm =
+        new TransformMeta("TableInput", "sts_target_" + stsTableName, targetTableInputMeta);
+    tm.setLocation(LOCATION_STS_LINE_3);
+    pipelineMeta.addTransform(tm);
+
+    GroupByMeta groupByMeta = new GroupByMeta();
+    List<GroupingField> groupingFields = new ArrayList<>();
+    groupingFields.add(new GroupingField(ctx.hashKeyFieldName));
+    if (ctx.hasDrivingKey()) {
+      groupingFields.add(new GroupingField(ctx.drivingKeyFieldName));
+    }
+    groupByMeta.setGroupingFields(groupingFields);
+
+    List<Aggregation> aggregations = new ArrayList<>();
+    Aggregation statusAgg = new Aggregation();
+    statusAgg.setSubject(statusField);
+    statusAgg.setField(statusField);
+    statusAgg.setTypeLabel("LAST_INCL_NULL");
+    aggregations.add(statusAgg);
+
+    Aggregation rsAgg = new Aggregation();
+    rsAgg.setSubject(ctx.recordSourceField);
+    rsAgg.setField(ctx.recordSourceField);
+    rsAgg.setTypeLabel("LAST_INCL_NULL");
+    aggregations.add(rsAgg);
+    groupByMeta.setAggregations(aggregations);
+
+    TransformMeta groupTm =
+        new TransformMeta("GroupBy", "sts_last_status_" + ctx.hashKeyFieldName, groupByMeta);
+    groupTm.setLocation(LOCATION_STS_LINE_3.x + SPACING_WIDTH, LOCATION_STS_LINE_3.y);
+    pipelineMeta.addTransform(groupTm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(tm, groupTm));
+
+    FilterRowsMeta filterRowsMeta = new FilterRowsMeta();
+    try {
+      Condition condition =
+          new Condition(
+              statusField,
+              Condition.Function.EQUAL,
+              null,
+              new ValueMetaAndData(new ValueMetaString("static"), activeValue));
+      filterRowsMeta.getCompare().setCondition(condition);
+    } catch (HopValueException e) {
+      throw new RuntimeException("Error creating STS active filter", e);
+    }
+
+    TransformMeta filterTm = new TransformMeta("FilterRows", "sts_active_keys", filterRowsMeta);
+    filterTm.setLocation(groupTm.getLocation().x + SPACING_WIDTH, groupTm.getLocation().y);
+    pipelineMeta.addTransform(filterTm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(groupTm, filterTm));
+
+    SelectValuesMeta keySelectMeta = new SelectValuesMeta();
+    List<SelectField> keyFields = keySelectMeta.getSelectOption().getSelectFields();
+    SelectField hashSelect = new SelectField();
+    hashSelect.setName(ctx.hashKeyFieldName);
+    keyFields.add(hashSelect);
+    if (ctx.hasDrivingKey()) {
+      SelectField drivingKeySelect = new SelectField();
+      drivingKeySelect.setName(ctx.drivingKeyFieldName);
+      keyFields.add(drivingKeySelect);
+    }
+    SelectField recordSourceSelect = new SelectField();
+    recordSourceSelect.setName(ctx.recordSourceField);
+    keyFields.add(recordSourceSelect);
+
+    TransformMeta keySelectTm =
+        new TransformMeta("SelectValues", "sts_active_key_set", keySelectMeta);
+    keySelectTm.setLocation(filterTm.getLocation().x + SPACING_WIDTH, filterTm.getLocation().y);
+    pipelineMeta.addTransform(keySelectTm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(filterTm, keySelectTm));
+
+    return keySelectTm;
+  }
+
+  private TransformMeta addStsDeletionMerge(
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta compareTransform,
+      TransformMeta referenceTransform) {
+    TransformMeta compareDummy =
+        addDummyTransform(
+            pipelineMeta,
+            compareTransform,
+            "STS merge compare",
+            compareTransform.getLocation().x + SPACING_WIDTH,
+            compareTransform.getLocation().y);
+    TransformMeta referenceDummy =
+        addDummyTransform(
+            pipelineMeta,
+            referenceTransform,
+            "STS merge reference",
+            referenceTransform.getLocation().x + SPACING_WIDTH,
+            referenceTransform.getLocation().y);
+
+    MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
+    mergeRowsMeta.setReferenceTransform(referenceDummy.getName());
+    mergeRowsMeta.setCompareTransform(compareDummy.getName());
+    mergeRowsMeta.setFlagField("flag");
+
+    List<String> keyFields = new ArrayList<>();
+    keyFields.add(ctx.hashKeyFieldName);
+    if (ctx.hasDrivingKey()) {
+      keyFields.add(ctx.drivingKeyFieldName);
+    }
+    mergeRowsMeta.setKeyFields(keyFields);
+
+    TransformMeta tm = new TransformMeta("MergeRows", "sts_deletion_merge", mergeRowsMeta);
+    tm.setLocation(LOCATION_STS_LINE_3.x + 4 * SPACING_WIDTH, LOCATION_STS_LINE_3.y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceDummy, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareDummy, tm));
+    return tm;
+  }
+
+  private TransformMeta addDropFlagField(PipelineMeta pipelineMeta, TransformMeta predecessor) {
+    SelectValuesMeta selectMeta = new SelectValuesMeta();
+    DeleteField flagDelete = new DeleteField();
+    flagDelete.setName("flag");
+    selectMeta.getSelectOption().getDeleteName().add(flagDelete);
+
+    TransformMeta tm = new TransformMeta("SelectValues", "sts_drop_flag", selectMeta);
+    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private TransformMeta addStsSelectOutputFields(
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      String statusFieldName,
+      String transformName) {
+    SelectValuesMeta selectMeta = new SelectValuesMeta();
+    List<SelectField> selectFields = selectMeta.getSelectOption().getSelectFields();
+    SelectField hashSelect = new SelectField();
+    hashSelect.setName(ctx.hashKeyFieldName);
+    selectFields.add(hashSelect);
+    if (ctx.hasDrivingKey()) {
+      SelectField drivingKeySelect = new SelectField();
+      drivingKeySelect.setName(ctx.drivingKeyFieldName);
+      selectFields.add(drivingKeySelect);
+    }
+    SelectField recordSourceSelect = new SelectField();
+    recordSourceSelect.setName(ctx.recordSourceField);
+    selectFields.add(recordSourceSelect);
+    if (!Utils.isEmpty(statusFieldName)) {
+      SelectField statusSelect = new SelectField();
+      statusSelect.setName(statusFieldName);
+      selectFields.add(statusSelect);
+    }
+
+    TransformMeta tm = new TransformMeta("SelectValues", transformName, selectMeta);
+    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private TransformMeta addFilterDeletedRows(PipelineMeta pipelineMeta, TransformMeta mergeTransform)
+      throws HopException {
+    FilterRowsMeta filterRowsMeta = new FilterRowsMeta();
+    try {
+      Condition condition =
+          new Condition(
+              "flag",
+              Condition.Function.EQUAL,
+              null,
+              new ValueMetaAndData(new ValueMetaString("static"), "deleted"));
+      filterRowsMeta.getCompare().setCondition(condition);
+    } catch (HopValueException e) {
+      throw new HopException("Error creating STS deleted filter", e);
+    }
+
+    TransformMeta tm = new TransformMeta("FilterRows", "sts_deleted_keys", filterRowsMeta);
+    tm.setLocation(mergeTransform.getLocation().x + SPACING_WIDTH, mergeTransform.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(mergeTransform, tm));
+    return tm;
+  }
+
+  private TransformMeta addConstantStatusValue(
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      String statusValue)
+      throws HopException {
+    String statusField = resolveStatusFieldName(ctx.variables);
+    ConstantMeta constantMeta = new ConstantMeta();
+    ConstantField cf = new ConstantField(statusField, "String", statusValue);
+    constantMeta.getFields().add(cf);
+
+    TransformMeta tm =
+        new TransformMeta("Constant", "set_" + statusField + "_" + statusValue, constantMeta);
+    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private TransformMeta addAppendRows(
+      PipelineMeta pipelineMeta, TransformMeta headTransform, TransformMeta tailTransform) {
+    AppendMeta appendMeta = new AppendMeta();
+    appendMeta.headTransformName = headTransform.getName();
+    appendMeta.tailTransformName = tailTransform.getName();
+
+    TransformMeta tm = new TransformMeta("Append", "sts_union", appendMeta);
+    tm.setLocation(
+        Math.max(headTransform.getLocation().x, tailTransform.getLocation().x) + SPACING_WIDTH,
+        headTransform.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(headTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(tailTransform, tm));
+    return tm;
+  }
+
+  private TransformMeta addStsTableOutput(
+      SatelliteUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      String stsTableName,
+      IRowMeta targetLayout,
+      TransformMeta predecessor)
+      throws HopException {
+    if (ctx.targetDatabaseMeta == null || Utils.isEmpty(ctx.targetDbName)) {
+      return null;
+    }
+
+    TableOutputMeta tableOutputMeta = new TableOutputMeta();
+    tableOutputMeta.setConnection(ctx.targetDbName);
+    tableOutputMeta.setTableName(stsTableName);
+    tableOutputMeta.setSpecifyFields(true);
+    tableOutputMeta.setCommitSize(ctx.config.resolveTargetTableCommitSize(ctx.variables));
+
+    if (targetLayout != null) {
+      for (IValueMeta vm : targetLayout.getValueMetaList()) {
+        String name = vm.getName();
+        if (!"flag".equalsIgnoreCase(name)) {
+          tableOutputMeta.getFields().add(new TableOutputField(name, name));
+        }
+      }
+    }
+
+    TransformMeta tm =
+        new TransformMeta("TableOutput", "write_to_" + stsTableName, tableOutputMeta);
+    tm.setCopiesString(ctx.config.resolveTargetTableParallelCopies(ctx.variables));
+    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
   }
 
   /**

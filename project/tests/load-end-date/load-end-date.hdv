@@ -21,6 +21,7 @@
     <loadEndDateField>x_load_end_ts</loadEndDateField>
     <recordSourceField>x_record_source</recordSourceField>
     <recordSourceFieldLength>100</recordSourceFieldLength>
+    <targetTableParallelCopies>${OUTPUT_COPIES}</targetTableParallelCopies>
     <useLoadEndDate>Y</useLoadEndDate>
   </configuration>
   <tables>

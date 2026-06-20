@@ -40,6 +40,7 @@ import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.logging.ILoggingObject;
+import org.apache.hop.core.logging.LogLevel;
 import org.apache.hop.core.logging.LoggingObjectType;
 import org.apache.hop.core.logging.SimpleLoggingObject;
 import org.apache.hop.core.util.Utils;
@@ -50,6 +51,7 @@ import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvGeneratedPipelineSupport;
+import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
@@ -58,8 +60,7 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.config.PipelineRunConfiguration;
-import org.apache.hop.pipeline.engine.IPipelineEngine;
-import org.apache.hop.pipeline.engine.PipelineEngineFactory;
+
 import org.apache.hop.workflow.action.ActionBase;
 import org.apache.hop.workflow.action.IAction;
 import org.w3c.dom.Document;
@@ -127,6 +128,26 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
   private boolean abortOnModelCheckFailures = true;
+
+  @GuiWidgetElement(
+      order = "0350",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::ActionDataVaultUpdate.ParallelPipelineCopies.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.ParallelPipelineCopies.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
+  @HopMetadataProperty
+  private String parallelPipelineCopies = "1";
+
+  @GuiWidgetElement(
+      order = "0360",
+      type = GuiElementType.FOLDER,
+      variables = true,
+      label = "i18n::ActionDataVaultUpdate.PipelineStagingFolder.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.PipelineStagingFolder.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
+  @HopMetadataProperty
+  private String pipelineStagingFolder;
 
   @GuiWidgetElement(
       order = "0100",
@@ -205,6 +226,8 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     this.ensureSpecialRecords = meta.ensureSpecialRecords;
     this.doNotUpdateTargetDatabase = meta.doNotUpdateTargetDatabase;
     this.recordSourceGroup = meta.recordSourceGroup;
+    this.parallelPipelineCopies = meta.parallelPipelineCopies;
+    this.pipelineStagingFolder = meta.pipelineStagingFolder;
   }
 
   @Override
@@ -420,6 +443,10 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
         }
       }
 
+      DataVaultConfiguration pipelineConfig = model.getConfigurationOrDefault();
+      LogLevel pipelineLogLevel = pipelineConfig.resolveExecutionLogLevel();
+      List<PipelineMeta> allPipelineMetas = new ArrayList<>();
+
       for (IDvTable table : tables) {
         logBasic(
             BaseMessages.getString(
@@ -451,8 +478,6 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           continue;
         }
 
-        DataVaultConfiguration pipelineConfig = model.getConfigurationOrDefault();
-
         for (PipelineMeta pipelineMeta : pipelineMetas) {
           if (pipelineMeta == null) {
             logError(
@@ -464,6 +489,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           }
 
           pipelineMeta.lookupReferencesAfterLoading();
+          allPipelineMetas.add(pipelineMeta);
 
           String savedPipelineFile =
               DvGeneratedPipelineSupport.saveBeforeExecution(
@@ -476,39 +502,59 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                     pipelineMeta.getName(),
                     savedPipelineFile));
           }
+        }
+      }
 
-          logBasic("====================================================================");
-          logBasic(
-              BaseMessages.getString(
-                  PKG, "ActionDataVaultUpdate.Log.RunningPipeline", table.getName(), realRunConfig));
+      if (!allPipelineMetas.isEmpty()) {
+        String stagingFolder =
+            resolve(DvPipelineOrchestratorSupport.resolveStagingFolder(
+                pipelineStagingFolder, getVariables(), model.getName()));
+        int parallelCopies =
+            DvPipelineOrchestratorSupport.resolveParallelCopies(
+                parallelPipelineCopies, getVariables());
 
-          IPipelineEngine<PipelineMeta> engine =
-              PipelineEngineFactory.createPipelineEngine(
-                  getVariables(), realRunConfig, getMetadataProvider(), pipelineMeta);
+        logBasic(
+            BaseMessages.getString(
+                PKG,
+                "ActionDataVaultUpdate.Log.StagingPipelines",
+                stagingFolder,
+                allPipelineMetas.size()));
+        logBasic(
+            BaseMessages.getString(
+                PKG,
+                "ActionDataVaultUpdate.Log.ParallelCopies",
+                parallelCopies));
 
-          engine.setLogLevel(getLogLevel());
-          engine.setParent(this);
-          engine.setParentWorkflow(getParentWorkflow());
-          engine.execute();
-          engine.waitUntilFinished();
+        DvPipelineOrchestratorSupport.prepareStagingFolder(stagingFolder, getVariables());
+        DvPipelineOrchestratorSupport.stagePipelines(
+            stagingFolder, getVariables(), allPipelineMetas);
 
-          Result pipeResult = engine.getResult();
-          if (pipeResult != null) {
-            result.setNrLinesRead(result.getNrLinesRead() + pipeResult.getNrLinesRead());
-            result.setNrLinesWritten(result.getNrLinesWritten() + pipeResult.getNrLinesWritten());
-            result.setNrLinesInput(result.getNrLinesInput() + pipeResult.getNrLinesInput());
-            result.setNrLinesOutput(result.getNrLinesOutput() + pipeResult.getNrLinesOutput());
-            result.setNrLinesUpdated(result.getNrLinesUpdated() + pipeResult.getNrLinesUpdated());
-            result.setNrLinesDeleted(result.getNrLinesDeleted() + pipeResult.getNrLinesDeleted());
-            result.setNrErrors(result.getNrErrors() + pipeResult.getNrErrors());
+        PipelineMeta orchestrator =
+            DvPipelineOrchestratorSupport.buildOrchestratorPipeline(
+                stagingFolder, realRunConfig, parallelCopies, model.getName());
 
-            if (pipeResult.getNrErrors() > 0 || !pipeResult.getResult()) {
-              logError(
-                  BaseMessages.getString(
-                      PKG, "ActionDataVaultUpdate.Error.PipelineFailed", table.getName()));
-              success = false;
-            }
-          }
+        logBasic(
+            BaseMessages.getString(
+                PKG,
+                "ActionDataVaultUpdate.Log.RunningOrchestrator",
+                orchestrator.getName(),
+                realRunConfig));
+
+        Result orchestratorResult =
+            DvPipelineOrchestratorSupport.runOrchestrator(
+                orchestrator,
+                realRunConfig,
+                pipelineLogLevel != null ? pipelineLogLevel : getLogLevel(),
+                this,
+                getParentWorkflow(),
+                getVariables(),
+                getMetadataProvider());
+
+        DvPipelineOrchestratorSupport.mergeResult(result, orchestratorResult);
+
+        if (orchestratorResult.getNrErrors() > 0 || !orchestratorResult.getResult()) {
+          logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.OrchestratorFailed"));
+          success = false;
         }
       }
 

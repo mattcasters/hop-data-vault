@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.Props;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
@@ -33,21 +34,27 @@ import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.SatelliteAttribute;
 import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.dialog.MessageBox;
+import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.core.widget.ColumnInfo;
 import org.apache.hop.ui.core.widget.MetaSelectionLine;
 import org.apache.hop.ui.core.widget.TableView;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.CTabFolder;
+import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
@@ -64,16 +71,28 @@ public class DvSatelliteDialog {
   private HopGui hopGui;
   private Shell shell;
 
+  private CTabFolder wTabFolder;
+
   // Widgets
   private Text wName;
-  private Text wTableName;
   private Text wDescription;
+  private Text wTableName;
   private MetaSelectionLine<DataVaultSource> wRecordSource;
   private Text wHubName;
   private Text wLinkName;
   private Text wDrivingKey;
   private Combo wDrivingKeySourceField;
   private TableView wAttributes;
+
+  private Button wStatusTrackingEnabled;
+  private Text wStatusTableName;
+  private Text wStatusFieldName;
+  private Text wActiveStatusValue;
+  private Text wDeletedStatusValue;
+  private Control[] stsDetailControls;
+
+  private int margin;
+  private int middle;
 
   private boolean ok;
 
@@ -96,10 +115,9 @@ public class DvSatelliteDialog {
     formLayout.marginHeight = PropsUi.getFormMargin();
     shell.setLayout(formLayout);
 
-    int margin = PropsUi.getMargin();
-    int middle = 30;
+    margin = PropsUi.getMargin();
+    middle = PropsUi.getInstance().getMiddlePct();
 
-    // Buttons at the bottom (using standard positioning)
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
@@ -114,156 +132,172 @@ public class DvSatelliteDialog {
     BaseTransformDialog.positionBottomButtons(
         shell, new Button[] {wOk, wGetAttributes, wCancel}, margin, null);
 
-    // Name
     Label wlName = new Label(shell, SWT.RIGHT);
     wlName.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.Name.Label"));
     PropsUi.setLook(wlName);
-    FormData fdlName = new FormData();
-    fdlName.left = new FormAttachment(0, 0);
-    fdlName.top = new FormAttachment(0, margin);
-    fdlName.right = new FormAttachment(middle, -margin);
-    wlName.setLayoutData(fdlName);
+    wlName.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(0, margin)
+            .right(middle, -margin)
+            .result());
 
     wName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
     PropsUi.setLook(wName);
-    FormData fdName = new FormData();
-    fdName.left = new FormAttachment(middle, 0);
-    fdName.top = new FormAttachment(0, margin);
-    fdName.right = new FormAttachment(100, 0);
-    wName.setLayoutData(fdName);
+    wName.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(0, margin).right().result());
 
-    // Table name
-    Label wlTableName = new Label(shell, SWT.RIGHT);
-    wlTableName.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.TableName.Label"));
-    PropsUi.setLook(wlTableName);
-    FormData fdlTableName = new FormData();
-    fdlTableName.left = new FormAttachment(0, 0);
-    fdlTableName.top = new FormAttachment(wName, margin);
-    fdlTableName.right = new FormAttachment(middle, -margin);
-    wlTableName.setLayoutData(fdlTableName);
-
-    wTableName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wTableName);
-    FormData fdTableName = new FormData();
-    fdTableName.left = new FormAttachment(middle, 0);
-    fdTableName.top = new FormAttachment(wName, margin);
-    fdTableName.right = new FormAttachment(100, 0);
-    wTableName.setLayoutData(fdTableName);
-
-    // Description
     Label wlDescription = new Label(shell, SWT.RIGHT);
     wlDescription.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.Description.Label"));
     PropsUi.setLook(wlDescription);
-    FormData fdlDescription = new FormData();
-    fdlDescription.left = new FormAttachment(0, 0);
-    fdlDescription.top = new FormAttachment(wTableName, margin);
-    fdlDescription.right = new FormAttachment(middle, -margin);
-    wlDescription.setLayoutData(fdlDescription);
+    wlDescription.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wName, margin)
+            .right(middle, -margin)
+            .result());
 
     wDescription = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
     PropsUi.setLook(wDescription);
-    FormData fdDescription = new FormData();
-    fdDescription.left = new FormAttachment(middle, 0);
-    fdDescription.top = new FormAttachment(wTableName, margin);
-    fdDescription.right = new FormAttachment(100, 0);
-    wDescription.setLayoutData(fdDescription);
+    wDescription.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(wName, margin).right().result());
 
-    // Record source (now a reference to DataVaultSource metadata)
+    wTabFolder = new CTabFolder(shell, SWT.BORDER);
+    PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
+    wTabFolder.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wDescription, margin)
+            .right()
+            .bottom(wOk, -2 * margin)
+            .result());
+
+    addGeneralTab();
+    addAttributesTab();
+    addStatusTrackingTab();
+
+    wTabFolder.setSelection(0);
+
+    getData();
+    updateStsFieldsEnabled();
+
+    BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
+
+    return ok;
+  }
+
+  private void addGeneralTab() {
+    CTabItem tab = new CTabItem(wTabFolder, SWT.NONE);
+    tab.setFont(GuiResource.getInstance().getFontDefault());
+    tab.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.Tab.General.Label"));
+    tab.setToolTipText(BaseMessages.getString(PKG, "DvSatelliteDialog.Tab.General.ToolTip"));
+
+    Composite comp = new Composite(wTabFolder, SWT.NONE);
+    PropsUi.setLook(comp);
+    comp.setLayout(new FormLayout());
+    tab.setControl(comp);
+
+    Label wlTableName = new Label(comp, SWT.RIGHT);
+    wlTableName.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.TableName.Label"));
+    PropsUi.setLook(wlTableName);
+    wlTableName.setLayoutData(
+        new FormDataBuilder().left().top(0, margin).right(middle, -margin).result());
+
+    wTableName = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wTableName);
+    wTableName.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(0, margin).right().result());
+
     wRecordSource =
         new MetaSelectionLine<>(
             variables,
             hopGui.getMetadataProvider(),
             DataVaultSource.class,
-            shell,
+            comp,
             SWT.SINGLE | SWT.LEFT | SWT.BORDER,
             BaseMessages.getString(PKG, "DvSatelliteDialog.RecordSource.Label"),
             BaseMessages.getString(PKG, "DvSatelliteDialog.RecordSource.ToolTip"));
-    FormData fdRecordSource = new FormData();
-    fdRecordSource.left = new FormAttachment(0, 0);
-    fdRecordSource.top = new FormAttachment(wDescription, margin);
-    fdRecordSource.right = new FormAttachment(100, 0);
-    wRecordSource.setLayoutData(fdRecordSource);
+    wRecordSource.setLayoutData(
+        new FormDataBuilder().left().top(wTableName, margin).right().result());
+    wRecordSource.addModifyListener(e -> refreshDrivingKeySourceFieldItems());
 
-    // Hub name (ref)
-    Label wlHubName = new Label(shell, SWT.RIGHT);
+    Label wlHubName = new Label(comp, SWT.RIGHT);
     wlHubName.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.HubName.Label"));
     PropsUi.setLook(wlHubName);
-    FormData fdlHubName = new FormData();
-    fdlHubName.left = new FormAttachment(0, 0);
-    fdlHubName.top = new FormAttachment(wRecordSource, margin);
-    fdlHubName.right = new FormAttachment(middle, -margin);
-    wlHubName.setLayoutData(fdlHubName);
+    wlHubName.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wRecordSource, margin)
+            .right(middle, -margin)
+            .result());
 
-    wHubName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    wHubName = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
     PropsUi.setLook(wHubName);
-    FormData fdHubName = new FormData();
-    fdHubName.left = new FormAttachment(middle, 0);
-    fdHubName.top = new FormAttachment(wRecordSource, margin);
-    fdHubName.right = new FormAttachment(100, 0);
-    wHubName.setLayoutData(fdHubName);
+    wHubName.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(wRecordSource, margin).right().result());
 
-    // Link name (ref)
-    Label wlLinkName = new Label(shell, SWT.RIGHT);
+    Label wlLinkName = new Label(comp, SWT.RIGHT);
     wlLinkName.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.LinkName.Label"));
     PropsUi.setLook(wlLinkName);
-    FormData fdlLinkName = new FormData();
-    fdlLinkName.left = new FormAttachment(0, 0);
-    fdlLinkName.top = new FormAttachment(wHubName, margin);
-    fdlLinkName.right = new FormAttachment(middle, -margin);
-    wlLinkName.setLayoutData(fdlLinkName);
+    wlLinkName.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wHubName, margin)
+            .right(middle, -margin)
+            .result());
 
-    wLinkName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    wLinkName = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
     PropsUi.setLook(wLinkName);
-    FormData fdLinkName = new FormData();
-    fdLinkName.left = new FormAttachment(middle, 0);
-    fdLinkName.top = new FormAttachment(wHubName, margin);
-    fdLinkName.right = new FormAttachment(100, 0);
-    wLinkName.setLayoutData(fdLinkName);
+    wLinkName.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(wHubName, margin).right().result());
 
-    // Driving key
-    Label wlDrivingKey = new Label(shell, SWT.RIGHT);
+    Label wlDrivingKey = new Label(comp, SWT.RIGHT);
     wlDrivingKey.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.DrivingKey.Label"));
     PropsUi.setLook(wlDrivingKey);
-    FormData fdlDrivingKey = new FormData();
-    fdlDrivingKey.left = new FormAttachment(0, 0);
-    fdlDrivingKey.top = new FormAttachment(wLinkName, margin);
-    fdlDrivingKey.right = new FormAttachment(middle, -margin);
-    wlDrivingKey.setLayoutData(fdlDrivingKey);
+    wlDrivingKey.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wLinkName, margin)
+            .right(middle, -margin)
+            .result());
 
-    wDrivingKey = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    wDrivingKey = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
     PropsUi.setLook(wDrivingKey);
-    FormData fdDrivingKey = new FormData();
-    fdDrivingKey.left = new FormAttachment(middle, 0);
-    fdDrivingKey.top = new FormAttachment(wLinkName, margin);
-    fdDrivingKey.right = new FormAttachment(100, 0);
-    wDrivingKey.setLayoutData(fdDrivingKey);
+    wDrivingKey.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(wLinkName, margin).right().result());
 
-    Label wlDrivingKeySourceField = new Label(shell, SWT.RIGHT);
+    Label wlDrivingKeySourceField = new Label(comp, SWT.RIGHT);
     wlDrivingKeySourceField.setText(
         BaseMessages.getString(PKG, "DvSatelliteDialog.DrivingKeySourceField.Label"));
     PropsUi.setLook(wlDrivingKeySourceField);
-    FormData fdlDrivingKeySourceField = new FormData();
-    fdlDrivingKeySourceField.left = new FormAttachment(0, 0);
-    fdlDrivingKeySourceField.top = new FormAttachment(wDrivingKey, margin);
-    fdlDrivingKeySourceField.right = new FormAttachment(middle, -margin);
-    wlDrivingKeySourceField.setLayoutData(fdlDrivingKeySourceField);
+    wlDrivingKeySourceField.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wDrivingKey, margin)
+            .right(middle, -margin)
+            .result());
 
-    wDrivingKeySourceField = new Combo(shell, SWT.BORDER);
+    wDrivingKeySourceField = new Combo(comp, SWT.BORDER);
     PropsUi.setLook(wDrivingKeySourceField);
-    FormData fdDrivingKeySourceField = new FormData();
-    fdDrivingKeySourceField.left = new FormAttachment(middle, 0);
-    fdDrivingKeySourceField.top = new FormAttachment(wDrivingKey, margin);
-    fdDrivingKeySourceField.right = new FormAttachment(100, 0);
-    wDrivingKeySourceField.setLayoutData(fdDrivingKeySourceField);
+    wDrivingKeySourceField.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(wDrivingKey, margin).right().result());
+  }
 
-    // Attributes table
-    Label wlAttributes = new Label(shell, SWT.LEFT);
+  private void addAttributesTab() {
+    CTabItem tab = new CTabItem(wTabFolder, SWT.NONE);
+    tab.setFont(GuiResource.getInstance().getFontDefault());
+    tab.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.Tab.Attributes.Label"));
+    tab.setToolTipText(BaseMessages.getString(PKG, "DvSatelliteDialog.Tab.Attributes.ToolTip"));
+
+    Composite comp = new Composite(wTabFolder, SWT.NONE);
+    PropsUi.setLook(comp);
+    comp.setLayout(new FormLayout());
+    tab.setControl(comp);
+
+    Label wlAttributes = new Label(comp, SWT.LEFT);
     wlAttributes.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.Attributes.Label"));
     PropsUi.setLook(wlAttributes);
-    FormData fdlAttributes = new FormData();
-    fdlAttributes.left = new FormAttachment(0, 0);
-    fdlAttributes.top = new FormAttachment(wDrivingKeySourceField, margin);
-    wlAttributes.setLayoutData(fdlAttributes);
+    wlAttributes.setLayoutData(new FormDataBuilder().left().top(0, margin).result());
 
     ColumnInfo[] columns =
         new ColumnInfo[] {
@@ -291,37 +325,139 @@ public class DvSatelliteDialog {
               BaseMessages.getString(
                   PKG, "DvSatelliteDialog.Attribute.IncludeInChangeDataCapture.Column"),
               ColumnInfo.COLUMN_TYPE_CCOMBO,
-              new String[] {
-                BaseMessages.getString(PKG, "System.Combo.Yes"),
-                BaseMessages.getString(PKG, "System.Combo.No")
-              }),
+                  BaseMessages.getString(PKG, "System.Combo.Yes"),
+                  BaseMessages.getString(PKG, "System.Combo.No")),
         };
 
     int nrRows = input.getAttributes() != null ? input.getAttributes().size() : 1;
     wAttributes =
         new TableView(
             variables,
-            shell,
+            comp,
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
             columns,
             nrRows,
             null,
             PropsUi.getInstance());
 
-    FormData fdAttributes = new FormData();
-    fdAttributes.left = new FormAttachment(0, 0);
-    fdAttributes.top = new FormAttachment(wlAttributes, margin);
-    fdAttributes.right = new FormAttachment(100, 0);
-    fdAttributes.bottom = new FormAttachment(wOk, -2 * margin);
-    wAttributes.setLayoutData(fdAttributes);
+    wAttributes.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wlAttributes, margin)
+            .right()
+            .bottom(100, 0)
+            .result());
+  }
 
-    wRecordSource.addModifyListener(e -> refreshDrivingKeySourceFieldItems());
+  private void addStatusTrackingTab() {
+    CTabItem tab = new CTabItem(wTabFolder, SWT.NONE);
+    tab.setFont(GuiResource.getInstance().getFontDefault());
+    tab.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.Tab.StatusTracking.Label"));
+    tab.setToolTipText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.Tab.StatusTracking.ToolTip"));
 
-    getData();
+    Composite comp = new Composite(wTabFolder, SWT.NONE);
+    PropsUi.setLook(comp);
+    comp.setLayout(new FormLayout());
+    tab.setControl(comp);
 
-    BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
+    wStatusTrackingEnabled = new Button(comp, SWT.CHECK);
+    wStatusTrackingEnabled.setText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.StatusTracking.Enabled.Label"));
+    PropsUi.setLook(wStatusTrackingEnabled);
+    wStatusTrackingEnabled.setLayoutData(new FormDataBuilder().left().top(0, margin).result());
+    wStatusTrackingEnabled.addListener(SWT.Selection, e -> updateStsFieldsEnabled());
 
-    return ok;
+    Label wlStatusTableName = new Label(comp, SWT.RIGHT);
+    wlStatusTableName.setText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.StatusTracking.TableName.Label"));
+    PropsUi.setLook(wlStatusTableName);
+    wlStatusTableName.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wStatusTrackingEnabled, margin)
+            .right(middle, -margin)
+            .result());
+
+    wStatusTableName = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wStatusTableName);
+    wStatusTableName.setLayoutData(
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(wStatusTrackingEnabled, margin)
+            .right()
+            .result());
+
+    Label wlStatusFieldName = new Label(comp, SWT.RIGHT);
+    wlStatusFieldName.setText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.StatusTracking.FieldName.Label"));
+    PropsUi.setLook(wlStatusFieldName);
+    wlStatusFieldName.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wStatusTableName, margin)
+            .right(middle, -margin)
+            .result());
+
+    wStatusFieldName = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wStatusFieldName);
+    wStatusFieldName.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(wStatusTableName, margin).right().result());
+
+    Label wlActiveStatusValue = new Label(comp, SWT.RIGHT);
+    wlActiveStatusValue.setText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.StatusTracking.ActiveValue.Label"));
+    PropsUi.setLook(wlActiveStatusValue);
+    wlActiveStatusValue.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wStatusFieldName, margin)
+            .right(middle, -margin)
+            .result());
+
+    wActiveStatusValue = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wActiveStatusValue);
+    wActiveStatusValue.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(wStatusFieldName, margin).right().result());
+
+    Label wlDeletedStatusValue = new Label(comp, SWT.RIGHT);
+    wlDeletedStatusValue.setText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.StatusTracking.DeletedValue.Label"));
+    PropsUi.setLook(wlDeletedStatusValue);
+    wlDeletedStatusValue.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wActiveStatusValue, margin)
+            .right(middle, -margin)
+            .result());
+
+    wDeletedStatusValue = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wDeletedStatusValue);
+    wDeletedStatusValue.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(wActiveStatusValue, margin).right().result());
+
+    stsDetailControls =
+        new Control[] {
+          wlStatusTableName,
+          wStatusTableName,
+          wlStatusFieldName,
+          wStatusFieldName,
+          wlActiveStatusValue,
+          wActiveStatusValue,
+          wlDeletedStatusValue,
+          wDeletedStatusValue
+        };
+  }
+
+  private void updateStsFieldsEnabled() {
+    boolean enabled = wStatusTrackingEnabled.getSelection();
+    if (stsDetailControls != null) {
+      for (Control control : stsDetailControls) {
+        if (control != null && !control.isDisposed()) {
+          control.setEnabled(enabled);
+        }
+      }
+    }
   }
 
   private void getData() {
@@ -342,23 +478,33 @@ public class DvSatelliteDialog {
     refreshDrivingKeySourceFieldItems();
     wDrivingKeySourceField.setText(Const.NVL(input.getDrivingKeySourceField(), ""));
 
-    for (int i = 0; i < input.getAttributes().size(); i++) {
-      SatelliteAttribute attr = input.getAttributes().get(i);
-      TableItem item = wAttributes.table.getItem(i);
-      item.setText(1, Const.NVL(attr.getName(), ""));
-      item.setText(2, Const.NVL(attr.getDescription(), ""));
-      item.setText(3, Const.NVL(attr.getDataType(), ""));
-      item.setText(4, Const.NVL(attr.getLength(), ""));
-      item.setText(5, Const.NVL(attr.getPrecision(), ""));
-      item.setText(6, attr.isIncludeInChangeDataCapture() ? "Y" : "N");
+    if (input.getAttributes() != null) {
+      for (int i = 0; i < input.getAttributes().size(); i++) {
+        SatelliteAttribute attr = input.getAttributes().get(i);
+        TableItem item = wAttributes.table.getItem(i);
+        item.setText(1, Const.NVL(attr.getName(), ""));
+        item.setText(2, Const.NVL(attr.getDescription(), ""));
+        item.setText(3, Const.NVL(attr.getDataType(), ""));
+        item.setText(4, Const.NVL(attr.getLength(), ""));
+        item.setText(5, Const.NVL(attr.getPrecision(), ""));
+        item.setText(6, attr.isIncludeInChangeDataCapture() ? "Y" : "N");
+      }
     }
+
+    wStatusTrackingEnabled.setSelection(input.isStatusTrackingEnabled());
+    wStatusTableName.setText(Const.NVL(input.getStatusTableName(), ""));
+    wStatusFieldName.setText(
+        Const.NVL(input.getStatusFieldName(), DvSatellite.DEFAULT_STATUS_FIELD_NAME));
+    wActiveStatusValue.setText(
+        Const.NVL(input.getActiveStatusValue(), DvSatellite.DEFAULT_ACTIVE_STATUS_VALUE));
+    wDeletedStatusValue.setText(
+        Const.NVL(input.getDeletedStatusValue(), DvSatellite.DEFAULT_DELETED_STATUS_VALUE));
   }
 
   private void ok() {
     input.setName(wName.getText());
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
-    // For multi-source future, set first for now (satellites typically single source)
     String rsName = wRecordSource.getText();
 
     try {
@@ -370,7 +516,6 @@ public class DvSatelliteDialog {
       return;
     }
 
-    // If you want full list support for satellites later, change to setRecordSources here.
     input.setHubName(wHubName.getText());
     input.setLinkName(wLinkName.getText());
     input.setDrivingKey(wDrivingKey.getText());
@@ -388,6 +533,12 @@ public class DvSatelliteDialog {
       attrs.add(attr);
     }
     input.setAttributes(attrs);
+
+    input.setStatusTrackingEnabled(wStatusTrackingEnabled.getSelection());
+    input.setStatusTableName(wStatusTableName.getText());
+    input.setStatusFieldName(wStatusFieldName.getText());
+    input.setActiveStatusValue(wActiveStatusValue.getText());
+    input.setDeletedStatusValue(wDeletedStatusValue.getText());
 
     input.setChanged();
     ok = true;
@@ -506,7 +657,7 @@ public class DvSatelliteDialog {
       item.setText(3, Const.NVL(sf.getSourceDataType(), ""));
       item.setText(4, Const.NVL(sf.getLength(), ""));
       item.setText(5, Const.NVL(sf.getPrecision(), ""));
-      item.setText(6, "Y"); // includeInChangeDataCapture default true
+      item.setText(6, "Y");
     }
 
     wAttributes.optimizeTableView();

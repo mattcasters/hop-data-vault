@@ -78,7 +78,7 @@ public class DvNoteDialog {
     PropsUi.setLook(wlType);
     FormData fdlType = new FormData();
     fdlType.left = new FormAttachment(0, 0);
-    fdlType.right = new FormAttachment(0, middle);
+    fdlType.right = new FormAttachment(middle, 0);
     fdlType.top = new FormAttachment(0, margin);
     wlType.setLayoutData(fdlType);
 
@@ -98,7 +98,7 @@ public class DvNoteDialog {
     PropsUi.setLook(wlText);
     FormData fdlText = new FormData();
     fdlText.left = new FormAttachment(0, 0);
-    fdlText.right = new FormAttachment(0, middle);
+    fdlText.right = new FormAttachment(middle, 0);
     fdlText.top = new FormAttachment(wType, margin);
     wlText.setLayoutData(fdlText);
 

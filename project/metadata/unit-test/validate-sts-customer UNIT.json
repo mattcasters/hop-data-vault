@@ -1,0 +1,37 @@
+{
+  "database_replacements": [],
+  "autoOpening": true,
+  "description": "",
+  "persist_filename": "",
+  "test_type": "UNIT_TEST",
+  "variableValues": [],
+  "basePath": "${HOP_UNIT_TESTS_FOLDER}",
+  "golden_data_sets": [
+    {
+      "field_mappings": [
+        {
+          "transform_field": "customer_hk",
+          "data_set_field": "customer_hk"
+        },
+        {
+          "transform_field": "record_status",
+          "data_set_field": "record_status"
+        },
+        {
+          "transform_field": "x_record_source",
+          "data_set_field": "x_record_source"
+        }
+      ],
+      "field_order": [
+        "customer_hk",
+        "record_status"
+      ],
+      "data_set_name": "sts-customer-golden1",
+      "transform_name": "Validate"
+    }
+  ],
+  "input_data_sets": [],
+  "name": "validate-sts-customer UNIT",
+  "trans_test_tweaks": [],
+  "pipeline_filename": "./tests/status-tracking/validate-sts-customer.hpl"
+}

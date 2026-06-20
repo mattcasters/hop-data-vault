@@ -531,6 +531,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         result.add(pipelineMeta);
       }
 
+      DvGeneratedPipelineSupport.applyLayout(result);
       return result;
     } catch (Exception e) {
       throw new HopException("Error generating update pipeline for Link target " + getName(), e);
@@ -999,6 +1000,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       }
 
       TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
+      tm.setCopiesString(ctx.config.resolveTargetTableParallelCopies(ctx.variables));
       tm.setLocation(LOCATION_START_LINE_3.x + 5 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
       pipelineMeta.addTransform(tm);
       pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));

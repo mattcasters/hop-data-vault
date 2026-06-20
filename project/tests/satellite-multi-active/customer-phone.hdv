@@ -27,6 +27,7 @@
     <loadEndDateField/>
     <recordSourceField>x_record_source</recordSourceField>
     <recordSourceFieldLength>100</recordSourceFieldLength>
+    <targetTableParallelCopies>${OUTPUT_COPIES}</targetTableParallelCopies>
     <useLoadEndDate>N</useLoadEndDate>
   </configuration>
   <tables>

@@ -18,15 +18,20 @@
 
 package org.apache.hop.datavault.metadata;
 
+import java.util.List;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.logging.ILogChannel;
+import org.apache.hop.core.logging.LogLevel;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /**
  * Configuration for Data Vault 2.0 physical implementation and update strategy.
@@ -60,9 +65,13 @@ public class DataVaultConfiguration {
   /** Default commit size used by {@link org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta}. */
   public static final String DEFAULT_TARGET_TABLE_BATCH_SIZE = "1000";
 
+  /** Default number of parallel Table Output copies writing to the target table. */
+  public static final String DEFAULT_TARGET_TABLE_PARALLEL_COPIES = "1";
+
   public static final String DEFAULT_HUB_PIPELINE_NAME_PREFIX = "hub-";
   public static final String DEFAULT_LINK_PIPELINE_NAME_PREFIX = "link-";
   public static final String DEFAULT_SATELLITE_PIPELINE_NAME_PREFIX = "sat-";
+  public static final String DEFAULT_STS_PIPELINE_NAME_PREFIX = "sts-";
 
   /**
    * The target database (DatabaseMeta) in which the Data Vault will be implemented. This makes the
@@ -311,6 +320,28 @@ public class DataVaultConfiguration {
   private String targetTableBatchSize = DEFAULT_TARGET_TABLE_BATCH_SIZE;
 
   @GuiWidgetElement(
+      order = "0510",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.TargetTableParallelCopies.Label",
+      toolTip = "i18n::DataVaultConfiguration.TargetTableParallelCopies.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private String targetTableParallelCopies = DEFAULT_TARGET_TABLE_PARALLEL_COPIES;
+
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
+  @GuiWidgetElement(
+      order = "0520",
+      type = GuiElementType.COMBO,
+      label = "i18n::DataVaultConfiguration.ExecutionLogLevel.Label",
+      toolTip = "i18n::DataVaultConfiguration.ExecutionLogLevel.ToolTip",
+      comboValuesMethod = "getExecutionLogLevelDescriptions",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty(key = "execution_log_level")
+  private String executionLogLevel = LogLevel.BASIC.getCode();
+
+  @GuiWidgetElement(
       order = "0600",
       type = GuiElementType.FOLDER,
       variables = true,
@@ -350,6 +381,9 @@ public class DataVaultConfiguration {
   @HopMetadataProperty
   private String satellitePipelineNamePrefix = DEFAULT_SATELLITE_PIPELINE_NAME_PREFIX;
 
+  @HopMetadataProperty
+  private String stsPipelineNamePrefix = DEFAULT_STS_PIPELINE_NAME_PREFIX;
+
   public DataVaultConfiguration() {
     this.unknownHashKeyValue = "00000000000000000000000000000000";
     this.unknownLinkHashKeyValue = "00000000000000000000000000000000";
@@ -372,6 +406,56 @@ public class DataVaultConfiguration {
       size = variables.resolve(size);
     }
     return size;
+  }
+
+  /**
+   * Resolves the number of parallel copies for generated Table Output transforms writing to target
+   * DV tables ({@link org.apache.hop.pipeline.transform.TransformMeta#setCopiesString(String)}).
+   */
+  public String resolveTargetTableParallelCopies(IVariables variables) {
+    String copies = targetTableParallelCopies;
+    if (Utils.isEmpty(copies)) {
+      return DEFAULT_TARGET_TABLE_PARALLEL_COPIES;
+    }
+    if (variables != null) {
+      copies = variables.resolve(copies);
+    }
+    return copies;
+  }
+
+  /** Combo items for the execution log level widget (localized descriptions). */
+  public List<String> getExecutionLogLevelDescriptions(
+      ILogChannel log, IHopMetadataProvider metadataProvider) {
+    return List.of(LogLevel.getLogLevelDescriptions());
+  }
+
+  /**
+   * Returns the localized log level description for the GUI combo. The persisted value is the log
+   * level code (e.g. {@code Basic}).
+   */
+  public String getExecutionLogLevel() {
+    return LogLevel.lookupCode(executionLogLevel).getDescription();
+  }
+
+  /** Persists the log level code resolved from a combo description (or code). */
+  public void setExecutionLogLevel(String descriptionOrCode) {
+    if (Utils.isEmpty(descriptionOrCode)) {
+      executionLogLevel = LogLevel.BASIC.getCode();
+      return;
+    }
+    String value = descriptionOrCode.trim();
+    for (LogLevel level : LogLevel.values()) {
+      if (value.equals(level.getDescription()) || value.equals(level.getCode())) {
+        executionLogLevel = level.getCode();
+        return;
+      }
+    }
+    executionLogLevel = LogLevel.lookupCode(value).getCode();
+  }
+
+  /** Resolves the log level applied to generated pipeline engines at execution time. */
+  public LogLevel resolveExecutionLogLevel() {
+    return LogLevel.lookupCode(executionLogLevel);
   }
 
   public String buildHubPipelineName(
@@ -397,6 +481,16 @@ public class DataVaultConfiguration {
         satellitePipelineNamePrefix,
         DEFAULT_SATELLITE_PIPELINE_NAME_PREFIX,
         targetTableName,
+        sourceName);
+  }
+
+  public String buildStsPipelineName(
+      IVariables variables, String statusTableName, String sourceName) {
+    return buildPipelineName(
+        variables,
+        stsPipelineNamePrefix,
+        DEFAULT_STS_PIPELINE_NAME_PREFIX,
+        statusTableName,
         sourceName);
   }
 

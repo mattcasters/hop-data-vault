@@ -20,6 +20,7 @@ package org.apache.hop.datavault.config;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.hop.datavault.layout.ElkLayout;
 
 @Getter
 @Setter
@@ -30,6 +31,7 @@ public class DataVaultConfig {
 
   private boolean drawingHashKeysInModel;
   private int maxUndoOperations = DEFAULT_MAX_UNDO_OPERATIONS;
+  private ElkLayout elkLayout = ElkLayout.createDefault();
 
   public DataVaultConfig() {
     drawingHashKeysInModel = true;
@@ -39,6 +41,7 @@ public class DataVaultConfig {
     this();
     drawingHashKeysInModel = config.drawingHashKeysInModel;
     setMaxUndoOperations(config.maxUndoOperations);
+    setElkLayout(new ElkLayout(config.getElkLayout()));
   }
 
   public int getMaxUndoOperations() {
@@ -48,5 +51,13 @@ public class DataVaultConfig {
   public void setMaxUndoOperations(int maxUndoOperations) {
     this.maxUndoOperations =
         maxUndoOperations > 0 ? maxUndoOperations : DEFAULT_MAX_UNDO_OPERATIONS;
+  }
+
+  public ElkLayout getElkLayout() {
+    return elkLayout != null ? elkLayout : ElkLayout.createDefault();
+  }
+
+  public void setElkLayout(ElkLayout elkLayout) {
+    this.elkLayout = elkLayout != null ? elkLayout : ElkLayout.createDefault();
   }
 }

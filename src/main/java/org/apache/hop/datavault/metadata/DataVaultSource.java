@@ -85,6 +85,15 @@ public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IH
   @HopMetadataProperty
   private String group;
 
+  @GuiWidgetElement(
+      order = "0520",
+      type = GuiElementType.COMBO,
+      label = "i18n::DataVaultSource.DeliveryType.Label",
+      toolTip = "i18n::DataVaultSource.DeliveryType.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
+  @HopMetadataProperty
+  private DvSourceDeliveryType deliveryType = DvSourceDeliveryType.CHANGES_ONLY;
+
   @HopMetadataProperty(key = "source")
   private IDvSource source = new DvDatabaseSource();
 
@@ -106,6 +115,14 @@ public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IH
   public DvSourceType getSourceType() {
     DvSourceType type = getDvSourceOrDefault().getSourceType();
     return type != null ? type : DvSourceType.DATABASE;
+  }
+
+  public DvSourceDeliveryType getDeliveryTypeOrDefault() {
+    return deliveryType != null ? deliveryType : DvSourceDeliveryType.CHANGES_ONLY;
+  }
+
+  public boolean isFullSnapshotFeed() {
+    return getDeliveryTypeOrDefault() == DvSourceDeliveryType.FULL_SNAPSHOT;
   }
 
   public boolean matchesRecordSourceGroup(String groupFilter, IVariables variables) {

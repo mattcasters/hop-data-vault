@@ -20,17 +20,30 @@ package org.apache.hop.datavault.metadata;
 
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.apache.commons.vfs2.FileObject;
+import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
+import org.apache.hop.datavault.layout.DvPipelineElkLayout;
 import org.apache.hop.pipeline.PipelineMeta;
 
 /** Saves generated DV update pipelines when configured to do so. */
 public final class DvGeneratedPipelineSupport {
 
   private DvGeneratedPipelineSupport() {}
+
+  /** Applies ELK left-to-right layout to a generated update pipeline. */
+  public static void applyLayout(PipelineMeta pipelineMeta) throws HopException {
+    DvPipelineElkLayout.layout(pipelineMeta);
+  }
+
+  /** Applies ELK left-to-right layout to each generated update pipeline. */
+  public static void applyLayout(List<PipelineMeta> pipelines) throws HopException {
+    DvPipelineElkLayout.layout(pipelines);
+  }
 
   /**
    * Writes the pipeline to {@link DataVaultConfiguration#getGeneratedPipelineFolder()} when that
@@ -43,7 +56,10 @@ public final class DvGeneratedPipelineSupport {
       return null;
     }
 
-    String folder = config.getGeneratedPipelineFolder();
+    String folder =
+        Const.NVL(
+            config.getGeneratedPipelineFolder(),
+            DvPipelineOrchestratorSupport.DEFAULT_STAGING_PREFIX);
     if (Utils.isEmpty(folder)) {
       return null;
     }
@@ -72,7 +88,10 @@ public final class DvGeneratedPipelineSupport {
       return pipelineFilename;
     } catch (Exception e) {
       throw new HopException(
-          "Unable to save generated pipeline '" + pipelineMeta.getName() + "' to " + pipelineFilename,
+          "Unable to save generated pipeline '"
+              + pipelineMeta.getName()
+              + "' to "
+              + pipelineFilename,
           e);
     }
   }

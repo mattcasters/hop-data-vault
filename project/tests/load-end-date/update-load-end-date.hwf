@@ -85,6 +85,8 @@ CREATE TABLE customer_led
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>Y</logModelCheckFailures>
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
+      <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
+      <pipelineStagingFolder/>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/load-end-date-ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
@@ -172,6 +174,8 @@ DROP TABLE IF EXISTS sat_customer_led
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>N</logModelCheckFailures>
       <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
+      <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
+      <pipelineStagingFolder/>
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
@@ -239,7 +243,7 @@ DROP TABLE IF EXISTS sat_customer_led
       <from>drop customer_led vault tables</from>
       <to>load-customer-led1</to>
       <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
+      <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>

@@ -1,0 +1,3 @@
+CUSTOMER_ID,NAME,EMAIL,ADDRESS,CITY,LOAD_DATE,RECORD_SOURCE
+1001,John Smith,john.smith@crm.com,123 Main St,New York,2024-02-01,CRM
+1002,Jane Doe,jane.doe@crm.com,456 Oak Ave,Los Angeles,2024-02-01,CRM

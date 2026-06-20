@@ -28,9 +28,13 @@
     <recordSourceFieldLength>100</recordSourceFieldLength>
     <useLoadEndDate>N</useLoadEndDate>
     <targetTableBatchSize>1000</targetTableBatchSize>
+    <targetTableParallelCopies>${OUTPUT_COPIES}</targetTableParallelCopies>
+    <execution_log_level>Minimal</execution_log_level>
+    <generatedPipelineFolder/>
     <hubPipelineNamePrefix>hub-</hubPipelineNamePrefix>
     <linkPipelineNamePrefix>link-</linkPipelineNamePrefix>
     <satellitePipelineNamePrefix>sat-</satellitePipelineNamePrefix>
+    <stsPipelineNamePrefix>sts-</stsPipelineNamePrefix>
   </configuration>
   <tables>
     <table>
@@ -92,6 +96,10 @@
       </attributes>
       <drivingKey/>
       <recordSource>CRM-customer</recordSource>
+      <statusTrackingEnabled>N</statusTrackingEnabled>
+      <statusFieldName>record_status</statusFieldName>
+      <activeStatusValue>ACTIVE</activeStatusValue>
+      <deletedStatusValue>DELETED</deletedStatusValue>
       <tableName>sat_customer</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
@@ -159,6 +167,10 @@
       </attributes>
       <drivingKey/>
       <recordSource>CRM-product</recordSource>
+      <statusTrackingEnabled>N</statusTrackingEnabled>
+      <statusFieldName>record_status</statusFieldName>
+      <activeStatusValue>ACTIVE</activeStatusValue>
+      <deletedStatusValue>DELETED</deletedStatusValue>
       <tableName>sat_product</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
@@ -242,6 +254,10 @@
       </attributes>
       <drivingKey/>
       <recordSource>CRM-order</recordSource>
+      <statusTrackingEnabled>N</statusTrackingEnabled>
+      <statusFieldName>record_status</statusFieldName>
+      <activeStatusValue>ACTIVE</activeStatusValue>
+      <deletedStatusValue>DELETED</deletedStatusValue>
       <tableName>sat_order</tableName>
       <description/>
       <tableType>SATELLITE</tableType>

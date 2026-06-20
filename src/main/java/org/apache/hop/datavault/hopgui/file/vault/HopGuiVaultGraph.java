@@ -2805,6 +2805,23 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     }
   }
 
+  /**
+   * Runs a model mutation with undo support using a gzip-compressed XML snapshot taken before the
+   * change.
+   */
+  public void runUndoableModelChange(HopGuiVaultModelChange change) throws HopException {
+    byte[] beforeChange = captureUndoSnapshot();
+    change.run();
+    commitDialogUndo(beforeChange);
+    setChanged();
+    redraw();
+  }
+
+  @FunctionalInterface
+  public interface HopGuiVaultModelChange {
+    void run() throws HopException;
+  }
+
   private void markPositionUndoPoint() {
     if (!positionChangeUndoMarked) {
       markUndoPoint();

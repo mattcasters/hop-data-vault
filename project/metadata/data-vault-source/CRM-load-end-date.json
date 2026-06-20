@@ -3,6 +3,7 @@
   "sourceIndicatorField": "record_source",
   "name": "CRM-load-end-date",
   "group": "",
+  "deliveryType": "FULL_SNAPSHOT",
   "source": {
     "DATABASE": {
       "databaseName": "CRM",

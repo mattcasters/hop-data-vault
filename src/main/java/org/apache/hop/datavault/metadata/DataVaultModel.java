@@ -214,6 +214,7 @@ public class DataVaultModel extends HopMetadataBase
     checkTablesPresent(remarks);
     checkTables(remarks, metadataProvider, variables, collectDefinedHubAndLinkNames());
     checkDuplicateTableNames(remarks);
+    checkDuplicateStsTableNames(remarks, variables);
     checkDuplicateSourceNames(remarks, sources);
 
     return remarks;
@@ -331,6 +332,30 @@ public class DataVaultModel extends HopMetadataBase
 
   private void checkDuplicateTableNames(List<ICheckResult> remarks) {
     checkDuplicateNames(remarks, getTables(), "DataVaultModel.CheckResult.DuplicateTableName");
+  }
+
+  private void checkDuplicateStsTableNames(List<ICheckResult> remarks, IVariables variables) {
+    Map<String, Integer> stsNameCount = new HashMap<>();
+    for (IDvTable table : getTables()) {
+      if (!(table instanceof DvSatellite satellite) || !satellite.isStatusTrackingEnabled()) {
+        continue;
+      }
+      String stsTable = satellite.resolveStatusTableName(variables, this);
+      if (Utils.isEmpty(stsTable)) {
+        continue;
+      }
+      stsNameCount.merge(stsTable, 1, Integer::sum);
+    }
+    for (Map.Entry<String, Integer> entry : stsNameCount.entrySet()) {
+      if (entry.getValue() > 1) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG, "DataVaultModel.CheckResult.DuplicateStsTableName", entry.getKey()),
+                null));
+      }
+    }
   }
 
   private void checkDuplicateSourceNames(

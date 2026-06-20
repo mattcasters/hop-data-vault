@@ -1,0 +1,32 @@
+{
+  "base_filename": "sts-customer-golden1.csv",
+  "name": "sts-customer-golden1",
+  "description": "",
+  "dataset_fields": [
+    {
+      "field_comment": "customer_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "customer_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "record_status",
+      "field_length": 20,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "record_status",
+      "field_format": ""
+    },
+    {
+      "field_comment": "x_record_source",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "x_record_source",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}

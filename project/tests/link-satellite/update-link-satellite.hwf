@@ -111,6 +111,8 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>Y</logModelCheckFailures>
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
+      <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
+      <pipelineStagingFolder/>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/link-satellite-ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
@@ -175,6 +177,8 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>N</logModelCheckFailures>
       <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
+      <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
+      <pipelineStagingFolder/>
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>

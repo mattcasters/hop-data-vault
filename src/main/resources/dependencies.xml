@@ -24,4 +24,7 @@
     <folder>../../transforms/checksum/</folder>
     <folder>../../transforms/sql/</folder>
     <folder>../../transforms/update/</folder>
+    <folder>../../transforms/append/</folder>
+    <folder>../../transforms/getfilenames/</folder>
+    <folder>../../transforms/pipelineexecutor/</folder>
 </dependencies>

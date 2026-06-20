@@ -39,6 +39,7 @@
     <jandex.version>3.5.3</jandex.version>
     <lombok.version>1.18.42</lombok.version>
     <apache.rat.version>0.16.1</apache.rat.version>
+    <elk.version>0.10.0</elk.version>
   </properties>
 
   <dependencies>
@@ -144,6 +145,33 @@
       <groupId>org.apache.hop</groupId>
       <artifactId>hop-transform-groupby</artifactId>
       <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-append</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-getfilenames</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-pipelineexecutor</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+
+    <!-- ELK layered layout for generated pipeline auto-positioning (bundled in plugin lib/) -->
+    <dependency>
+      <groupId>org.eclipse.elk</groupId>
+      <artifactId>org.eclipse.elk.core</artifactId>
+      <version>${elk.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.elk</groupId>
+      <artifactId>org.eclipse.elk.alg.layered</artifactId>
+      <version>${elk.version}</version>
     </dependency>
   </dependencies>
 

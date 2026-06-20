@@ -22,7 +22,7 @@
       <description/>
       <type>SPECIAL</type>
       <attributes/>
-      <xloc>96</xloc>
+      <xloc>80</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -45,7 +45,7 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>256</xloc>
+      <xloc>384</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -68,7 +68,7 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>576</xloc>
+      <xloc>720</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -91,7 +91,7 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>416</xloc>
+      <xloc>544</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -114,8 +114,31 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>256</xloc>
-      <yloc>176</yloc>
+      <xloc>384</xloc>
+      <yloc>160</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <filename>${PROJECT_HOME}/tests/status-tracking/update-status-tracking.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>update-status-tracking</name>
+      <description/>
+      <type>WORKFLOW</type>
+      <attributes/>
+      <xloc>544</xloc>
+      <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -137,7 +160,7 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>736</xloc>
+      <xloc>912</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -147,20 +170,38 @@
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>736</xloc>
-      <yloc>176</yloc>
+      <xloc>912</xloc>
+      <yloc>160</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <replacevars>Y</replacevars>
+      <fields>
+        <field>
+          <variable_name>PIPELINE_COPIES</variable_name>
+          <variable_value>3</variable_value>
+          <variable_type>CURRENT_WORKFLOW</variable_type>
+        </field>
+        <field>
+          <variable_name>OUTPUT_COPIES</variable_name>
+          <variable_value>1</variable_value>
+          <variable_type>CURRENT_WORKFLOW</variable_type>
+        </field>
+      </fields>
+      <filename/>
+      <file_variable_type>CURRENT_WORKFLOW</file_variable_type>
+      <name>configure</name>
+      <description/>
+      <type>SET_VARIABLES</type>
+      <attributes/>
+      <xloc>240</xloc>
+      <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
   </actions>
   <hops>
-    <hop>
-      <from>Start</from>
-      <to>update-vault1</to>
-      <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
     <hop>
       <from>update-vault1</from>
       <to>update-customer-phone</to>
@@ -191,7 +232,28 @@
     </hop>
     <hop>
       <from>run-hash-key-tests</from>
+      <to>update-status-tracking</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>update-status-tracking</from>
       <to>Success</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Start</from>
+      <to>configure</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>configure</from>
+      <to>update-vault1</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

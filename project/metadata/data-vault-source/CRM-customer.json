@@ -2,6 +2,7 @@
   "sourceIndicator": "",
   "sourceIndicatorField": "record_source",
   "name": "CRM-customer",
+  "deliveryType": "FULL_SNAPSHOT",
   "source": {
     "DATABASE": {
       "databaseName": "CRM",

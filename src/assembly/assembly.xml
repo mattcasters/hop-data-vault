@@ -45,10 +45,21 @@
         </dependencySet>
         <dependencySet>
             <includes>
+                <include>org.eclipse.elk:*</include>
+                <include>org.eclipse.emf:*</include>
+                <include>org.jspecify:*</include>
+            </includes>
+            <outputDirectory>plugins/misc/datavault/lib</outputDirectory>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <useProjectArtifact>false</useProjectArtifact>
+        </dependencySet>
+        <dependencySet>
+            <includes>
                 <include>org.apache.hop:hop-transform-checksum:jar</include>
                 <include>org.apache.hop:hop-transform-constant:jar</include>
                 <include>org.apache.hop:hop-transform-filterrows:jar</include>
                 <include>org.apache.hop:hop-transform-groupby:jar</include>
+                <include>org.apache.hop:hop-transform-append:jar</include>
                 <include>org.apache.hop:hop-transform-mergerows:jar</include>
                 <include>org.apache.hop:hop-transform-selectvalues:jar</include>
                 <include>org.apache.hop:hop-transform-sort:jar</include>
@@ -56,6 +67,8 @@
                 <include>org.apache.hop:hop-transform-tableinput:jar</include>
                 <include>org.apache.hop:hop-transform-tableoutput:jar</include>
                 <include>org.apache.hop:hop-transform-update:jar</include>
+                <include>org.apache.hop:hop-transform-getfilenames:jar</include>
+                <include>org.apache.hop:hop-transform-pipelineexecutor:jar</include>
             </includes>
             <outputDirectory>plugins/misc/datavault/lib</outputDirectory>
         </dependencySet>
