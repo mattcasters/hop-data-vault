@@ -525,36 +525,50 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                 "ActionDataVaultUpdate.Log.ParallelCopies",
                 parallelCopies));
 
-        DvPipelineOrchestratorSupport.prepareStagingFolder(stagingFolder, getVariables());
-        DvPipelineOrchestratorSupport.stagePipelines(
-            stagingFolder, getVariables(), allPipelineMetas);
+        try {
+          DvPipelineOrchestratorSupport.prepareStagingFolder(stagingFolder, getVariables());
+          DvPipelineOrchestratorSupport.stagePipelines(
+              stagingFolder, getVariables(), allPipelineMetas);
 
-        PipelineMeta orchestrator =
-            DvPipelineOrchestratorSupport.buildOrchestratorPipeline(
-                stagingFolder, realRunConfig, parallelCopies, model.getName());
+          PipelineMeta orchestrator =
+              DvPipelineOrchestratorSupport.buildOrchestratorPipeline(
+                  stagingFolder, realRunConfig, parallelCopies, model.getName());
 
-        logBasic(
-            BaseMessages.getString(
-                PKG,
-                "ActionDataVaultUpdate.Log.RunningOrchestrator",
-                orchestrator.getName(),
-                realRunConfig));
+          logBasic(
+              BaseMessages.getString(
+                  PKG,
+                  "ActionDataVaultUpdate.Log.RunningOrchestrator",
+                  orchestrator.getName(),
+                  realRunConfig));
 
-        Result orchestratorResult =
-            DvPipelineOrchestratorSupport.runOrchestrator(
-                orchestrator,
-                realRunConfig,
-                pipelineLogLevel != null ? pipelineLogLevel : getLogLevel(),
-                this,
-                getParentWorkflow(),
-                getVariables(),
-                getMetadataProvider());
+          Result orchestratorResult =
+              DvPipelineOrchestratorSupport.runOrchestrator(
+                  orchestrator,
+                  realRunConfig,
+                  pipelineLogLevel != null ? pipelineLogLevel : getLogLevel(),
+                  this,
+                  getParentWorkflow(),
+                  getVariables(),
+                  getMetadataProvider());
 
-        DvPipelineOrchestratorSupport.mergeResult(result, orchestratorResult);
+          DvPipelineOrchestratorSupport.mergeResult(result, orchestratorResult);
 
-        if (orchestratorResult.getNrErrors() > 0 || !orchestratorResult.getResult()) {
-          logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.OrchestratorFailed"));
-          success = false;
+          if (orchestratorResult.getNrErrors() > 0 || !orchestratorResult.getResult()) {
+            logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.OrchestratorFailed"));
+            success = false;
+          }
+        } finally {
+          try {
+            DvPipelineOrchestratorSupport.cleanupStagingFolder(stagingFolder, getVariables());
+            logBasic(
+                BaseMessages.getString(
+                    PKG, "ActionDataVaultUpdate.Log.StagingCleanup", stagingFolder));
+          } catch (HopException e) {
+            logError(
+                BaseMessages.getString(
+                    PKG, "ActionDataVaultUpdate.Error.StagingCleanupFailed", stagingFolder),
+                e);
+          }
         }
       }
 

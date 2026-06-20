@@ -461,7 +461,7 @@ public class DataVaultConfiguration {
   public String buildHubPipelineName(
       IVariables variables, String targetTableName, String sourceName) {
     return buildPipelineName(
-        variables, hubPipelineNamePrefix, DEFAULT_HUB_PIPELINE_NAME_PREFIX, targetTableName, sourceName);
+        variables, hubPipelineNamePrefix, "", targetTableName, sourceName);
   }
 
   public String buildLinkPipelineName(
@@ -469,7 +469,7 @@ public class DataVaultConfiguration {
     return buildPipelineName(
         variables,
         linkPipelineNamePrefix,
-        DEFAULT_LINK_PIPELINE_NAME_PREFIX,
+        "",
         targetTableName,
         sourceName);
   }
@@ -479,7 +479,7 @@ public class DataVaultConfiguration {
     return buildPipelineName(
         variables,
         satellitePipelineNamePrefix,
-        DEFAULT_SATELLITE_PIPELINE_NAME_PREFIX,
+        "",
         targetTableName,
         sourceName);
   }
@@ -489,7 +489,7 @@ public class DataVaultConfiguration {
     return buildPipelineName(
         variables,
         stsPipelineNamePrefix,
-        DEFAULT_STS_PIPELINE_NAME_PREFIX,
+        "",
         statusTableName,
         sourceName);
   }

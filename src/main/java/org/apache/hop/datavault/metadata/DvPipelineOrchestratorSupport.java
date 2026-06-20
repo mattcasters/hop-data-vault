@@ -194,6 +194,25 @@ public final class DvPipelineOrchestratorSupport {
     return orchestratorResult != null ? orchestratorResult : new Result();
   }
 
+  /** Deletes the staging folder and all files and sub-folders below it. */
+  public static void cleanupStagingFolder(String folder, IVariables variables)
+      throws HopException {
+    if (Utils.isEmpty(folder)) {
+      return;
+    }
+    try {
+      FileObject stagingFolder = HopVfs.getFileObject(folder, variables);
+      if (stagingFolder.exists()) {
+        stagingFolder.deleteAll();
+        if (stagingFolder.exists()) {
+          stagingFolder.delete();
+        }
+      }
+    } catch (Exception e) {
+      throw new HopException("Unable to clean up pipeline staging folder " + folder, e);
+    }
+  }
+
   /** Merges pipeline counters from {@code source} into {@code target}. */
   public static void mergeResult(Result target, Result source) {
     if (target == null || source == null) {

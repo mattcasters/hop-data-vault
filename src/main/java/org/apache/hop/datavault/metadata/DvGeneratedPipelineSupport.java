@@ -22,7 +22,6 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.apache.commons.vfs2.FileObject;
-import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
@@ -56,10 +55,7 @@ public final class DvGeneratedPipelineSupport {
       return null;
     }
 
-    String folder =
-        Const.NVL(
-            config.getGeneratedPipelineFolder(),
-            DvPipelineOrchestratorSupport.DEFAULT_STAGING_PREFIX);
+    String folder = config.getGeneratedPipelineFolder();
     if (Utils.isEmpty(folder)) {
       return null;
     }
