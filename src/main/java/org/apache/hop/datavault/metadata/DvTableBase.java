@@ -264,7 +264,12 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
   }
 
   @Override
-  public void check(List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
+  public void check(
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DvModelCheckOptions options,
+      DataVaultModel model) {
     if (Utils.isEmpty(getName())) {
       remarks.add(
           new CheckResult(

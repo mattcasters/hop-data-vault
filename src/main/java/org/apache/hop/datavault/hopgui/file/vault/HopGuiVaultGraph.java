@@ -61,6 +61,7 @@ import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultSnapshotUndo;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvModelCheckOptions;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvNote;
@@ -1485,7 +1486,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (model == null) {
       return;
     }
-    List<ICheckResult> remarks = model.check(hopGui.getMetadataProvider(), hopGui.getVariables());
+    List<ICheckResult> remarks =
+        model.check(
+            hopGui.getMetadataProvider(), getVariables(), DvModelCheckOptions.defaults());
     CheckResultDialog dialog = new CheckResultDialog(hopGui.getShell(), remarks);
     String tableName = dialog.open();
     if (tableName != null) {

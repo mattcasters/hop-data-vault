@@ -1,0 +1,774 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.datavault.metadata;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.apache.hop.core.CheckResult;
+import org.apache.hop.core.Const;
+import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.ICheckResultSource;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.exception.HopPluginException;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.row.value.ValueMetaBase;
+import org.apache.hop.core.row.value.ValueMetaFactory;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+
+/** Validates source-to-target field type mappings for Data Vault load pipelines. */
+public final class DvFieldMappingValidationSupport {
+
+  private static final Class<?> PKG = DvFieldMappingValidationSupport.class;
+
+  private DvFieldMappingValidationSupport() {}
+
+  public static void validateHubBusinessKeys(
+      DvHub hub,
+      DataVaultSource recordSource,
+      DvModelCheckOptions options,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    if (hub == null || recordSource == null || hub.getBusinessKeys() == null) {
+      return;
+    }
+    String sourceName = resolveName(recordSource.getName(), variables);
+    ResolvedSourceFields resolved =
+        resolveSourceFields(recordSource, options, metadataProvider, variables, checkSource, remarks);
+    if (resolved == null) {
+      return;
+    }
+
+    for (BusinessKey bk : hub.getBusinessKeys()) {
+      if (bk == null || Utils.isEmpty(bk.getName())) {
+        continue;
+      }
+      if (!businessKeyAppliesToSource(bk, sourceName, variables)) {
+        continue;
+      }
+      String sourceFieldName = resolveSourceFieldName(bk.getSourceFieldName(), bk.getName(), variables);
+      IValueMeta sourceMeta = resolved.fields.get(sourceFieldName);
+      if (sourceMeta == null) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.SourceFieldMissing",
+                    sourceFieldName,
+                    recordSource.getName(),
+                    bk.getName()),
+                checkSource));
+        continue;
+      }
+      try {
+        IValueMeta targetMeta = buildTargetValueMetaForHubBusinessKey(bk, variables);
+        validateMapping(
+            sourceMeta,
+            targetMeta,
+            BaseMessages.getString(
+                PKG,
+                "DvFieldMappingValidation.Context.HubBusinessKey",
+                bk.getName(),
+                sourceFieldName,
+                recordSource.getName()),
+            checkSource,
+            remarks);
+        if (resolved.usedLive) {
+          addStoredDriftWarnings(
+              resolved.storedFields,
+              sourceFieldName,
+              sourceMeta,
+              recordSource.getName(),
+              bk.getName(),
+              variables,
+              checkSource,
+              remarks);
+        }
+      } catch (HopException e) {
+        remarks.add(
+            new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+      }
+    }
+  }
+
+  public static void validateSatelliteMappings(
+      DvSatellite satellite,
+      DataVaultModel model,
+      DvModelCheckOptions options,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    if (satellite == null || satellite.getRecordSource() == null) {
+      return;
+    }
+    DataVaultSource recordSource = satellite.getRecordSource();
+    ResolvedSourceFields resolved =
+        resolveSourceFields(recordSource, options, metadataProvider, variables, checkSource, remarks);
+    if (resolved == null) {
+      return;
+    }
+
+    if (satellite.hasDrivingKey()) {
+      String drivingKeySourceField =
+          resolveName(satellite.getDrivingKeySourceField(), variables);
+      IValueMeta sourceMeta = resolved.fields.get(drivingKeySourceField);
+      if (sourceMeta == null) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.SourceFieldMissing",
+                    drivingKeySourceField,
+                    recordSource.getName(),
+                    satellite.getDrivingKey()),
+                checkSource));
+      } else {
+        try {
+          SourceField stored = resolved.storedFields.get(drivingKeySourceField);
+          IValueMeta targetMeta =
+              stored != null
+                  ? valueMetaFromSourceField(stored, variables)
+                  : cloneValueMeta(sourceMeta);
+          targetMeta.setName(resolveName(satellite.getDrivingKey(), variables));
+          validateMapping(
+              sourceMeta,
+              targetMeta,
+              BaseMessages.getString(
+                  PKG,
+                  "DvFieldMappingValidation.Context.SatelliteDrivingKey",
+                  satellite.getDrivingKey(),
+                  drivingKeySourceField,
+                  recordSource.getName()),
+              checkSource,
+              remarks);
+          if (resolved.usedLive && stored != null) {
+            addStoredDriftWarnings(
+                resolved.storedFields,
+                drivingKeySourceField,
+                sourceMeta,
+                recordSource.getName(),
+                satellite.getDrivingKey(),
+                variables,
+                checkSource,
+                remarks);
+          }
+        } catch (HopPluginException e) {
+          remarks.add(
+              new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+        }
+      }
+    }
+
+    List<SatelliteAttribute> attributes = satellite.getAttributes();
+    if (attributes == null || attributes.isEmpty()) {
+      validateSatelliteAutoAttributes(
+          satellite, model, resolved, recordSource, variables, checkSource, remarks);
+      return;
+    }
+
+    for (SatelliteAttribute attr : attributes) {
+      if (attr == null || Utils.isEmpty(attr.getName())) {
+        continue;
+      }
+      String sourceFieldName = resolveName(attr.getName(), variables);
+      SourceField storedField = resolved.storedFields.get(sourceFieldName);
+      IValueMeta sourceMeta = resolved.fields.get(sourceFieldName);
+      if (sourceMeta == null) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.SourceFieldMissing",
+                    sourceFieldName,
+                    recordSource.getName(),
+                    attr.getName()),
+                checkSource));
+        continue;
+      }
+      try {
+        IValueMeta targetMeta =
+            buildTargetValueMetaForSatelliteAttribute(attr, storedField, variables);
+        validateMapping(
+            sourceMeta,
+            targetMeta,
+            BaseMessages.getString(
+                PKG,
+                "DvFieldMappingValidation.Context.SatelliteAttribute",
+                attr.getName(),
+                sourceFieldName,
+                recordSource.getName()),
+            checkSource,
+            remarks);
+        if (resolved.usedLive && storedField != null) {
+          addStoredDriftWarnings(
+              resolved.storedFields,
+              sourceFieldName,
+              sourceMeta,
+              recordSource.getName(),
+              attr.getName(),
+              variables,
+              checkSource,
+              remarks);
+        }
+      } catch (HopException e) {
+        remarks.add(
+            new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+      }
+    }
+  }
+
+  public static void validateLinkHubKeyFields(
+      DvLink link,
+      DataVaultModel model,
+      DvModelCheckOptions options,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    if (link == null || link.getLinkHubSources() == null || model == null) {
+      return;
+    }
+    for (DvLink.DvLinkHubSource linkHubSource : link.getLinkHubSources()) {
+      if (linkHubSource == null || linkHubSource.getSource() == null) {
+        continue;
+      }
+      DataVaultSource recordSource = linkHubSource.getSource();
+      ResolvedSourceFields resolved =
+          resolveSourceFields(
+              recordSource, options, metadataProvider, variables, checkSource, remarks);
+      if (resolved == null || linkHubSource.getHubSourceKeyFields() == null) {
+        continue;
+      }
+      for (DvLink.HubSourceKeyField hubSourceKeyField : linkHubSource.getHubSourceKeyFields()) {
+        if (hubSourceKeyField == null || hubSourceKeyField.getSourceBusinessKeyFields() == null) {
+          continue;
+        }
+        DvHub hub = model.findHub(hubSourceKeyField.getHubName());
+        for (BusinessKeySource bks : hubSourceKeyField.getSourceBusinessKeyFields()) {
+          if (bks == null || Utils.isEmpty(bks.getSourceFieldName())) {
+            continue;
+          }
+          String sourceFieldName = resolveName(bks.getSourceFieldName(), variables);
+          IValueMeta sourceMeta = resolved.fields.get(sourceFieldName);
+          if (sourceMeta == null) {
+            remarks.add(
+                new CheckResult(
+                    ICheckResult.TYPE_RESULT_ERROR,
+                    BaseMessages.getString(
+                        PKG,
+                        "DvFieldMappingValidation.SourceFieldMissing",
+                        sourceFieldName,
+                        recordSource.getName(),
+                        bks.getBusinessKeyField()),
+                    checkSource));
+            continue;
+          }
+          BusinessKey hubBk = findHubBusinessKey(hub, bks.getBusinessKeyField());
+          if (hubBk == null) {
+            remarks.add(
+                new CheckResult(
+                    ICheckResult.TYPE_RESULT_ERROR,
+                    BaseMessages.getString(
+                        PKG,
+                        "DvFieldMappingValidation.HubBusinessKeyMissing",
+                        bks.getBusinessKeyField(),
+                        hubSourceKeyField.getHubName()),
+                    checkSource));
+            continue;
+          }
+          try {
+            IValueMeta targetMeta = buildTargetValueMetaForHubBusinessKey(hubBk, variables);
+            validateMapping(
+                sourceMeta,
+                targetMeta,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.Context.LinkHubKey",
+                    bks.getBusinessKeyField(),
+                    sourceFieldName,
+                    recordSource.getName(),
+                    hubSourceKeyField.getHubName()),
+                checkSource,
+                remarks);
+            if (resolved.usedLive) {
+              addStoredDriftWarnings(
+                  resolved.storedFields,
+                  sourceFieldName,
+                  sourceMeta,
+                  recordSource.getName(),
+                  bks.getBusinessKeyField(),
+                  variables,
+                  checkSource,
+                  remarks);
+            }
+          } catch (HopException e) {
+            remarks.add(
+                new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+          }
+        }
+      }
+    }
+  }
+
+  private static void validateSatelliteAutoAttributes(
+      DvSatellite satellite,
+      DataVaultModel model,
+      ResolvedSourceFields resolved,
+      DataVaultSource recordSource,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    List<SourceField> autoFields = new ArrayList<>();
+    try {
+      List<SourceField> storedList = new ArrayList<>(resolved.storedFields.values());
+      if (!Utils.isEmpty(satellite.getHubName()) && model != null) {
+        DvHub hub = model.findHub(satellite.getHubName());
+        if (hub != null) {
+          autoFields =
+              selectHubSatelliteAutoAttributeSourceFields(hub, satellite, variables, storedList);
+        } else {
+          autoFields = storedList;
+        }
+      } else {
+        autoFields = storedList;
+      }
+    } catch (Exception e) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              "Error determining auto satellite attributes: " + e.getMessage(),
+              checkSource));
+      return;
+    }
+
+    for (SourceField sf : autoFields) {
+      if (sf == null || Utils.isEmpty(sf.getName())) {
+        continue;
+      }
+      String fieldName = resolveName(sf.getName(), variables);
+      IValueMeta sourceMeta = resolved.fields.get(fieldName);
+      if (sourceMeta == null) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.SourceFieldMissing",
+                    fieldName,
+                    recordSource.getName(),
+                    fieldName),
+                checkSource));
+        continue;
+      }
+      try {
+        IValueMeta targetMeta = valueMetaFromSourceField(sf, variables);
+        validateMapping(
+            sourceMeta,
+            targetMeta,
+            BaseMessages.getString(
+                PKG,
+                "DvFieldMappingValidation.Context.SatelliteAutoAttribute",
+                fieldName,
+                recordSource.getName()),
+            checkSource,
+            remarks);
+        if (resolved.usedLive) {
+          addStoredDriftWarnings(
+              resolved.storedFields,
+              fieldName,
+              sourceMeta,
+              recordSource.getName(),
+              fieldName,
+              variables,
+              checkSource,
+              remarks);
+        }
+      } catch (HopPluginException e) {
+        remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+      }
+    }
+  }
+
+  static List<SourceField> selectHubSatelliteAutoAttributeSourceFields(
+      DvHub hub,
+      DvSatellite satellite,
+      IVariables variables,
+      List<SourceField> sourceFields) {
+    Set<String> excluded = new HashSet<>();
+    if (hub != null && hub.getBusinessKeys() != null) {
+      for (BusinessKey bk : hub.getBusinessKeys()) {
+        if (bk == null) {
+          continue;
+        }
+        excluded.add(resolveSourceFieldName(bk.getSourceFieldName(), bk.getName(), variables));
+      }
+    }
+    if (satellite.hasDrivingKey()) {
+      excluded.add(resolveName(satellite.getDrivingKeySourceField(), variables));
+      excluded.add(resolveName(satellite.getDrivingKey(), variables));
+    }
+    List<SourceField> selected = new ArrayList<>();
+    for (SourceField sf : sourceFields) {
+      if (sf == null || Utils.isEmpty(sf.getName())) {
+        continue;
+      }
+      String name = resolveName(sf.getName(), variables);
+      if (!excluded.contains(name)) {
+        selected.add(sf);
+      }
+    }
+    return selected;
+  }
+
+  static void validateMapping(
+      IValueMeta sourceMeta,
+      IValueMeta targetMeta,
+      String context,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    if (sourceMeta.getType() != targetMeta.getType()) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DvFieldMappingValidation.TypeMismatch",
+                  context,
+                  sourceMeta.getTypeDesc(),
+                  targetMeta.getTypeDesc()),
+              checkSource));
+    }
+
+    if (isLengthSensitive(sourceMeta.getType())) {
+      int sourceLength = sourceMeta.getLength();
+      int targetLength = targetMeta.getLength();
+      if (sourceLength > 0 && targetLength > 0 && sourceLength > targetLength) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.SourceLengthExceedsTarget",
+                    context,
+                    sourceLength,
+                    targetLength),
+                checkSource));
+      } else if (sourceLength > 0 && targetLength > 0 && sourceLength < targetLength) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_WARNING,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.SourceLengthLessThanTarget",
+                    context,
+                    sourceLength,
+                    targetLength),
+                checkSource));
+      }
+    }
+
+    if (ValueMetaBase.isNumeric(sourceMeta.getType())) {
+      int sourcePrecision = sourceMeta.getPrecision();
+      int targetPrecision = targetMeta.getPrecision();
+      if (sourcePrecision > 0
+          && targetPrecision > 0
+          && sourcePrecision > targetPrecision) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.SourcePrecisionExceedsTarget",
+                    context,
+                    sourcePrecision,
+                    targetPrecision),
+                checkSource));
+      }
+    }
+  }
+
+  static IValueMeta buildTargetValueMetaForHubBusinessKey(BusinessKey bk, IVariables variables)
+      throws HopException {
+    String name = bk.getName();
+    int type = ValueMetaFactory.getIdForValueMeta(resolveVariable(variables, bk.getDataType()));
+    int length = Const.toInt(resolveVariable(variables, bk.getLength()), -1);
+    int precision = Const.toInt(resolveVariable(variables, bk.getPrecision()), -1);
+    IValueMeta meta = ValueMetaFactory.createValueMeta(name, type, length, precision);
+    if (meta == null || meta.getType() == IValueMeta.TYPE_NONE) {
+      throw new HopException(
+          BaseMessages.getString(
+              PKG, "DvFieldMappingValidation.InvalidBusinessKeyType", bk.getName()));
+    }
+    return meta;
+  }
+
+  static IValueMeta buildTargetValueMetaForSatelliteAttribute(
+      SatelliteAttribute attr, SourceField storedField, IVariables variables)
+      throws HopException {
+    String name = attr.getName();
+    String dt = attr.getDataType();
+    int typeId = IValueMeta.TYPE_STRING;
+    if (!Utils.isEmpty(dt)) {
+      typeId = ValueMetaFactory.getIdForValueMeta(resolveVariable(variables, dt));
+      if (typeId <= 0) {
+        typeId = IValueMeta.TYPE_STRING;
+      }
+    }
+    int length = Const.toInt(resolveVariable(variables, attr.getLength()), -1);
+    int precision = Const.toInt(resolveVariable(variables, attr.getPrecision()), -1);
+    if (storedField != null) {
+      if (length <= 0) {
+        length = Const.toInt(resolveVariable(variables, storedField.getLength()), -1);
+      }
+      if (precision <= 0) {
+        precision = Const.toInt(resolveVariable(variables, storedField.getPrecision()), -1);
+      }
+    }
+    return ValueMetaFactory.createValueMeta(name, typeId, length, precision);
+  }
+
+  static IValueMeta valueMetaFromSourceField(SourceField sf, IVariables variables)
+      throws HopPluginException {
+    String name = resolveName(sf.getName(), variables);
+    int type = sf.getHopType();
+    if (type <= 0) {
+      type = IValueMeta.TYPE_STRING;
+    }
+    IValueMeta vm =
+        ValueMetaFactory.createValueMeta(
+            name,
+            type,
+            Const.toInt(resolveVariable(variables, sf.getLength()), -1),
+            Const.toInt(resolveVariable(variables, sf.getPrecision()), -1));
+    return vm;
+  }
+
+  private static ResolvedSourceFields resolveSourceFields(
+      DataVaultSource recordSource,
+      DvModelCheckOptions options,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    Map<String, SourceField> storedByName = new HashMap<>();
+    try {
+      for (SourceField sf : recordSource.getFields(metadataProvider)) {
+        if (sf != null && !Utils.isEmpty(sf.getName())) {
+          storedByName.put(resolveName(sf.getName(), variables), sf);
+        }
+      }
+    } catch (HopException e) {
+      remarks.add(
+          new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+      return null;
+    }
+
+    boolean detailed =
+        options != null && options.isDetailedDataTypeChecking();
+    IDvSource dvSource = recordSource.getDvSourceOrDefault();
+
+    if (!detailed) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(
+                  PKG,
+                  "DvFieldMappingValidation.UsingStoredMetadata",
+                  recordSource.getName()),
+              checkSource));
+      return ResolvedSourceFields.fromStored(storedByName, variables);
+    }
+
+    if (!dvSource.supportsLiveFieldResolution()) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(
+                  PKG,
+                  "DvFieldMappingValidation.LiveResolutionSkipped",
+                  recordSource.getName()),
+              checkSource));
+      return ResolvedSourceFields.fromStored(storedByName, variables);
+    }
+
+    try {
+      IRowMeta liveRowMeta = dvSource.resolveLiveFields(variables, metadataProvider);
+      if (liveRowMeta == null || liveRowMeta.isEmpty()) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_WARNING,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.LiveResolutionEmpty",
+                    recordSource.getName()),
+                checkSource));
+        return ResolvedSourceFields.fromStored(storedByName, variables);
+      }
+      return ResolvedSourceFields.fromLive(liveRowMeta, storedByName, variables);
+    } catch (HopException e) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DvFieldMappingValidation.LiveResolutionFailed",
+                  recordSource.getName(),
+                  e.getMessage()),
+              checkSource));
+      return ResolvedSourceFields.fromStored(storedByName, variables);
+    }
+  }
+
+  private static void addStoredDriftWarnings(
+      Map<String, SourceField> storedFields,
+      String sourceFieldName,
+      IValueMeta liveMeta,
+      String recordSourceName,
+      String targetFieldName,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    SourceField stored = storedFields.get(sourceFieldName);
+    if (stored == null) {
+      return;
+    }
+    try {
+      IValueMeta storedMeta = valueMetaFromSourceField(stored, variables);
+      if (storedMeta.getType() != liveMeta.getType()
+          || (isLengthSensitive(storedMeta.getType())
+              && storedMeta.getLength() > 0
+              && liveMeta.getLength() > 0
+              && storedMeta.getLength() != liveMeta.getLength())
+          || (ValueMetaBase.isNumeric(storedMeta.getType())
+              && storedMeta.getPrecision() > 0
+              && liveMeta.getPrecision() > 0
+              && storedMeta.getPrecision() != liveMeta.getPrecision())) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_WARNING,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.StoredSourceDrift",
+                    targetFieldName,
+                    sourceFieldName,
+                    recordSourceName),
+                checkSource));
+      }
+    } catch (HopPluginException e) {
+      // ignore drift check if stored meta is invalid
+    }
+  }
+
+  private static boolean businessKeyAppliesToSource(
+      BusinessKey bk, String sourceName, IVariables variables) {
+    String bkSource = resolveName(bk.getRecordSourceName(), variables);
+    if (Utils.isEmpty(bkSource)) {
+      return true;
+    }
+    return bkSource.equals(sourceName);
+  }
+
+  private static BusinessKey findHubBusinessKey(DvHub hub, String businessKeyField) {
+    if (hub == null || Utils.isEmpty(businessKeyField) || hub.getBusinessKeys() == null) {
+      return null;
+    }
+    for (BusinessKey bk : hub.getBusinessKeys()) {
+      if (bk != null && businessKeyField.equals(bk.getName())) {
+        return bk;
+      }
+    }
+    return null;
+  }
+
+  private static boolean isLengthSensitive(int hopType) {
+    return hopType == IValueMeta.TYPE_STRING || hopType == IValueMeta.TYPE_BINARY;
+  }
+
+  private static String resolveSourceFieldName(
+      String sourceFieldName, String fallbackName, IVariables variables) {
+    String field = Utils.isEmpty(sourceFieldName) ? fallbackName : sourceFieldName;
+    return resolveName(field, variables);
+  }
+
+  private static String resolveName(String name, IVariables variables) {
+    return resolveVariable(variables, name);
+  }
+
+  private static String resolveVariable(IVariables variables, String value) {
+    if (value == null) {
+      return null;
+    }
+    return variables != null ? variables.resolve(value) : value;
+  }
+
+  private static IValueMeta cloneValueMeta(IValueMeta sourceMeta) throws HopPluginException {
+    return ValueMetaFactory.cloneValueMeta(sourceMeta);
+  }
+
+  private static final class ResolvedSourceFields {
+    final Map<String, IValueMeta> fields;
+    final Map<String, SourceField> storedFields;
+    final boolean usedLive;
+
+    private ResolvedSourceFields(
+        Map<String, IValueMeta> fields, Map<String, SourceField> storedFields, boolean usedLive) {
+      this.fields = fields;
+      this.storedFields = storedFields;
+      this.usedLive = usedLive;
+    }
+
+    static ResolvedSourceFields fromStored(
+        Map<String, SourceField> storedByName, IVariables variables) {
+      Map<String, IValueMeta> fields = new HashMap<>();
+      for (Map.Entry<String, SourceField> entry : storedByName.entrySet()) {
+        try {
+          fields.put(entry.getKey(), valueMetaFromSourceField(entry.getValue(), variables));
+        } catch (HopPluginException e) {
+          // skip invalid stored field
+        }
+      }
+      return new ResolvedSourceFields(fields, storedByName, false);
+    }
+
+    static ResolvedSourceFields fromLive(
+        IRowMeta liveRowMeta, Map<String, SourceField> storedByName, IVariables variables) {
+      Map<String, IValueMeta> fields = new HashMap<>();
+      for (IValueMeta vm : liveRowMeta.getValueMetaList()) {
+        if (vm != null && !Utils.isEmpty(vm.getName())) {
+          String name = resolveName(vm.getName(), variables);
+          fields.put(name, vm);
+        }
+      }
+      return new ResolvedSourceFields(fields, storedByName, true);
+    }
+  }
+}

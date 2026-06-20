@@ -170,8 +170,12 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
   @Override
   public void check(
-      List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
-    super.check(remarks, metadataProvider, variables);
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DvModelCheckOptions options,
+      DataVaultModel model) {
+    super.check(remarks, metadataProvider, variables, options, model);
     if (Utils.isEmpty(businessKeys)) {
       remarks.add(
           new CheckResult(
@@ -279,6 +283,32 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
               BaseMessages.getString(
                   PKG, "DvHub.CheckResult.HasRecordSourceFieldName", recordSourceFieldName),
               this));
+    }
+
+    if (metadataProvider != null && recordSources != null && options != null) {
+      for (String recordSourceRef : recordSources) {
+        if (Utils.isEmpty(recordSourceRef)) {
+          continue;
+        }
+        try {
+          String resolvedRef = variables != null ? variables.resolve(recordSourceRef) : recordSourceRef;
+          DataVaultSource recordSource =
+              metadataProvider.getSerializer(DataVaultSource.class).load(resolvedRef);
+          if (recordSource != null) {
+            DvFieldMappingValidationSupport.validateHubBusinessKeys(
+                this, recordSource, options, metadataProvider, variables, this, remarks);
+          }
+        } catch (HopException e) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  "Error loading record source '"
+                      + recordSourceRef
+                      + "' for type validation: "
+                      + e.getMessage(),
+                  this));
+        }
+      }
     }
   }
 

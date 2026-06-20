@@ -24,6 +24,7 @@ import lombok.Setter;
 import org.apache.hop.core.RowMetaAndData;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.core.gui.plugin.GuiElementType;
@@ -76,6 +77,17 @@ public class DvDatabaseSource extends DvSourceBase implements IDvSource {
 
   public DvDatabaseSource() {
     this.sourceType = DvSourceType.DATABASE;
+  }
+
+  @Override
+  public boolean supportsLiveFieldResolution() {
+    return true;
+  }
+
+  @Override
+  public IRowMeta resolveLiveFields(IVariables variables, IHopMetadataProvider metadataProvider)
+      throws HopException {
+    return DvDatabaseSourceLiveSchemaSupport.resolveLiveFields(this, variables, metadataProvider);
   }
 
   @Override

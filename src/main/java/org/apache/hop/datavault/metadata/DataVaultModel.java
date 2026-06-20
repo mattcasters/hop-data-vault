@@ -207,12 +207,17 @@ public class DataVaultModel extends HopMetadataBase
    * @return list of check results (errors, warnings, ok)
    */
   public List<ICheckResult> check(IHopMetadataProvider metadataProvider, IVariables variables) {
+    return check(metadataProvider, variables, DvModelCheckOptions.defaults());
+  }
+
+  public List<ICheckResult> check(
+      IHopMetadataProvider metadataProvider, IVariables variables, DvModelCheckOptions options) {
     List<ICheckResult> remarks = new ArrayList<>();
 
     List<DataVaultSource> sources = loadDataVaultSources(metadataProvider, remarks);
     checkTargetDatabase(remarks);
     checkTablesPresent(remarks);
-    checkTables(remarks, metadataProvider, variables, collectDefinedHubAndLinkNames());
+    checkTables(remarks, metadataProvider, variables, collectDefinedHubAndLinkNames(), options);
     checkDuplicateTableNames(remarks);
     checkDuplicateStsTableNames(remarks, variables);
     checkDuplicateSourceNames(remarks, sources);
@@ -284,9 +289,10 @@ public class DataVaultModel extends HopMetadataBase
       List<ICheckResult> remarks,
       IHopMetadataProvider metadataProvider,
       IVariables variables,
-      DefinedTableNames definedNames) {
+      DefinedTableNames definedNames,
+      DvModelCheckOptions options) {
     for (IDvTable table : getTables()) {
-      table.check(remarks, metadataProvider, variables);
+      table.check(remarks, metadataProvider, variables, options, this);
       if (table instanceof DvSatellite satellite) {
         checkSatelliteReferences(remarks, satellite, definedNames);
       } else if (table instanceof DvLink link) {

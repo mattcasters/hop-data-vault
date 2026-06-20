@@ -178,8 +178,13 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   }
 
   @Override
-  public void check(List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
-    super.check(remarks, metadataProvider, variables);
+  public void check(
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DvModelCheckOptions options,
+      DataVaultModel model) {
+    super.check(remarks, metadataProvider, variables, options, model);
     if (Utils.isEmpty(hubNames) || hubNames.size() < 2) {
       remarks.add(
           new CheckResult(
@@ -436,6 +441,11 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
           }
         }
       }
+    }
+
+    if (metadataProvider != null && options != null && model != null) {
+      DvFieldMappingValidationSupport.validateLinkHubKeyFields(
+          this, model, options, metadataProvider, variables, this, remarks);
     }
   }
 

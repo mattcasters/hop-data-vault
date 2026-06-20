@@ -242,8 +242,13 @@ public class DvSatellite extends DvTableBase
   }
 
   @Override
-  public void check(List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
-    super.check(remarks, metadataProvider, variables);
+  public void check(
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DvModelCheckOptions options,
+      DataVaultModel model) {
+    super.check(remarks, metadataProvider, variables, options, model);
     if (Utils.isEmpty(hubName) && Utils.isEmpty(linkName)) {
       remarks.add(
           new CheckResult(
@@ -343,6 +348,11 @@ public class DvSatellite extends DvTableBase
 
     if (isStatusTrackingEnabled()) {
       checkStatusTracking(remarks, metadataProvider, variables);
+    }
+
+    if (metadataProvider != null && options != null) {
+      DvFieldMappingValidationSupport.validateSatelliteMappings(
+          this, model, options, metadataProvider, variables, this, remarks);
     }
   }
 

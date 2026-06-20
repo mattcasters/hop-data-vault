@@ -49,6 +49,7 @@ import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvModelCheckOptions;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvGeneratedPipelineSupport;
 import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
@@ -128,6 +129,15 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
   private boolean abortOnModelCheckFailures = true;
+
+  @GuiWidgetElement(
+      order = "0450",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionDataVaultUpdate.DetailedDataTypeChecking.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.DetailedDataTypeChecking.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
+  @HopMetadataProperty
+  private boolean detailedDataTypeChecking = true;
 
   @GuiWidgetElement(
       order = "0350",
@@ -220,6 +230,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     this.pipelineRunConfiguration = meta.pipelineRunConfiguration;
     this.logModelCheckFailures = meta.logModelCheckFailures;
     this.abortOnModelCheckFailures = meta.abortOnModelCheckFailures;
+    this.detailedDataTypeChecking = meta.detailedDataTypeChecking;
     this.updateTargetDatabaseStructure = meta.updateTargetDatabaseStructure;
     this.ddlSqlFilename = meta.ddlSqlFilename;
     this.failIfDdlNeeded = meta.failIfDdlNeeded;
@@ -258,16 +269,20 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
 
       // Perform model check if requested
       if (logModelCheckFailures || abortOnModelCheckFailures) {
-        List<ICheckResult> remarks = model.check(getMetadataProvider(), this);
+        DvModelCheckOptions checkOptions = new DvModelCheckOptions();
+        checkOptions.setDetailedDataTypeChecking(detailedDataTypeChecking);
+        List<ICheckResult> remarks = model.check(getMetadataProvider(), this, checkOptions);
         for (ICheckResult remark : remarks) {
-          if (remark.getType() == ICheckResult.TYPE_RESULT_WARNING
-              || remark.getType() == ICheckResult.TYPE_RESULT_ERROR) {
-            logBasic(
-                BaseMessages.getString(
-                    PKG,
-                    "ActionDataVaultUpdate.Log.ModelCheckResult",
-                    remark.getTypeDesc(),
-                    remark.getText()));
+          String message =
+              BaseMessages.getString(
+                  PKG,
+                  "ActionDataVaultUpdate.Log.ModelCheckResult",
+                  remark.getTypeDesc(),
+                  remark.getText());
+          if (remark.getType() == ICheckResult.TYPE_RESULT_ERROR) {
+            logError(message);
+          } else if (remark.getType() == ICheckResult.TYPE_RESULT_WARNING) {
+            logBasic(message);
           }
         }
 

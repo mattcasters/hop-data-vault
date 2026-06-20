@@ -65,12 +65,25 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
   /**
    * Perform checks on this table definition and add results (errors, warnings, etc) to the
    * provided list.
-   *
-   * @param remarks the list to append CheckResult instances to
-   * @param metadataProvider for loading referenced sources etc to validate fields/attributes etc.
-   * @param variables for variable resolution if needed during checks
    */
-  void check(List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables);
+  default void check(
+      List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
+    check(remarks, metadataProvider, variables, DvModelCheckOptions.defaults(), null);
+  }
+
+  /**
+   * Perform checks on this table definition and add results (errors, warnings, etc) to the
+   * provided list.
+   *
+   * @param options controls detailed source schema resolution during type validation
+   * @param model containing model (for cross-table checks); may be null
+   */
+  void check(
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DvModelCheckOptions options,
+      DataVaultModel model);
 
   /**
    * Generate "update" pipeline(s) for this table.

@@ -32,6 +32,7 @@
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>Y</logModelCheckFailures>
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
+      <detailedDataTypeChecking>Y</detailedDataTypeChecking>
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
@@ -229,6 +230,7 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>N</logModelCheckFailures>
       <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
+      <detailedDataTypeChecking>N</detailedDataTypeChecking>
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>

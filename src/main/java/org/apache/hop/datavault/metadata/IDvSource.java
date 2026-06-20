@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.hop.core.RowMetaAndData;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
@@ -66,6 +67,20 @@ public interface IDvSource extends IHasName, IChanged {
       int rowLimit,
       int queryTimeoutSeconds)
       throws HopException;
+
+  /** Whether {@link #resolveLiveFields} can read the current physical source schema. */
+  default boolean supportsLiveFieldResolution() {
+    return false;
+  }
+
+  /**
+   * Returns the current row layout from the physical source (e.g. live database columns). Returns
+   * null when not supported or unavailable.
+   */
+  default IRowMeta resolveLiveFields(IVariables variables, IHopMetadataProvider metadataProvider)
+      throws HopException {
+    return null;
+  }
 
   /**
    * Factory used by the Hop metadata serializer (and when serializing lists of sources inside
