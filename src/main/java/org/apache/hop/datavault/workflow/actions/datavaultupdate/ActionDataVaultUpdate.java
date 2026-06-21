@@ -52,6 +52,7 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvModelCheckOptions;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvGeneratedPipelineSupport;
+import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -459,6 +460,15 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       }
 
       DataVaultConfiguration pipelineConfig = model.getConfigurationOrDefault();
+      try {
+        validatePipelineIntegerSettings(pipelineConfig);
+      } catch (HopException e) {
+        logError(e.getMessage());
+        result.setResult(false);
+        result.setNrErrors(1);
+        return result;
+      }
+
       LogLevel pipelineLogLevel = pipelineConfig.resolveExecutionLogLevel();
       List<PipelineMeta> allPipelineMetas = new ArrayList<>();
 
@@ -602,6 +612,19 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       result.setNrErrors(1);
       return result;
     }
+  }
+
+  private void validatePipelineIntegerSettings(DataVaultConfiguration pipelineConfig)
+      throws HopException {
+    DvIntegerSettingValidationSupport.requireModelPipelineIntegerSettings(
+        pipelineConfig, getVariables());
+    DvIntegerSettingValidationSupport.requirePositiveInteger(
+        parallelPipelineCopies,
+        getVariables(),
+        "1",
+        BaseMessages.getString(
+            DvIntegerSettingValidationSupport.class,
+            "DvIntegerSettingValidation.Label.ParallelPipelineCopies"));
   }
 
   private boolean hasDdlStatements(List<String> ddlStatements) {

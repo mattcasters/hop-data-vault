@@ -30,6 +30,7 @@ import org.apache.hop.core.logging.ILoggingObject;
 import org.apache.hop.core.logging.LogLevel;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
@@ -69,20 +70,15 @@ public final class DvPipelineOrchestratorSupport {
   }
 
   /** Resolves parallel pipeline executor copies (minimum 1). */
-  public static int resolveParallelCopies(String copiesSetting, IVariables variables) {
-    String value = copiesSetting;
-    if (variables != null) {
-      value = variables.resolve(value);
-    }
-    if (Utils.isEmpty(value)) {
-      return 1;
-    }
-    try {
-      int copies = Integer.parseInt(value.trim());
-      return Math.max(1, copies);
-    } catch (NumberFormatException e) {
-      return 1;
-    }
+  public static int resolveParallelCopies(String copiesSetting, IVariables variables)
+      throws HopException {
+    return DvIntegerSettingValidationSupport.requirePositiveInteger(
+        copiesSetting,
+        variables,
+        "1",
+        BaseMessages.getString(
+            DvIntegerSettingValidationSupport.class,
+            "DvIntegerSettingValidation.Label.ParallelPipelineCopies"));
   }
 
   /** Creates the staging folder and removes any previously staged {@code .hpl} files. */

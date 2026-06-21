@@ -216,6 +216,7 @@ public class DataVaultModel extends HopMetadataBase
 
     List<DataVaultSource> sources = loadDataVaultSources(metadataProvider, remarks);
     checkTargetDatabase(remarks);
+    checkTargetLoadingIntegerSettings(remarks, variables);
     checkTablesPresent(remarks);
     checkTables(remarks, metadataProvider, variables, collectDefinedHubAndLinkNames(), options);
     checkDuplicateTableNames(remarks);
@@ -238,6 +239,19 @@ public class DataVaultModel extends HopMetadataBase
               BaseMessages.getString(PKG, "DataVaultModel.CheckResult.ErrorLoadingMetadata"),
               null));
       return new ArrayList<>();
+    }
+  }
+
+  private void checkTargetLoadingIntegerSettings(
+      List<ICheckResult> remarks, IVariables variables) {
+    DataVaultConfiguration config = getConfigurationOrDefault();
+    for (DvIntegerSettingValidationSupport.IntegerSettingValidation validation :
+        DvIntegerSettingValidationSupport.validateModelPipelineIntegerSettings(config, variables)) {
+      if (!validation.isValid()) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR, validation.errorMessage(), null));
+      }
     }
   }
 

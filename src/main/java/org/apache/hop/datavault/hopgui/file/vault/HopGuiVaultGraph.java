@@ -62,6 +62,7 @@ import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultClipboard
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultSnapshotUndo;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvModelCheckOptions;
+import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvNote;
@@ -1577,13 +1578,16 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     String tableName =
         !Utils.isEmpty(table.getTableName()) ? table.getTableName() : table.getName();
     try {
+      DvIntegerSettingValidationSupport.requireModelPipelineIntegerSettings(
+          model.getConfigurationOrDefault(), getVariables());
+
       // Provide a static load date value for this batch (used in Constant transform + stored in
       // target)
       Timestamp loadDate = Timestamp.from(Instant.now());
 
       List<PipelineMeta> pipelineMetas =
           table.generateUpdatePipelines(
-              hopGui.getMetadataProvider(), hopGui.getVariables(), model, loadDate, null);
+              hopGui.getMetadataProvider(), getVariables(), model, loadDate, null);
       if (pipelineMetas == null || pipelineMetas.isEmpty()) {
         return;
       }
