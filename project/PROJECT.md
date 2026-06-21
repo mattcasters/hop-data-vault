@@ -21,13 +21,15 @@ project/
 │   ├── basic/
 │   ├── multi-active-satellite/
 │   ├── link-satellite/
+│   ├── link-satellite-driving-key/
 │   └── load-end-date/
 ├── images/                      # Screenshots (models, workflows, generated pipelines)
 └── tests/
-    ├── run-tests.hwf            # Orchestrator: runs all four test suites in sequence
+    ├── run-tests.hwf            # Orchestrator: runs all test suites in sequence
     ├── basic/
     ├── satellite-multi-active/
     ├── link-satellite/
+    ├── link-satellite-driving-key/
     └── load-end-date/
 ```
 
@@ -41,6 +43,7 @@ project/
 | `tests/basic/vault1.hdv` | Classic hub / link / satellite model (customer, order, product) |
 | `tests/satellite-multi-active/customer-phone.hdv` | Hub + multi-active satellite (`phone_type` driving key) |
 | `tests/link-satellite/link-satellite.hdv` | Hubs + link + link satellite (customer–product relationship attributes) |
+| `tests/link-satellite-driving-key/link-satellite-driving-key.hdv` | Hubs + link + multi-active link satellite (`line_number` driving key) |
 | `tests/load-end-date/load-end-date.hdv` | Hub + standard satellite with load end date (`x_load_end_ts`) |
 
 `project-config.json` sets `metadataBaseFolder`, `dataSetsCsvFolder`, and `unitTestsBasePath` relative to `${PROJECT_HOME}`.
@@ -52,7 +55,7 @@ project/
 `run-tests.sh` changes to your local Hop client build and runs `hop run` against the `hop-data-vault` project. Edit the `cd` path at the top of the script if your Hop installation differs.
 
 ```bash
-# All four suites (~15 seconds on a local PostgreSQL)
+# All suites (~20 seconds on a local PostgreSQL)
 ./run-tests.sh
 
 # One workflow
@@ -68,9 +71,10 @@ Open this folder as a Hop project and run **`tests/run-tests.hwf`**, or run any 
 1. **`tests/basic/update-vault1.hwf`** — vault1 initial + incremental load with validation
 2. **`tests/satellite-multi-active/update-customer-phone.hwf`** — multi-active satellite
 3. **`tests/link-satellite/update-link-satellite.hwf`** — link + link satellite
-4. **`tests/load-end-date/update-load-end-date.hwf`** — load end date satellite
+4. **`tests/link-satellite-driving-key/update-link-satellite-driving-key.hwf`** — multi-active link satellite with driving key
+5. **`tests/load-end-date/update-load-end-date.hwf`** — load end date satellite
 
-All four must succeed for a full test run.
+All suites must succeed for a full test run.
 
 ---
 
@@ -164,6 +168,34 @@ Link satellite behavior: descriptive attributes on the relationship are stored i
 8. **Test after update** — validate-lnk-customer-product2 UNIT, validate-sat-lnk-customer-product2 UNIT.
 
 Golden datasets: `lnk-customer-product-golden1/2`, `sat-lnk-customer-product-golden1/2` in `datasets/`. Validation pipelines are in `tests/link-satellite/validate-*.hpl`.
+
+---
+
+## Test suite: `tests/link-satellite-driving-key/` (multi-active link satellite)
+
+### Sample model
+
+- **Model file:** `tests/link-satellite-driving-key/link-satellite-driving-key.hdv`
+- **Configuration:** `vault-config`
+- **Hubs:** `hub_customer_lsd` (`customer_id`), `hub_product_lsd` (`product_id`)
+- **Link:** `lnk_customer_product_lsd` — connects both hubs; references `sat_lnk_customer_product_lsd`
+- **Link satellite:** `sat_lnk_customer_product_lsd` — parent is the link; **driving key** `line_number`; attributes `quantity`, `discount_pct`
+- **Record source:** `CRM-customer-product-line` → `customer_product_line` table
+
+Multi-active link satellite behavior: one satellite row per link hash key **and** driving key (e.g. multiple order lines for the same customer–product relationship). Change detection is scoped per driving key — updating line 1 does not affect line 2.
+
+### Workflow: `tests/link-satellite-driving-key/update-link-satellite-driving-key.hwf`
+
+1. **Create customer_product_line table** on CRM.
+2. **Drop Vault tables** — `hub_customer_lsd`, `hub_product_lsd`, `lnk_customer_product_lsd`, `sat_lnk_customer_product_lsd`.
+3. **load-customer-product-line1** — from `files/link-satellite-driving-key/customer_product_line_load1.csv` (3 lines across 2 relationships).
+4. **update link-satellite-driving-key.hdv** — first Data Vault Update (DDL enabled, model checks on).
+5. **Test after initial** — validate-lnk-customer-product-lsd UNIT, validate-sat-lnk-customer-product-lsd UNIT.
+6. **load-customer-product-line2** — incremental batch from `customer_product_line_load2.csv` (attribute change on one line, new relationship).
+7. **update link-satellite-driving-key.hdv** (second run) — applies deltas only.
+8. **Test after update** — validate-lnk-customer-product-lsd2 UNIT, validate-sat-lnk-customer-product-lsd2 UNIT.
+
+Golden datasets: `lnk-customer-product-lsd-golden1/2`, `sat-lnk-customer-product-lsd-golden1/2` in `datasets/`. Validation pipelines are in `tests/link-satellite-driving-key/validate-*.hpl`.
 
 ---
 

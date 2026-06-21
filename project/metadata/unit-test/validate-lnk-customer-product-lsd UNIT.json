@@ -1,0 +1,41 @@
+{
+  "database_replacements": [],
+  "autoOpening": true,
+  "description": "",
+  "persist_filename": "",
+  "test_type": "UNIT_TEST",
+  "variableValues": [],
+  "basePath": "${HOP_UNIT_TESTS_FOLDER}",
+  "golden_data_sets": [
+    {
+      "field_mappings": [
+        {
+          "transform_field": "lnk_customer_product_lsd_hk",
+          "data_set_field": "lnk_customer_product_lsd_hk"
+        },
+        {
+          "transform_field": "customer_hk",
+          "data_set_field": "customer_hk"
+        },
+        {
+          "transform_field": "product_hk",
+          "data_set_field": "product_hk"
+        },
+        {
+          "transform_field": "x_record_source",
+          "data_set_field": "x_record_source"
+        }
+      ],
+      "field_order": [
+        "lnk_customer_product_lsd_hk",
+        "customer_hk"
+      ],
+      "data_set_name": "lnk-customer-product-lsd-golden1",
+      "transform_name": "Validate"
+    }
+  ],
+  "input_data_sets": [],
+  "name": "validate-lnk-customer-product-lsd UNIT",
+  "trans_test_tweaks": [],
+  "pipeline_filename": "./tests/link-satellite-driving-key/validate-lnk-customer-product-lsd.hpl"
+}

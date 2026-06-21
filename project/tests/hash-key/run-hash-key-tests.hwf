@@ -6,7 +6,18 @@
   <modified_user>-</modified_user>
   <created_date>2026/06/19 12:00:00.000</created_date>
   <modified_date>2026/06/19 12:00:00.000</modified_date>
-  <parameters/>
+  <parameters>
+    <parameter>
+      <name>OUTPUT_COPIES</name>
+      <description>Valid in the current workflow</description>
+      <default_value>1</default_value>
+    </parameter>
+    <parameter>
+      <name>PIPELINE_COPIES</name>
+      <description>Valid in the current workflow</description>
+      <default_value>3</default_value>
+    </parameter>
+  </parameters>
   <actions>
     <action>
       <repeat>N</repeat>

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <workflow>
-  <name>update-link-satellite</name>
+  <name>update-link-satellite-driving-key</name>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <created_user>-</created_user>
   <modified_user>-</modified_user>
-  <created_date>2026/06/15 12:00:00.000</created_date>
-  <modified_date>2026/06/15 12:00:00.000</modified_date>
+  <created_date>2026/06/21 12:00:00.000</created_date>
+  <modified_date>2026/06/21 12:00:00.000</modified_date>
   <parameters>
     <parameter>
       <name>OUTPUT_COPIES</name>
@@ -39,12 +39,13 @@
       <attributes_hac/>
     </action>
     <action>
-      <sql>DROP TABLE IF EXISTS customer_product
+      <sql>DROP TABLE IF EXISTS customer_product_line
 ;
-CREATE TABLE customer_product
+CREATE TABLE customer_product_line
 (
   customer_id INTEGER
 , product_id VARCHAR(7)
+, line_number INTEGER
 , quantity INTEGER
 , discount_pct NUMERIC(5,2)
 , record_source VARCHAR(20)
@@ -57,7 +58,7 @@ CREATE TABLE customer_product
       <sqlfilename/>
       <sqlfilename_encoding/>
       <sendOneStatement>N</sendOneStatement>
-      <name>Create customer_product table</name>
+      <name>Create customer_product_line table</name>
       <description/>
       <type>SQL</type>
       <attributes/>
@@ -67,13 +68,13 @@ CREATE TABLE customer_product
       <attributes_hac/>
     </action>
     <action>
-      <sql>DROP TABLE IF EXISTS hub_customer_ls
+      <sql>DROP TABLE IF EXISTS hub_customer_lsd
 ;
-DROP TABLE IF EXISTS hub_product_ls
+DROP TABLE IF EXISTS hub_product_lsd
 ;
-DROP TABLE IF EXISTS lnk_customer_product
+DROP TABLE IF EXISTS lnk_customer_product_lsd
 ;
-DROP TABLE IF EXISTS sat_lnk_customer_product
+DROP TABLE IF EXISTS sat_lnk_customer_product_lsd
 ;
 </sql>
       <connection>Vault</connection>
@@ -92,7 +93,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <attributes_hac/>
     </action>
     <action>
-      <filename>${PROJECT_HOME}/tests/link-satellite/load-customer-product1.hpl</filename>
+      <filename>${PROJECT_HOME}/tests/link-satellite-driving-key/load-customer-product-line1.hpl</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <clear_rows>N</clear_rows>
@@ -108,7 +109,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>load-customer-product1</name>
+      <name>load-customer-product-line1</name>
       <description/>
       <type>PIPELINE</type>
       <attributes/>
@@ -118,19 +119,19 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <attributes_hac/>
     </action>
     <action>
-      <dataVaultModelFile>${PROJECT_HOME}/tests/link-satellite/link-satellite.hdv</dataVaultModelFile>
+      <dataVaultModelFile>${PROJECT_HOME}/tests/link-satellite-driving-key/link-satellite-driving-key.hdv</dataVaultModelFile>
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>Y</logModelCheckFailures>
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <ddlSqlFilename>${java.io.tmpdir}/link-satellite-ddl.sql</ddlSqlFilename>
+      <ddlSqlFilename>${java.io.tmpdir}/link-satellite-driving-key-ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
       <recordSourceGroup/>
       <ensureSpecialRecords>Y</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <name>update link-satellite.hdv</name>
+      <name>update link-satellite-driving-key.hdv</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
@@ -142,10 +143,10 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
     <action>
       <test_names>
         <test_name>
-          <name>validate-lnk-customer-product UNIT</name>
+          <name>validate-lnk-customer-product-lsd UNIT</name>
         </test_name>
         <test_name>
-          <name>validate-sat-lnk-customer-product UNIT</name>
+          <name>validate-sat-lnk-customer-product-lsd UNIT</name>
         </test_name>
       </test_names>
       <name>test after initial</name>
@@ -158,7 +159,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <attributes_hac/>
     </action>
     <action>
-      <filename>${PROJECT_HOME}/tests/link-satellite/load-customer-product2.hpl</filename>
+      <filename>${PROJECT_HOME}/tests/link-satellite-driving-key/load-customer-product-line2.hpl</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <clear_rows>N</clear_rows>
@@ -174,7 +175,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>load-customer-product2</name>
+      <name>load-customer-product-line2</name>
       <description/>
       <type>PIPELINE</type>
       <attributes/>
@@ -184,7 +185,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <attributes_hac/>
     </action>
     <action>
-      <dataVaultModelFile>${PROJECT_HOME}/tests/link-satellite/link-satellite.hdv</dataVaultModelFile>
+      <dataVaultModelFile>${PROJECT_HOME}/tests/link-satellite-driving-key/link-satellite-driving-key.hdv</dataVaultModelFile>
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>N</logModelCheckFailures>
       <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
@@ -196,7 +197,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <recordSourceGroup/>
       <ensureSpecialRecords>N</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <name>update link-satellite.hdv 2</name>
+      <name>update link-satellite-driving-key.hdv 2</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
@@ -208,10 +209,10 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
     <action>
       <test_names>
         <test_name>
-          <name>validate-lnk-customer-product2 UNIT</name>
+          <name>validate-lnk-customer-product-lsd2 UNIT</name>
         </test_name>
         <test_name>
-          <name>validate-sat-lnk-customer-product2 UNIT</name>
+          <name>validate-sat-lnk-customer-product-lsd2 UNIT</name>
         </test_name>
       </test_names>
       <name>test after update</name>
@@ -227,13 +228,13 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
   <hops>
     <hop>
       <from>Start</from>
-      <to>Create customer_product table</to>
+      <to>Create customer_product_line table</to>
       <evaluation>Y</evaluation>
       <unconditional>Y</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Create customer_product table</from>
+      <from>Create customer_product_line table</from>
       <to>drop vault tables</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
@@ -241,20 +242,20 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
     </hop>
     <hop>
       <from>drop vault tables</from>
-      <to>load-customer-product1</to>
+      <to>load-customer-product-line1</to>
       <evaluation>Y</evaluation>
       <unconditional>Y</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>load-customer-product1</from>
-      <to>update link-satellite.hdv</to>
+      <from>load-customer-product-line1</from>
+      <to>update link-satellite-driving-key.hdv</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update link-satellite.hdv</from>
+      <from>update link-satellite-driving-key.hdv</from>
       <to>test after initial</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
@@ -262,20 +263,20 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
     </hop>
     <hop>
       <from>test after initial</from>
-      <to>load-customer-product2</to>
+      <to>load-customer-product-line2</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>load-customer-product2</from>
-      <to>update link-satellite.hdv 2</to>
+      <from>load-customer-product-line2</from>
+      <to>update link-satellite-driving-key.hdv 2</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update link-satellite.hdv 2</from>
+      <from>update link-satellite-driving-key.hdv 2</from>
       <to>test after update</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>

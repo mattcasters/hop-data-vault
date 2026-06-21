@@ -6,7 +6,18 @@
   <modified_user>-</modified_user>
   <created_date>2026/06/15 22:33:35.991</created_date>
   <modified_date>2026/06/15 22:33:35.991</modified_date>
-  <parameters/>
+  <parameters>
+    <parameter>
+      <name>OUTPUT_COPIES</name>
+      <description>Valid in the current workflow</description>
+      <default_value>1</default_value>
+    </parameter>
+    <parameter>
+      <name>PIPELINE_COPIES</name>
+      <description>Valid in the current workflow</description>
+      <default_value>3</default_value>
+    </parameter>
+  </parameters>
   <actions>
     <action>
       <repeat>N</repeat>
@@ -74,6 +85,29 @@
       <attributes_hac/>
     </action>
     <action>
+      <filename>${PROJECT_HOME}/tests/link-satellite-driving-key/update-link-satellite-driving-key.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>update-link-satellite-driving-key</name>
+      <description/>
+      <type>WORKFLOW</type>
+      <attributes/>
+      <xloc>880</xloc>
+      <yloc>64</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
       <filename>${PROJECT_HOME}/tests/satellite-multi-active/update-customer-phone.hwf</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
@@ -114,7 +148,7 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>384</xloc>
+      <xloc>544</xloc>
       <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -137,7 +171,7 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>544</xloc>
+      <xloc>720</xloc>
       <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -160,8 +194,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>912</xloc>
-      <yloc>64</yloc>
+      <xloc>384</xloc>
+      <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -170,7 +204,7 @@
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>912</xloc>
+      <xloc>880</xloc>
       <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -218,6 +252,13 @@
     </hop>
     <hop>
       <from>update-link-satellite</from>
+      <to>update-link-satellite-driving-key</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>update-link-satellite-driving-key</from>
       <to>update-load-end-date</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>

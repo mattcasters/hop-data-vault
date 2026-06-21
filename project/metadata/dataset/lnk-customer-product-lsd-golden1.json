@@ -1,0 +1,40 @@
+{
+  "base_filename": "lnk-customer-product-lsd-golden1.csv",
+  "name": "lnk-customer-product-lsd-golden1",
+  "description": "Expected link table state after initial load (multi-active link satellite test)",
+  "dataset_fields": [
+    {
+      "field_comment": "lnk_customer_product_lsd_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "lnk_customer_product_lsd_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "customer_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "customer_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "product_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "product_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "x_record_source",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "x_record_source",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}
