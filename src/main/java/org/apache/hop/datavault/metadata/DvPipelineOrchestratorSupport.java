@@ -22,6 +22,9 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
+import org.apache.hop.datavault.metrics.DvUpdateMetricsConstants;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.exception.HopException;
@@ -169,11 +172,19 @@ public final class DvPipelineOrchestratorSupport {
       PipelineMeta orchestrator,
       String runConfiguration,
       LogLevel logLevel,
+      String metricsOutputFolder,
       ILoggingObject parent,
       IWorkflowEngine<WorkflowMeta> parentWorkflow,
       IVariables variables,
       IHopMetadataProvider metadataProvider)
       throws HopException {
+    String metricsRunId = UUID.randomUUID().toString();
+    String modelName = resolveOrchestratorModelName(orchestrator);
+    if (variables != null) {
+      variables.setVariable(DvUpdateMetricsConstants.VAR_RUN_ID, metricsRunId);
+      variables.setVariable(DvUpdateMetricsConstants.VAR_MODEL_NAME, modelName);
+    }
+
     IPipelineEngine<PipelineMeta> engine =
         PipelineEngineFactory.createPipelineEngine(
             variables, runConfiguration, metadataProvider, orchestrator);
@@ -186,8 +197,28 @@ public final class DvPipelineOrchestratorSupport {
     engine.execute();
     engine.waitUntilFinished();
 
+    DvUpdateMetricsCollector.publishRunSummary(
+        engine.getLogChannel(),
+        metricsRunId,
+        modelName,
+        logLevel,
+        metricsOutputFolder,
+        engine.getLogChannelId(),
+        variables);
+
     Result orchestratorResult = engine.getResult();
     return orchestratorResult != null ? orchestratorResult : new Result();
+  }
+
+  private static String resolveOrchestratorModelName(PipelineMeta orchestrator) {
+    if (orchestrator == null || Utils.isEmpty(orchestrator.getName())) {
+      return "";
+    }
+    String name = orchestrator.getName();
+    if (name.startsWith(DvUpdateMetricsConstants.ORCHESTRATOR_NAME_PREFIX)) {
+      return name.substring(DvUpdateMetricsConstants.ORCHESTRATOR_NAME_PREFIX.length());
+    }
+    return name;
   }
 
   /** Deletes the staging folder and all files and sub-folders below it. */

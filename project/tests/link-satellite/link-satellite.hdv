@@ -1,5 +1,4 @@
 <data-vault-model>
-  <name>link-satellite</name>
   <filename>/home/matt/git/mattcasters/hop-data-vault/project/tests/link-satellite/link-satellite.hdv</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description>Link satellite test case: customer-product relationship with quantity and discount attributes</description>
@@ -29,10 +28,13 @@
     <recordSourceFieldLength>100</recordSourceFieldLength>
     <useLoadEndDate>N</useLoadEndDate>
     <targetTableBatchSize>1000</targetTableBatchSize>
+    <targetTableParallelCopies>${OUTPUT_COPIES}</targetTableParallelCopies>
+    <execution_log_level>Minimal</execution_log_level>
+    <generatedPipelineFolder/>
     <hubPipelineNamePrefix>hub-</hubPipelineNamePrefix>
     <linkPipelineNamePrefix>link-</linkPipelineNamePrefix>
     <satellitePipelineNamePrefix>sat-</satellitePipelineNamePrefix>
-    <targetTableParallelCopies>${OUTPUT_COPIES}</targetTableParallelCopies>
+    <stsPipelineNamePrefix>sts-</stsPipelineNamePrefix>
   </configuration>
   <tables>
     <table>
@@ -165,6 +167,10 @@
       <drivingKey/>
       <drivingKeySourceField/>
       <recordSource>CRM-customer-product</recordSource>
+      <statusTrackingEnabled>N</statusTrackingEnabled>
+      <statusFieldName>record_status</statusFieldName>
+      <activeStatusValue>ACTIVE</activeStatusValue>
+      <deletedStatusValue>DELETED</deletedStatusValue>
       <tableName>sat_lnk_customer_product</tableName>
       <description>Link satellite: quantity and discount for each customer-product relationship</description>
       <tableType>SATELLITE</tableType>
@@ -175,4 +181,5 @@
     </table>
   </tables>
   <notes/>
+  <name>link-satellite</name>
 </data-vault-model>

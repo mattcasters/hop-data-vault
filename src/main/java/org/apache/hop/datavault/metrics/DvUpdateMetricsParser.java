@@ -1,0 +1,73 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.datavault.metrics;
+
+import java.util.Optional;
+import org.apache.hop.core.util.Utils;
+
+/** Parses generated Data Vault update pipeline names into table type, table name, and source. */
+public final class DvUpdateMetricsParser {
+
+  private static final String[] TABLE_TYPE_PREFIXES = {"hub-", "link-", "sat-", "sts-"};
+
+  private DvUpdateMetricsParser() {}
+
+  public static Optional<ParsedPipeline> parse(String pipelineName) {
+    if (Utils.isEmpty(pipelineName)) {
+      return Optional.empty();
+    }
+    if (pipelineName.startsWith(DvUpdateMetricsConstants.ORCHESTRATOR_NAME_PREFIX)) {
+      return Optional.empty();
+    }
+
+    String tableType = null;
+    String remainder = pipelineName;
+    for (String prefix : TABLE_TYPE_PREFIXES) {
+      if (pipelineName.startsWith(prefix)) {
+        tableType = prefix.substring(0, prefix.length() - 1);
+        remainder = pipelineName.substring(prefix.length());
+        break;
+      }
+    }
+    if (tableType == null) {
+      return Optional.empty();
+    }
+
+    int separator = remainder.indexOf('-');
+    if (separator <= 0 || separator >= remainder.length() - 1) {
+      return Optional.empty();
+    }
+
+    String tableName = remainder.substring(0, separator);
+    String sourcePart = remainder.substring(separator + 1);
+    String sourceName = resolveSourceName(sourcePart);
+
+    return Optional.of(new ParsedPipeline(tableType, tableName, sourceName));
+  }
+
+  private static String resolveSourceName(String sourcePart) {
+    int underscore = sourcePart.lastIndexOf('_');
+    if (underscore > 0 && underscore < sourcePart.length() - 1) {
+      return sourcePart.substring(underscore + 1);
+    }
+    return sourcePart;
+  }
+
+  public record ParsedPipeline(String tableType, String tableName, String sourceName) {}
+}

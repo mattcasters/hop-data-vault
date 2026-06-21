@@ -372,5 +372,9 @@ DROP TABLE IF EXISTS "lnk_product_order";
     </hop>
   </hops>
   <notepads/>
-  <attributes/>
+  <attributes>
+    <group>
+      <name>debug_plugin</name>
+    </group>
+  </attributes>
 </workflow>

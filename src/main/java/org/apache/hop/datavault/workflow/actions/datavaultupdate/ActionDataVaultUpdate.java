@@ -161,6 +161,16 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
   private String pipelineStagingFolder;
 
   @GuiWidgetElement(
+      order = "0370",
+      type = GuiElementType.FOLDER,
+      variables = true,
+      label = "i18n::ActionDataVaultUpdate.MetricsOutputFolder.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.MetricsOutputFolder.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
+  @HopMetadataProperty
+  private String metricsOutputFolder;
+
+  @GuiWidgetElement(
       order = "0100",
       type = GuiElementType.CHECKBOX,
       label = "i18n::ActionDataVaultUpdate.UpdateTargetStructure.Label",
@@ -240,6 +250,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     this.recordSourceGroup = meta.recordSourceGroup;
     this.parallelPipelineCopies = meta.parallelPipelineCopies;
     this.pipelineStagingFolder = meta.pipelineStagingFolder;
+    this.metricsOutputFolder = meta.metricsOutputFolder;
   }
 
   @Override
@@ -571,6 +582,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                   orchestrator,
                   realRunConfig,
                   pipelineLogLevel != null ? pipelineLogLevel : getLogLevel(),
+                  resolve(metricsOutputFolder),
                   this,
                   getParentWorkflow(),
                   getVariables(),

@@ -1,6 +1,5 @@
 <data-vault-model>
-  <name>status-tracking</name>
-  <filename>${PROJECT_HOME}/tests/status-tracking/status-tracking.hdv</filename>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/project/tests/status-tracking/status-tracking.hdv</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description>Status Tracking Satellite test: hub + descriptive satellite + STS on FULL_SNAPSHOT source</description>
   <configuration>
@@ -17,11 +16,25 @@
     <invalidHashKeyValue>FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</invalidHashKeyValue>
     <invalidLinkHashKeyValue>FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</invalidLinkHashKeyValue>
     <invalidRecordSource>INVALID</invalidRecordSource>
+    <hashContentCasing>UPPER</hashContentCasing>
+    <businessKeyDelimiter>||</businessKeyDelimiter>
+    <hashContentPrefix/>
+    <nullPlaceholder>^^</nullPlaceholder>
+    <hashContentSuffix/>
+    <trimBusinessKeys>N</trimBusinessKeys>
     <loadDateField>x_load_ts</loadDateField>
+    <loadEndDateField>LOAD_END_DATE</loadEndDateField>
     <recordSourceField>x_record_source</recordSourceField>
-    <targetTableParallelCopies>${OUTPUT_COPIES}</targetTableParallelCopies>
     <recordSourceFieldLength>100</recordSourceFieldLength>
     <useLoadEndDate>N</useLoadEndDate>
+    <targetTableBatchSize>1000</targetTableBatchSize>
+    <targetTableParallelCopies>${OUTPUT_COPIES}</targetTableParallelCopies>
+    <execution_log_level>Minimal</execution_log_level>
+    <generatedPipelineFolder/>
+    <hubPipelineNamePrefix>hub-</hubPipelineNamePrefix>
+    <linkPipelineNamePrefix>link-</linkPipelineNamePrefix>
+    <satellitePipelineNamePrefix>sat-</satellitePipelineNamePrefix>
+    <stsPipelineNamePrefix>sts-</stsPipelineNamePrefix>
   </configuration>
   <tables>
     <table>
@@ -97,4 +110,6 @@
       <virtualPath/>
     </table>
   </tables>
+  <notes/>
+  <name>status-tracking</name>
 </data-vault-model>
