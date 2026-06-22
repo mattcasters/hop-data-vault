@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+#
 
 # Shared helpers for running Apache Hop in the project Docker image.
 # Source from run-tests.sh or run-tests-all-databases.sh after setting SCRIPT_DIR.
