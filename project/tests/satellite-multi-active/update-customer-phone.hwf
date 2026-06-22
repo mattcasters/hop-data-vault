@@ -39,33 +39,6 @@
       <attributes_hac/>
     </action>
     <action>
-      <sql>DROP TABLE IF EXISTS customer_phone
-;
-CREATE TABLE customer_phone
-(
-  customer_id INTEGER
-, phone_type VARCHAR(10)
-, phone_number VARCHAR(20)
-, record_source VARCHAR(20)
-)
-;
-</sql>
-      <connection>CRM</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>N</sqlfromfile>
-      <sqlfilename/>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>Create customer_phone table</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>208</xloc>
-      <yloc>48</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
       <filename>${PROJECT_HOME}/tests/satellite-multi-active/load-customer-phone1.hpl</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
@@ -86,7 +59,7 @@ CREATE TABLE customer_phone
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>544</xloc>
+      <xloc>368</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -112,7 +85,7 @@ CREATE TABLE customer_phone
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>752</xloc>
+      <xloc>576</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -133,7 +106,7 @@ DROP TABLE IF EXISTS sat_customer_phone
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>384</xloc>
+      <xloc>208</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -151,7 +124,7 @@ DROP TABLE IF EXISTS sat_customer_phone
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>944</xloc>
+      <xloc>768</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -179,7 +152,7 @@ DROP TABLE IF EXISTS sat_customer_phone
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>544</xloc>
+      <xloc>368</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -203,7 +176,7 @@ DROP TABLE IF EXISTS sat_customer_phone
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>752</xloc>
+      <xloc>576</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -218,20 +191,13 @@ DROP TABLE IF EXISTS sat_customer_phone
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>944</xloc>
+      <xloc>768</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
   </actions>
   <hops>
-    <hop>
-      <from>Start</from>
-      <to>Create customer_phone table</to>
-      <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
     <hop>
       <from>update customer-phone.hdv</from>
       <to>test after initial</to>
@@ -247,17 +213,10 @@ DROP TABLE IF EXISTS sat_customer_phone
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Create customer_phone table</from>
-      <to>drop customer_phone</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>drop customer_phone</from>
       <to>load-customer-phone1</to>
       <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
+      <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
@@ -279,6 +238,13 @@ DROP TABLE IF EXISTS sat_customer_phone
       <to>test after initial 2</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Start</from>
+      <to>drop customer_phone</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
       <enabled>Y</enabled>
     </hop>
   </hops>

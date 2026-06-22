@@ -39,34 +39,6 @@
       <attributes_hac/>
     </action>
     <action>
-      <sql>DROP TABLE IF EXISTS customer_product
-;
-CREATE TABLE customer_product
-(
-  customer_id INTEGER
-, product_id VARCHAR(7)
-, quantity INTEGER
-, discount_pct NUMERIC(5,2)
-, record_source VARCHAR(20)
-)
-;
-</sql>
-      <connection>CRM</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>N</sqlfromfile>
-      <sqlfilename/>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>Create customer_product table</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>208</xloc>
-      <yloc>48</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
       <sql>DROP TABLE IF EXISTS hub_customer_ls
 ;
 DROP TABLE IF EXISTS hub_product_ls
@@ -86,7 +58,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>384</xloc>
+      <xloc>192</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -112,7 +84,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>544</xloc>
+      <xloc>352</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -138,7 +110,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>752</xloc>
+      <xloc>560</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -156,7 +128,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>944</xloc>
+      <xloc>752</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -182,7 +154,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>544</xloc>
+      <xloc>352</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -206,7 +178,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>752</xloc>
+      <xloc>560</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -224,7 +196,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>944</xloc>
+      <xloc>752</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -232,24 +204,10 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
   </actions>
   <hops>
     <hop>
-      <from>Start</from>
-      <to>Create customer_product table</to>
-      <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Create customer_product table</from>
-      <to>drop vault tables</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>drop vault tables</from>
       <to>load-customer-product1</to>
       <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
+      <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
@@ -285,6 +243,13 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <to>test after update</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Start</from>
+      <to>drop vault tables</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
       <enabled>Y</enabled>
     </hop>
   </hops>

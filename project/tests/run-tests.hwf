@@ -257,6 +257,33 @@
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
+    <action>
+      <filename>${PROJECT_HOME}/tests/shared/create-source-tables-from-data-catalog.hpl</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <clear_rows>N</clear_rows>
+      <clear_files>N</clear_files>
+      <create_parent_folder>N</create_parent_folder>
+      <set_logfile>N</set_logfile>
+      <set_append_logfile>N</set_append_logfile>
+      <logfile/>
+      <logext/>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <loglevel>Basic</loglevel>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>create-source-tables-from-data-catalog.hpl</name>
+      <type>PIPELINE</type>
+      <attributes/>
+      <xloc>416</xloc>
+      <yloc>64</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
   </actions>
   <hops>
     <hop>
@@ -312,7 +339,7 @@
       <from>update-multi-source-hub</from>
       <to>Success</to>
       <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
+      <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
@@ -324,6 +351,13 @@
     </hop>
     <hop>
       <from>configure</from>
+      <to>create-source-tables-from-data-catalog.hpl</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>create-source-tables-from-data-catalog.hpl</from>
       <to>update-vault1</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>

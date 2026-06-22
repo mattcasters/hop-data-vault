@@ -49,6 +49,7 @@
       <detailedDataTypeChecking>Y</detailedDataTypeChecking>
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
+      <publishToCatalog>N</publishToCatalog>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
@@ -59,65 +60,7 @@
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>656</xloc>
-      <yloc>48</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <sql>DROP TABLE IF EXISTS "customer"
-;
-CREATE TABLE customer
-(
-  customer_id INTEGER
-, "name" VARCHAR(50)
-, email VARCHAR(50)
-, address VARCHAR(50)
-, city VARCHAR(50)
-, load_date TIMESTAMP
-, record_source VARCHAR(20)
-)
-;
-
-DROP TABLE IF EXISTS "product"
-;
-CREATE TABLE product
-(
-  product_id VARCHAR(7)
-, product_name VARCHAR(50)
-, category VARCHAR(50)
-, unit_price NUMERIC(9, 2)
-, load_date TIMESTAMP
-, record_source VARCHAR(20)
-)
-;
-
-DROP TABLE IF EXISTS "order"
-;
-CREATE TABLE "order"
-(
-  order_id VARCHAR(7)
-, customer_id INTEGER
-, product_id VARCHAR(7)
-, quantity INTEGER
-, unit_price NUMERIC(9, 2)
-, order_date TIMESTAMP
-, load_date TIMESTAMP
-, record_source VARCHAR(20)
-)
-;
-</sql>
-      <connection>CRM</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>N</sqlfromfile>
-      <sqlfilename/>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>Create CRM tables</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>208</xloc>
+      <xloc>448</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -145,7 +88,7 @@ CREATE TABLE "order"
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>336</xloc>
+      <xloc>304</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -173,7 +116,7 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>464</xloc>
+      <xloc>176</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -206,7 +149,7 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>848</xloc>
+      <xloc>640</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -234,7 +177,7 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>496</xloc>
+      <xloc>304</xloc>
       <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -247,6 +190,7 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <detailedDataTypeChecking>N</detailedDataTypeChecking>
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
+      <publishToCatalog>N</publishToCatalog>
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
@@ -257,7 +201,7 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>656</xloc>
+      <xloc>448</xloc>
       <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -290,7 +234,7 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>848</xloc>
+      <xloc>640</xloc>
       <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -300,41 +244,13 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>1008</xloc>
+      <xloc>800</xloc>
       <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
   </actions>
   <hops>
-    <hop>
-      <from>Start</from>
-      <to>Create CRM tables</to>
-      <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Create CRM tables</from>
-      <to>load1.hpl</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>load1.hpl</from>
-      <to>Drop Vault tables</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Drop Vault tables</from>
-      <to>update vault1.hdv</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
     <hop>
       <from>update vault1.hdv</from>
       <to>Test after initial load</to>
@@ -366,6 +282,27 @@ DROP TABLE IF EXISTS "lnk_product_order";
     <hop>
       <from>Test after updates</from>
       <to>Success</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Start</from>
+      <to>Drop Vault tables</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Drop Vault tables</from>
+      <to>load1.hpl</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>load1.hpl</from>
+      <to>update vault1.hdv</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

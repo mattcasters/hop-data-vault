@@ -39,43 +39,6 @@
       <attributes_hac/>
     </action>
     <action>
-      <sql>DROP TABLE IF EXISTS customer_legacy
-;
-CREATE TABLE customer_legacy
-(
-  customer_id INTEGER
-, name VARCHAR(50)
-, email VARCHAR(50)
-, record_source VARCHAR(20)
-)
-;
-DROP TABLE IF EXISTS customer_online
-;
-CREATE TABLE customer_online
-(
-  customer_id INTEGER
-, username VARCHAR(50)
-, membership_level VARCHAR(20)
-, record_source VARCHAR(20)
-)
-;
-</sql>
-      <connection>CRM</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>N</sqlfromfile>
-      <sqlfilename/>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>Create CRM tables</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>208</xloc>
-      <yloc>48</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
       <sql>DROP TABLE IF EXISTS hub_customer_msh
 ;
 DROP TABLE IF EXISTS sat_customer_legacy
@@ -93,7 +56,7 @@ DROP TABLE IF EXISTS sat_customer_online
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>384</xloc>
+      <xloc>176</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -119,7 +82,7 @@ DROP TABLE IF EXISTS sat_customer_online
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>560</xloc>
+      <xloc>352</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -145,7 +108,7 @@ DROP TABLE IF EXISTS sat_customer_online
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>720</xloc>
+      <xloc>512</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -171,7 +134,7 @@ DROP TABLE IF EXISTS sat_customer_online
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>912</xloc>
+      <xloc>704</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -192,7 +155,7 @@ DROP TABLE IF EXISTS sat_customer_online
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>1104</xloc>
+      <xloc>896</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -218,7 +181,7 @@ DROP TABLE IF EXISTS sat_customer_online
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>560</xloc>
+      <xloc>352</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -244,7 +207,7 @@ DROP TABLE IF EXISTS sat_customer_online
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>720</xloc>
+      <xloc>512</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -268,7 +231,7 @@ DROP TABLE IF EXISTS sat_customer_online
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>912</xloc>
+      <xloc>704</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -289,7 +252,7 @@ DROP TABLE IF EXISTS sat_customer_online
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>1104</xloc>
+      <xloc>896</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -297,24 +260,10 @@ DROP TABLE IF EXISTS sat_customer_online
   </actions>
   <hops>
     <hop>
-      <from>Start</from>
-      <to>Create CRM tables</to>
-      <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Create CRM tables</from>
-      <to>drop vault tables</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>drop vault tables</from>
       <to>load-customer-legacy1</to>
       <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
+      <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
@@ -364,6 +313,13 @@ DROP TABLE IF EXISTS sat_customer_online
       <to>test after update</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Start</from>
+      <to>drop vault tables</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
       <enabled>Y</enabled>
     </hop>
   </hops>

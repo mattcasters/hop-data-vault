@@ -39,36 +39,6 @@
       <attributes_hac/>
     </action>
     <action>
-      <sql>DROP TABLE IF EXISTS customer
-;
-CREATE TABLE customer
-(
-  customer_id INTEGER
-, name VARCHAR(50)
-, email VARCHAR(50)
-, address VARCHAR(50)
-, city VARCHAR(50)
-, load_date TIMESTAMP
-, record_source VARCHAR(20)
-)
-;
-</sql>
-      <connection>CRM</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>N</sqlfromfile>
-      <sqlfilename/>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>Create customer table</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>208</xloc>
-      <yloc>48</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
       <filename>${PROJECT_HOME}/tests/status-tracking/load-customer-sts1.hpl</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
@@ -89,7 +59,7 @@ CREATE TABLE customer
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>576</xloc>
+      <xloc>400</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -115,7 +85,7 @@ CREATE TABLE customer
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>784</xloc>
+      <xloc>608</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -138,7 +108,7 @@ DROP TABLE IF EXISTS sts_customer
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>400</xloc>
+      <xloc>224</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -153,7 +123,7 @@ DROP TABLE IF EXISTS sts_customer
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>976</xloc>
+      <xloc>800</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -181,7 +151,7 @@ DROP TABLE IF EXISTS sts_customer
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>576</xloc>
+      <xloc>400</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -205,7 +175,7 @@ DROP TABLE IF EXISTS sts_customer
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>784</xloc>
+      <xloc>608</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -220,20 +190,13 @@ DROP TABLE IF EXISTS sts_customer
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>976</xloc>
+      <xloc>800</xloc>
       <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
   </actions>
   <hops>
-    <hop>
-      <from>Start</from>
-      <to>Create customer table</to>
-      <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
     <hop>
       <from>update status-tracking.hdv</from>
       <to>test after initial</to>
@@ -249,17 +212,10 @@ DROP TABLE IF EXISTS sts_customer
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Create customer table</from>
-      <to>drop customer vault tables</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>drop customer vault tables</from>
       <to>load-customer-sts1</to>
       <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
+      <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
@@ -281,6 +237,13 @@ DROP TABLE IF EXISTS sts_customer
       <to>test after update</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Start</from>
+      <to>drop customer vault tables</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
       <enabled>Y</enabled>
     </hop>
   </hops>

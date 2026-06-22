@@ -28,16 +28,21 @@ import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionType;
 import org.apache.hop.catalog.model.RecordOrigin;
+import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.row.RowMeta;
+import org.apache.hop.core.row.value.ValueMetaFactory;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.PropsUi;
+import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.core.widget.ColumnInfo;
 import org.apache.hop.ui.core.widget.TableView;
+import org.apache.hop.ui.hopgui.HopGui;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabItem;
@@ -45,9 +50,11 @@ import org.eclipse.swt.custom.ScrolledComposite;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 
@@ -60,6 +67,10 @@ public class RecordDefinitionDetailsPanel {
 
   private final Composite parent;
   private final IVariables variables;
+  private final Runnable onUpdate;
+
+  private String catalogConnectionName;
+  private RecordDefinition definition;
 
   private Label wPlaceholder;
   private CTabFolder wTabFolder;
@@ -94,9 +105,10 @@ public class RecordDefinitionDetailsPanel {
   private TableView wGlossaryTerms;
   private TableView wCustomProperties;
 
-  public RecordDefinitionDetailsPanel(Composite parent, IVariables variables) {
+  public RecordDefinitionDetailsPanel(Composite parent, IVariables variables, Runnable onUpdate) {
     this.parent = parent;
     this.variables = variables;
+    this.onUpdate = onUpdate;
     createControls();
     clear();
   }
@@ -294,6 +306,22 @@ public class RecordDefinitionDetailsPanel {
     wScroll.setMinSize(wPropertiesComp.computeSize(SWT.DEFAULT, SWT.DEFAULT));
 
     wFields = createFieldsTable(wFieldsTabComp);
+
+    Button wUpdateFields = new Button(wFieldsTabComp, SWT.PUSH);
+    wUpdateFields.setText(BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Fields.UpdateButton.Label"));
+    PropsUi.setLook(wUpdateFields);
+
+    FormData fdUpdateFields = new FormData();
+    fdUpdateFields.right = new FormAttachment(100, 0);
+    fdUpdateFields.bottom = new FormAttachment(100, 0);
+    wUpdateFields.setLayoutData(fdUpdateFields);
+
+    wUpdateFields.addListener(SWT.Selection, e -> updateRecordDefinitionFields());
+
+    FormData fdFields = (FormData) wFields.getLayoutData();
+    fdFields.bottom = new FormAttachment(wUpdateFields, -margin);
+    wFields.setLayoutData(fdFields);
+
     wTags = createListTable(wTagsTabComp, messageKey("Tags.Column"));
     wGlossaryTerms = createListTable(wGlossaryTabComp, messageKey("GlossaryTerms.Column"));
     wCustomProperties = createCustomPropertiesTable(wCustomPropertiesTabComp);
@@ -426,13 +454,17 @@ public class RecordDefinitionDetailsPanel {
   }
 
   public void clear() {
+    this.catalogConnectionName = null;
+    this.definition = null;
     wPlaceholder.setText(BaseMessages.getString(PKG, messageKey("Placeholder.SelectRecord")));
     wPlaceholder.setVisible(true);
     wTabFolder.setVisible(false);
     parent.layout(true, true);
   }
 
-  public void setRecordDefinition(RecordDefinition definition) {
+  public void setRecordDefinition(String catalogConnectionName, RecordDefinition definition) {
+    this.catalogConnectionName = catalogConnectionName;
+    this.definition = definition;
     if (definition == null) {
       clear();
       return;
@@ -488,6 +520,57 @@ public class RecordDefinitionDetailsPanel {
     wPropertiesComp.pack();
     wScroll.setMinSize(wPropertiesComp.computeSize(SWT.DEFAULT, SWT.DEFAULT));
     parent.layout(true, true);
+  }
+
+  private void updateRecordDefinitionFields() {
+    if (definition == null || catalogConnectionName == null) {
+      return;
+    }
+
+    MessageBox confirm = new MessageBox(parent.getShell(), SWT.YES | SWT.NO | SWT.ICON_QUESTION);
+    confirm.setText(BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.UpdateConfirm.Title"));
+    confirm.setMessage(BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.UpdateConfirm.Message"));
+    if (confirm.open() != SWT.YES) {
+      return;
+    }
+
+    try {
+      IRowMeta rowMeta = new RowMeta();
+      List<TableItem> items = wFields.getNonEmptyItems();
+      for (TableItem item : items) {
+        String name = item.getText(1);
+        String typeDesc = item.getText(2);
+        String lengthStr = item.getText(3);
+        String precisionStr = item.getText(4);
+
+        int type = ValueMetaFactory.getIdForValueMeta(typeDesc);
+        int length = Const.toInt(lengthStr, -1);
+        int precision = Const.toInt(precisionStr, -1);
+
+        IValueMeta valueMeta = ValueMetaFactory.createValueMeta(name, type, length, precision);
+        rowMeta.addValueMeta(valueMeta);
+      }
+
+      definition.setFields(rowMeta);
+
+      RecordDefinitionRegistry.getInstance()
+          .update(
+              catalogConnectionName,
+              definition,
+              variables,
+              HopGui.getInstance().getMetadataProvider());
+
+      if (onUpdate != null) {
+        onUpdate.run();
+      }
+
+    } catch (Exception e) {
+      new ErrorDialog(
+          parent.getShell(),
+          BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.UpdateError.Title"),
+          BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.UpdateError.Message"),
+          e);
+    }
   }
 
   private void populateDvSourceFields(RecordDefinition definition) {

@@ -211,7 +211,7 @@ public class DataCatalogPerspective implements IHopPerspective {
     fdBody.bottom = new FormAttachment(100, 0);
     detailsBody.setLayoutData(fdBody);
 
-    detailsPanel = new RecordDefinitionDetailsPanel(detailsBody, hopGui.getVariables());
+    detailsPanel = new RecordDefinitionDetailsPanel(detailsBody, hopGui.getVariables(), this::refresh);
   }
 
   @GuiToolbarElement(
@@ -424,7 +424,7 @@ public class DataCatalogPerspective implements IHopPerspective {
                   node.getRecordKey(),
                   hopGui.getVariables(),
                   hopGui.getMetadataProvider());
-      detailsPanel.setRecordDefinition(definition);
+      detailsPanel.setRecordDefinition(node.getCatalogConnectionName(), definition);
     } catch (HopException e) {
       detailsPanel.clear();
       new ErrorDialog(
