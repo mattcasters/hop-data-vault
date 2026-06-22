@@ -45,7 +45,7 @@ import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
-/** Publishes Data Vault model tables and referenced sources to a configured data catalog. */
+/** Publishes Data Vault model target table record definitions to a configured data catalog. */
 public final class DvCatalogPublisher {
 
   private DvCatalogPublisher() {}
@@ -104,7 +104,6 @@ public final class DvCatalogPublisher {
     }
 
     String tableNamespace = DvCatalogNamespaces.projectModelsNamespace(variables, model);
-    String sourceNamespace = DvCatalogNamespaces.projectSourcesNamespace(variables);
     Date updatedAt = new Date();
 
     RecordDefinitionRegistry registry = RecordDefinitionRegistry.getInstance();
@@ -134,28 +133,8 @@ public final class DvCatalogPublisher {
       }
     }
 
-    for (DataVaultSource source : collectReferencedSources(model, variables, metadataProvider)) {
-      try {
-        RecordDefinition definition =
-            DvSourceCatalogMapper.toRecordDefinition(
-                source, sourceNamespace, model, variables, metadataProvider, updatedAt, workflowName);
-        upsertDefinition(
-            registry, catalogConnectionName, definition, variables, metadataProvider, updatedAt);
-        sourceCount++;
-        if (log != null) {
-          log.logBasic("Published DV source record definition: " + definition.getKey());
-        }
-      } catch (Exception e) {
-        errorCount++;
-        if (log != null) {
-          log.logError(
-              "Failed to publish DV source '"
-                  + (source != null ? source.getName() : "?")
-                  + "'",
-              e);
-        }
-      }
-    }
+    // DV source record definitions are maintained in the source catalog (local-catalog).
+    // Publishing a model only snapshots target table layouts under hop/project/models/.
 
     return new PublishResult(tableCount, sourceCount, errorCount);
   }

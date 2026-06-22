@@ -1,0 +1,11 @@
+{
+  "name": "vault-catalog",
+  "description": "Runtime data catalog for Data Vault Update publish output (gitignored)",
+  "enabled": true,
+  "catalog": {
+    "FILE": {
+      "pluginId": "FILE",
+      "storageDirectory": "${PROJECT_HOME}/vault-catalog"
+    }
+  }
+}

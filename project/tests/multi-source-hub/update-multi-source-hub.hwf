@@ -128,7 +128,7 @@ DROP TABLE IF EXISTS sat_customer_online
       <pipelineStagingFolder/>
       <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
       <publishToCatalog>Y</publishToCatalog>
-      <dataCatalogConnection>local-catalog</dataCatalogConnection>
+      <dataCatalogConnection>vault-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/multi-source-hub-ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>

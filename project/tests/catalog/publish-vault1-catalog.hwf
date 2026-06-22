@@ -26,13 +26,13 @@
       <detailedDataTypeChecking>Y</detailedDataTypeChecking>
       <parallelPipelineCopies>1</parallelPipelineCopies>
       <publishToCatalog>Y</publishToCatalog>
-      <dataCatalogConnection>local-catalog</dataCatalogConnection>
+      <dataCatalogConnection>vault-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <failIfDdlNeeded>N</failIfDdlNeeded>
       <ensureSpecialRecords>N</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>Y</doNotUpdateTargetDatabase>
       <name>publish vault1 catalog</name>
-      <description>Upsert DV table and source record definitions into local-catalog.</description>
+      <description>Upsert DV target table record definitions into vault-catalog.</description>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
       <xloc>320</xloc>

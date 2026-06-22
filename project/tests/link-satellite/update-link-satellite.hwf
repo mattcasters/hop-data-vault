@@ -104,7 +104,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <pipelineStagingFolder/>
       <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
       <publishToCatalog>Y</publishToCatalog>
-      <dataCatalogConnection>local-catalog</dataCatalogConnection>
+      <dataCatalogConnection>vault-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/link-satellite-ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>

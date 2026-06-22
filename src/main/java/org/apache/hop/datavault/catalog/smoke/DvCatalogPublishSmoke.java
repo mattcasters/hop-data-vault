@@ -35,6 +35,7 @@ import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.catalog.DvCatalogPublisher;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.metadata.serializer.json.JsonMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
@@ -48,7 +49,7 @@ import org.w3c.dom.Node;
  */
 public final class DvCatalogPublishSmoke {
 
-  private static final String CONNECTION_NAME = "local-catalog";
+  private static final String CONNECTION_NAME = "vault-catalog";
 
   private DvCatalogPublishSmoke() {}
 
@@ -66,7 +67,7 @@ public final class DvCatalogPublishSmoke {
         new JsonMetadataProvider(null, projectHome + "/metadata", variables);
 
     Path catalogRoot =
-        Path.of(projectHome, "catalog-data", "hop", "project", "models", "vault1");
+        Path.of(projectHome, "vault-catalog", "hop", "project", "models", "vault1");
     if (Files.exists(catalogRoot)) {
       Files.walk(catalogRoot)
           .sorted(java.util.Comparator.reverseOrder())
@@ -115,9 +116,10 @@ public final class DvCatalogPublishSmoke {
       throw new HopException(
           "Expected 7 DV table record definitions, got " + publishResult.getTableCount());
     }
-    if (publishResult.getSourceCount() != 3) {
+    if (publishResult.getSourceCount() != 0) {
       throw new HopException(
-          "Expected 3 DV source record definitions, got " + publishResult.getSourceCount());
+          "Expected 0 DV source record definitions in vault catalog, got "
+              + publishResult.getSourceCount());
     }
 
     RecordDefinitionKey hubCustomerKey =
@@ -145,24 +147,29 @@ public final class DvCatalogPublishSmoke {
       throw new HopException("hub_customer physical table reference is incomplete");
     }
 
-    long sourceCount =
+    long localSourceCount =
         RecordDefinitionRegistry.getInstance()
             .listAll(new RecordDefinitionQuery(), variables, metadataProvider)
             .stream()
-            .filter(ref -> ref.getKey() != null && ref.getKey().getNamespace().contains("/sources"))
+            .filter(
+                ref ->
+                    ref.getKey() != null
+                        && ref.getKey().getNamespace().contains("/sources")
+                        && DvSourceCatalogService.DEFAULT_SOURCE_CATALOG_CONNECTION.equals(
+                            ref.getCatalogConnectionName()))
             .count();
-    if (sourceCount < 1) {
-      throw new HopException("Expected DV source record definitions to be published");
+    if (localSourceCount < 1) {
+      throw new HopException(
+          "Expected DV source record definitions in "
+              + DvSourceCatalogService.DEFAULT_SOURCE_CATALOG_CONNECTION);
     }
 
     System.out.println(
         "DvCatalogPublishSmoke: published "
             + publishResult.getTableCount()
-            + " tables and "
-            + publishResult.getSourceCount()
-            + " sources ("
-            + sourceCount
-            + " source refs listed)");
+            + " tables to vault-catalog ("
+            + localSourceCount
+            + " sources remain in local-catalog)");
   }
 
   private static DataVaultModel loadModel(

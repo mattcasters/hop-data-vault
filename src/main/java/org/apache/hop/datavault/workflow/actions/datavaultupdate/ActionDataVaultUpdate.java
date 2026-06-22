@@ -682,7 +682,6 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
               PKG,
               "ActionDataVaultUpdate.Log.CatalogPublished",
               publishResult.getTableCount(),
-              publishResult.getSourceCount(),
               catalogConnection,
               publishResult.getErrorCount()));
       return publishResult.isSuccess();

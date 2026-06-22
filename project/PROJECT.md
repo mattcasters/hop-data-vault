@@ -24,6 +24,8 @@ project/
 │   ├── compose.<engine>.yml     # Database + Hop (for run-tests-all-databases.sh)
 │   └── hop-docker-lib.sh        # Shared image build, metrics, and ownership helpers
 ├── metrics/                     # DV update metrics JSON + overview CSV (gitignored)
+├── vault-catalog/               # DV Update catalog publish output (gitignored)
+├── catalog-data/                # Stable source record definitions (version controlled)
 ├── metadata/                    # RDBMS, DV config/sources, datasets, unit-test definitions
 ├── datasets/                    # Golden CSVs referenced by Hop unit tests
 ├── files/                       # Source CSVs fed into CRM staging tables by load pipelines
@@ -44,8 +46,11 @@ project/
 | Path | Purpose |
 |------|---------|
 | `metadata/data-vault-configuration/` | Hash / naming / satellite strategy (`vault-config`, `load-end-date-config`) |
-| `metadata/data-catalog/` | Data catalog connection (`local-catalog` → `catalog-data/`) |
-| `catalog-data/hop/project/sources/` | DV record sources (CRM feeds, field layouts, groups) |
+| `metadata/data-catalog/` | Data catalog connections (`local-catalog` → `catalog-data/`, `vault-catalog` → `vault-catalog/`) |
+| `catalog-data/hop/project/sources/` | DV record sources (CRM feeds, field layouts, groups) — read by pipelines and DV Update |
+| `vault-catalog/` | Runtime catalog output from Data Vault Update publish (gitignored) |
+
+**Two catalogs:** `local-catalog` holds stable, version-controlled DV source record definitions. Data Vault Update actions with **Update data catalog** enabled publish only target table snapshots (`hop/project/models/`) to `vault-catalog` so test runs do not dirty `catalog-data/` in git.
 | `metadata/dataset/` | Hop dataset definitions pointing at `datasets/*.csv` |
 | `metadata/unit-test/` | Pipeline unit test metadata |
 | `tests/basic/vault1.hdv` | Classic hub / link / satellite model (customer, order, product) |

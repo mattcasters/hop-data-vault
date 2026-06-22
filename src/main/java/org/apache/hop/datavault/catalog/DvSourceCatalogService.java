@@ -40,6 +40,9 @@ import org.apache.hop.metadata.api.IHopMetadataSerializer;
 /** Resolves and persists Data Vault sources through the data catalog. */
 public final class DvSourceCatalogService {
 
+  /** Default catalog for reading version-controlled DV source record definitions. */
+  public static final String DEFAULT_SOURCE_CATALOG_CONNECTION = "local-catalog";
+
   private DvSourceCatalogService() {}
 
   public static DataVaultSource resolveSource(
@@ -242,6 +245,11 @@ public final class DvSourceCatalogService {
           "No enabled data catalog connection is configured. Set dataCatalogConnection on the Data Vault model or create an enabled DataCatalogMeta connection.");
     }
     if (enabled.size() > 1) {
+      for (DataCatalogMeta connection : enabled) {
+        if (DEFAULT_SOURCE_CATALOG_CONNECTION.equals(connection.getName())) {
+          return connection.getName();
+        }
+      }
       throw new HopException(
           "Multiple enabled data catalog connections found ("
               + enabled.stream().map(DataCatalogMeta::getName).sorted().toList()

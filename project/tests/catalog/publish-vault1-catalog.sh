@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test: publish vault1.hdv target tables and sources to the local file catalog.
+# Smoke test: publish vault1.hdv target tables to the vault-catalog file catalog.
 # Exercises the same catalog path as ActionDataVaultUpdate with "Update data catalog" enabled.
 set -euo pipefail
 

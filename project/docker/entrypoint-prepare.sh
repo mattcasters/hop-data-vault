@@ -30,11 +30,11 @@ rm -f /project/metadata/rdbms/CRM.json /project/metadata/rdbms/Vault.json
 cp "${PROFILE_DIR}/CRM.json" /project/metadata/rdbms/CRM.json
 cp "${PROFILE_DIR}/Vault.json" /project/metadata/rdbms/Vault.json
 
-mkdir -p "/project/metrics/${DB_TYPE}"
+mkdir -p "/project/metrics/${DB_TYPE}" /project/vault-catalog
 
 if [ -n "${HOST_UID:-}" ] && [ -n "${HOST_GID:-}" ]; then
   chown "${HOST_UID}:${HOST_GID}" /project/metadata/rdbms/CRM.json /project/metadata/rdbms/Vault.json
-  chown "${HOST_UID}:${HOST_GID}" "/project/metrics/${DB_TYPE}"
+  chown "${HOST_UID}:${HOST_GID}" "/project/metrics/${DB_TYPE}" /project/vault-catalog
 fi
 
 echo "Activated CRM/Vault RDBMS profiles for ${DB_TYPE}"

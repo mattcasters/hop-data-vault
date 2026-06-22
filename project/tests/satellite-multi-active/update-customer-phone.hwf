@@ -79,7 +79,7 @@
       <pipelineStagingFolder/>
       <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
       <publishToCatalog>Y</publishToCatalog>
-      <dataCatalogConnection>local-catalog</dataCatalogConnection>
+      <dataCatalogConnection>vault-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/customer-phone-ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
