@@ -159,7 +159,7 @@ public class RecordDefinitionInputDialog extends BaseTransformDialog {
     FormData fdSelectFromInput = new FormData();
     fdSelectFromInput.left = new FormAttachment(middle, 0);
     fdSelectFromInput.right = new FormAttachment(100, 0);
-    fdSelectFromInput.top = new FormAttachment(wConnectionName, margin);
+    fdSelectFromInput.top = new FormAttachment(wlSelectFromInput, 0, SWT.CENTER);
     wSelectFromInput.setLayoutData(fdSelectFromInput);
     wSelectFromInput.addListener(SWT.Selection, e -> setFlags());
 
@@ -255,7 +255,7 @@ public class RecordDefinitionInputDialog extends BaseTransformDialog {
     FormData fdOutputFieldsMetadata = new FormData();
     fdOutputFieldsMetadata.left = new FormAttachment(middle, 0);
     fdOutputFieldsMetadata.right = new FormAttachment(100, 0);
-    fdOutputFieldsMetadata.top = new FormAttachment(wNameValue, margin);
+    fdOutputFieldsMetadata.top = new FormAttachment(wlOutputFieldsMetadata, 0, SWT.CENTER);
     wOutputFieldsMetadata.setLayoutData(fdOutputFieldsMetadata);
 
     // Output Fields Tab (renaming)

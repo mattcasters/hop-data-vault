@@ -1,0 +1,14 @@
+{
+  "variables": [
+    {
+      "name": "DB_HOST",
+      "value": "db",
+      "description": "Docker compose database service hostname"
+    },
+    {
+      "name": "DB_PORT",
+      "value": "5432",
+      "description": "PostgreSQL port"
+    }
+  ]
+}

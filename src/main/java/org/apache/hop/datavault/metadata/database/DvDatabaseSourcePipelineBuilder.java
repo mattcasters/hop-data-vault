@@ -37,8 +37,11 @@ import org.apache.hop.datavault.metadata.DvSourcePipelineBuilder;
 import org.apache.hop.datavault.metadata.IDvSource;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectMetadataChange;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.jspecify.annotations.NonNull;
 
@@ -85,10 +88,44 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
         createTableInput(sourceTransformName, sourceDbMeta, querySql, location);
     pipelineMeta.addTransform(sourceTransformMeta);
 
-    // We're done with this part for the database table source.
-    // Inform the rest of the code where the next transform can connect to:
-    //
-    resultTransform = sourceTransformMeta;
+    resultTransform =
+        addRecordSourceFieldRenameIfNeeded(sourceTransformMeta, location);
+  }
+
+  /**
+   * Some JDBC drivers (e.g. SingleStore) expose the physical column name instead of the SQL alias
+   * for record source fields. Rename in-stream when source and target field names differ.
+   */
+  private TransformMeta addRecordSourceFieldRenameIfNeeded(
+      TransformMeta sourceTransform, Point location) throws HopException {
+    String sourceFieldName = variables.resolve(recordSource.getSourceIndicatorField());
+    if (StringUtils.isEmpty(sourceFieldName)) {
+      return sourceTransform;
+    }
+
+    String targetSourceFieldName = findTargetSourceFieldName(dvTable);
+    if (sourceFieldName.equals(targetSourceFieldName)) {
+      return sourceTransform;
+    }
+    // Other databases honour SQL column aliases; SingleStore JDBC exposes the physical name.
+    if (sourceDbMeta == null
+        || !"SINGLESTORE".equalsIgnoreCase(sourceDbMeta.getPluginId())) {
+      return sourceTransform;
+    }
+
+    SelectValuesMeta selectMeta = new SelectValuesMeta();
+    selectMeta.getSelectOption().setSelectingAndSortingUnspecifiedFields(true);
+    SelectMetadataChange rename = new SelectMetadataChange();
+    rename.setName(sourceFieldName);
+    rename.setRename(targetSourceFieldName);
+    selectMeta.getSelectOption().getMeta().add(rename);
+
+    TransformMeta renameTransform =
+        new TransformMeta("SelectValues", "rename record source", selectMeta);
+    renameTransform.setLocation(location.x + 160, location.y);
+    pipelineMeta.addTransform(renameTransform);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(sourceTransform, renameTransform));
+    return renameTransform;
   }
 
   protected abstract String getSql() throws HopException;

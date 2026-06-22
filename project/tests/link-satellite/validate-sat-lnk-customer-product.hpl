@@ -24,6 +24,7 @@
 , x_record_source
 , x_load_ts
 FROM sat_lnk_customer_product
+ORDER BY lnk_customer_product_hk, x_load_ts
 </sql>
     <limit>0</limit>
     <execute_each_row>N</execute_each_row>
@@ -35,6 +36,31 @@ FROM sat_lnk_customer_product
     <copies>1</copies>
     <GUI>
       <xloc>128</xloc>
+      <yloc>96</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <attributes/>
+  </transform>
+  <transform>
+    <type>SelectValues</type>
+    <name>normalize decimals</name>
+    <fields>
+      <select_unspecified>Y</select_unspecified>
+      <meta>
+        <name>discount_pct</name>
+        <rename/>
+        <type>Number</type>
+        <length>5</length>
+        <precision>2</precision>
+      </meta>
+    </fields>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>200</xloc>
       <yloc>96</yloc>
     </GUI>
     <partitioning>
@@ -109,6 +135,11 @@ FROM sat_lnk_customer_product
   <order>
     <hop>
       <from>sat_lnk_customer_product</from>
+      <to>normalize decimals</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>normalize decimals</from>
       <to>has load date</to>
       <enabled>Y</enabled>
     </hop>

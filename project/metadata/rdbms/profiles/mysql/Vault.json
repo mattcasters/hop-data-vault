@@ -1,0 +1,35 @@
+{
+  "virtualPath": "",
+  "rdbms": {
+    "MYSQL": {
+      "databaseName": "test",
+      "pluginId": "MYSQL",
+      "accessType": 0,
+      "hostname": "db",
+      "password": "Encrypted 2be98afc86aa7f2e4cb79ce10ca97bcce",
+      "pluginName": "MySQL",
+      "port": "3306",
+      "driverClassName": "Mysql 8+",
+      "attributes": {
+        "SUPPORTS_TIMESTAMP_DATA_TYPE": "Y",
+        "STREAM_RESULTS": "N",
+        "EXTRA_OPTION_MYSQL.useCursorFetch": "true",
+        "EXTRA_OPTION_MYSQL.defaultFetchSize": "500",
+        "FORCE_IDENTIFIERS_TO_LOWERCASE": "N",
+        "EXTRA_OPTION_MYSQL.allowLoadLocalInfile": "true",
+        "PRESERVE_RESERVED_WORD_CASE": "Y",
+        "FORCE_IDENTIFIERS_TO_UPPERCASE": "N",
+        "EXTRA_OPTION_MYSQL.useSSL": "false",
+        "QUOTE_ALL_FIELDS": "N",
+        "EXTRA_OPTION_MYSQL.zeroDateTimeBehaviorValue": "CONVERT_TO_NULL",
+        "SUPPORTS_BOOLEAN_DATA_TYPE": "Y",
+        "SQL_CONNECT": "",
+        "PREFERRED_SCHEMA_NAME": "",
+        "EXTRA_OPTION_MYSQL.allowPublicKeyRetrieval": "true"
+      },
+      "manualUrl": "",
+      "username": "test"
+    }
+  },
+  "name": "Vault"
+}

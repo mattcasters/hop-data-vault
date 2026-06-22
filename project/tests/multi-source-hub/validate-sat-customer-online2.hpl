@@ -24,6 +24,7 @@
 , x_record_source
 , x_load_ts
 FROM sat_customer_online
+ORDER BY customer_hk, x_load_ts
 </sql>
     <limit>0</limit>
     <execute_each_row>N</execute_each_row>

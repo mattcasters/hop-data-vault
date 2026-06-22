@@ -461,13 +461,22 @@ public final class DvFieldMappingValidationSupport {
     return selected;
   }
 
+  private static boolean typesCompatible(int sourceType, int targetType) {
+    if (sourceType == targetType) {
+      return true;
+    }
+    // DECIMAL/NUMERIC: MySQL JDBC maps to BigNumber; PostgreSQL maps to Number.
+    return (sourceType == IValueMeta.TYPE_NUMBER && targetType == IValueMeta.TYPE_BIGNUMBER)
+        || (sourceType == IValueMeta.TYPE_BIGNUMBER && targetType == IValueMeta.TYPE_NUMBER);
+  }
+
   static void validateMapping(
       IValueMeta sourceMeta,
       IValueMeta targetMeta,
       String context,
       ICheckResultSource checkSource,
       List<ICheckResult> remarks) {
-    if (sourceMeta.getType() != targetMeta.getType()) {
+    if (!typesCompatible(sourceMeta.getType(), targetMeta.getType())) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_ERROR,

@@ -800,7 +800,10 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     // The name of the source is described in the Link itself
     //
     String rsFieldName = findRecordSourceFieldName(ctx);
-    sql.append(", NULL AS ").append(ctx.targetDatabaseMeta.quoteField(rsFieldName));
+    sql.append(", ")
+        .append(DvSqlSupport.typedNullString(ctx.targetDatabaseMeta, ctx.variables, ctx.config))
+        .append(" AS ")
+        .append(ctx.targetDatabaseMeta.quoteField(rsFieldName));
 
     sql.append(" FROM ");
     sql.append(

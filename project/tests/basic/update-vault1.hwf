@@ -20,6 +20,11 @@
       <description>Valid in the current workflow</description>
       <default_value>3</default_value>
     </parameter>
+    <parameter>
+      <name>METRICS_FOLDER</name>
+      <description>Valid in the current workflow</description>
+      <default_value>${PROJECT_HOME}/metrics</default_value>
+    </parameter>
   </parameters>
   <actions>
     <action>
@@ -49,6 +54,7 @@
       <detailedDataTypeChecking>Y</detailedDataTypeChecking>
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
+      <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
       <publishToCatalog>N</publishToCatalog>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/ddl.sql</ddlSqlFilename>
@@ -94,14 +100,14 @@
       <attributes_hac/>
     </action>
     <action>
-      <sql>DROP TABLE IF EXISTS "hub_customer";
-DROP TABLE IF EXISTS "sat_customer";
-DROP TABLE IF EXISTS "hub_product";
-DROP TABLE IF EXISTS "sat_product";
-DROP TABLE IF EXISTS "hub_order";
-DROP TABLE IF EXISTS "sat_order";
-DROP TABLE IF EXISTS "lnk_customer_order";
-DROP TABLE IF EXISTS "lnk_product_order";
+      <sql>DROP TABLE IF EXISTS hub_customer;
+DROP TABLE IF EXISTS sat_customer;
+DROP TABLE IF EXISTS hub_product;
+DROP TABLE IF EXISTS sat_product;
+DROP TABLE IF EXISTS hub_order;
+DROP TABLE IF EXISTS sat_order;
+DROP TABLE IF EXISTS lnk_customer_order;
+DROP TABLE IF EXISTS lnk_product_order;
 
 
 
@@ -190,6 +196,7 @@ DROP TABLE IF EXISTS "lnk_product_order";
       <detailedDataTypeChecking>N</detailedDataTypeChecking>
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
+      <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
       <publishToCatalog>N</publishToCatalog>
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <ddlSqlFilename/>

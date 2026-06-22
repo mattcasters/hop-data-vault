@@ -19,12 +19,13 @@
     <name>sat_customer_led</name>
     <sql>SELECT
   customer_hk
-, "name"
+, name
 , email
 , x_record_source
 , x_load_ts
 , x_load_end_ts
 FROM sat_customer_led
+ORDER BY customer_hk, x_load_ts
 </sql>
     <limit>0</limit>
     <execute_each_row>N</execute_each_row>

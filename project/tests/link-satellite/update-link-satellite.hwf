@@ -17,6 +17,11 @@
       <description>Valid in the current workflow</description>
       <default_value>3</default_value>
     </parameter>
+    <parameter>
+      <name>METRICS_FOLDER</name>
+      <description>Valid in the current workflow</description>
+      <default_value>${PROJECT_HOME}/metrics</default_value>
+    </parameter>
   </parameters>
   <actions>
     <action>
@@ -97,7 +102,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <detailedDataTypeChecking>N</detailedDataTypeChecking>
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
-      <metricsOutputFolder/>
+      <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
       <publishToCatalog>Y</publishToCatalog>
       <dataCatalogConnection>local-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
@@ -167,6 +172,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product
       <detailedDataTypeChecking>N</detailedDataTypeChecking>
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
+      <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
       <publishToCatalog>N</publishToCatalog>
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <ddlSqlFilename/>

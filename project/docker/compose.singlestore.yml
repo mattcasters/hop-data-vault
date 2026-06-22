@@ -1,0 +1,53 @@
+services:
+  db:
+    image: ghcr.io/singlestore-labs/singlestoredb-dev:latest
+    environment:
+      ROOT_PASSWORD: test
+      ENABLE_STUDIO: "0"
+    volumes:
+      - ./singlestore-init.sql:/init.sql:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/usr/lib/singlestore-client/singlestore-client -h 127.0.0.1 -uroot -ptest -e 'SELECT 1' >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 36
+      start_period: 180s
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+    networks:
+      - hop-test
+
+  hop:
+    build:
+      context: ../..
+      dockerfile: project/docker/Dockerfile
+    user: root
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOP_LOG_LEVEL: Basic
+      HOP_PROJECT_NAME: hop-data-vault
+      HOP_PROJECT_FOLDER: /project
+      HOP_FILE_PATH: /project/tests/run-tests.hwf
+      HOP_RUN_CONFIG: local
+      HOP_RUN_PARAMETERS: METRICS_FOLDER=${METRICS_FOLDER:-/project/metrics/${DB_TYPE}}
+      HOP_ENVIRONMENT_NAME: test-db
+      HOP_ENVIRONMENT_CONFIG_FILE_NAME_PATHS: /project/environments/docker-singlestore.json
+      HOP_CUSTOM_ENTRYPOINT_EXTENSION_SHELL_FILE_PATH: /opt/hop-datavault/entrypoint-prepare.sh
+      DB_TYPE: singlestore
+      HOST_UID: ${HOST_UID:-0}
+      HOST_GID: ${HOST_GID:-0}
+    volumes:
+      - ../:/project
+    networks:
+      - hop-test
+
+networks:
+  hop-test:

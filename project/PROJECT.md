@@ -4,7 +4,7 @@
 >
 > - Register this `project/` folder as a Hop project (name: **`hop-data-vault`**).
 > - Configure the two database connections **`CRM`** and **`Vault`** in project metadata (`metadata/rdbms/CRM.json` and `metadata/rdbms/Vault.json`).
-> - Testing has only been done with **PostgreSQL**.
+> - Testing has been done with **PostgreSQL**, **MySQL**, and **SingleStore** (see [Docker multi-database tests](#docker-multi-database-tests) below).
 > - Install the **hop-datavault** plugin (**0.0.8-SNAPSHOT**) in your Hop 2.18.0 environment.
 
 This folder is a sample Hop project demonstrating the Data Vault 2.0 plugin: model-driven DDL, pipeline generation, initial and incremental loads, multi-active satellites, link satellites, load end date satellites, and golden-dataset unit tests.
@@ -75,6 +75,30 @@ Open this folder as a Hop project and run **`tests/run-tests.hwf`**, or run any 
 5. **`tests/load-end-date/update-load-end-date.hwf`** — load end date satellite
 
 All suites must succeed for a full test run.
+
+### Docker multi-database tests
+
+Run the full `tests/run-tests.hwf` orchestrator against PostgreSQL, MySQL, and SingleStore without a local Hop installation. A custom image extends `apache/hop:2.18.0` with the **hop-datavault** plugin and JDBC drivers (fetched at image build time via Maven).
+
+```bash
+# All three engines (postgres → mysql → singlestore)
+./run-tests-all-databases.sh
+
+# One engine
+./run-tests-all-databases.sh postgres
+```
+
+Each engine uses `project/docker/compose.<engine>.yml`: a database service (`db`) and a short-lived `hop` service that runs `run-tests.hwf` with the matching environment file under `project/environments/`. Connection metadata is swapped in at container start from `project/metadata/rdbms/profiles/<engine>/`.
+
+`run-tests-all-databases.sh` backs up your local `metadata/rdbms/CRM.json` and `Vault.json` before the run and restores them when finished (including on failure or interrupt), so GUI and `run-tests.sh` keep using your configured connections.
+
+Data Vault Update metrics JSON is written to `project/metrics/<engine>/` (for example `project/metrics/postgres/`). The project folder is bind-mounted into the container at `/project`; `HOP_RUN_PARAMETERS` passes `METRICS_FOLDER=/project/metrics/<engine>` so each database run keeps its metrics separate. After all database runs, `run-tests-all-databases.sh` runs `tests/shared/collect-metrics-results.hpl` in a short-lived Hop container and writes a combined `project/metrics/metrics-overview.csv`, then prints a formatted table. The `project/metrics/` tree is gitignored. To use a different folder:
+
+```bash
+METRICS_FOLDER=/project/metrics/custom ./run-tests-all-databases.sh postgres
+```
+
+Requirements: Docker with Compose v2. SingleStore needs ~6 GB RAM for the dev image.
 
 ---
 

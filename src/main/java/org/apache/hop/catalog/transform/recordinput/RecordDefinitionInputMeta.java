@@ -43,7 +43,7 @@ import org.apache.hop.pipeline.transform.TransformMeta;
     image = "data_catalog.svg",
     name = "i18n::RecordDefinitionInput.Name",
     description = "i18n::RecordDefinitionInput.Description",
-    categoryDescription = "i18n:org.apache.hop.pipeline.transform:BaseTransform.Category.Transform",
+    categoryDescription = "i18n:org.apache.hop.pipeline.transform:BaseTransform.Category.Input",
     keywords = "i18n::RecordDefinitionInput.keyword")
 @Getter
 @Setter

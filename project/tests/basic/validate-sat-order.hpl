@@ -28,6 +28,7 @@
 , x_record_source
 , x_load_ts
 FROM sat_order
+ORDER BY order_hk, x_load_ts
 </sql>
     <limit>0</limit>
     <execute_each_row>N</execute_each_row>
@@ -39,6 +40,31 @@ FROM sat_order
     <copies>1</copies>
     <GUI>
       <xloc>128</xloc>
+      <yloc>112</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <attributes/>
+  </transform>
+  <transform>
+    <type>SelectValues</type>
+    <name>normalize decimals</name>
+    <fields>
+      <select_unspecified>Y</select_unspecified>
+      <meta>
+        <name>unit_price</name>
+        <rename/>
+        <type>Number</type>
+        <length>11</length>
+        <precision>2</precision>
+      </meta>
+    </fields>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>200</xloc>
       <yloc>112</yloc>
     </GUI>
     <partitioning>
@@ -113,6 +139,11 @@ FROM sat_order
   <order>
     <hop>
       <from>sat_order</from>
+      <to>normalize decimals</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>normalize decimals</from>
       <to>has load date</to>
       <enabled>Y</enabled>
     </hop>

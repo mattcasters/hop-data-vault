@@ -17,7 +17,7 @@
   <transform>
     <type>TableInput</type>
     <name>source  CRM.customer</name>
-    <sql>SELECT customer_id, "name", email, address, city, record_source AS x_record_source FROM customer</sql>
+    <sql>SELECT customer_id, name, email, address, city, record_source AS x_record_source FROM customer</sql>
     <execute_each_row>N</execute_each_row>
     <variables_active>N</variables_active>
     <connection>CRM</connection>
@@ -137,7 +137,7 @@
   <transform>
     <type>TableInput</type>
     <name>target_sat_customer</name>
-    <sql>SELECT "name", email, address, city, x_record_source, customer_hk FROM sat_customer ORDER BY customer_hk, x_load_ts</sql>
+    <sql>SELECT name, email, address, city, x_record_source, customer_hk FROM sat_customer ORDER BY customer_hk, x_load_ts</sql>
     <execute_each_row>N</execute_each_row>
     <variables_active>N</variables_active>
     <connection>Vault</connection>

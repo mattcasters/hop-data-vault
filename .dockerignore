@@ -1,0 +1,8 @@
+.git
+.idea
+**/target
+docs
+project/datasets
+project/files
+project/images
+project/catalog-data
