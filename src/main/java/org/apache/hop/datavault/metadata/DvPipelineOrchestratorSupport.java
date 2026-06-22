@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
 import org.apache.hop.datavault.metrics.DvUpdateMetricsConstants;
+import org.apache.hop.datavault.metrics.DvUpdateRunTotals;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.exception.HopException;
@@ -197,17 +198,22 @@ public final class DvPipelineOrchestratorSupport {
     engine.execute();
     engine.waitUntilFinished();
 
-    DvUpdateMetricsCollector.publishRunSummary(
-        engine.getLogChannel(),
-        metricsRunId,
-        modelName,
-        logLevel,
-        metricsOutputFolder,
-        engine.getLogChannelId(),
-        variables);
+    DvUpdateRunTotals metricsTotals =
+        DvUpdateMetricsCollector.publishRunSummary(
+            engine.getLogChannel(),
+            metricsRunId,
+            modelName,
+            logLevel,
+            metricsOutputFolder,
+            engine.getLogChannelId(),
+            variables);
 
     Result orchestratorResult = engine.getResult();
-    return orchestratorResult != null ? orchestratorResult : new Result();
+    if (orchestratorResult == null) {
+      orchestratorResult = new Result();
+    }
+    DvUpdateMetricsCollector.applyToResult(orchestratorResult, metricsTotals);
+    return orchestratorResult;
   }
 
   private static String resolveOrchestratorModelName(PipelineMeta orchestrator) {

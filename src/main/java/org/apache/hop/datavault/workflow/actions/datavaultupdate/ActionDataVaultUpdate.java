@@ -593,6 +593,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           if (orchestratorResult.getNrErrors() > 0 || !orchestratorResult.getResult()) {
             logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.OrchestratorFailed"));
             success = false;
+            totalErrors += orchestratorResult.getNrErrors();
           }
         } finally {
           try {

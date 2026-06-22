@@ -24,6 +24,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.apache.hop.core.Result;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.logging.LogLevel;
@@ -76,6 +77,37 @@ public final class DvUpdateMetricsCollector {
     }
   }
 
+  /** Sums source reads, target inserts, and errors across all pipelines in a run. */
+  public static DvUpdateRunTotals aggregateTotals(List<DvUpdateTableMetrics> metrics) {
+    if (metrics == null || metrics.isEmpty()) {
+      return DvUpdateRunTotals.EMPTY;
+    }
+    long sourceRowsRead = 0;
+    long targetRowsInserted = 0;
+    long errors = 0;
+    for (DvUpdateTableMetrics entry : metrics) {
+      sourceRowsRead += entry.getSourceRowsRead();
+      targetRowsInserted += entry.getTargetRowsInserted();
+      errors += entry.getErrors();
+    }
+    return new DvUpdateRunTotals(sourceRowsRead, targetRowsInserted, errors);
+  }
+
+  /**
+   * Sets aggregated DV pipeline metrics on a Hop {@link Result}. Source table reads map to input,
+   * target table inserts map to output; target table reads are not included.
+   */
+  public static void applyToResult(Result result, DvUpdateRunTotals totals) {
+    if (result == null || totals == null) {
+      return;
+    }
+    result.setNrLinesInput(totals.getSourceRowsRead());
+    result.setNrLinesOutput(totals.getTargetRowsInserted());
+    result.setNrLinesRead(0);
+    result.setNrLinesWritten(0);
+    result.setNrErrors(totals.getErrors());
+  }
+
   /**
    * Logs all collected metrics for a run as a table after the orchestrator pipeline has finished.
    * Optionally writes the same metrics as JSON when an output folder is configured.
@@ -87,8 +119,9 @@ public final class DvUpdateMetricsCollector {
    * @param metricsOutputFolder optional folder for JSON output; skipped when empty
    * @param logChannelId orchestrator pipeline log channel id used in the JSON filename
    * @param variables variables for folder resolution
+   * @return aggregated metrics for the run, or {@link DvUpdateRunTotals#EMPTY} when none collected
    */
-  public static void publishRunSummary(
+  public static DvUpdateRunTotals publishRunSummary(
       ILogChannel log,
       String runId,
       String modelName,
@@ -98,12 +131,14 @@ public final class DvUpdateMetricsCollector {
       IVariables variables)
       throws HopException {
     if (log == null || Utils.isEmpty(runId)) {
-      return;
+      return DvUpdateRunTotals.EMPTY;
     }
     List<DvUpdateTableMetrics> metrics = removeRun(runId);
     if (metrics.isEmpty()) {
-      return;
+      return DvUpdateRunTotals.EMPTY;
     }
+
+    DvUpdateRunTotals totals = aggregateTotals(metrics);
 
     LogLevel effectiveLevel = logLevel != null ? logLevel : LogLevel.BASIC;
 
@@ -140,6 +175,8 @@ public final class DvUpdateMetricsCollector {
             BaseMessages.getString(PKG, "DvUpdateMetricsCollector.Log.MetricsWritten", jsonPath));
       }
     }
+
+    return totals;
   }
 
   private static List<String> formatMetricsTable(List<DvUpdateTableMetrics> metrics) {
