@@ -4,33 +4,41 @@
 >
 > - Register this `project/` folder as a Hop project (name: **`hop-data-vault`**).
 > - Configure the two database connections **`CRM`** and **`Vault`** in project metadata (`metadata/rdbms/CRM.json` and `metadata/rdbms/Vault.json`).
+> - **Docker** with Compose v2 — used by `run-tests.sh` and `run-tests-all-databases.sh` to run workflows in a short-lived Hop container (`docker-hop:latest`). No local Hop installation is required for command-line testing.
+> - **Python 3** — used by the test scripts to print the metrics overview table at the end of a run (stdlib only; no extra packages).
 > - Testing has been done with **PostgreSQL**, **MySQL**, and **SingleStore** (see [Docker multi-database tests](#docker-multi-database-tests) below).
-> - Install the **hop-datavault** plugin (**0.0.8-SNAPSHOT**) in your Hop 2.18.0 environment.
+> - For Hop GUI use, install the **hop-datavault** plugin (**0.0.11-SNAPSHOT**) in your Hop 2.18.0 environment.
 
-This folder is a sample Hop project demonstrating the Data Vault 2.0 plugin: model-driven DDL, pipeline generation, initial and incremental loads, multi-active satellites, link satellites, load end date satellites, and golden-dataset unit tests.
+This folder is a sample Hop project demonstrating the Data Vault 2.0 plugin: model-driven DDL, pipeline generation, initial and incremental loads, multi-active satellites, link satellites, load end date satellites, status tracking, multi-source hubs, and golden-dataset unit tests.
 
 ## Project layout
 
 ```
 project/
 ├── project-config.json          # Hop project settings (metadata, datasets, unit tests)
-├── run-tests.sh                 # Shell wrapper to run workflows via hop run
+├── run-tests.sh                 # Run workflows in the Hop Docker image (host DB)
+├── run-tests-all-databases.sh   # Full suite against Docker PostgreSQL, MySQL, SingleStore
+├── docker/                      # Docker image, compose files, shared shell helpers
+│   ├── Dockerfile               # Extends apache/hop:2.18.0 with plugin + JDBC drivers
+│   ├── compose.hop.yml          # Hop-only (host network, for run-tests.sh)
+│   ├── compose.<engine>.yml     # Database + Hop (for run-tests-all-databases.sh)
+│   └── hop-docker-lib.sh        # Shared image build, metrics, and ownership helpers
+├── metrics/                     # DV update metrics JSON + overview CSV (gitignored)
 ├── metadata/                    # RDBMS, DV config/sources, datasets, unit-test definitions
 ├── datasets/                    # Golden CSVs referenced by Hop unit tests
 ├── files/                       # Source CSVs fed into CRM staging tables by load pipelines
-│   ├── basic/
-│   ├── multi-active-satellite/
-│   ├── link-satellite/
-│   ├── link-satellite-driving-key/
-│   └── load-end-date/
 ├── images/                      # Screenshots (models, workflows, generated pipelines)
 └── tests/
     ├── run-tests.hwf            # Orchestrator: runs all test suites in sequence
+    ├── shared/                  # Shared pipelines (catalog DDL, metrics collection)
     ├── basic/
     ├── satellite-multi-active/
     ├── link-satellite/
     ├── link-satellite-driving-key/
-    └── load-end-date/
+    ├── load-end-date/
+    ├── status-tracking/
+    ├── multi-source-hub/
+    └── hash-key/
 ```
 
 | Path | Purpose |
@@ -50,9 +58,11 @@ project/
 
 ## Quick start: run tests
 
-### Command line
+### Command line (Docker)
 
-`run-tests.sh` changes to your local Hop client build and runs `hop run` against the `hop-data-vault` project. Edit the `cd` path at the top of the script if your Hop installation differs.
+Both test scripts use the same Hop Docker image (`docker-hop:latest`). The image is built automatically on first use and reused on later runs. Shared logic lives in `docker/hop-docker-lib.sh`.
+
+**`run-tests.sh`** — run against your configured host databases (`localhost` CRM/Vault connections). The container uses host networking so connection hostnames match the Hop GUI.
 
 ```bash
 # All suites (~20 seconds on a local PostgreSQL)
@@ -60,25 +70,12 @@ project/
 
 # One workflow
 ./run-tests.sh tests/load-end-date/update-load-end-date.hwf
+
+# Skip metrics overview collection
+COLLECT_METRICS=N ./run-tests.sh
 ```
 
-### Hop GUI
-
-Open this folder as a Hop project and run **`tests/run-tests.hwf`**, or run any child workflow directly.
-
-### Orchestrator order
-
-1. **`tests/basic/update-vault1.hwf`** — vault1 initial + incremental load with validation
-2. **`tests/satellite-multi-active/update-customer-phone.hwf`** — multi-active satellite
-3. **`tests/link-satellite/update-link-satellite.hwf`** — link + link satellite
-4. **`tests/link-satellite-driving-key/update-link-satellite-driving-key.hwf`** — multi-active link satellite with driving key
-5. **`tests/load-end-date/update-load-end-date.hwf`** — load end date satellite
-
-All suites must succeed for a full test run.
-
-### Docker multi-database tests
-
-Run the full `tests/run-tests.hwf` orchestrator against PostgreSQL, MySQL, and SingleStore without a local Hop installation. A custom image extends `apache/hop:2.18.0` with the **hop-datavault** plugin and JDBC drivers (fetched at image build time via Maven).
+**`run-tests-all-databases.sh`** — run the full suite against containerised PostgreSQL, MySQL, and SingleStore (no host database required).
 
 ```bash
 # All three engines (postgres → mysql → singlestore)
@@ -92,13 +89,49 @@ Each engine uses `project/docker/compose.<engine>.yml`: a database service (`db`
 
 `run-tests-all-databases.sh` backs up your local `metadata/rdbms/CRM.json` and `Vault.json` before the run and restores them when finished (including on failure or interrupt), so GUI and `run-tests.sh` keep using your configured connections.
 
-Data Vault Update metrics JSON is written to `project/metrics/<engine>/` (for example `project/metrics/postgres/`). The project folder is bind-mounted into the container at `/project`; `HOP_RUN_PARAMETERS` passes `METRICS_FOLDER=/project/metrics/<engine>` so each database run keeps its metrics separate. After all database runs, `run-tests-all-databases.sh` runs `tests/shared/collect-metrics-results.hpl` in a short-lived Hop container and writes a combined `project/metrics/metrics-overview.csv`, then prints a formatted table. The `project/metrics/` tree is gitignored. To use a different folder:
+### Hop GUI
+
+Open this folder as a Hop project and run **`tests/run-tests.hwf`**, or run any child workflow directly. Requires a local Hop 2.18.0 installation with the hop-datavault plugin.
+
+![run-tests orchestrator workflow](images/workflow-run-tests-screenshot.png)
+
+### Orchestrator: `tests/run-tests.hwf`
+
+The orchestrator creates CRM source tables from the data catalog, then runs each test suite in sequence:
+
+1. **`tests/basic/update-vault1.hwf`** — vault1 initial + incremental load with validation
+2. **`tests/satellite-multi-active/update-customer-phone.hwf`** — multi-active satellite
+3. **`tests/link-satellite/update-link-satellite.hwf`** — link + link satellite
+4. **`tests/link-satellite-driving-key/update-link-satellite-driving-key.hwf`** — multi-active link satellite with driving key
+5. **`tests/load-end-date/update-load-end-date.hwf`** — load end date satellite
+6. **`tests/hash-key/run-hash-key-tests.hwf`** — hash key generation unit tests
+7. **`tests/status-tracking/update-status-tracking.hwf`** — status tracking satellite
+8. **`tests/multi-source-hub/update-multi-source-hub.hwf`** — multi-source hub
+
+All suites must succeed for a full test run.
+
+### Metrics collection
+
+Every **Data Vault Update** action in the test workflows writes per-run metrics JSON when `METRICS_FOLDER` is set (via the `METRICS_FOLDER` workflow parameter, passed through `HOP_RUN_PARAMETERS` in Docker).
+
+| Script | Metrics folder | Example path |
+|--------|----------------|--------------|
+| `run-tests.sh` | `metrics/local/` | `project/metrics/local/vault1-<channel>.json` |
+| `run-tests-all-databases.sh` | `metrics/<engine>/` | `project/metrics/postgres/vault1-<channel>.json` |
+
+After a run, the scripts execute `tests/shared/collect-metrics-results.hpl` in a short-lived Hop container. That pipeline reads all `metrics/**/*.json` files and writes `project/metrics/metrics-overview.csv`. A formatted summary table is then printed to the console using **Python 3** (stdlib `csv` module only).
+
+The `project/metrics/` tree is gitignored. Override the metrics folder:
 
 ```bash
 METRICS_FOLDER=/project/metrics/custom ./run-tests-all-databases.sh postgres
 ```
 
-Requirements: Docker with Compose v2. SingleStore needs ~6 GB RAM for the dev image.
+### Docker multi-database tests
+
+A custom image extends `apache/hop:2.18.0` with the **hop-datavault** plugin and JDBC drivers (fetched at image build time via Maven). The project folder is bind-mounted into the container at `/project`.
+
+**Requirements:** Docker with Compose v2. SingleStore needs ~6 GB RAM for the dev image.
 
 ---
 
@@ -295,7 +328,7 @@ Golden datasets: `hub-customer-led-golden1/2`, `sat-customer-led-golden1/2` in `
 
 ## Data Vault Update action
 
-All test workflows use the same **Data Vault Update** workflow action. Point it at an `.hdv` file, choose a pipeline run configuration, and optionally enable DDL generation and special-record insertion.
+All test workflows use the same **Data Vault Update** workflow action. Point it at an `.hdv` file, choose a pipeline run configuration, and optionally enable DDL generation, special-record insertion, and metrics output (`metricsOutputFolder` → `${METRICS_FOLDER}`).
 
 ![Data Vault Update action](../docs/images/action-data-vault-update.png)
 
@@ -319,6 +352,7 @@ In the visual model editor, use **left-click context menus with icon actions** t
 
 ## Notes
 
+- **Dependencies for command-line testing:** Docker (with Compose v2) and Python 3. The Hop GUI and plugin remain optional for interactive development.
 - Link tables (`lnk_*`) are created and loaded in the vault1 flow; dedicated link unit tests exist there (`validate-lnk-customer-order UNIT`). The link-satellite suite adds full coverage for link + link satellite loads and change detection.
 - The Data Vault Update action supports **`recordSourceGroup`** on record sources tagged with **`group`** in metadata — useful for partial scheduled loads (not exercised in these sample workflows; all groups are empty).
 - All connections, run configurations, sources, and unit tests are under `metadata/`.

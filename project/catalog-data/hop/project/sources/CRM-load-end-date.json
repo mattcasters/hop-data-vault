@@ -11,7 +11,7 @@
     "modelElementName" : "CRM-load-end-date",
     "hopProject" : "load-end-date",
     "createdAt" : 1782138127448,
-    "updatedAt" : 1782148703703,
+    "updatedAt" : 1782150739441,
     "updatedBy" : null,
     "lastWorkflow" : "update load-end-date.hdv",
     "lastPipeline" : null

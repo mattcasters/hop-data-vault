@@ -1,27 +1,34 @@
 {
   "virtualPath": "",
   "rdbms": {
-    "SINGLESTORE": {
+    "POSTGRESQL": {
+      "sshTunnelPort": "22",
+      "sshTunnelUsePrivateKey": false,
       "databaseName": "test",
-      "pluginId": "SINGLESTORE",
+      "pluginId": "POSTGRESQL",
+      "sshTunnelEnabled": false,
       "accessType": 0,
-      "hostname": "db",
-      "password": "Encrypted 2be98afc86aa7f2e4cb79ce10ca97bcce",
-      "pluginName": "SingleStore (MemSQL)",
-      "port": "3306",
+      "sshTunnelUsername": "",
+      "hostname": "localhost",
+      "password": "Encrypted 2be98afc86aa7f2e4cb79ce10df90acde",
+      "pluginName": "PostgreSQL",
+      "port": "5432",
+      "sshTunnelHost": "",
       "attributes": {
         "SUPPORTS_TIMESTAMP_DATA_TYPE": "Y",
         "QUOTE_ALL_FIELDS": "N",
         "SUPPORTS_BOOLEAN_DATA_TYPE": "Y",
-        "FORCE_IDENTIFIERS_TO_LOWERCASE": "N",
-        "PRESERVE_RESERVED_WORD_CASE": "Y",
+        "FORCE_IDENTIFIERS_TO_LOWERCASE": "Y",
+        "PRESERVE_RESERVED_WORD_CASE": "N",
         "SQL_CONNECT": "",
         "FORCE_IDENTIFIERS_TO_UPPERCASE": "N",
-        "PREFERRED_SCHEMA_NAME": "",
-        "EXTRA_OPTION_SINGLESTORE.useSSL": "false"
+        "PREFERRED_SCHEMA_NAME": ""
       },
       "manualUrl": "",
-      "username": "root"
+      "sshTunnelPassphrase": "Encrypted ",
+      "sshTunnelPassword": "Encrypted ",
+      "sshTunnelPrivateKeyFile": "",
+      "username": "matt"
     }
   },
   "name": "CRM"

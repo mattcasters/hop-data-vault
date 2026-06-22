@@ -11,7 +11,7 @@
     "modelElementName" : "CRM-customer-product-line",
     "hopProject" : "link-satellite-driving-key",
     "createdAt" : 1782138125659,
-    "updatedAt" : 1782148698903,
+    "updatedAt" : 1782150735536,
     "updatedBy" : null,
     "lastWorkflow" : "update link-satellite-driving-key.hdv",
     "lastPipeline" : null

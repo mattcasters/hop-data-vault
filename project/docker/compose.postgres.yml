@@ -18,6 +18,7 @@ services:
     build:
       context: ../..
       dockerfile: project/docker/Dockerfile
+    image: docker-hop:latest
     user: root
     depends_on:
       db:

@@ -1,0 +1,19 @@
+services:
+  hop:
+    build:
+      context: ../..
+      dockerfile: project/docker/Dockerfile
+    image: docker-hop:latest
+    user: root
+    network_mode: host
+    environment:
+      HOP_LOG_LEVEL: Basic
+      HOP_PROJECT_NAME: hop-data-vault
+      HOP_PROJECT_FOLDER: /project
+      HOP_FILE_PATH: /project/tests/run-tests.hwf
+      HOP_RUN_CONFIG: local
+      HOP_RUN_PARAMETERS: METRICS_FOLDER=${METRICS_FOLDER:-/project/metrics/local}
+      HOST_UID: ${HOST_UID:-0}
+      HOST_GID: ${HOST_GID:-0}
+    volumes:
+      - ../:/project

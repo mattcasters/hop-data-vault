@@ -15,11 +15,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-#
 
-set -e
+set -eu
 
-WORKFLOW_FILE="${1:-tests/run-tests.hwf}"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+. "${SCRIPT_DIR}/docker/hop-docker-lib.sh"
 
-cd /home/matt/git/mattcasters/hop/assemblies/client/target/hop
-sh hop run -j hop-data-vault -f "$WORKFLOW_FILE" -r local
+export HOST_UID="$(id -u)"
+export HOST_GID="$(id -g)"
+
+WORKFLOW_ARG="${1:-tests/run-tests.hwf}"
+HOP_FILE_PATH="$(workflow_arg_to_container_path "${WORKFLOW_ARG}")"
+COLLECT_METRICS="${COLLECT_METRICS:-Y}"
+
+export METRICS_FOLDER="${METRICS_FOLDER:-/project/metrics/local}"
+mkdir -p "${SCRIPT_DIR}/metrics/local"
+
+echo "=== Running ${WORKFLOW_ARG} in Hop docker container ==="
+echo "Using CRM/Vault connections from ${SCRIPT_DIR}/metadata/rdbms/ (host network)"
+
+EXIT_CODE=0
+run_hop_docker_short_lived "${HOP_COMPOSE_FILE}" "${HOP_FILE_PATH}" "${METRICS_FOLDER}" \
+  || EXIT_CODE=$?
+
+reclaim_metrics_tree_ownership
+
+if [ "${COLLECT_METRICS}" = "Y" ]; then
+  collect_metrics_overview || EXIT_CODE=1
+  print_metrics_overview_table
+fi
+
+exit "${EXIT_CODE}"

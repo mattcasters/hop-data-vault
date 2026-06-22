@@ -11,7 +11,7 @@
     "modelElementName" : "CRM-customer-legacy",
     "hopProject" : "multi-source-hub",
     "createdAt" : 1782138131428,
-    "updatedAt" : 1782148642239,
+    "updatedAt" : 1782150747119,
     "updatedBy" : null,
     "lastWorkflow" : "update multi-source-hub.hdv",
     "lastPipeline" : null
