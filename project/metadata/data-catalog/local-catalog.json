@@ -1,0 +1,11 @@
+{
+  "name": "local-catalog",
+  "description": "Local file-based data catalog for development and integration tests",
+  "enabled": true,
+  "catalog": {
+    "FILE": {
+      "pluginId": "FILE",
+      "storageDirectory": "${PROJECT_HOME}/catalog-data"
+    }
+  }
+}

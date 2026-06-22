@@ -47,6 +47,8 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.catalog.metadata.DataCatalogMeta;
+import org.apache.hop.datavault.catalog.DvCatalogPublisher;
 import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvModelCheckOptions;
@@ -169,6 +171,25 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
   private String metricsOutputFolder;
+
+  @GuiWidgetElement(
+      order = "0380",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionDataVaultUpdate.PublishToCatalog.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.PublishToCatalog.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
+  @HopMetadataProperty
+  private boolean publishToCatalog;
+
+  @GuiWidgetElement(
+      order = "0385",
+      type = GuiElementType.METADATA,
+      metadata = DataCatalogMeta.class,
+      label = "i18n::ActionDataVaultUpdate.DataCatalogConnection.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.DataCatalogConnection.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
+  @HopMetadataProperty
+  private String dataCatalogConnection;
 
   @GuiWidgetElement(
       order = "0100",
@@ -613,6 +634,9 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       result.setResult(success);
       if (success) {
         result.setNrErrors(0);
+        if (publishToCatalog) {
+          publishModelToCatalog(model);
+        }
       } else {
         result.setNrErrors(totalErrors > 0 ? totalErrors : 1);
       }
@@ -624,6 +648,27 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       result.setResult(false);
       result.setNrErrors(1);
       return result;
+    }
+  }
+
+  private void publishModelToCatalog(DataVaultModel model) {
+    String catalogConnection = resolve(dataCatalogConnection);
+    if (Utils.isEmpty(catalogConnection)) {
+      logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.NoDataCatalogConnection"));
+      return;
+    }
+    try {
+      DvCatalogPublisher.publish(
+          catalogConnection,
+          model,
+          getVariables(),
+          getMetadataProvider(),
+          getName());
+      logBasic(
+          BaseMessages.getString(
+              PKG, "ActionDataVaultUpdate.Log.CatalogPublished", catalogConnection));
+    } catch (Exception e) {
+      logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.CatalogPublishFailed"), e);
     }
   }
 
