@@ -1,0 +1,158 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.hop.datavault.catalog;
+
+import java.util.List;
+import org.apache.hop.catalog.model.DvSourceRecord;
+import org.apache.hop.catalog.model.PhysicalTableRef;
+import org.apache.hop.catalog.model.RecordDefinition;
+import org.apache.hop.catalog.model.RecordDefinitionType;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultSource;
+import org.apache.hop.datavault.metadata.DvSourceDeliveryType;
+import org.apache.hop.datavault.metadata.DvSourceType;
+import org.apache.hop.datavault.metadata.SourceField;
+import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
+import org.apache.hop.datavault.metadata.IDvSource;
+
+/** Maps catalog {@link RecordDefinition} entries back to in-memory {@link DataVaultSource}. */
+public final class CatalogDvSourceMapper {
+
+  private CatalogDvSourceMapper() {}
+
+  public static DataVaultSource toDataVaultSource(RecordDefinition definition, IVariables variables)
+      throws HopException {
+    if (definition == null || definition.getKey() == null) {
+      throw new HopException("Catalog record definition is missing a key");
+    }
+    if (definition.getType() != RecordDefinitionType.DV_SOURCE) {
+      throw new HopException(
+          "Catalog record '"
+              + definition.getKey()
+              + "' is not a DV source (type="
+              + definition.getType()
+              + ")");
+    }
+
+    DataVaultSource source = new DataVaultSource();
+    source.setName(definition.getKey().getName());
+
+    DvSourceRecord dvSourceRecord = definition.getDvSource();
+    if (dvSourceRecord != null) {
+      source.setSourceIndicator(dvSourceRecord.getSourceIndicator());
+      source.setSourceIndicatorField(dvSourceRecord.getSourceIndicatorField());
+      source.setGroup(dvSourceRecord.getGroup());
+      source.setDeliveryType(parseDeliveryType(dvSourceRecord.getDeliveryType()));
+      List<SourceField> fields = DvSourceFieldSupport.fromCatalogFields(dvSourceRecord.getFields());
+      source.setSource(buildDvSource(dvSourceRecord.getSourceType(), definition, fields));
+    } else {
+      applyLegacyProperties(source, definition);
+      source.setSource(buildLegacyDvSource(definition, variables));
+    }
+
+    return source;
+  }
+
+  private static void applyLegacyProperties(DataVaultSource source, RecordDefinition definition) {
+    source.setSourceIndicator(getCustomProperty(definition, "sourceIndicator"));
+    source.setSourceIndicatorField(getCustomProperty(definition, "sourceIndicatorField"));
+    source.setGroup(getCustomProperty(definition, "group"));
+    source.setDeliveryType(parseDeliveryType(getCustomProperty(definition, "deliveryType")));
+  }
+
+  private static IDvSource buildDvSource(
+      String sourceTypeName, RecordDefinition definition, List<SourceField> fields) {
+    DvSourceType sourceType = parseSourceType(sourceTypeName);
+    if (sourceType == DvSourceType.DATABASE) {
+      DvDatabaseSource dbSource = new DvDatabaseSource();
+      dbSource.setDescription(definition.getDescription());
+      dbSource.setFields(fields);
+      applyPhysicalTable(dbSource, definition.getPhysicalTable());
+      return dbSource;
+    }
+    DvDatabaseSource fallback = new DvDatabaseSource();
+    fallback.setDescription(definition.getDescription());
+    fallback.setFields(fields);
+    return fallback;
+  }
+
+  private static IDvSource buildLegacyDvSource(RecordDefinition definition, IVariables variables)
+      throws HopException {
+    DvDatabaseSource dbSource = new DvDatabaseSource();
+    dbSource.setDescription(definition.getDescription());
+    applyPhysicalTable(dbSource, definition.getPhysicalTable());
+    if (definition.getPhysicalTable() == null && definition.getCustomProperties() != null) {
+      dbSource.setDatabaseName(getCustomProperty(definition, "databaseName"));
+      dbSource.setSchemaName(getCustomProperty(definition, "schemaName"));
+      dbSource.setTableName(getCustomProperty(definition, "tableName"));
+    }
+    if (definition.getFields() != null) {
+      List<SourceField> fields = new java.util.ArrayList<>();
+      for (int i = 0; i < definition.getFields().size(); i++) {
+        SourceField field = new SourceField(definition.getFields().getValueMeta(i).getName());
+        field.setHopType(definition.getFields().getValueMeta(i).getType());
+        field.setLength(Integer.toString(definition.getFields().getValueMeta(i).getLength()));
+        field.setPrecision(Integer.toString(definition.getFields().getValueMeta(i).getPrecision()));
+        fields.add(field);
+      }
+      dbSource.setFields(fields);
+    }
+    return dbSource;
+  }
+
+  private static void applyPhysicalTable(DvDatabaseSource dbSource, PhysicalTableRef physicalTable) {
+    if (physicalTable == null) {
+      return;
+    }
+    dbSource.setDatabaseName(physicalTable.getDatabaseMetaName());
+    dbSource.setSchemaName(physicalTable.getSchemaName());
+    dbSource.setTableName(physicalTable.getTableName());
+  }
+
+  private static String getCustomProperty(RecordDefinition definition, String name) {
+    if (definition.getCustomProperties() == null
+        || !definition.getCustomProperties().containsKey(name)) {
+      return null;
+    }
+    return definition.getCustomProperties().get(name).getValue();
+  }
+
+  private static DvSourceType parseSourceType(String raw) {
+    if (Utils.isEmpty(raw)) {
+      return DvSourceType.DATABASE;
+    }
+    try {
+      return DvSourceType.valueOf(raw);
+    } catch (IllegalArgumentException e) {
+      return DvSourceType.DATABASE;
+    }
+  }
+
+  private static DvSourceDeliveryType parseDeliveryType(String raw) {
+    if (Utils.isEmpty(raw)) {
+      return DvSourceDeliveryType.CHANGES_ONLY;
+    }
+    try {
+      return DvSourceDeliveryType.valueOf(raw);
+    } catch (IllegalArgumentException e) {
+      return DvSourceDeliveryType.CHANGES_ONLY;
+    }
+  }
+}

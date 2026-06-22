@@ -28,7 +28,9 @@ import org.apache.hop.core.Props;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.BusinessKey;
+import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.SourceField;
@@ -65,6 +67,7 @@ public class DvHubDialog {
   private final HopGui hopGui;
   private final IVariables variables;
   private final DvHub input;
+  private final DataVaultModel model;
   private Shell shell;
 
   private CTabFolder wTabFolder;
@@ -84,10 +87,11 @@ public class DvHubDialog {
   private int margin;
   private int middle;
 
-  public DvHubDialog(Shell parent, HopGui hopGui, DvHub hub) {
+  public DvHubDialog(Shell parent, HopGui hopGui, DataVaultModel model, DvHub hub) {
     this.parent = parent;
     this.hopGui = hopGui;
     this.variables = hopGui.getVariables();
+    this.model = model;
     this.input = hub;
   }
 
@@ -334,7 +338,8 @@ public class DvHubDialog {
 
     List<String> sources = new ArrayList<>();
     try {
-      sources = hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).listObjectNames();
+      sources =
+          DvSourceCatalogService.listSourceNames(model, variables, hopGui.getMetadataProvider());
     } catch (Exception e) {
       sources = new ArrayList<>();
     }
@@ -452,7 +457,9 @@ public class DvHubDialog {
     List<SourceField> sourceFields = null;
 
     try {
-      source = hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sourceName);
+      source =
+          DvSourceCatalogService.resolveSource(
+              sourceName, model, variables, hopGui.getMetadataProvider());
       if (source != null) {
         sourceFields = source.getFields(hopGui.getMetadataProvider());
       }

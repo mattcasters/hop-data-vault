@@ -55,6 +55,7 @@ import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.row.value.ValueMetaTimestamp;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMeta;
 import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMetaFactory;
 import org.apache.hop.i18n.BaseMessages;
@@ -264,17 +265,18 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
                   PKG, "DvLink.CheckResult.HasLinkHubSources", linkHubSources.size()),
               this));
       for (DvLinkHubSource ls : linkHubSources) {
-        if (ls != null && ls.getSource() != null && !Utils.isEmpty(ls.getSource().getName())) {
-          DataVaultSource source = ls.getSource();
+        if (ls != null && !Utils.isEmpty(ls.getSourceName())) {
+          DataVaultSource source;
           List<SourceField> availableSourceFields;
           try {
+            source = ls.resolveSource(variables, metadataProvider, model);
             availableSourceFields = source.getFields(metadataProvider);
           } catch (HopException e) {
             remarks.add(
                 new CheckResult(
                     ICheckResult.TYPE_RESULT_ERROR,
                     "Error loading fields from record source '"
-                        + source.getName()
+                        + ls.getSourceName()
                         + "': "
                         + e.getMessage(),
                     this));
@@ -359,17 +361,18 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
                   PKG, "DvLink.CheckResult.HasLinkSatelliteSources", linkSatelliteSources.size()),
               this));
       for (DvLinkSatelliteSource ls : linkSatelliteSources) {
-        if (ls != null && ls.getSource() != null && !Utils.isEmpty(ls.getSource().getName())) {
-          DataVaultSource source = ls.getSource();
+        if (ls != null && !Utils.isEmpty(ls.getSourceName())) {
+          DataVaultSource source;
           List<SourceField> availableSourceFields;
           try {
+            source = ls.resolveSource(variables, metadataProvider, model);
             availableSourceFields = source.getFields(metadataProvider);
           } catch (HopException e) {
             remarks.add(
                 new CheckResult(
                     ICheckResult.TYPE_RESULT_ERROR,
                     "Error loading fields from record source '"
-                        + source.getName()
+                        + ls.getSourceName()
                         + "': "
                         + e.getMessage(),
                     this));
@@ -465,7 +468,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       List<PipelineMeta> result = new ArrayList<>();
 
       for (DvLinkHubSource linkSource : linkHubSources) {
-        DataVaultSource source = linkSource.getSource();
+        DataVaultSource source = linkSource.resolveSource(variables, metadataProvider, model);
         if (source != null && !source.matchesRecordSourceGroup(recordSourceGroup, variables)) {
           continue;
         }
@@ -475,7 +478,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
         PipelineMeta pipelineMeta = new PipelineMeta();
         String baseName = ctx.pipelineName;
-        String srcName = linkSource.getSource().getName();
+        String srcName = linkSource.getSourceName();
         pipelineMeta.setName(baseName + "_" + srcName);
 
         TransformMeta sourceInputTransform = addSourceTableInput(ctx, pipelineMeta, linkSource);
@@ -755,7 +758,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
   private String findSourceFieldOfDrivingKey(LinkUpdateContext ctx, String drivingKeyName) {
     for (DvLinkHubSource linkSource : linkHubSources) {
-      if (linkSource.getSource().equals(ctx.dataVaultSource)) {
+      if (Const.NVL(linkSource.getSourceName(), "")
+          .equalsIgnoreCase(Const.NVL(ctx.dataVaultSource.getName(), ""))) {
         // This is the source we're loading in this pipeline
         // See if we have the source for the driving key.
         for (HubSourceKeyField hubSourceKeyField : linkSource.hubSourceKeyFields) {
@@ -1150,7 +1154,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
       // Use per-source data if provided (new multi-source model), else fall back to top-level
       // legacy fields
-      DataVaultSource effectiveSource = linkSource.getSource();
+      DataVaultSource effectiveSource = linkSource.resolveSource(variables, metadataProvider, model);
       if (effectiveSource == null) {
         throw new HopException("Please provide a valid record source in Link " + link.getName());
       }
@@ -1175,9 +1179,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   @Getter
   @Setter
   public static class DvLinkHubSource {
-    /** The Data Vault Source (record source) for this link feed. */
-    @HopMetadataProperty(storeWithName = true)
-    private DataVaultSource source;
+    /** The Data Vault Source (record source) name for this link feed. */
+    @HopMetadataProperty private String source;
 
     /**
      * Per-hub source business key field mappings for this specific source. Tells the system, for
@@ -1190,14 +1193,30 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     public DvLinkHubSource() {
       hubSourceKeyFields = new ArrayList<>();
     }
+
+    public String getSourceName() {
+      return source;
+    }
+
+    public void setSourceName(String sourceName) {
+      this.source = sourceName;
+    }
+
+    public DataVaultSource resolveSource(
+        IVariables variables, IHopMetadataProvider metadataProvider, DataVaultModel model)
+        throws HopException {
+      if (Utils.isEmpty(source)) {
+        return null;
+      }
+      return DvSourceCatalogService.resolveSource(source, model, variables, metadataProvider);
+    }
   }
 
   @Getter
   @Setter
   public static class DvLinkSatelliteSource {
-    /** The Data Vault Source (record source) feeding a link satellite. */
-    @HopMetadataProperty(storeWithName = true)
-    private DataVaultSource source;
+    /** The Data Vault Source (record source) name feeding a link satellite. */
+    @HopMetadataProperty private String source;
 
     /**
      * Per-satellite source attribute field mappings for this specific source. Tells the system,
@@ -1209,6 +1228,23 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
     public DvLinkSatelliteSource() {
       satelliteSourceKeyFields = new ArrayList<>();
+    }
+
+    public String getSourceName() {
+      return source;
+    }
+
+    public void setSourceName(String sourceName) {
+      this.source = sourceName;
+    }
+
+    public DataVaultSource resolveSource(
+        IVariables variables, IHopMetadataProvider metadataProvider, DataVaultModel model)
+        throws HopException {
+      if (Utils.isEmpty(source)) {
+        return null;
+      }
+      return DvSourceCatalogService.resolveSource(source, model, variables, metadataProvider);
     }
   }
 

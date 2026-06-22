@@ -49,6 +49,9 @@ public class RecordDefinition {
 
   @HopMetadataProperty private Map<String, CatalogCustomProperty> customProperties = new HashMap<>();
 
+  /** Structured Data Vault source metadata when {@link #type} is {@code DV_SOURCE}. */
+  @HopMetadataProperty private DvSourceRecord dvSource;
+
   /** Column layout; not directly serialized by Hop metadata (persisted via catalog plugins). */
   private IRowMeta fields;
 

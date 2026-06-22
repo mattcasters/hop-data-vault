@@ -27,6 +27,7 @@ import org.apache.hop.core.Props;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
@@ -41,7 +42,7 @@ import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.dialog.MessageBox;
 import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.core.widget.ColumnInfo;
-import org.apache.hop.ui.core.widget.MetaSelectionLine;
+
 import org.apache.hop.ui.core.widget.TableView;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
@@ -77,7 +78,7 @@ public class DvSatelliteDialog {
   private Text wName;
   private Text wDescription;
   private Text wTableName;
-  private MetaSelectionLine<DataVaultSource> wRecordSource;
+  private DvCatalogSourceSelectionLine wRecordSource;
   private Text wHubName;
   private Text wLinkName;
   private Text wDrivingKey;
@@ -209,12 +210,12 @@ public class DvSatelliteDialog {
         new FormDataBuilder().left(middle, 0).top(0, margin).right().result());
 
     wRecordSource =
-        new MetaSelectionLine<>(
+        new DvCatalogSourceSelectionLine(
             variables,
             hopGui.getMetadataProvider(),
-            DataVaultSource.class,
+            model,
             comp,
-            SWT.SINGLE | SWT.LEFT | SWT.BORDER,
+            SWT.BORDER,
             BaseMessages.getString(PKG, "DvSatelliteDialog.RecordSource.Label"),
             BaseMessages.getString(PKG, "DvSatelliteDialog.RecordSource.ToolTip"));
     wRecordSource.setLayoutData(
@@ -466,8 +467,8 @@ public class DvSatelliteDialog {
     wDescription.setText(Const.NVL(input.getDescription(), ""));
     try {
       wRecordSource.fillItems();
-      if (input.getRecordSource() != null) {
-        wRecordSource.setText(Const.NVL(input.getRecordSource().getName(), ""));
+      if (!Utils.isEmpty(input.getRecordSourceName())) {
+        wRecordSource.setText(Const.NVL(input.getRecordSourceName(), ""));
       }
     } catch (HopException e) {
       wRecordSource.setText("");
@@ -507,14 +508,7 @@ public class DvSatelliteDialog {
     input.setDescription(wDescription.getText());
     String rsName = wRecordSource.getText();
 
-    try {
-      DataVaultSource recordSource =
-          hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(rsName);
-      input.setRecordSource(recordSource);
-    } catch (HopException e) {
-      new ErrorDialog(shell, "Error", "Error loading data vault source " + rsName, e);
-      return;
-    }
+    input.setRecordSourceName(rsName);
 
     input.setHubName(wHubName.getText());
     input.setLinkName(wLinkName.getText());
@@ -570,7 +564,8 @@ public class DvSatelliteDialog {
     }
     try {
       DataVaultSource source =
-          hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sourceName);
+          DvSourceCatalogService.resolveSource(
+              sourceName, model, variables, hopGui.getMetadataProvider());
       if (source == null) {
         return List.of();
       }
@@ -606,7 +601,9 @@ public class DvSatelliteDialog {
     List<SourceField> sourceFields = null;
 
     try {
-      source = hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sourceName);
+      source =
+          DvSourceCatalogService.resolveSource(
+              sourceName, model, variables, hopGui.getMetadataProvider());
       if (source != null) {
         sourceFields = source.getFields(hopGui.getMetadataProvider());
       }

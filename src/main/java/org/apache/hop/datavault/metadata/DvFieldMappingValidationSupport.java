@@ -125,10 +125,16 @@ public final class DvFieldMappingValidationSupport {
       IVariables variables,
       ICheckResultSource checkSource,
       List<ICheckResult> remarks) {
-    if (satellite == null || satellite.getRecordSource() == null) {
+    if (satellite == null || Utils.isEmpty(satellite.getRecordSourceName())) {
       return;
     }
-    DataVaultSource recordSource = satellite.getRecordSource();
+    DataVaultSource recordSource;
+    try {
+      recordSource = satellite.resolveRecordSource(variables, metadataProvider, model);
+    } catch (HopException e) {
+      remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+      return;
+    }
     ResolvedSourceFields resolved =
         resolveSourceFields(recordSource, options, metadataProvider, variables, checkSource, remarks);
     if (resolved == null) {
@@ -258,10 +264,16 @@ public final class DvFieldMappingValidationSupport {
       return;
     }
     for (DvLink.DvLinkHubSource linkHubSource : link.getLinkHubSources()) {
-      if (linkHubSource == null || linkHubSource.getSource() == null) {
+      if (linkHubSource == null || Utils.isEmpty(linkHubSource.getSourceName())) {
         continue;
       }
-      DataVaultSource recordSource = linkHubSource.getSource();
+      DataVaultSource recordSource;
+      try {
+        recordSource = linkHubSource.resolveSource(variables, metadataProvider, model);
+      } catch (HopException e) {
+        remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+        continue;
+      }
       ResolvedSourceFields resolved =
           resolveSourceFields(
               recordSource, options, metadataProvider, variables, checkSource, remarks);

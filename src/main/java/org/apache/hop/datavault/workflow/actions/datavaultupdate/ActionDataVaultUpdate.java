@@ -272,6 +272,8 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     this.parallelPipelineCopies = meta.parallelPipelineCopies;
     this.pipelineStagingFolder = meta.pipelineStagingFolder;
     this.metricsOutputFolder = meta.metricsOutputFolder;
+    this.publishToCatalog = meta.publishToCatalog;
+    this.dataCatalogConnection = meta.dataCatalogConnection;
   }
 
   @Override
@@ -334,9 +336,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       List<IDvTable> tables = model.getTables();
       if (tables == null || tables.isEmpty()) {
         logBasic(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Log.NoTables"));
-        result.setResult(true);
-        result.setNrErrors(0);
-        return result;
+        return finishExecution(result, true, 0, model);
       }
 
       Date loadDate = new Date(); // static load date for this batch update
@@ -446,9 +446,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
 
       if (doNotUpdateTargetDatabase) {
         logBasic(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Log.SkippingDataUpdate"));
-        result.setResult(success);
-        result.setNrErrors(success ? 0 : (totalErrors > 0 ? totalErrors : 1));
-        return result;
+        return finishExecution(result, success, totalErrors, model);
       }
 
       if (ensureSpecialRecords) {
@@ -631,17 +629,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
         }
       }
 
-      result.setResult(success);
-      if (success) {
-        result.setNrErrors(0);
-        if (publishToCatalog) {
-          publishModelToCatalog(model);
-        }
-      } else {
-        result.setNrErrors(totalErrors > 0 ? totalErrors : 1);
-      }
-
-      return result;
+      return finishExecution(result, success, totalErrors, model);
 
     } catch (Exception e) {
       logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.General"), e);
@@ -651,24 +639,56 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     }
   }
 
-  private void publishModelToCatalog(DataVaultModel model) {
+  private Result finishExecution(
+      Result result, boolean success, int totalErrors, DataVaultModel model) {
+    if (publishToCatalog) {
+      if (!publishModelToCatalog(model)) {
+        success = false;
+        totalErrors++;
+      }
+    }
+    result.setResult(success);
+    result.setNrErrors(success ? 0 : (totalErrors > 0 ? totalErrors : 1));
+    return result;
+  }
+
+  private boolean publishModelToCatalog(DataVaultModel model) {
     String catalogConnection = resolve(dataCatalogConnection);
     if (Utils.isEmpty(catalogConnection)) {
       logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.NoDataCatalogConnection"));
-      return;
+      return false;
     }
     try {
-      DvCatalogPublisher.publish(
-          catalogConnection,
-          model,
-          getVariables(),
-          getMetadataProvider(),
-          getName());
+      DvCatalogPublisher.PublishResult publishResult =
+          DvCatalogPublisher.publish(
+              catalogConnection,
+              model,
+              getVariables(),
+              getMetadataProvider(),
+              getName(),
+              new DvCatalogPublisher.CatalogPublishLog() {
+                @Override
+                public void logBasic(String message) {
+                  ActionDataVaultUpdate.this.logBasic(message);
+                }
+
+                @Override
+                public void logError(String message, Throwable throwable) {
+                  ActionDataVaultUpdate.this.logError(message, throwable);
+                }
+              });
       logBasic(
           BaseMessages.getString(
-              PKG, "ActionDataVaultUpdate.Log.CatalogPublished", catalogConnection));
+              PKG,
+              "ActionDataVaultUpdate.Log.CatalogPublished",
+              publishResult.getTableCount(),
+              publishResult.getSourceCount(),
+              catalogConnection,
+              publishResult.getErrorCount()));
+      return publishResult.isSuccess();
     } catch (Exception e) {
       logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.CatalogPublishFailed"), e);
+      return false;
     }
   }
 

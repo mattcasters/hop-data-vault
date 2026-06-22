@@ -42,6 +42,8 @@ import org.apache.hop.metadata.api.IHopMetadata;
 @Setter
 public class DataCatalogMeta extends HopMetadataBase implements IHopMetadata {
 
+  @HopMetadataProperty private String description;
+
   @HopMetadataProperty(key = "catalog")
   private IDataCatalog catalog = new FileDataCatalog();
 

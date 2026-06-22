@@ -20,10 +20,7 @@ package org.apache.hop.catalog.xp;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.hop.catalog.impl.file.FileDataCatalog;
 import org.apache.hop.catalog.metadata.DataCatalogMeta;
-import org.apache.hop.catalog.plugin.DataCatalogPlugin;
-import org.apache.hop.catalog.plugin.DataCatalogPluginType;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.extension.ExtensionPoint;
@@ -36,22 +33,24 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.HopMetadata;
 import org.apache.hop.metadata.plugin.MetadataPluginType;
 
+/**
+ * Registers {@link DataCatalogMeta} with Hop metadata after environment init (neo4j-style). Catalog
+ * backend implementations are selected via {@link
+ * org.apache.hop.catalog.metadata.DataCatalogMetaObjectFactory}, not a separate plugin type.
+ */
 @ExtensionPoint(
-    id = "RegisterDataCatalogPluginTypeExtensionPoint",
+    id = "RegisterDataCatalogMetadataExtensionPoint",
     extensionPointId = "HopEnvironmentAfterInit",
-    description = "Register the Data Catalog plugin type and connection metadata")
-public class RegisterDataCatalogPluginTypeExtensionPoint
-    implements IExtensionPoint<PluginRegistry> {
+    description = "Register Data Catalog connection metadata")
+public class RegisterDataCatalogMetadataExtensionPoint implements IExtensionPoint<PluginRegistry> {
 
   @Override
   public void callExtensionPoint(
       ILogChannel log, IVariables variables, PluginRegistry pluginRegistry) throws HopException {
 
-    pluginRegistry.registerType(DataCatalogPluginType.getInstance());
-
     IPlugin thisPlugin =
         pluginRegistry.findPluginWithId(
-            ExtensionPointPluginType.class, "RegisterDataCatalogPluginTypeExtensionPoint");
+            ExtensionPointPluginType.class, "RegisterDataCatalogMetadataExtensionPoint");
     ClassLoader classLoader = getClass().getClassLoader();
     List<String> libraries =
         thisPlugin != null ? new ArrayList<>(thisPlugin.getLibraries()) : new ArrayList<>();
@@ -66,21 +65,10 @@ public class RegisterDataCatalogPluginTypeExtensionPoint
         HopMetadata.class,
         false);
 
-    if (pluginRegistry.findPluginWithId(DataCatalogPluginType.class, "FILE") == null) {
-      pluginRegistry.registerPluginClass(
-          classLoader,
-          libraries,
-          pluginUrl,
-          FileDataCatalog.class.getName(),
-          DataCatalogPluginType.class,
-          DataCatalogPlugin.class,
-          false);
-    }
-
     RecordDefinitionRegistry.getInstance().environmentReady();
 
     if (log != null) {
-      log.logBasic("Data Catalog plugin type and metadata registered");
+      log.logBasic("Data Catalog metadata registered");
     }
   }
 }

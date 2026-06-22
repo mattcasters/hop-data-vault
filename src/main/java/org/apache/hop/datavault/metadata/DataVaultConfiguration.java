@@ -30,6 +30,7 @@ import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.logging.LogLevel;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
@@ -86,6 +87,16 @@ public class DataVaultConfiguration {
       parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
   @HopMetadataProperty(key = "targetDatabase")
   private String targetDatabase;
+
+  @GuiWidgetElement(
+      order = "0060",
+      type = GuiElementType.METADATA,
+      metadata = DataCatalogMeta.class,
+      label = "i18n::DataVaultConfiguration.DataCatalogConnection.Label",
+      toolTip = "i18n::DataVaultConfiguration.DataCatalogConnection.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
+  @HopMetadataProperty
+  private String dataCatalogConnection;
 
   // --- Hashing Strategy ---
   @GuiWidgetElement(

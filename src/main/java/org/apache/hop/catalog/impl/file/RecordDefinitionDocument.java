@@ -25,6 +25,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.apache.hop.catalog.model.CatalogCustomProperty;
+import org.apache.hop.catalog.model.DvSourceRecord;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
@@ -50,6 +51,7 @@ class RecordDefinitionDocument {
   private List<String> tags = new ArrayList<>();
   private List<String> glossaryTerms = new ArrayList<>();
   private Map<String, CatalogCustomProperty> customProperties = new HashMap<>();
+  private DvSourceRecord dvSource;
 
   static RecordDefinitionDocument from(RecordDefinition definition) throws HopException {
     definition.validate();
@@ -71,6 +73,7 @@ class RecordDefinitionDocument {
     if (definition.getCustomProperties() != null) {
       doc.customProperties = new HashMap<>(definition.getCustomProperties());
     }
+    doc.dvSource = definition.getDvSource();
     return doc;
   }
 
@@ -87,6 +90,7 @@ class RecordDefinitionDocument {
         glossaryTerms != null ? new ArrayList<>(glossaryTerms) : new ArrayList<>());
     definition.setCustomProperties(
         customProperties != null ? new HashMap<>(customProperties) : new HashMap<>());
+    definition.setDvSource(dvSource);
     return definition;
   }
 

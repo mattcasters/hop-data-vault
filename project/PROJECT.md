@@ -36,8 +36,8 @@ project/
 | Path | Purpose |
 |------|---------|
 | `metadata/data-vault-configuration/` | Hash / naming / satellite strategy (`vault-config`, `load-end-date-config`) |
-| `metadata/data-vault-source/` | Logical record sources (with optional `group`) |
-| `metadata/data-vault-source-database/` | CRM table + field mappings per source |
+| `metadata/data-catalog/` | Data catalog connection (`local-catalog` → `catalog-data/`) |
+| `catalog-data/hop/project/sources/` | DV record sources (CRM feeds, field layouts, groups) |
 | `metadata/dataset/` | Hop dataset definitions pointing at `datasets/*.csv` |
 | `metadata/unit-test/` | Pipeline unit test metadata |
 | `tests/basic/vault1.hdv` | Classic hub / link / satellite model (customer, order, product) |

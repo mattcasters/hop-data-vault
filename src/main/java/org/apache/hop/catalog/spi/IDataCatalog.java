@@ -30,8 +30,9 @@ import org.apache.hop.metadata.api.HopMetadataObject;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /**
- * Plugin SPI for interacting with an external data catalog (DataHub, file store, OpenMetadata,
- * ...).
+ * SPI for interacting with an external data catalog (DataHub, file store, OpenMetadata, ...).
+ * Implementations are selected by type id via {@link DataCatalogMetaObjectFactory} (same pattern as
+ * {@link org.apache.hop.core.database.IDatabase}).
  */
 @HopMetadataObject(objectFactory = DataCatalogMetaObjectFactory.class)
 public interface IDataCatalog {

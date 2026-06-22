@@ -19,15 +19,16 @@ package org.apache.hop.catalog.spi;
 
 import org.apache.hop.catalog.impl.file.FileDataCatalog;
 import org.apache.hop.catalog.metadata.DataCatalogMeta;
-import org.apache.hop.catalog.plugin.DataCatalogPluginType;
+import org.apache.hop.catalog.metadata.DataCatalogMetaObjectFactory;
 import org.apache.hop.core.exception.HopException;
-import org.apache.hop.core.plugins.IPlugin;
-import org.apache.hop.core.plugins.PluginRegistry;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
-/** Creates connected {@link IDataCatalog} instances from {@link DataCatalogMeta} connections. */
+/**
+ * Creates connected {@link IDataCatalog} instances from {@link DataCatalogMeta} connections using
+ * {@link DataCatalogMetaObjectFactory} (no Hop plugin type registration required).
+ */
 public final class DataCatalogPluginFactory {
 
   private DataCatalogPluginFactory() {}
@@ -38,7 +39,7 @@ public final class DataCatalogPluginFactory {
     IDataCatalog template = meta.getCatalogOrDefault();
     if (Utils.isEmpty(template.getPluginId())) {
       throw new HopException(
-          "Data catalog connection '" + meta.getName() + "' has no catalog plugin id configured");
+          "Data catalog connection '" + meta.getName() + "' has no catalog type id configured");
     }
     IDataCatalog instance = newInstance(template);
     instance.connect(meta, variables, metadataProvider);
@@ -46,12 +47,7 @@ public final class DataCatalogPluginFactory {
   }
 
   public static IDataCatalog newInstance(IDataCatalog template) throws HopException {
-    PluginRegistry registry = PluginRegistry.getInstance();
-    IPlugin plugin = registry.findPluginWithId(DataCatalogPluginType.class, template.getPluginId());
-    if (plugin == null) {
-      throw new HopException("Unknown data catalog plugin id '" + template.getPluginId() + "'");
-    }
-    IDataCatalog instance = registry.loadClass(plugin, IDataCatalog.class);
+    IDataCatalog instance = DataCatalogMetaObjectFactory.newCatalog(template.getPluginId());
     copySettings(template, instance);
     return instance;
   }

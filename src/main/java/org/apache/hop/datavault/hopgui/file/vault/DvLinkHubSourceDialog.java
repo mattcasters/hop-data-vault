@@ -34,7 +34,7 @@ import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.EnterSelectionDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.widget.ColumnInfo;
-import org.apache.hop.ui.core.widget.MetaSelectionLine;
+
 import org.apache.hop.ui.core.widget.TableView;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
@@ -66,7 +66,7 @@ public class DvLinkHubSourceDialog {
 
   private Shell shell;
 
-  private MetaSelectionLine<DataVaultSource> wSource;
+  private DvCatalogSourceSelectionLine wSource;
   private TableView wHubMappings;
 
   private List<DvLink.HubSourceKeyField> currentHubFields;
@@ -122,12 +122,12 @@ public class DvLinkHubSourceDialog {
 
     // Source selection
     wSource =
-        new MetaSelectionLine<>(
+        new DvCatalogSourceSelectionLine(
             variables,
             hopGui.getMetadataProvider(),
-            DataVaultSource.class,
+            model,
             shell,
-            SWT.SINGLE | SWT.LEFT | SWT.BORDER,
+            SWT.BORDER,
             "Data Vault Source",
             "The record source (Data Vault Source) that feeds data into this link");
     FormData fdSource = new FormData();
@@ -209,8 +209,8 @@ public class DvLinkHubSourceDialog {
   }
 
   private String getSourceNameForTitle() {
-    if (input != null && input.getSource() != null && input.getSource().getName() != null) {
-      return input.getSource().getName();
+    if (input != null && !Utils.isEmpty(input.getSourceName())) {
+      return input.getSourceName();
     }
     return "";
   }
@@ -219,8 +219,8 @@ public class DvLinkHubSourceDialog {
     // Source
     try {
       wSource.fillItems();
-      if (input.getSource() != null && !Utils.isEmpty(input.getSource().getName())) {
-        wSource.setText(input.getSource().getName());
+      if (!Utils.isEmpty(input.getSourceName())) {
+        wSource.setText(input.getSourceName());
       }
     } catch (HopException e) {
       // ignore, leave blank
@@ -315,18 +315,11 @@ public class DvLinkHubSourceDialog {
   }
 
   private DataVaultSource getCurrentRecordSource() {
-    String sourceName = wSource.getText();
-    if (Utils.isEmpty(sourceName)) {
-      return input.getSource();
-    }
-    if (input.getSource() != null && sourceName.equals(input.getSource().getName())) {
-      return input.getSource();
-    }
     try {
-      return hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sourceName);
+      return wSource.resolveSelectedSource();
     } catch (HopException e) {
       DataVaultSource placeholder = new DataVaultSource();
-      placeholder.setName(sourceName);
+      placeholder.setName(wSource.getText());
       return placeholder;
     }
   }
@@ -357,23 +350,9 @@ public class DvLinkHubSourceDialog {
     // Source
     String srcName = wSource.getText();
     if (!Utils.isEmpty(srcName)) {
-      try {
-        DataVaultSource src =
-            hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(srcName);
-        input.setSource(src);
-      } catch (HopException e) {
-        new ErrorDialog(
-            shell,
-            "Error",
-            "Error loading Data Vault Source '" + srcName + "'",
-            e);
-        // still proceed with a name-only placeholder for serialization (storeWithName)
-        DataVaultSource ph = new DataVaultSource();
-        ph.setName(srcName);
-        input.setSource(ph);
-      }
+      input.setSourceName(srcName);
     } else {
-      input.setSource(null);
+      input.setSourceName(null);
     }
 
     // Rebuild hub key fields list from table + current edited details

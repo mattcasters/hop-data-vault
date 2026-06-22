@@ -42,6 +42,7 @@ import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.undo.ChangeAction;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
@@ -214,7 +215,8 @@ public class DataVaultModel extends HopMetadataBase
       IHopMetadataProvider metadataProvider, IVariables variables, DvModelCheckOptions options) {
     List<ICheckResult> remarks = new ArrayList<>();
 
-    List<DataVaultSource> sources = loadDataVaultSources(metadataProvider, remarks);
+    List<DataVaultSource> sources =
+        loadDataVaultSources(metadataProvider, variables, remarks);
     checkTargetDatabase(remarks);
     checkTargetLoadingIntegerSettings(remarks, variables);
     checkTablesPresent(remarks);
@@ -227,11 +229,12 @@ public class DataVaultModel extends HopMetadataBase
   }
 
   private List<DataVaultSource> loadDataVaultSources(
-      IHopMetadataProvider metadataProvider, List<ICheckResult> remarks) {
+      IHopMetadataProvider metadataProvider, IVariables variables, List<ICheckResult> remarks) {
     try {
-      List<DataVaultSource> sources =
-          metadataProvider.getSerializer(DataVaultSource.class).loadAll();
-      return sources != null ? sources : new ArrayList<>();
+      return DvSourceCatalogService.listSources(
+          DvSourceCatalogService.resolveCatalogConnection(this, variables, metadataProvider),
+          variables,
+          metadataProvider);
     } catch (Exception e) {
       remarks.add(
           new CheckResult(

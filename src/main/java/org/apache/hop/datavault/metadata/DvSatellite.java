@@ -59,6 +59,7 @@ import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.row.value.ValueMetaTimestamp;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
@@ -172,8 +173,7 @@ public class DvSatellite extends DvTableBase
   @HopMetadataProperty
   private String drivingKeySourceField;
 
-  @HopMetadataProperty(storeWithName = true)
-  private DataVaultSource recordSource;
+  @HopMetadataProperty private String recordSource;
 
   /** When enabled, a separate STS table tracks active/deleted status per load (full snapshot only). */
   @HopMetadataProperty private boolean statusTrackingEnabled;
@@ -191,6 +191,26 @@ public class DvSatellite extends DvTableBase
   public static final String DEFAULT_ACTIVE_STATUS_VALUE = "ACTIVE";
   public static final String DEFAULT_DELETED_STATUS_VALUE = "DELETED";
   public static final int DEFAULT_STATUS_FIELD_LENGTH = 20;
+
+  public String getRecordSourceName() {
+    return recordSource;
+  }
+
+  public void setRecordSourceName(String recordSourceName) {
+    if (!java.util.Objects.equals(this.recordSource, recordSourceName)) {
+      setChanged();
+    }
+    this.recordSource = recordSourceName;
+  }
+
+  public DataVaultSource resolveRecordSource(
+      IVariables variables, IHopMetadataProvider metadataProvider, DataVaultModel model)
+      throws HopException {
+    if (Utils.isEmpty(recordSource)) {
+      return null;
+    }
+    return DvSourceCatalogService.resolveSource(recordSource, model, variables, metadataProvider);
+  }
 
   public boolean hasDrivingKey() {
     return !Utils.isEmpty(drivingKey) && !Utils.isEmpty(drivingKeySourceField);
@@ -293,9 +313,10 @@ public class DvSatellite extends DvTableBase
       }
 
       // Verify that all specified attributes exist in the record source's fields.
-      if (recordSource != null && metadataProvider != null && !Utils.isEmpty(attributes)) {
+      if (!Utils.isEmpty(recordSource) && metadataProvider != null && !Utils.isEmpty(attributes)) {
         try {
-          List<SourceField> sourceFields = recordSource.getFields(metadataProvider);
+          DataVaultSource resolvedSource = resolveRecordSource(variables, metadataProvider, model);
+          List<SourceField> sourceFields = resolvedSource.getFields(metadataProvider);
           Set<String> sourceNames = new HashSet<>();
           for (SourceField sf : sourceFields) {
             if (!Utils.isEmpty(sf.getName())) {
@@ -311,7 +332,7 @@ public class DvSatellite extends DvTableBase
                       "Attribute '"
                           + n
                           + "' not found in record source '"
-                          + (recordSource.getName() != null ? recordSource.getName() : "")
+                          + Const.NVL(recordSource, "")
                           + "'",
                       this));
             }
@@ -347,7 +368,7 @@ public class DvSatellite extends DvTableBase
     }
 
     if (isStatusTrackingEnabled()) {
-      checkStatusTracking(remarks, metadataProvider, variables);
+      checkStatusTracking(remarks, metadataProvider, variables, model);
     }
 
     if (metadataProvider != null && options != null) {
@@ -357,8 +378,11 @@ public class DvSatellite extends DvTableBase
   }
 
   private void checkStatusTracking(
-      List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
-    if (recordSource == null) {
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model) {
+    if (Utils.isEmpty(recordSource)) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_ERROR,
@@ -366,14 +390,21 @@ public class DvSatellite extends DvTableBase
               this));
       return;
     }
-    if (!recordSource.isFullSnapshotFeed()) {
+    try {
+      DataVaultSource resolvedSource = resolveRecordSource(variables, metadataProvider, model);
+      if (!resolvedSource.isFullSnapshotFeed()) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG, "DvSatellite.CheckResult.StsRequiresFullSnapshot", recordSource),
+                this));
+      }
+    } catch (HopException e) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_ERROR,
-              BaseMessages.getString(
-                  PKG,
-                  "DvSatellite.CheckResult.StsRequiresFullSnapshot",
-                  recordSource.getName() != null ? recordSource.getName() : ""),
+              "Error loading record source for status tracking: " + e.getMessage(),
               this));
     }
     String stsTable = resolveStatusTableName(variables, null);
@@ -428,8 +459,9 @@ public class DvSatellite extends DvTableBase
         return emptyList();
       }
 
-      if (recordSource != null
-          && !recordSource.matchesRecordSourceGroup(recordSourceGroup, variables)) {
+      DataVaultSource resolvedRecordSource = resolveRecordSource(variables, metadataProvider, model);
+      if (resolvedRecordSource != null
+          && !resolvedRecordSource.matchesRecordSourceGroup(recordSourceGroup, variables)) {
         return emptyList();
       }
 
@@ -447,7 +479,8 @@ public class DvSatellite extends DvTableBase
       pipelineMeta.setName(ctx.pipelineName);
 
       // Source TableInput (from record source) - hub/link bks + sat attrs + record source
-      TransformMeta sourceInputTransform = addSourceTableInput(ctx, recordSource, pipelineMeta);
+      TransformMeta sourceInputTransform =
+          addSourceTableInput(ctx, resolvedRecordSource, pipelineMeta);
 
       TransformMeta hashChainEndTransform =
           ctx.linkSatellite
@@ -501,7 +534,9 @@ public class DvSatellite extends DvTableBase
       List<PipelineMeta> pipelines = new ArrayList<>();
       pipelines.add(pipelineMeta);
 
-      if (isStatusTrackingEnabled() && recordSource != null && recordSource.isFullSnapshotFeed()) {
+      if (isStatusTrackingEnabled()
+          && resolvedRecordSource != null
+          && resolvedRecordSource.isFullSnapshotFeed()) {
         pipelines.add(generateStatusTrackingPipeline(ctx, loadDate));
       }
 
@@ -678,8 +713,8 @@ public class DvSatellite extends DvTableBase
 
       // Determine attributes
       List<SourceField> sourceFields = null;
-      if (getRecordSource() != null) {
-        sourceFields = getRecordSource().getFields(metadataProvider);
+      if (!Utils.isEmpty(recordSource)) {
+        sourceFields = resolveRecordSource(variables, metadataProvider, model).getFields(metadataProvider);
       } else {
         throw new HopException("Please specify a record source for Satellite " + getName());
       }
@@ -801,7 +836,8 @@ public class DvSatellite extends DvTableBase
     rowMeta.addValueMeta(createHashKeyValueMeta(hashKeyName, config));
 
     if (hasDrivingKey()) {
-      List<SourceField> sourceFields = getRecordSource().getFields(metadataProvider);
+      List<SourceField> sourceFields =
+          resolveRecordSource(variables, metadataProvider, model).getFields(metadataProvider);
       String drivingKeyName = variables.resolve(drivingKey);
       IValueMeta drivingKeyMeta = null;
       for (SourceField sf : sourceFields) {
@@ -1576,7 +1612,7 @@ public class DvSatellite extends DvTableBase
     pipelineMeta.setName(pipelineName);
 
     TransformMeta sourceInputTransform =
-        addSourceTableInput(ctx, recordSource, pipelineMeta, LOCATION_STS_LINE_2);
+        addSourceTableInput(ctx, ctx.dataVaultSource, pipelineMeta, LOCATION_STS_LINE_2);
 
     TransformMeta hashChainEndTransform =
         ctx.linkSatellite
@@ -2170,10 +2206,10 @@ public class DvSatellite extends DvTableBase
         return null;
       }
 
-      if (sat.recordSource == null) {
+      if (Utils.isEmpty(sat.recordSource)) {
         throw new HopException("Please specify a record source for satellite " + sat.getName());
       }
-      DataVaultSource recordSource = sat.getRecordSource();
+      DataVaultSource recordSource = sat.resolveRecordSource(variables, metadataProvider, model);
 
       DataVaultConfiguration config = model.getConfigurationOrDefault();
 
@@ -2396,8 +2432,8 @@ public class DvSatellite extends DvTableBase
     }
     for (DvLink.DvLinkHubSource lhs : link.getLinkHubSources()) {
       if (lhs != null
-          && lhs.getSource() != null
-          && source.getName().equals(lhs.getSource().getName())) {
+          && !Utils.isEmpty(lhs.getSourceName())
+          && source.getName().equals(lhs.getSourceName())) {
         return lhs;
       }
     }
@@ -2416,8 +2452,8 @@ public class DvSatellite extends DvTableBase
     }
     for (DvLink.DvLinkSatelliteSource lss : link.getLinkSatelliteSources()) {
       if (lss != null
-          && lss.getSource() != null
-          && source.getName().equals(lss.getSource().getName())) {
+          && !Utils.isEmpty(lss.getSourceName())
+          && source.getName().equals(lss.getSourceName())) {
         return lss;
       }
     }
@@ -2441,7 +2477,7 @@ public class DvSatellite extends DvTableBase
         "No hub source key field mapping for hub "
             + hubName
             + " in link hub source "
-            + linkHubSource.getSource().getName());
+            + linkHubSource.getSourceName());
   }
 
   public static Set<String> excludedHubSatelliteSourceFieldNames(

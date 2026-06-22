@@ -19,17 +19,16 @@
 package org.apache.hop.datavault.metadata.database;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import org.apache.hop.catalog.hopgui.perspective.DataCatalogPerspective;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.database.Database;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopDatabaseException;
 import org.apache.hop.core.exception.HopException;
-import org.apache.hop.core.extension.ExtensionPointHandler;
-import org.apache.hop.core.extension.HopExtensionPoint;
-import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.logging.ILoggingObject;
-import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.logging.LoggingObjectType;
 import org.apache.hop.core.logging.SimpleLoggingObject;
 import org.apache.hop.core.row.IRowMeta;
@@ -38,33 +37,48 @@ import org.apache.hop.core.row.RowMeta;
 import org.apache.hop.core.row.value.ValueMetaFactory;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
+import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.i18n.BaseMessages;
-import org.apache.hop.metadata.api.IHopMetadata;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
-import org.apache.hop.metadata.api.IHopMetadataSerializer;
-import org.apache.hop.ui.core.bus.HopGuiEvents;
 import org.apache.hop.ui.core.dialog.EditRowsDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.hopgui.HopGui;
-import org.apache.hop.ui.hopgui.perspective.metadata.MetadataPerspective;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 
-/**
- * Shared helpers for importing {@link DvDatabaseSource} metadata from relational database tables.
- */
+/** Shared helpers for importing database tables as Data Vault sources in the data catalog. */
 public final class DvDatabaseSourceImportSupport {
 
-  private static final Class<?> PKG = DataVaultSourceDatabasePanel.class;
+  private static final Class<?> PKG = DvDatabaseSourceImportSupport.class;
 
   private DvDatabaseSourceImportSupport() {}
 
-  /** Bulk-import database tables as Data Vault Source metadata objects. */
+  /** Bulk-import database tables as catalog-backed Data Vault sources. */
   public static void importDatabaseTables(
       Shell shell, HopGui hopGui, IVariables variables, IHopMetadataProvider metadataProvider) {
+    importDatabaseTables(shell, hopGui, variables, metadataProvider, null, null);
+  }
+
+  public static void importDatabaseTables(
+      Shell shell,
+      HopGui hopGui,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      DataVaultModel model) {
+    importDatabaseTables(shell, hopGui, variables, metadataProvider, model, null);
+  }
+
+  public static void importDatabaseTables(
+      Shell shell,
+      HopGui hopGui,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      DataVaultModel model,
+      String preferredCatalogConnectionName) {
     ImportDatabaseTablesOptionsDialog optionsDialog =
         new ImportDatabaseTablesOptionsDialog(shell, variables, metadataProvider);
     ImportDatabaseTablesOptionsDialog.ImportDatabaseTablesOptions options = optionsDialog.open();
@@ -149,34 +163,15 @@ public final class DvDatabaseSourceImportSupport {
     }
 
     List<Object[]> selectionRows = new ArrayList<>();
-    IHopMetadataSerializer<DataVaultSource> dataVaultSourceSerializer;
-    try {
-      dataVaultSourceSerializer = metadataProvider.getSerializer(DataVaultSource.class);
-    } catch (HopException e) {
-      new ErrorDialog(
-          shell,
-          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogTitle"),
-          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogMessage"),
-          e);
-      return;
-    }
-
     String prefix = Const.NVL(options.getDataVaultSourcePrefix(), "");
+    Set<String> usedSourceNames = new HashSet<>();
     for (String rawTableName : tableNames) {
       String tableName = stripTableNameQuotes(rawTableName);
       String dataVaultSourceName =
-          buildDefaultMetadataName(prefix, connectionName, schemaName, tableName);
-      try {
-        dataVaultSourceName = uniqueMetadataName(dataVaultSourceSerializer, dataVaultSourceName);
-        selectionRows.add(new Object[] {tableName, dataVaultSourceName});
-      } catch (HopException e) {
-        new ErrorDialog(
-            shell,
-            BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogTitle"),
-            BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorImportingTables.DialogMessage"),
-            e);
-        return;
-      }
+          uniqueNameInBatch(
+              buildDefaultMetadataName(prefix, connectionName, schemaName, tableName),
+              usedSourceNames);
+      selectionRows.add(new Object[] {tableName, dataVaultSourceName});
     }
 
     EditRowsDialog tableSelectionDialog =
@@ -192,6 +187,17 @@ public final class DvDatabaseSourceImportSupport {
       return;
     }
 
+    String catalogConnectionName =
+        new ImportDatabaseTablesCatalogDialog(
+                shell,
+                variables,
+                metadataProvider,
+                resolveDefaultCatalogConnectionName(model, variables, preferredCatalogConnectionName))
+            .open();
+    if (Utils.isEmpty(catalogConnectionName)) {
+      return;
+    }
+
     int importedCount = 0;
     List<String> errors = new ArrayList<>();
     try (Database db = new Database(loggingObject, variables, databaseMeta)) {
@@ -201,15 +207,15 @@ public final class DvDatabaseSourceImportSupport {
         if (row == null || row.length < 2) {
           continue;
         }
-        String tableName =
-            stripTableNameQuotes(row[0] != null ? row[0].toString() : null);
+        String tableName = stripTableNameQuotes(row[0] != null ? row[0].toString() : null);
         String dataVaultSourceName = row[1] != null ? row[1].toString() : null;
         if (Utils.isEmpty(tableName) || Utils.isEmpty(dataVaultSourceName)) {
           continue;
         }
 
         try {
-          if (dataVaultSourceSerializer.exists(dataVaultSourceName)) {
+          if (DvSourceCatalogService.exists(
+              dataVaultSourceName, catalogConnectionName, variables, metadataProvider)) {
             errors.add(
                 BaseMessages.getString(
                     PKG,
@@ -223,7 +229,8 @@ public final class DvDatabaseSourceImportSupport {
           DataVaultSource imported =
               createDataVaultSource(
                   dataVaultSourceName, connectionName, schemaName, tableName, fields);
-          saveNewMetadata(metadataProvider, variables, hopGui.getLog(), imported);
+          DvSourceCatalogService.upsertSource(
+              imported, catalogConnectionName, model, variables, metadataProvider, null, null);
           importedCount++;
         } catch (Exception e) {
           errors.add(
@@ -243,15 +250,7 @@ public final class DvDatabaseSourceImportSupport {
       return;
     }
 
-    try {
-      refreshMetadataPerspective(hopGui);
-    } catch (HopException e) {
-      new ErrorDialog(
-          shell,
-          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorRefreshingTree.DialogTitle"),
-          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ErrorRefreshingTree.DialogMessage"),
-          e);
-    }
+    refreshCatalogPerspective();
 
     if (!errors.isEmpty()) {
       new ErrorDialog(
@@ -329,17 +328,58 @@ public final class DvDatabaseSourceImportSupport {
     return connection + "-" + schema + "-" + table;
   }
 
-  public static String uniqueMetadataName(IHopMetadataSerializer<?> serializer, String baseName)
-      throws HopException {
+  private static String resolveDefaultCatalogConnectionName(
+      DataVaultModel model, IVariables variables, String preferredCatalogConnectionName) {
+    if (model != null && model.getConfigurationOrDefault() != null) {
+      String configured = model.getConfigurationOrDefault().getDataCatalogConnection();
+      if (variables != null) {
+        configured = variables.resolve(configured);
+      }
+      if (!Utils.isEmpty(configured)) {
+        return configured;
+      }
+    }
+    if (variables != null && !Utils.isEmpty(preferredCatalogConnectionName)) {
+      preferredCatalogConnectionName = variables.resolve(preferredCatalogConnectionName);
+    }
+    return Utils.isEmpty(preferredCatalogConnectionName) ? null : preferredCatalogConnectionName;
+  }
+
+  private static String uniqueNameInBatch(String baseName, Set<String> usedNames) {
     String candidate = Const.NVL(baseName, "");
     if (Utils.isEmpty(candidate)) {
-      throw new HopException("Metadata name cannot be empty");
+      return candidate;
     }
-    if (!serializer.exists(candidate)) {
+    if (!usedNames.contains(candidate)) {
+      usedNames.add(candidate);
       return candidate;
     }
     int suffix = 2;
-    while (serializer.exists(candidate + "_" + suffix)) {
+    while (usedNames.contains(candidate + "_" + suffix)) {
+      suffix++;
+    }
+    candidate = candidate + "_" + suffix;
+    usedNames.add(candidate);
+    return candidate;
+  }
+
+  public static String uniqueCatalogSourceName(
+      String baseName,
+      String catalogConnectionName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
+    String candidate = Const.NVL(baseName, "");
+    if (Utils.isEmpty(candidate)) {
+      throw new HopException("Data Vault source name cannot be empty");
+    }
+    if (!DvSourceCatalogService.exists(
+        candidate, catalogConnectionName, variables, metadataProvider)) {
+      return candidate;
+    }
+    int suffix = 2;
+    while (DvSourceCatalogService.exists(
+        candidate + "_" + suffix, catalogConnectionName, variables, metadataProvider)) {
       suffix++;
     }
     return candidate + "_" + suffix;
@@ -390,26 +430,10 @@ public final class DvDatabaseSourceImportSupport {
     return source;
   }
 
-  public static <T extends IHopMetadata> void saveNewMetadata(
-      IHopMetadataProvider metadataProvider,
-      IVariables variables,
-      ILogChannel log,
-      T metadata)
-      throws HopException {
-    @SuppressWarnings("unchecked")
-    IHopMetadataSerializer<T> serializer =
-        (IHopMetadataSerializer<T>) metadataProvider.getSerializer(metadata.getClass());
-    serializer.save(metadata);
-    ExtensionPointHandler.callExtensionPoint(
-        log != null ? log : LogChannel.GENERAL,
-        variables,
-        HopExtensionPoint.HopGuiMetadataObjectCreated.id,
-        metadata);
+  public static void refreshCatalogPerspective() {
+    DataCatalogPerspective perspective = DataCatalogPerspective.getInstance();
+    if (perspective != null) {
+      perspective.refresh();
+    }
   }
-
-  public static void refreshMetadataPerspective(HopGui hopGui) throws HopException {
-    MetadataPerspective.getInstance().refresh();
-    hopGui.getEventsHandler().fire(HopGuiEvents.MetadataCreated.name());
-  }
-
 }

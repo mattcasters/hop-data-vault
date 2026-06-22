@@ -26,6 +26,7 @@ import org.apache.hop.core.Props;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvLink;
@@ -434,7 +435,7 @@ public class DvLinkDialog {
     List<String> sourceNames = new ArrayList<>();
     try {
       sourceNames =
-          hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).listObjectNames();
+          DvSourceCatalogService.listSourceNames(model, variables, hopGui.getMetadataProvider());
     } catch (Exception e) {
       sourceNames = new ArrayList<>();
     }
@@ -499,7 +500,7 @@ public class DvLinkDialog {
     List<String> sourceNames = new ArrayList<>();
     try {
       sourceNames =
-          hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).listObjectNames();
+          DvSourceCatalogService.listSourceNames(model, variables, hopGui.getMetadataProvider());
     } catch (Exception e) {
       sourceNames = new ArrayList<>();
     }
@@ -638,22 +639,14 @@ public class DvLinkDialog {
 
     DvLink.DvLinkHubSource detail = null;
     for (DvLink.DvLinkHubSource ls : currentLinkHubSources) {
-      if (ls.getSource() != null && sourceName.equals(ls.getSource().getName())) {
+      if (!Utils.isEmpty(ls.getSourceName()) && sourceName.equals(ls.getSourceName())) {
         detail = ls;
         break;
       }
     }
     if (detail == null) {
       detail = new DvLink.DvLinkHubSource();
-      try {
-        DataVaultSource src =
-            hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sourceName);
-        detail.setSource(src);
-      } catch (HopException ex) {
-        DataVaultSource ph = new DataVaultSource();
-        ph.setName(sourceName);
-        detail.setSource(ph);
-      }
+      detail.setSourceName(sourceName);
       currentLinkHubSources.add(detail);
     }
 
@@ -683,22 +676,14 @@ public class DvLinkDialog {
 
     DvLink.DvLinkSatelliteSource detail = null;
     for (DvLink.DvLinkSatelliteSource ls : currentLinkSatelliteSources) {
-      if (ls.getSource() != null && sourceName.equals(ls.getSource().getName())) {
+      if (!Utils.isEmpty(ls.getSourceName()) && sourceName.equals(ls.getSourceName())) {
         detail = ls;
         break;
       }
     }
     if (detail == null) {
       detail = new DvLink.DvLinkSatelliteSource();
-      try {
-        DataVaultSource src =
-            hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sourceName);
-        detail.setSource(src);
-      } catch (HopException ex) {
-        DataVaultSource ph = new DataVaultSource();
-        ph.setName(sourceName);
-        detail.setSource(ph);
-      }
+      detail.setSourceName(sourceName);
       currentLinkSatelliteSources.add(detail);
     }
 
@@ -758,9 +743,9 @@ public class DvLinkDialog {
       for (DvLink.DvLinkHubSource ls : input.getLinkHubSources()) {
         if (ls != null) {
           currentLinkHubSources.add(ls);
-          if (ls.getSource() != null && !Utils.isEmpty(ls.getSource().getName())) {
+          if (!Utils.isEmpty(ls.getSourceName()) && !Utils.isEmpty(ls.getSourceName())) {
             TableItem item = new TableItem(wLinkHubSources.table, SWT.NONE);
-            item.setText(1, ls.getSource().getName());
+            item.setText(1, ls.getSourceName());
           }
         }
       }
@@ -775,9 +760,9 @@ public class DvLinkDialog {
       for (DvLink.DvLinkSatelliteSource ls : input.getLinkSatelliteSources()) {
         if (ls != null) {
           currentLinkSatelliteSources.add(ls);
-          if (ls.getSource() != null && !Utils.isEmpty(ls.getSource().getName())) {
+          if (!Utils.isEmpty(ls.getSourceName()) && !Utils.isEmpty(ls.getSourceName())) {
             TableItem item = new TableItem(wLinkSatelliteSources.table, SWT.NONE);
-            item.setText(1, ls.getSource().getName());
+            item.setText(1, ls.getSourceName());
           }
         }
       }
@@ -832,22 +817,14 @@ public class DvLinkDialog {
       }
       DvLink.DvLinkHubSource match = null;
       for (DvLink.DvLinkHubSource cand : currentLinkHubSources) {
-        if (cand.getSource() != null && sname.equals(cand.getSource().getName())) {
+        if (!Utils.isEmpty(cand.getSourceName()) && sname.equals(cand.getSourceName())) {
           match = cand;
           break;
         }
       }
       if (match == null) {
         match = new DvLink.DvLinkHubSource();
-        try {
-          DataVaultSource src =
-              hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sname);
-          match.setSource(src);
-        } catch (HopException ex) {
-          DataVaultSource ph = new DataVaultSource();
-          ph.setName(sname);
-          match.setSource(ph);
-        }
+        match.setSourceName(sname);
       }
       input.getLinkHubSources().add(match);
     }
@@ -860,22 +837,14 @@ public class DvLinkDialog {
       }
       DvLink.DvLinkSatelliteSource match = null;
       for (DvLink.DvLinkSatelliteSource cand : currentLinkSatelliteSources) {
-        if (cand.getSource() != null && sname.equals(cand.getSource().getName())) {
+        if (!Utils.isEmpty(cand.getSourceName()) && sname.equals(cand.getSourceName())) {
           match = cand;
           break;
         }
       }
       if (match == null) {
         match = new DvLink.DvLinkSatelliteSource();
-        try {
-          DataVaultSource src =
-              hopGui.getMetadataProvider().getSerializer(DataVaultSource.class).load(sname);
-          match.setSource(src);
-        } catch (HopException ex) {
-          DataVaultSource ph = new DataVaultSource();
-          ph.setName(sname);
-          match.setSource(ph);
-        }
+        match.setSourceName(sname);
       }
       input.getLinkSatelliteSources().add(match);
     }

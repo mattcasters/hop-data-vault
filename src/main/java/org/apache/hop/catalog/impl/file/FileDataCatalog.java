@@ -32,7 +32,6 @@ import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
 import org.apache.hop.catalog.model.RecordDefinitionQuery;
 import org.apache.hop.catalog.model.RecordDefinitionRef;
-import org.apache.hop.catalog.plugin.DataCatalogPlugin;
 import org.apache.hop.catalog.spi.IDataCatalog;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.plugin.GuiElementType;
@@ -44,24 +43,21 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /**
- * Reference data catalog plugin: stores record definitions as JSON files under a configurable
- * directory.
+ * File-based data catalog: stores record definitions as JSON files under a configurable directory.
  */
-@DataCatalogPlugin(
-    id = "FILE",
-    name = "File data catalog",
-    description = "Stores record definitions as JSON files in a local directory")
 @GuiPlugin(id = "GUI-FileDataCatalog")
 @Getter
 @Setter
 public class FileDataCatalog implements IDataCatalog {
+
+  public static final String PLUGIN_ID = "FILE";
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "FileDataCatalog-PluginSpecific-Options";
 
   private static final ObjectMapper MAPPER =
       new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
-  @HopMetadataProperty private String pluginId = "FILE";
+  @HopMetadataProperty private String pluginId = PLUGIN_ID;
 
   @GuiWidgetElement(
       order = "10",

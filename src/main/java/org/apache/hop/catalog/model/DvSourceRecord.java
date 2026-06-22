@@ -15,23 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.hop.catalog.plugin;
+package org.apache.hop.catalog.model;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import org.apache.hop.catalog.spi.IDataCatalog;
+import java.util.ArrayList;
+import java.util.List;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-/** Annotates an {@link IDataCatalog} implementation. */
-@Documented
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface DataCatalogPlugin {
-  String id();
+/** Structured Data Vault source metadata stored on a {@link RecordDefinition} of type DV_SOURCE. */
+@Getter
+@Setter
+@NoArgsConstructor
+public class DvSourceRecord {
 
-  String name() default "";
-
-  String description() default "";
+  private String sourceType;
+  private String sourceIndicator;
+  private String sourceIndicatorField;
+  private String group;
+  private String deliveryType;
+  private List<CatalogSourceField> fields = new ArrayList<>();
 }

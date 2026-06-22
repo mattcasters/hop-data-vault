@@ -21,6 +21,8 @@ import java.nio.file.Path;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.TreeSet;
+import lombok.Getter;
 import org.apache.hop.catalog.model.CatalogCustomProperty;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
@@ -28,8 +30,8 @@ import org.apache.hop.catalog.model.RecordDefinitionKey;
 import org.apache.hop.catalog.model.RecordDefinitionType;
 import org.apache.hop.catalog.model.RecordOrigin;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
-
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
@@ -48,12 +50,51 @@ public final class DvCatalogPublisher {
 
   private DvCatalogPublisher() {}
 
-  public static void publish(
+  /** Optional logging callbacks used by workflow actions and smoke tests. */
+  public interface CatalogPublishLog {
+    default void logBasic(String message) {}
+
+    default void logError(String message, Throwable throwable) {}
+  }
+
+  @Getter
+  public static final class PublishResult {
+    private final int tableCount;
+    private final int sourceCount;
+    private final int errorCount;
+
+    public PublishResult(int tableCount, int sourceCount, int errorCount) {
+      this.tableCount = tableCount;
+      this.sourceCount = sourceCount;
+      this.errorCount = errorCount;
+    }
+
+    public int getPublishedCount() {
+      return tableCount + sourceCount;
+    }
+
+    public boolean isSuccess() {
+      return errorCount == 0;
+    }
+  }
+
+  public static PublishResult publish(
       String catalogConnectionName,
       DataVaultModel model,
       IVariables variables,
       IHopMetadataProvider metadataProvider,
       String workflowName)
+      throws HopException {
+    return publish(catalogConnectionName, model, variables, metadataProvider, workflowName, null);
+  }
+
+  public static PublishResult publish(
+      String catalogConnectionName,
+      DataVaultModel model,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      String workflowName,
+      CatalogPublishLog log)
       throws HopException {
     if (Utils.isEmpty(catalogConnectionName)) {
       throw new HopException("Data catalog connection name is required for publishing");
@@ -62,13 +103,14 @@ public final class DvCatalogPublisher {
       throw new HopException("Data Vault model is required for publishing");
     }
 
-    String projectKey = resolveProjectKey(variables);
-    String modelBasename = resolveModelBasename(model);
-    String tableNamespace = "hop/" + projectKey + "/models/" + modelBasename;
-    String sourceNamespace = "hop/" + projectKey + "/sources";
+    String tableNamespace = DvCatalogNamespaces.projectModelsNamespace(variables, model);
+    String sourceNamespace = DvCatalogNamespaces.projectSourcesNamespace(variables);
     Date updatedAt = new Date();
 
     RecordDefinitionRegistry registry = RecordDefinitionRegistry.getInstance();
+    int tableCount = 0;
+    int sourceCount = 0;
+    int errorCount = 0;
 
     for (IDvTable table : model.getTables()) {
       if (table == null || Utils.isEmpty(table.getName())) {
@@ -78,22 +120,72 @@ public final class DvCatalogPublisher {
         RecordDefinition definition =
             toTableRecordDefinition(
                 table, model, tableNamespace, variables, metadataProvider, updatedAt, workflowName);
-        registry.upsert(catalogConnectionName, definition, variables, metadataProvider);
-      } catch (Exception ignored) {
-        // Per-table publish failures are non-fatal; caller may log aggregate outcome.
+        upsertDefinition(
+            registry, catalogConnectionName, definition, variables, metadataProvider, updatedAt);
+        tableCount++;
+        if (log != null) {
+          log.logBasic("Published DV table record definition: " + definition.getKey());
+        }
+      } catch (Exception e) {
+        errorCount++;
+        if (log != null) {
+          log.logError("Failed to publish DV table '" + table.getName() + "'", e);
+        }
       }
     }
 
-    for (DataVaultSource source :
-        collectReferencedSources(model, variables, metadataProvider)) {
+    for (DataVaultSource source : collectReferencedSources(model, variables, metadataProvider)) {
       try {
         RecordDefinition definition =
             DvSourceCatalogMapper.toRecordDefinition(
                 source, sourceNamespace, model, variables, metadataProvider, updatedAt, workflowName);
-        registry.upsert(catalogConnectionName, definition, variables, metadataProvider);
-      } catch (Exception ignored) {
-        // Per-source publish failures are non-fatal; caller may log aggregate outcome.
+        upsertDefinition(
+            registry, catalogConnectionName, definition, variables, metadataProvider, updatedAt);
+        sourceCount++;
+        if (log != null) {
+          log.logBasic("Published DV source record definition: " + definition.getKey());
+        }
+      } catch (Exception e) {
+        errorCount++;
+        if (log != null) {
+          log.logError(
+              "Failed to publish DV source '"
+                  + (source != null ? source.getName() : "?")
+                  + "'",
+              e);
+        }
       }
+    }
+
+    return new PublishResult(tableCount, sourceCount, errorCount);
+  }
+
+  private static void upsertDefinition(
+      RecordDefinitionRegistry registry,
+      String catalogConnectionName,
+      RecordDefinition definition,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      Date updatedAt)
+      throws HopException {
+    definition.validate();
+    RecordDefinition existing =
+        registry.read(catalogConnectionName, definition.getKey(), variables, metadataProvider);
+    mergeOriginCreatedAt(definition, existing, updatedAt);
+    registry.upsert(catalogConnectionName, definition, variables, metadataProvider);
+  }
+
+  private static void mergeOriginCreatedAt(
+      RecordDefinition definition, RecordDefinition existing, Date updatedAt) {
+    if (definition.getOrigin() == null) {
+      return;
+    }
+    if (existing != null
+        && existing.getOrigin() != null
+        && existing.getOrigin().getCreatedAt() != null) {
+      definition.getOrigin().setCreatedAt(existing.getOrigin().getCreatedAt());
+    } else {
+      definition.getOrigin().setCreatedAt(updatedAt);
     }
   }
 
@@ -113,7 +205,7 @@ public final class DvCatalogPublisher {
     definition.setDescription(table.getDescription());
     definition.setFields(layout);
     definition.setOrigin(buildTableOrigin(table, model, variables, updatedAt, workflowName));
-    definition.setPhysicalTable(buildPhysicalTableRef(model, table));
+    definition.setPhysicalTable(buildPhysicalTableRef(model, table, metadataProvider));
     definition.getTags().add("DV " + table.getTableType().name());
     if (!Utils.isEmpty(model.getName())) {
       definition.getTags().add(model.getName());
@@ -155,7 +247,8 @@ public final class DvCatalogPublisher {
     return origin;
   }
 
-  private static PhysicalTableRef buildPhysicalTableRef(DataVaultModel model, IDvTable table) {
+  private static PhysicalTableRef buildPhysicalTableRef(
+      DataVaultModel model, IDvTable table, IHopMetadataProvider metadataProvider) {
     DataVaultConfiguration config = model.getConfigurationOrDefault();
     if (config == null || Utils.isEmpty(config.getTargetDatabase())) {
       return null;
@@ -163,53 +256,76 @@ public final class DvCatalogPublisher {
     PhysicalTableRef ref = new PhysicalTableRef();
     ref.setDatabaseMetaName(config.getTargetDatabase());
     ref.setTableName(table.getTableName());
+    try {
+      DatabaseMeta databaseMeta =
+          metadataProvider.getSerializer(DatabaseMeta.class).load(config.getTargetDatabase());
+      if (databaseMeta != null && !Utils.isEmpty(databaseMeta.getPreferredSchemaName())) {
+        ref.setSchemaName(databaseMeta.getPreferredSchemaName());
+      }
+    } catch (HopException ignored) {
+      // Schema is optional on the physical table reference.
+    }
     return ref;
   }
 
   static Set<DataVaultSource> collectReferencedSources(
-      DataVaultModel model,
-      IVariables variables,
-      IHopMetadataProvider metadataProvider)
+      DataVaultModel model, IVariables variables, IHopMetadataProvider metadataProvider)
       throws HopException {
+    Set<String> sourceNames = collectReferencedSourceNames(model);
     Set<DataVaultSource> sources = new LinkedHashSet<>();
+    for (String sourceName : sourceNames) {
+      addSourceByName(sources, sourceName, model, variables, metadataProvider);
+    }
+    return sources;
+  }
+
+  static Set<String> collectReferencedSourceNames(DataVaultModel model) {
+    Set<String> sourceNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
     for (IDvTable table : model.getTables()) {
       if (table instanceof DvHub hub) {
         if (hub.getRecordSources() != null) {
           for (String sourceName : hub.getRecordSources()) {
-            addSourceByName(sources, sourceName, metadataProvider);
+            if (!Utils.isEmpty(sourceName)) {
+              sourceNames.add(sourceName);
+            }
           }
         }
       } else if (table instanceof DvSatellite satellite) {
-        if (satellite.getRecordSource() != null) {
-          sources.add(satellite.getRecordSource());
+        if (!Utils.isEmpty(satellite.getRecordSourceName())) {
+          sourceNames.add(satellite.getRecordSourceName());
         }
       } else if (table instanceof DvLink link) {
         if (link.getLinkHubSources() != null) {
           for (DvLink.DvLinkHubSource linkSource : link.getLinkHubSources()) {
-            if (linkSource.getSource() != null) {
-              sources.add(linkSource.getSource());
+            if (!Utils.isEmpty(linkSource.getSourceName())) {
+              sourceNames.add(linkSource.getSourceName());
             }
           }
         }
         if (link.getLinkSatelliteSources() != null) {
           for (DvLink.DvLinkSatelliteSource linkSource : link.getLinkSatelliteSources()) {
-            if (linkSource.getSource() != null) {
-              sources.add(linkSource.getSource());
+            if (!Utils.isEmpty(linkSource.getSourceName())) {
+              sourceNames.add(linkSource.getSourceName());
             }
           }
         }
       }
     }
-    return sources;
+    return sourceNames;
   }
 
   private static void addSourceByName(
-      Set<DataVaultSource> sources, String sourceName, IHopMetadataProvider metadataProvider)
+      Set<DataVaultSource> sources,
+      String sourceName,
+      DataVaultModel model,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
       throws HopException {
     if (Utils.isEmpty(sourceName)) {
       return;
     }
-    DataVaultSource source = metadataProvider.getSerializer(DataVaultSource.class).load(sourceName);
+    DataVaultSource source =
+        DvSourceCatalogService.resolveSource(sourceName, model, variables, metadataProvider);
     if (source != null) {
       sources.add(source);
     }

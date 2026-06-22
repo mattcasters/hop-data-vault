@@ -23,83 +23,29 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hop.core.exception.HopException;
-import org.apache.hop.core.gui.plugin.GuiElementType;
-import org.apache.hop.core.gui.plugin.GuiPlugin;
-import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
-import org.apache.hop.metadata.api.HopMetadata;
-import org.apache.hop.metadata.api.HopMetadataBase;
-import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
-import org.apache.hop.metadata.api.IHopMetadata;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /**
- * A Data Vault record source: DV semantics (indicator, group) plus an embedded polymorphic {@link
- * IDvSource} for how rows are read (database table today; file formats later).
+ * In-memory Data Vault record source loaded from the data catalog: DV semantics (indicator, group)
+ * plus an embedded polymorphic {@link IDvSource} for how rows are read (database table today; file
+ * formats later).
  */
-@GuiPlugin
-@HopMetadata(
-    key = "data-vault-source",
-    name = "i18n::DataVaultSource.name",
-    description = "i18n::DataVaultSource.description",
-    image = "datavault_model.svg",
-    documentationUrl = "/metadata-types/data-vault-source.html")
 @Getter
 @Setter
-public class DataVaultSource extends HopMetadataBase implements IHopMetadata, IHasName {
+public class DataVaultSource implements IHasName {
 
-  public static final String GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID = "DATAVAULT_SOURCE_GENERAL_TAB";
-
-  @HopMetadataProperty private String name;
-
-  @GuiWidgetElement(
-      order = "0300",
-      type = GuiElementType.TEXT,
-      variables = true,
-      label = "i18n::DataVaultSource.SourceIndicatorField.Label",
-      toolTip = "i18n::DataVaultSource.SourceIndicatorField.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
-  @HopMetadataProperty
+  private String name;
   private String sourceIndicatorField;
-
-  @GuiWidgetElement(
-      order = "0400",
-      type = GuiElementType.TEXT,
-      variables = true,
-      label = "i18n::DataVaultSource.SourceIndicator.Label",
-      toolTip = "i18n::DataVaultSource.SourceIndicator.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
-  @HopMetadataProperty
   private String sourceIndicator;
-
-  @GuiWidgetElement(
-      order = "0500",
-      type = GuiElementType.TEXT,
-      variables = true,
-      label = "i18n::DataVaultSource.Group.Label",
-      toolTip = "i18n::DataVaultSource.Group.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
-  @HopMetadataProperty
   private String group;
-
-  @GuiWidgetElement(
-      order = "0520",
-      type = GuiElementType.COMBO,
-      label = "i18n::DataVaultSource.DeliveryType.Label",
-      toolTip = "i18n::DataVaultSource.DeliveryType.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
-  @HopMetadataProperty
   private DvSourceDeliveryType deliveryType = DvSourceDeliveryType.CHANGES_ONLY;
-
-  @HopMetadataProperty(key = "source")
   private IDvSource source = new DvDatabaseSource();
 
-  public DataVaultSource() {
-    super();
-  }
+  public DataVaultSource() {}
 
   public DataVaultSource(String name) {
     this.name = name;

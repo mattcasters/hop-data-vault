@@ -25,9 +25,10 @@ The plugin provides Hop metadata types for hubs, links, satellites, and record s
 
 ### Metadata types
 
-- **Data Vault Source** (`data-vault-source`)
+- **Data Vault sources** (data catalog, `DV_SOURCE` record definitions)
   - Logical feed name, static or column-based record source indicator, optional **`group`** for partial loads (e.g. `hourly`, `daily`)
   - Embedded **database** source definition (connection, schema, table, field layout with primary-key flags)
+  - Managed in the **Data Catalog** perspective under `hop/{project}/sources`
 
 - **Data Vault Hub** (`data-vault-hub`)
   - Business keys (composite supported) with per-source field mapping

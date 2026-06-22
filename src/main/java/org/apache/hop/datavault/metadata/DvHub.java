@@ -55,6 +55,7 @@ import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.row.value.ValueMetaTimestamp;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMeta;
 import org.apache.hop.datavault.transform.dvhashkey.DvHashKeyMetaFactory;
 import org.apache.hop.i18n.BaseMessages;
@@ -212,7 +213,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
                     ? variables.resolve(bk.getRecordSourceName())
                     : bk.getRecordSourceName();
             DataVaultSource recordSource =
-                metadataProvider.getSerializer(DataVaultSource.class).load(resolvedRecordSource);
+                DvSourceCatalogService.resolveSource(
+                    resolvedRecordSource, model, variables, metadataProvider);
             if (recordSource != null) {
               List<SourceField> fields = recordSource.getFields(metadataProvider);
               boolean exists = false;
@@ -293,7 +295,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         try {
           String resolvedRef = variables != null ? variables.resolve(recordSourceRef) : recordSourceRef;
           DataVaultSource recordSource =
-              metadataProvider.getSerializer(DataVaultSource.class).load(resolvedRef);
+              DvSourceCatalogService.resolveSource(resolvedRef, model, variables, metadataProvider);
           if (recordSource != null) {
             DvFieldMappingValidationSupport.validateHubBusinessKeys(
                 this, recordSource, options, metadataProvider, variables, this, remarks);
@@ -327,7 +329,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       }
 
       List<DataVaultSource> sources =
-          loadRecordSources(variables, metadataProvider, recordSourceGroup);
+          loadRecordSources(model, variables, metadataProvider, recordSourceGroup);
       if (sources.isEmpty()) {
         if (!Utils.isEmpty(recordSourceGroup)) {
           return result;
@@ -387,15 +389,17 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
   }
 
   private List<DataVaultSource> loadRecordSources(
-      IVariables variables, IHopMetadataProvider metadataProvider, String recordSourceGroup)
+      DataVaultModel model,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      String recordSourceGroup)
       throws HopException {
     List<DataVaultSource> sources = new ArrayList<>();
 
-    IHopMetadataSerializer<DataVaultSource> serializer =
-        metadataProvider.getSerializer(DataVaultSource.class);
-
     for (String recordSource : recordSources) {
-      DataVaultSource source = serializer.load(variables.resolve(recordSource));
+      DataVaultSource source =
+          DvSourceCatalogService.resolveSource(
+              variables.resolve(recordSource), model, variables, metadataProvider);
       if (source != null && source.matchesRecordSourceGroup(recordSourceGroup, variables)) {
         sources.add(source);
       }

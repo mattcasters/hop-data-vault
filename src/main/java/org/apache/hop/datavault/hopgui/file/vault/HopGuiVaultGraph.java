@@ -1475,7 +1475,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       image = "ui/images/schema.svg")
   public void importDatabaseSourceTables() {
     DvDatabaseSourceImportSupport.importDatabaseTables(
-        hopGui.getShell(), hopGui, hopGui.getVariables(), hopGui.getMetadataProvider());
+        hopGui.getShell(), hopGui, hopGui.getVariables(), hopGui.getMetadataProvider(), model);
   }
 
   @GuiToolbarElement(
@@ -2071,7 +2071,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     boolean modelChanged = false;
     Shell parentShell = getShell();
     if (table.getTableType() == DvTableType.HUB) {
-      DvHubDialog dialog = new DvHubDialog(parentShell, hopGui, (DvHub) table);
+      DvHubDialog dialog = new DvHubDialog(parentShell, hopGui, model, (DvHub) table);
       modelChanged = dialog.open();
     } else if (table.getTableType() == DvTableType.SATELLITE) {
       DvSatelliteDialog dialog =

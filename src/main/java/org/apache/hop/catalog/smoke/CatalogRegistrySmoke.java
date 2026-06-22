@@ -20,14 +20,14 @@ package org.apache.hop.catalog.smoke;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.apache.hop.catalog.metadata.DataCatalogMetaObjectFactory;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
 import org.apache.hop.catalog.model.RecordDefinitionQuery;
 import org.apache.hop.catalog.model.RecordDefinitionRef;
 import org.apache.hop.catalog.model.RecordDefinitionType;
-import org.apache.hop.catalog.plugin.DataCatalogPluginType;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
-import org.apache.hop.catalog.xp.RegisterDataCatalogPluginTypeExtensionPoint;
+import org.apache.hop.catalog.xp.RegisterDataCatalogMetadataExtensionPoint;
 import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.logging.LogChannel;
@@ -53,11 +53,11 @@ public final class CatalogRegistrySmoke {
 
     HopEnvironment.init();
     PluginRegistry registry = PluginRegistry.getInstance();
-    new RegisterDataCatalogPluginTypeExtensionPoint()
+    new RegisterDataCatalogMetadataExtensionPoint()
         .callExtensionPoint(LogChannel.GENERAL, variables, registry);
 
-    if (registry.getPlugin(DataCatalogPluginType.class, "FILE") == null) {
-      throw new HopException("FILE data catalog plugin was not registered");
+    if (DataCatalogMetaObjectFactory.newCatalog("FILE") == null) {
+      throw new HopException("FILE data catalog implementation was not available");
     }
 
     JsonMetadataProvider metadataProvider =
