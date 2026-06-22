@@ -4,6 +4,7 @@
   <description>Status Tracking Satellite test: hub + descriptive satellite + STS on FULL_SNAPSHOT source</description>
   <configuration>
     <targetDatabase>Vault</targetDatabase>
+    <dataCatalogConnection>local-catalog</dataCatalogConnection>
     <hashAlgorithm>MD5</hashAlgorithm>
     <hashKeyDataType>STRING</hashKeyDataType>
     <generateUnknownRecord>Y</generateUnknownRecord>

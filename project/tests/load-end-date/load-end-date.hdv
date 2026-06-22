@@ -4,6 +4,7 @@
   <description>Load end date test case: hub + standard satellite with x_load_end_ts closing</description>
   <configuration>
     <targetDatabase>Vault</targetDatabase>
+    <dataCatalogConnection>local-catalog</dataCatalogConnection>
     <hashAlgorithm>MD5</hashAlgorithm>
     <hashKeyDataType>STRING</hashKeyDataType>
     <generateUnknownRecord>Y</generateUnknownRecord>

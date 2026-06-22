@@ -4,6 +4,7 @@
   <description>Multi-active satellite test case: customer phones per customer (driving key phone_type)</description>
   <configuration>
     <targetDatabase>Vault</targetDatabase>
+    <dataCatalogConnection>local-catalog</dataCatalogConnection>
     <hashAlgorithm>MD5</hashAlgorithm>
     <hashKeyDataType>STRING</hashKeyDataType>
     <generateUnknownRecord>Y</generateUnknownRecord>

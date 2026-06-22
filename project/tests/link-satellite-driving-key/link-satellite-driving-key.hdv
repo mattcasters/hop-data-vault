@@ -4,6 +4,7 @@
   <description>Multi-active link satellite test: customer-product relationship with line_number driving key</description>
   <configuration>
     <targetDatabase>Vault</targetDatabase>
+    <dataCatalogConnection>local-catalog</dataCatalogConnection>
     <hashAlgorithm>MD5</hashAlgorithm>
     <hashKeyDataType>STRING</hashKeyDataType>
     <generateUnknownRecord>Y</generateUnknownRecord>
