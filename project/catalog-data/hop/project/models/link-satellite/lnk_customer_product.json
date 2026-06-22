@@ -11,7 +11,7 @@
     "modelElementName" : "lnk_customer_product",
     "hopProject" : "project",
     "createdAt" : 1782120915344,
-    "updatedAt" : 1782150730713,
+    "updatedAt" : 1782153225404,
     "updatedBy" : null,
     "lastWorkflow" : "update link-satellite.hdv",
     "lastPipeline" : null

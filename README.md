@@ -17,7 +17,7 @@ under the License.
 
 # Hop Data Vault 2.0 Plugin
 
-Apache Hop plugin for **Data Vault 2.0** modeling, validation, and model-driven loading. Version **0.0.8-SNAPSHOT** targets **Apache Hop 2.18.0** and **Java 21**.
+Apache Hop plugin for **Data Vault 2.0** modeling, validation, and model-driven loading. Version **0.0.8-SNAPSHOT** targets **Apache Hop 2.18.1** and **Java 21**.
 
 The plugin provides Hop metadata types for hubs, links, satellites, and record sources; a visual **`.hdv` model editor** with embedded per-model configuration; a **Data Vault Update** workflow action that generates and runs load pipelines; and a sample Hop project under `project/` for end-to-end testing.
 

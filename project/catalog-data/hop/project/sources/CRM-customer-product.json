@@ -11,7 +11,7 @@
     "modelElementName" : "CRM-customer-product",
     "hopProject" : "link-satellite",
     "createdAt" : 1782129151492,
-    "updatedAt" : 1782150730713,
+    "updatedAt" : 1782153225404,
     "updatedBy" : null,
     "lastWorkflow" : "update link-satellite.hdv",
     "lastPipeline" : null

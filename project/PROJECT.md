@@ -7,7 +7,7 @@
 > - **Docker** with Compose v2 — used by `run-tests.sh` and `run-tests-all-databases.sh` to run workflows in a short-lived Hop container (`docker-hop:latest`). No local Hop installation is required for command-line testing.
 > - **Python 3** — used by the test scripts to print the metrics overview table at the end of a run (stdlib only; no extra packages).
 > - Testing has been done with **PostgreSQL**, **MySQL**, and **SingleStore** (see [Docker multi-database tests](#docker-multi-database-tests) below).
-> - For Hop GUI use, install the **hop-datavault** plugin (**0.0.11-SNAPSHOT**) in your Hop 2.18.0 environment.
+> - For Hop GUI use, install the **hop-datavault** plugin (**0.0.11-SNAPSHOT**) in your Hop 2.18.1 environment.
 
 This folder is a sample Hop project demonstrating the Data Vault 2.0 plugin: model-driven DDL, pipeline generation, initial and incremental loads, multi-active satellites, link satellites, load end date satellites, status tracking, multi-source hubs, and golden-dataset unit tests.
 
@@ -19,7 +19,7 @@ project/
 ├── run-tests.sh                 # Run workflows in the Hop Docker image (host DB)
 ├── run-tests-all-databases.sh   # Full suite against Docker PostgreSQL, MySQL, SingleStore
 ├── docker/                      # Docker image, compose files, shared shell helpers
-│   ├── Dockerfile               # Extends apache/hop:2.18.0 with plugin + JDBC drivers
+│   ├── Dockerfile               # Extends apache/hop:2.18.1 with plugin + JDBC drivers
 │   ├── compose.hop.yml          # Hop-only (host network, for run-tests.sh)
 │   ├── compose.<engine>.yml     # Database + Hop (for run-tests-all-databases.sh)
 │   └── hop-docker-lib.sh        # Shared image build, metrics, and ownership helpers
@@ -91,7 +91,7 @@ Each engine uses `project/docker/compose.<engine>.yml`: a database service (`db`
 
 ### Hop GUI
 
-Open this folder as a Hop project and run **`tests/run-tests.hwf`**, or run any child workflow directly. Requires a local Hop 2.18.0 installation with the hop-datavault plugin.
+Open this folder as a Hop project and run **`tests/run-tests.hwf`**, or run any child workflow directly. Requires a local Hop 2.18.1 installation with the hop-datavault plugin.
 
 ![run-tests orchestrator workflow](images/workflow-run-tests-screenshot.png)
 
@@ -129,7 +129,7 @@ METRICS_FOLDER=/project/metrics/custom ./run-tests-all-databases.sh postgres
 
 ### Docker multi-database tests
 
-A custom image extends `apache/hop:2.18.0` with the **hop-datavault** plugin and JDBC drivers (fetched at image build time via Maven). The project folder is bind-mounted into the container at `/project`.
+A custom image extends `apache/hop:2.18.1` with the **hop-datavault** plugin and JDBC drivers (fetched at image build time via Maven). The project folder is bind-mounted into the container at `/project`.
 
 **Requirements:** Docker with Compose v2. SingleStore needs ~6 GB RAM for the dev image.
 

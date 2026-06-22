@@ -2,7 +2,7 @@
 # Work context
 
 - Written in Java 21
-- It uses the Apache Hop version 2.18.0 API
+- It uses the Apache Hop version 2.18.1 API
 - The hop source code is available in open source via maven
 
 # Goal

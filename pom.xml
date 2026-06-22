@@ -33,7 +33,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <hop.version>2.18.0</hop.version>
+    <hop.version>2.18.1</hop.version>
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
     <jandex.version>3.5.3</jandex.version>
@@ -75,7 +75,7 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Lombok for cleaner code (getters, setters, etc.). Matches the version used by Apache Hop 2.18. -->
+    <!-- Lombok for cleaner code (getters, setters, etc.). Matches the version used by Apache Hop 2.18.1. -->
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>

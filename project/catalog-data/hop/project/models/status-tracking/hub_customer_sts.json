@@ -11,7 +11,7 @@
     "modelElementName" : "hub_customer_sts",
     "hopProject" : "project",
     "createdAt" : 1782138129585,
-    "updatedAt" : 1782150743427,
+    "updatedAt" : 1782153237567,
     "updatedBy" : null,
     "lastWorkflow" : "update status-tracking.hdv",
     "lastPipeline" : null
