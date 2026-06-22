@@ -56,8 +56,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>384</xloc>
-      <yloc>64</yloc>
+      <xloc>80</xloc>
+      <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -79,8 +79,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>720</xloc>
-      <yloc>64</yloc>
+      <xloc>416</xloc>
+      <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -102,8 +102,31 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>880</xloc>
-      <yloc>64</yloc>
+      <xloc>592</xloc>
+      <yloc>160</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <filename>${PROJECT_HOME}/tests/multi-source-hub/update-multi-source-hub.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>update-multi-source-hub</name>
+      <description/>
+      <type>WORKFLOW</type>
+      <attributes/>
+      <xloc>592</xloc>
+      <yloc>272</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -125,8 +148,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>544</xloc>
-      <yloc>64</yloc>
+      <xloc>240</xloc>
+      <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -148,8 +171,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>544</xloc>
-      <yloc>160</yloc>
+      <xloc>240</xloc>
+      <yloc>272</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -171,8 +194,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>720</xloc>
-      <yloc>160</yloc>
+      <xloc>416</xloc>
+      <yloc>272</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -194,8 +217,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>384</xloc>
-      <yloc>160</yloc>
+      <xloc>80</xloc>
+      <yloc>272</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -204,8 +227,8 @@
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>880</xloc>
-      <yloc>160</yloc>
+      <xloc>784</xloc>
+      <yloc>272</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -280,6 +303,13 @@
     </hop>
     <hop>
       <from>update-status-tracking</from>
+      <to>update-multi-source-hub</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>update-multi-source-hub</from>
       <to>Success</to>
       <evaluation>Y</evaluation>
       <unconditional>Y</unconditional>

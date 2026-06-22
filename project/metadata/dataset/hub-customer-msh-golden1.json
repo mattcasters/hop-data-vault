@@ -1,0 +1,32 @@
+{
+  "base_filename": "hub-customer-msh-golden1.csv",
+  "name": "hub-customer-msh-golden1",
+  "description": "Multi-source hub golden data after initial load",
+  "dataset_fields": [
+    {
+      "field_comment": "customer_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "customer_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "customer_id",
+      "field_length": 9,
+      "field_type": 5,
+      "field_precision": 0,
+      "field_name": "customer_id",
+      "field_format": "####0;-####0"
+    },
+    {
+      "field_comment": "x_record_source",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "x_record_source",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}
