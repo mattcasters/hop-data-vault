@@ -19,9 +19,12 @@
 package org.apache.hop.datavault.hopgui.file.vault;
 
 import org.apache.hop.core.Props;
+import org.apache.hop.core.database.DatabaseMeta;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
@@ -222,10 +225,18 @@ public class HopGuiDataVaultModelDialog {
           public void widgetModified(
               GuiCompositeWidgets compositeWidgets, Control changedWidget, String widgetId) {
             input.setChanged();
+            if ("targetDatabase".equals(widgetId)) {
+              DataVaultConfiguration configuration = input.getConfigurationOrDefault();
+              widgets.getWidgetsContents(
+                  configuration, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID);
+              applySingleStoreShardDefaults(configuration);
+              updateSingleStoreShardWidgets(configuration);
+            }
           }
         });
 
     getData();
+    updateSingleStoreShardWidgets(input.getConfigurationOrDefault());
 
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
@@ -302,6 +313,43 @@ public class HopGuiDataVaultModelDialog {
   private void cancel() {
     ok = false;
     dispose();
+  }
+
+  private void applySingleStoreShardDefaults(DataVaultConfiguration configuration) {
+    if (configuration == null || configuration.isSingleStoreShardKeyOnHashKey()) {
+      return;
+    }
+    DatabaseMeta targetDatabase = loadTargetDatabase(configuration);
+    if (DvDdlSupport.isSingleStore(targetDatabase)) {
+      configuration.setSingleStoreShardKeyOnHashKey(true);
+      widgets.setWidgetsContents(
+          configuration,
+          wTargetLoadTabComp,
+          DataVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
+    }
+  }
+
+  private void updateSingleStoreShardWidgets(DataVaultConfiguration configuration) {
+    if (widgets == null || configuration == null) {
+      return;
+    }
+    boolean singleStore = DvDdlSupport.isSingleStore(loadTargetDatabase(configuration));
+    widgets.enableWidgets(configuration, "singleStoreShardKeyOnHashKey", singleStore);
+    widgets.enableWidgets(configuration, "singleStoreShardKeyIncludeDrivingKeys", singleStore);
+  }
+
+  private DatabaseMeta loadTargetDatabase(DataVaultConfiguration configuration) {
+    if (configuration == null || Utils.isEmpty(configuration.getTargetDatabase())) {
+      return null;
+    }
+    try {
+      return hopGui
+          .getMetadataProvider()
+          .getSerializer(DatabaseMeta.class)
+          .load(configuration.getTargetDatabase());
+    } catch (Exception ignored) {
+      return null;
+    }
   }
 
   private void dispose() {

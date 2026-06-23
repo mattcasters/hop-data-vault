@@ -340,7 +340,16 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
             getClass().getSimpleName() + ".generateUpdateDdl", LoggingObjectType.GENERAL, null);
     try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
       db.connect();
-      String ddl = db.getDDL(targetTableName, targetFields);
+      String ddl =
+          generateTargetTableDdl(
+              db,
+              config,
+              targetDatabaseMeta,
+              targetTableName,
+              targetFields,
+              metadataProvider,
+              variables,
+              model);
       if (!Utils.isEmpty(ddl)) {
         result.add(ddl);
       }
@@ -348,6 +357,51 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
       throw new HopException("Error getting DDL for target table: " + targetTableName, e);
     }
     return result;
+  }
+
+  /**
+   * Resolves SingleStore shard-key columns for this table. The default is the first target layout
+   * column (the hash key). Satellites override this when a driving key should be included.
+   */
+  protected String[] resolveShardKeyColumns(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model,
+      IRowMeta targetFields) {
+    if (targetFields == null || targetFields.isEmpty()) {
+      return new String[0];
+    }
+    return new String[] {targetFields.getValueMeta(0).getName()};
+  }
+
+  protected String generateTargetTableDdl(
+      Database db,
+      DataVaultConfiguration config,
+      DatabaseMeta targetDatabaseMeta,
+      String targetTableName,
+      IRowMeta targetFields,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model)
+      throws HopException {
+    if (DvDdlSupport.isShardKeyDdlEnabled(config, targetDatabaseMeta)) {
+      String[] shardKeyColumns =
+          resolveShardKeyColumns(metadataProvider, variables, model, targetFields);
+      if (shardKeyColumns != null && shardKeyColumns.length > 0) {
+        try {
+          return DvDdlSupport.getCreateTableDdl(
+              db, targetTableName, targetFields, shardKeyColumns, null, true);
+        } catch (Exception e) {
+          throw new HopException(
+              "Error getting shard-key DDL for target table: " + targetTableName, e);
+        }
+      }
+    }
+    try {
+      return db.getDDL(targetTableName, targetFields);
+    } catch (Exception e) {
+      throw new HopException("Error getting DDL for target table: " + targetTableName, e);
+    }
   }
 
   @Override

@@ -353,6 +353,24 @@ public class DataVaultConfiguration {
   private String executionLogLevel = LogLevel.BASIC.getCode();
 
   @GuiWidgetElement(
+      order = "0530",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::DataVaultConfiguration.SingleStoreShardKeyOnHashKey.Label",
+      toolTip = "i18n::DataVaultConfiguration.SingleStoreShardKeyOnHashKey.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private boolean singleStoreShardKeyOnHashKey = false;
+
+  @GuiWidgetElement(
+      order = "0540",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::DataVaultConfiguration.SingleStoreShardKeyIncludeDrivingKeys.Label",
+      toolTip = "i18n::DataVaultConfiguration.SingleStoreShardKeyIncludeDrivingKeys.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private boolean singleStoreShardKeyIncludeDrivingKeys = true;
+
+  @GuiWidgetElement(
       order = "0600",
       type = GuiElementType.FOLDER,
       variables = true,

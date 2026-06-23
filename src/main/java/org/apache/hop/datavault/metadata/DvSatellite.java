@@ -585,7 +585,16 @@ public class DvSatellite extends DvTableBase
             null);
     try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
       db.connect();
-      String ddl = db.getDDL(stsTableName, stsLayout);
+      String ddl =
+          generateTargetTableDdl(
+              db,
+              config,
+              targetDatabaseMeta,
+              stsTableName,
+              stsLayout,
+              metadataProvider,
+              variables,
+              model);
       if (!Utils.isEmpty(ddl)) {
         result.add(ddl);
       }
@@ -593,6 +602,29 @@ public class DvSatellite extends DvTableBase
       throw new HopException("Error getting DDL for STS target table: " + stsTableName, e);
     }
     return result;
+  }
+
+  @Override
+  protected String[] resolveShardKeyColumns(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model,
+      IRowMeta targetFields) {
+    String[] columns = super.resolveShardKeyColumns(metadataProvider, variables, model, targetFields);
+    if (columns.length == 0) {
+      return columns;
+    }
+
+    DataVaultConfiguration config = model != null ? model.getConfigurationOrDefault() : null;
+    if (config == null || !config.isSingleStoreShardKeyIncludeDrivingKeys() || !hasDrivingKey()) {
+      return columns;
+    }
+
+    String drivingKeyColumn = variables != null ? variables.resolve(drivingKey) : drivingKey;
+    if (Utils.isEmpty(drivingKeyColumn)) {
+      return columns;
+    }
+    return new String[] {columns[0], drivingKeyColumn};
   }
 
   /**
