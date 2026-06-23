@@ -16,23 +16,18 @@
  *
  */
 
-package org.apache.hop.catalog.model;
+package org.apache.hop.datavault.metadata;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.apache.hop.metadata.api.HopMetadataProperty;
 
-/** Column definition for a catalog-stored Data Vault source record layout. */
+/** Format-specific input options for a Data Vault source field. */
 @Getter
 @Setter
 @NoArgsConstructor
-public class CatalogSourceField {
+public class SourceFieldInputOptions {
 
-  private String name;
-  private String description;
-  private String sourceDataType;
-  private String length;
-  private String precision;
-  private int hopType;
-  private CatalogSourceFieldInputOptions inputOptions;
+  @HopMetadataProperty private CsvFieldOptions csv;
 }

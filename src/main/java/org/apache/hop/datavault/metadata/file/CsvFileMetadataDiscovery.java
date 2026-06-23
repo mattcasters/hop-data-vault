@@ -27,7 +27,9 @@ import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.row.value.ValueMetaFactory;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.CsvFieldOptions;
 import org.apache.hop.datavault.metadata.SourceField;
+import org.apache.hop.datavault.metadata.SourceFieldInputOptions;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
@@ -46,15 +48,18 @@ public final class CsvFileMetadataDiscovery {
   private static final String FILE_METADATA_TRANSFORM_NAME = "File metadata";
   private static final String CAPTURE_TRANSFORM_NAME = "Capture metadata";
 
-  private static final int IDX_CHARSET = 0;
-  private static final int IDX_DELIMITER = 1;
-  private static final int IDX_ENCLOSURE = 2;
-  private static final int IDX_SKIP_HEADER_LINES = 4;
-  private static final int IDX_HEADER_LINE_PRESENT = 6;
-  private static final int IDX_NAME = 7;
-  private static final int IDX_TYPE = 8;
-  private static final int IDX_LENGTH = 9;
-  private static final int IDX_PRECISION = 10;
+  private static final String COL_CHARSET = "charset";
+  private static final String COL_DELIMITER = "delimiter";
+  private static final String COL_ENCLOSURE = "enclosure";
+  private static final String COL_SKIP_HEADER_LINES = "skip_header_lines";
+  private static final String COL_HEADER_LINE_PRESENT = "header_line_present";
+  private static final String COL_NAME = "name";
+  private static final String COL_TYPE = "type";
+  private static final String COL_LENGTH = "length";
+  private static final String COL_PRECISION = "precision";
+  private static final String COL_MASK = "mask";
+  private static final String COL_DECIMAL_SYMBOL = "decimal_symbol";
+  private static final String COL_GROUPING_SYMBOL = "grouping_symbol";
 
   private CsvFileMetadataDiscovery() {}
 
@@ -90,7 +95,7 @@ public final class CsvFileMetadataDiscovery {
           BaseMessages.getString(PKG, "CsvFileMetadataDiscovery.Error.NoMetadata"));
     }
 
-    return parseRows(rows);
+    return parseRows(results.getResultRowMeta(), rows);
   }
 
   private static PipelineMeta buildDiscoveryPipeline(String filePath) {
@@ -115,30 +120,44 @@ public final class CsvFileMetadataDiscovery {
     return pipelineMeta;
   }
 
-  private static DiscoveryResult parseRows(List<Object[]> rows) throws HopException {
+  static DiscoveryResult parseRowsForTests(IRowMeta rowMeta, List<Object[]> rows)
+      throws HopException {
+    return parseRows(rowMeta, rows);
+  }
+
+  private static DiscoveryResult parseRows(IRowMeta rowMeta, List<Object[]> rows)
+      throws HopException {
+    ColumnIndexes columns = ColumnIndexes.from(rowMeta);
     Object[] firstRow = rows.getFirst();
-    String charset = asCharsetName(firstRow[IDX_CHARSET]);
-    String delimiter = asDelimiter(firstRow[IDX_DELIMITER]);
-    String enclosure = asString(firstRow[IDX_ENCLOSURE]);
-    boolean headerPresent = asBoolean(firstRow[IDX_HEADER_LINE_PRESENT]);
-    int headerLines = resolveHeaderLines(headerPresent, asLong(firstRow[IDX_SKIP_HEADER_LINES]));
+    String charset = asCharsetName(cell(firstRow, columns.charset));
+    String delimiter = asDelimiter(cell(firstRow, columns.delimiter));
+    String enclosure = asString(cell(firstRow, columns.enclosure));
+    boolean headerPresent = asBoolean(cell(firstRow, columns.headerLinePresent));
+    int headerLines =
+        resolveHeaderLines(headerPresent, asLong(cell(firstRow, columns.skipHeaderLines)));
 
     List<SourceField> fields = new ArrayList<>();
     for (Object[] row : rows) {
-      String name = asString(row[IDX_NAME]);
+      String name = asString(cell(row, columns.name));
       if (Utils.isEmpty(name)) {
         continue;
       }
-      String typeDesc = asString(row[IDX_TYPE]);
+      String typeDesc = asString(cell(row, columns.type));
       int hopType = resolveHopType(typeDesc);
       SourceField field = new SourceField(name);
       field.setDescription("");
       field.setSourceDataType(typeDesc);
       field.setHopType(hopType);
-      Long length = asLong(row[IDX_LENGTH]);
+      Long length = asLong(cell(row, columns.length));
       field.setLength(length != null && length > 0 ? String.valueOf(length) : "");
-      Long precision = asLong(row[IDX_PRECISION]);
+      Long precision = asLong(cell(row, columns.precision));
       field.setPrecision(precision != null && precision >= 0 ? String.valueOf(precision) : "");
+      field.setInputOptions(
+          csvInputOptions(
+              row,
+              columns.mask,
+              columns.decimalSymbol,
+              columns.groupingSymbol));
       fields.add(field);
     }
 
@@ -149,6 +168,30 @@ public final class CsvFileMetadataDiscovery {
 
     return new DiscoveryResult(
         charset, delimiter, enclosure, headerPresent, headerLines, fields);
+  }
+
+  private static SourceFieldInputOptions csvInputOptions(
+      Object[] row, int idxMask, int idxDecimalSymbol, int idxGroupingSymbol) {
+    String format = asString(cell(row, idxMask));
+    String decimalSymbol = asString(cell(row, idxDecimalSymbol));
+    String groupingSymbol = asString(cell(row, idxGroupingSymbol));
+    if (Utils.isEmpty(format) && Utils.isEmpty(decimalSymbol) && Utils.isEmpty(groupingSymbol)) {
+      return null;
+    }
+    CsvFieldOptions csv = new CsvFieldOptions();
+    csv.setFormat(format);
+    csv.setDecimalSymbol(decimalSymbol);
+    csv.setGroupingSymbol(groupingSymbol);
+    SourceFieldInputOptions inputOptions = new SourceFieldInputOptions();
+    inputOptions.setCsv(csv);
+    return inputOptions;
+  }
+
+  private static Object cell(Object[] row, int index) {
+    if (row == null || index < 0 || index >= row.length) {
+      return null;
+    }
+    return row[index];
   }
 
   private static int resolveHeaderLines(boolean headerPresent, Long skipHeaderLines) {
@@ -223,5 +266,48 @@ public final class CsvFileMetadataDiscovery {
 
   private static String ConstOrEmpty(Object value) {
     return value != null ? value.toString() : "";
+  }
+
+  private record ColumnIndexes(
+      int charset,
+      int delimiter,
+      int enclosure,
+      int skipHeaderLines,
+      int headerLinePresent,
+      int name,
+      int type,
+      int length,
+      int precision,
+      int mask,
+      int decimalSymbol,
+      int groupingSymbol) {
+
+    private static ColumnIndexes from(IRowMeta rowMeta) {
+      if (rowMeta == null || rowMeta.isEmpty()) {
+        return fallbackIndexes();
+      }
+      return new ColumnIndexes(
+          indexOf(rowMeta, COL_CHARSET, 0),
+          indexOf(rowMeta, COL_DELIMITER, 1),
+          indexOf(rowMeta, COL_ENCLOSURE, 2),
+          indexOf(rowMeta, COL_SKIP_HEADER_LINES, 4),
+          indexOf(rowMeta, COL_HEADER_LINE_PRESENT, 6),
+          indexOf(rowMeta, COL_NAME, 7),
+          indexOf(rowMeta, COL_TYPE, 8),
+          indexOf(rowMeta, COL_LENGTH, 9),
+          indexOf(rowMeta, COL_PRECISION, 10),
+          indexOf(rowMeta, COL_MASK, 11),
+          indexOf(rowMeta, COL_DECIMAL_SYMBOL, 12),
+          indexOf(rowMeta, COL_GROUPING_SYMBOL, 13));
+    }
+
+    private static int indexOf(IRowMeta rowMeta, String name, int fallback) {
+      int index = rowMeta.indexOfValue(name);
+      return index >= 0 ? index : fallback;
+    }
+
+    private static ColumnIndexes fallbackIndexes() {
+      return new ColumnIndexes(0, 1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13);
+    }
   }
 }

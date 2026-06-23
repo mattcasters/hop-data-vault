@@ -21,22 +21,29 @@ package org.apache.hop.catalog.hopgui.perspective;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.hop.catalog.model.CatalogCustomProperty;
+import org.apache.hop.catalog.model.CatalogSourceField;
 import org.apache.hop.catalog.model.DvCsvFormatRecord;
 import org.apache.hop.catalog.model.DvSourceRecord;
 import org.apache.hop.catalog.model.PhysicalFileRef;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
+import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewRunner;
+import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewSupport;
 import org.apache.hop.catalog.model.RecordDefinitionType;
 import org.apache.hop.catalog.model.RecordOrigin;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
 import org.apache.hop.datavault.catalog.DvSourceFieldSupport;
 import org.apache.hop.datavault.catalog.RecordSourceIndicatorSupport;
+import org.apache.hop.datavault.metadata.CsvFieldOptions;
 import org.apache.hop.datavault.metadata.DvSourceDeliveryType;
 import org.apache.hop.datavault.metadata.SourceField;
+import org.apache.hop.datavault.metadata.SourceFieldInputOptions;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.row.IValueMeta;
@@ -72,6 +79,14 @@ public class RecordDefinitionDetailsPanel {
   private static final Class<?> PKG = RecordDefinitionDetailsPanel.class;
   private static final String KEY_PREFIX = "RecordDefinitionDetailsPanel.";
   private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+  private static final int COL_NAME = 1;
+  private static final int COL_TYPE = 2;
+  private static final int COL_LENGTH = 3;
+  private static final int COL_PRECISION = 4;
+  private static final int COL_FORMAT = 5;
+  private static final int COL_DECIMAL = 6;
+  private static final int COL_GROUPING = 7;
+  private static final int MIN_CSV_FORMAT_COLUMN_WIDTH = 90;
 
   private final Composite parent;
   private final IVariables variables;
@@ -119,6 +134,7 @@ public class RecordDefinitionDetailsPanel {
   private Combo wDvDeliveryType;
 
   private TableView wFields;
+  private Button wPreviewRecords;
   private TableView wTags;
   private TableView wGlossaryTerms;
   private TableView wCustomProperties;
@@ -162,9 +178,7 @@ public class RecordDefinitionDetailsPanel {
 
     Composite wPropertiesTabComp =
         addTab(
-            wTabFolder,
-            messageKey("Tab.Properties.Label"),
-            messageKey("Tab.Properties.ToolTip"));
+            wTabFolder, messageKey("Tab.Properties.Label"), messageKey("Tab.Properties.ToolTip"));
     Composite wFieldsTabComp =
         addTab(wTabFolder, messageKey("Tab.Fields.Label"), messageKey("Tab.Fields.ToolTip"));
     Composite wTagsTabComp =
@@ -194,11 +208,13 @@ public class RecordDefinitionDetailsPanel {
     wPropertiesComp.setLayout(new FormLayout());
 
     Control lastControl =
-        addReadOnlyField(wPropertiesComp, messageKey("General.Namespace.Label"), middle, margin, null);
+        addReadOnlyField(
+            wPropertiesComp, messageKey("General.Namespace.Label"), middle, margin, null);
     wNamespace = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(wPropertiesComp, messageKey("General.Name.Label"), middle, margin, wNamespace);
+        addReadOnlyField(
+            wPropertiesComp, messageKey("General.Name.Label"), middle, margin, wNamespace);
     wName = (Text) lastControl;
 
     lastControl =
@@ -210,7 +226,8 @@ public class RecordDefinitionDetailsPanel {
             wPropertiesComp, messageKey("General.Description.Label"), middle, margin, wType);
     wDescription = (Text) lastControl;
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("Origin.Label"), wDescription, margin, null);
+    lastControl =
+        addSectionLabel(wPropertiesComp, messageKey("Origin.Label"), wDescription, margin, null);
     lastControl =
         addReadOnlyField(
             wPropertiesComp, messageKey("Origin.ModelType.Label"), middle, margin, lastControl);
@@ -237,7 +254,11 @@ public class RecordDefinitionDetailsPanel {
 
     lastControl =
         addReadOnlyField(
-            wPropertiesComp, messageKey("Origin.HopProject.Label"), middle, margin, wModelElementName);
+            wPropertiesComp,
+            messageKey("Origin.HopProject.Label"),
+            middle,
+            margin,
+            wModelElementName);
     wHopProject = (Text) lastControl;
 
     lastControl =
@@ -262,7 +283,11 @@ public class RecordDefinitionDetailsPanel {
 
     lastControl =
         addReadOnlyField(
-            wPropertiesComp, messageKey("Origin.LastPipeline.Label"), middle, margin, wLastWorkflow);
+            wPropertiesComp,
+            messageKey("Origin.LastPipeline.Label"),
+            middle,
+            margin,
+            wLastWorkflow);
     wLastPipeline = (Text) lastControl;
 
     lastControl =
@@ -445,7 +470,11 @@ public class RecordDefinitionDetailsPanel {
 
     lastControl =
         addSectionLabel(
-            wPropertiesComp, messageKey("DvSource.Label"), lastControl, margin, dvSourceSectionControls);
+            wPropertiesComp,
+            messageKey("DvSource.Label"),
+            lastControl,
+            margin,
+            dvSourceSectionControls);
     lastControl =
         addReadOnlyField(
             wPropertiesComp,
@@ -523,8 +552,17 @@ public class RecordDefinitionDetailsPanel {
 
     wFields = createFieldsTable(wFieldsTabComp);
 
+    wPreviewRecords = new Button(wFieldsTabComp, SWT.PUSH);
+    wPreviewRecords.setText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Fields.PreviewButton.Label"));
+    wPreviewRecords.setToolTipText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Fields.PreviewButton.ToolTip"));
+    PropsUi.setLook(wPreviewRecords);
+    wPreviewRecords.setEnabled(false);
+
     Button wUpdateFields = new Button(wFieldsTabComp, SWT.PUSH);
-    wUpdateFields.setText(BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Fields.UpdateButton.Label"));
+    wUpdateFields.setText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Fields.UpdateButton.Label"));
     PropsUi.setLook(wUpdateFields);
 
     FormData fdUpdateFields = new FormData();
@@ -532,7 +570,13 @@ public class RecordDefinitionDetailsPanel {
     fdUpdateFields.bottom = new FormAttachment(100, 0);
     wUpdateFields.setLayoutData(fdUpdateFields);
 
+    FormData fdPreviewRecords = new FormData();
+    fdPreviewRecords.right = new FormAttachment(wUpdateFields, -margin);
+    fdPreviewRecords.bottom = new FormAttachment(100, 0);
+    wPreviewRecords.setLayoutData(fdPreviewRecords);
+
     wUpdateFields.addListener(SWT.Selection, e -> updateRecordDefinitionFields());
+    wPreviewRecords.addListener(SWT.Selection, e -> previewRecords());
 
     FormData fdFields = (FormData) wFields.getLayoutData();
     fdFields.bottom = new FormAttachment(wUpdateFields, -margin);
@@ -772,6 +816,18 @@ public class RecordDefinitionDetailsPanel {
               BaseMessages.getString(PKG, messageKey("Fields.Precision.Column")),
               ColumnInfo.COLUMN_TYPE_TEXT,
               false),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, messageKey("Fields.Format.Column")),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, messageKey("Fields.Decimal.Column")),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, messageKey("Fields.Grouping.Column")),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
         };
     return createTableView(tabComp, columns, 1);
   }
@@ -821,6 +877,9 @@ public class RecordDefinitionDetailsPanel {
     wPlaceholder.setText(BaseMessages.getString(PKG, messageKey("Placeholder.SelectRecord")));
     wPlaceholder.setVisible(true);
     wTabFolder.setVisible(false);
+    if (wPreviewRecords != null) {
+      wPreviewRecords.setEnabled(false);
+    }
     parent.layout(true, true);
   }
 
@@ -908,14 +967,29 @@ public class RecordDefinitionDetailsPanel {
     String sourceType =
         definition.getDvSource() != null ? definition.getDvSource().getSourceType() : "";
     updatePropertySectionVisibility(definition, sourceType);
-    populateFieldsTable(definition.getFields());
+    populateFieldsTable(definition);
     populateListTable(wTags, definition.getTags());
     populateListTable(wGlossaryTerms, definition.getGlossaryTerms());
     populateCustomPropertiesTable(definition.getCustomProperties());
 
+    if (wPreviewRecords != null) {
+      wPreviewRecords.setEnabled(RecordDefinitionPreviewSupport.supportsPreview(definition));
+    }
+
     wPropertiesComp.pack();
     wScroll.setMinSize(wPropertiesComp.computeSize(SWT.DEFAULT, SWT.DEFAULT));
     parent.layout(true, true);
+  }
+
+  private void previewRecords() {
+    if (definition == null) {
+      return;
+    }
+    RecordDefinitionPreviewRunner.run(
+        parent.getShell(),
+        definition,
+        HopGui.getInstance().getVariables(),
+        HopGui.getInstance().getMetadataProvider());
   }
 
   private void updateRecordDefinitionFields() {
@@ -924,13 +998,15 @@ public class RecordDefinitionDetailsPanel {
     }
 
     try {
+      boolean csvSource = isCsvDvSource(definition);
       IRowMeta rowMeta = new RowMeta();
       List<TableItem> items = wFields.getNonEmptyItems();
+      List<SourceField> sourceFields = new ArrayList<>();
       for (TableItem item : items) {
-        String name = item.getText(1);
-        String typeDesc = item.getText(2);
-        String lengthStr = item.getText(3);
-        String precisionStr = item.getText(4);
+        String name = item.getText(COL_NAME);
+        String typeDesc = item.getText(COL_TYPE);
+        String lengthStr = item.getText(COL_LENGTH);
+        String precisionStr = item.getText(COL_PRECISION);
 
         int type = ValueMetaFactory.getIdForValueMeta(typeDesc);
         int length = Const.toInt(lengthStr, -1);
@@ -938,11 +1014,20 @@ public class RecordDefinitionDetailsPanel {
 
         IValueMeta valueMeta = ValueMetaFactory.createValueMeta(name, type, length, precision);
         rowMeta.addValueMeta(valueMeta);
+
+        if (definition.getType() == RecordDefinitionType.DV_SOURCE) {
+          SourceField sourceField = new SourceField(name);
+          sourceField.setSourceDataType(typeDesc);
+          sourceField.setLength(lengthStr);
+          sourceField.setPrecision(precisionStr);
+          sourceField.setHopType(type);
+          applyCsvOptionsFromTable(sourceField, item, csvSource);
+          sourceFields.add(sourceField);
+        }
       }
 
       definition.setFields(rowMeta);
       if (definition.getType() == RecordDefinitionType.DV_SOURCE) {
-        List<SourceField> sourceFields = DvSourceFieldSupport.fromRowMeta(rowMeta);
         DvSourceRecord dvSource = definition.getDvSource();
         if (dvSource == null) {
           dvSource = new DvSourceRecord();
@@ -1126,7 +1211,11 @@ public class RecordDefinitionDetailsPanel {
     }
   }
 
-  private void populateFieldsTable(IRowMeta rowMeta) {
+  private void populateFieldsTable(RecordDefinition definition) {
+    IRowMeta rowMeta = definition != null ? definition.getFields() : null;
+    boolean csvSource = isCsvDvSource(definition);
+    Map<String, CatalogSourceField> catalogFieldsByName = catalogFieldsByName(definition);
+
     wFields.clearAll(false);
     int count = rowMeta != null ? rowMeta.size() : 0;
     for (int i = 0; i < count; i++) {
@@ -1137,14 +1226,118 @@ public class RecordDefinitionDetailsPanel {
       } else {
         item = new TableItem(wFields.getTable(), SWT.NONE);
       }
-      item.setText(1, Const.NVL(valueMeta.getName(), ""));
-      item.setText(2, Const.NVL(valueMeta.getTypeDesc(), ""));
-      item.setText(3, formatDimension(valueMeta.getLength()));
-      item.setText(4, formatDimension(valueMeta.getPrecision()));
+      String name = Const.NVL(valueMeta.getName(), "");
+      item.setText(COL_NAME, name);
+      item.setText(COL_TYPE, Const.NVL(valueMeta.getTypeDesc(), ""));
+      item.setText(COL_LENGTH, formatDimension(valueMeta.getLength()));
+      item.setText(COL_PRECISION, formatDimension(valueMeta.getPrecision()));
+      if (csvSource) {
+        CatalogSourceField catalogField = catalogFieldsByName.get(name);
+        item.setText(COL_FORMAT, csvFormat(catalogField));
+        item.setText(COL_DECIMAL, csvDecimalSymbol(catalogField));
+        item.setText(COL_GROUPING, csvGroupingSymbol(catalogField));
+      } else {
+        item.setText(COL_FORMAT, "");
+        item.setText(COL_DECIMAL, "");
+        item.setText(COL_GROUPING, "");
+      }
     }
     wFields.removeEmptyRows();
     wFields.setRowNums();
     wFields.optWidth(true);
+    if (csvSource) {
+      ensureCsvFormatColumnsVisible();
+    }
+  }
+
+  private void ensureCsvFormatColumnsVisible() {
+    if (wFields == null || wFields.table == null) {
+      return;
+    }
+    for (int column : new int[] {COL_FORMAT, COL_DECIMAL, COL_GROUPING}) {
+      int tableColumnIndex = tableColumnIndex(column);
+      if (tableColumnIndex >= 0
+          && wFields.table.getColumn(tableColumnIndex).getWidth() < MIN_CSV_FORMAT_COLUMN_WIDTH) {
+        wFields.table.getColumn(tableColumnIndex).setWidth(MIN_CSV_FORMAT_COLUMN_WIDTH);
+      }
+    }
+  }
+
+  private int tableColumnIndex(int columnNumber) {
+    return wFields != null && wFields.hasIndexColumn() ? columnNumber : columnNumber - 1;
+  }
+
+  private static boolean isCsvDvSource(RecordDefinition definition) {
+    return definition != null
+        && definition.getType() == RecordDefinitionType.DV_SOURCE
+        && definition.getDvSource() != null
+        && "CSV".equalsIgnoreCase(definition.getDvSource().getSourceType());
+  }
+
+  private static Map<String, CatalogSourceField> catalogFieldsByName(RecordDefinition definition) {
+    Map<String, CatalogSourceField> fieldsByName = new HashMap<>();
+    if (definition == null || definition.getDvSource() == null) {
+      return fieldsByName;
+    }
+    List<CatalogSourceField> fields = definition.getDvSource().getFields();
+    if (fields == null) {
+      return fieldsByName;
+    }
+    for (CatalogSourceField field : fields) {
+      if (field != null && !Utils.isEmpty(field.getName())) {
+        fieldsByName.put(field.getName(), field);
+      }
+    }
+    return fieldsByName;
+  }
+
+  private static void applyCsvOptionsFromTable(
+      SourceField field, TableItem item, boolean csvSource) {
+    if (!csvSource) {
+      field.setInputOptions(null);
+      return;
+    }
+    String format = item.getText(COL_FORMAT);
+    String decimalSymbol = item.getText(COL_DECIMAL);
+    String groupingSymbol = item.getText(COL_GROUPING);
+    if (Utils.isEmpty(format) && Utils.isEmpty(decimalSymbol) && Utils.isEmpty(groupingSymbol)) {
+      field.setInputOptions(null);
+      return;
+    }
+    CsvFieldOptions csv = new CsvFieldOptions();
+    csv.setFormat(format);
+    csv.setDecimalSymbol(decimalSymbol);
+    csv.setGroupingSymbol(groupingSymbol);
+    SourceFieldInputOptions inputOptions = new SourceFieldInputOptions();
+    inputOptions.setCsv(csv);
+    field.setInputOptions(inputOptions);
+  }
+
+  private static String csvFormat(CatalogSourceField field) {
+    if (field == null
+        || field.getInputOptions() == null
+        || field.getInputOptions().getCsv() == null) {
+      return "";
+    }
+    return Const.NVL(field.getInputOptions().getCsv().getFormat(), "");
+  }
+
+  private static String csvDecimalSymbol(CatalogSourceField field) {
+    if (field == null
+        || field.getInputOptions() == null
+        || field.getInputOptions().getCsv() == null) {
+      return "";
+    }
+    return Const.NVL(field.getInputOptions().getCsv().getDecimalSymbol(), "");
+  }
+
+  private static String csvGroupingSymbol(CatalogSourceField field) {
+    if (field == null
+        || field.getInputOptions() == null
+        || field.getInputOptions().getCsv() == null) {
+      return "";
+    }
+    return Const.NVL(field.getInputOptions().getCsv().getGroupingSymbol(), "");
   }
 
   private static String formatDimension(int value) {
@@ -1191,8 +1384,7 @@ public class RecordDefinitionDetailsPanel {
       }
       item.setText(1, Const.NVL(entry.getKey(), ""));
       item.setText(
-          2,
-          property != null && property.getType() != null ? property.getType().name() : "");
+          2, property != null && property.getType() != null ? property.getType().name() : "");
       item.setText(3, property != null ? Const.NVL(property.getValue(), "") : "");
     }
     wCustomProperties.removeEmptyRows();

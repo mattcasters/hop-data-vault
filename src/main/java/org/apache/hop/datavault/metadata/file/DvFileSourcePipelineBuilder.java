@@ -334,7 +334,7 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
         String name = variables.resolve(sourceField.getName());
         CsvInputField field = new CsvInputField(name);
         if (mappedSourceNames.contains(name)) {
-          applySourceFieldTypes(field, sourceField);
+          DvTextFileInputFieldSupport.applySourceField(field, sourceField);
         } else {
           field.setTypeWithString("String");
         }
@@ -345,7 +345,7 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
         SourceField sourceField = findSourceField(rename.sourceName());
         CsvInputField field = new CsvInputField(rename.sourceName());
         if (sourceField != null) {
-          applySourceFieldTypes(field, sourceField);
+          DvTextFileInputFieldSupport.applySourceField(field, sourceField);
         }
         fields.add(field);
       }
@@ -373,7 +373,7 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
           field.setPosition(-1);
         }
         if (mappedSourceNames.contains(name)) {
-          applySourceFieldTypes(field, sourceField);
+          DvTextFileInputFieldSupport.applySourceField(field, sourceField);
         } else {
           field.setTypeWithString("String");
         }
@@ -387,7 +387,7 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
           field.setPosition(-1);
         }
         if (sourceField != null) {
-          applySourceFieldTypes(field, sourceField);
+          DvTextFileInputFieldSupport.applySourceField(field, sourceField);
         }
         fields.add(field);
       }
@@ -417,60 +417,6 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
       }
     }
     return null;
-  }
-
-  private void applySourceFieldTypes(CsvInputField field, SourceField sourceField)
-      throws HopException {
-    if (sourceField.getHopType() > 0) {
-      field.setType(sourceField.getHopType());
-    } else {
-      field.setTypeWithString(
-          !Utils.isEmpty(sourceField.getSourceDataType())
-              ? sourceField.getSourceDataType()
-              : "String");
-    }
-    if (!Utils.isEmpty(sourceField.getLength())) {
-      field.setLength(Integer.parseInt(sourceField.getLength()));
-    }
-    if (!Utils.isEmpty(sourceField.getPrecision())) {
-      field.setPrecision(Integer.parseInt(sourceField.getPrecision()));
-    }
-    applyDateFormat(field, sourceField.getHopType());
-  }
-
-  private void applySourceFieldTypes(TextFileInputField field, SourceField sourceField)
-      throws HopException {
-    if (sourceField.getHopType() > 0) {
-      field.setType(sourceField.getHopType());
-    } else {
-      field.setTypeWithString(
-          !Utils.isEmpty(sourceField.getSourceDataType())
-              ? sourceField.getSourceDataType()
-              : "String");
-    }
-    if (!Utils.isEmpty(sourceField.getLength())) {
-      field.setLength(Integer.parseInt(sourceField.getLength()));
-    }
-    if (!Utils.isEmpty(sourceField.getPrecision())) {
-      field.setPrecision(Integer.parseInt(sourceField.getPrecision()));
-    }
-    applyDateFormat(field, sourceField.getHopType());
-  }
-
-  private void applyDateFormat(CsvInputField field, int hopType) {
-    if (hopType == IValueMeta.TYPE_DATE) {
-      field.setFormat("yyyy-MM-dd");
-    } else if (hopType == IValueMeta.TYPE_TIMESTAMP) {
-      field.setFormat("yyyy-MM-dd HH:mm:ss");
-    }
-  }
-
-  private void applyDateFormat(TextFileInputField field, int hopType) throws HopException {
-    if (hopType == IValueMeta.TYPE_DATE) {
-      field.setFormat("yyyy-MM-dd");
-    } else if (hopType == IValueMeta.TYPE_TIMESTAMP) {
-      field.setFormat("yyyy-MM-dd HH:mm:ss");
-    }
   }
 
   protected String calculateTransformName(IDvFileBasedSource fileSource) {

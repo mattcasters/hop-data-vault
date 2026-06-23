@@ -22,17 +22,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** Column definition for a catalog-stored Data Vault source record layout. */
+/** Per-field CSV / text-file parsing options for a catalog source field. */
 @Getter
 @Setter
 @NoArgsConstructor
-public class CatalogSourceField {
+public class CatalogCsvFieldOptions {
 
-  private String name;
-  private String description;
-  private String sourceDataType;
-  private String length;
-  private String precision;
-  private int hopType;
-  private CatalogSourceFieldInputOptions inputOptions;
+  private String format;
+  private String decimalSymbol;
+  private String groupingSymbol;
+  private String currencySymbol;
 }

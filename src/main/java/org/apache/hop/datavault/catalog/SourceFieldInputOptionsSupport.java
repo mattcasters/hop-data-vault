@@ -1,0 +1,72 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.datavault.catalog;
+
+import org.apache.hop.catalog.model.CatalogCsvFieldOptions;
+import org.apache.hop.catalog.model.CatalogSourceFieldInputOptions;
+import org.apache.hop.datavault.metadata.CsvFieldOptions;
+import org.apache.hop.datavault.metadata.SourceFieldInputOptions;
+
+/** Maps catalog and Data Vault source field input options. */
+final class SourceFieldInputOptionsSupport {
+
+  private SourceFieldInputOptionsSupport() {}
+
+  static CatalogSourceFieldInputOptions toCatalog(SourceFieldInputOptions options) {
+    if (options == null) {
+      return null;
+    }
+    CatalogSourceFieldInputOptions catalogOptions = new CatalogSourceFieldInputOptions();
+    catalogOptions.setCsv(toCatalogCsv(options.getCsv()));
+    return catalogOptions;
+  }
+
+  static SourceFieldInputOptions fromCatalog(CatalogSourceFieldInputOptions options) {
+    if (options == null) {
+      return null;
+    }
+    SourceFieldInputOptions sourceOptions = new SourceFieldInputOptions();
+    sourceOptions.setCsv(fromCatalogCsv(options.getCsv()));
+    return sourceOptions;
+  }
+
+  private static CatalogCsvFieldOptions toCatalogCsv(CsvFieldOptions options) {
+    if (options == null) {
+      return null;
+    }
+    CatalogCsvFieldOptions catalogCsv = new CatalogCsvFieldOptions();
+    catalogCsv.setFormat(options.getFormat());
+    catalogCsv.setDecimalSymbol(options.getDecimalSymbol());
+    catalogCsv.setGroupingSymbol(options.getGroupingSymbol());
+    catalogCsv.setCurrencySymbol(options.getCurrencySymbol());
+    return catalogCsv;
+  }
+
+  private static CsvFieldOptions fromCatalogCsv(CatalogCsvFieldOptions options) {
+    if (options == null) {
+      return null;
+    }
+    CsvFieldOptions csv = new CsvFieldOptions();
+    csv.setFormat(options.getFormat());
+    csv.setDecimalSymbol(options.getDecimalSymbol());
+    csv.setGroupingSymbol(options.getGroupingSymbol());
+    csv.setCurrencySymbol(options.getCurrencySymbol());
+    return csv;
+  }
+}

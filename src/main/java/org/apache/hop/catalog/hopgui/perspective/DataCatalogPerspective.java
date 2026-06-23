@@ -24,6 +24,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.Getter;
+import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewRunner;
+import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewSupport;
 import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionQuery;
@@ -83,6 +85,7 @@ public class DataCatalogPerspective implements IHopPerspective {
   public static final String TOOLBAR_ITEM_IMPORT =
       "DataCatalogPerspective-Toolbar-10005-Import";
   public static final String TOOLBAR_ITEM_REFRESH = "DataCatalogPerspective-Toolbar-10000-Refresh";
+  public static final String TOOLBAR_ITEM_PREVIEW = "DataCatalogPerspective-Toolbar-10015-Preview";
   public static final String TOOLBAR_ITEM_DELETE = "DataCatalogPerspective-Toolbar-10010-Delete";
   private static final String TREE_KEY = "Data catalog perspective tree";
 
@@ -94,6 +97,7 @@ public class DataCatalogPerspective implements IHopPerspective {
   private Tree tree;
   private GuiToolbarWidgets toolBarWidgets;
   private RecordDefinitionDetailsPanel detailsPanel;
+  private RecordDefinition selectedRecordDefinition;
 
   public DataCatalogPerspective() {
     instance = this;
@@ -352,6 +356,23 @@ public class DataCatalogPerspective implements IHopPerspective {
 
   @GuiToolbarElement(
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_PREVIEW,
+      toolTip = "i18n::DataCatalogPerspective.Toolbar.Preview.Tooltip",
+      image = "ui/images/preview.svg")
+  public void previewSelectedRecord() {
+    if (selectedRecordDefinition == null
+        || !RecordDefinitionPreviewSupport.supportsPreview(selectedRecordDefinition)) {
+      return;
+    }
+    RecordDefinitionPreviewRunner.run(
+        hopGui.getShell(),
+        selectedRecordDefinition,
+        hopGui.getVariables(),
+        hopGui.getMetadataProvider());
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_DELETE,
       toolTip = "i18n::DataCatalogPerspective.Toolbar.Delete.Tooltip",
       image = "ui/images/delete.svg")
@@ -398,16 +419,18 @@ public class DataCatalogPerspective implements IHopPerspective {
   }
 
   private void updateSelection() {
-    updateToolbar();
+    selectedRecordDefinition = null;
 
     if (tree.getSelectionCount() < 1) {
       detailsPanel.clear();
+      updateToolbar();
       return;
     }
 
     DataCatalogTreeNode node = (DataCatalogTreeNode) tree.getSelection()[0].getData();
     if (node == null || node.getType() != DataCatalogTreeNode.Type.RECORD) {
       detailsPanel.clear();
+      updateToolbar();
       return;
     }
 
@@ -419,6 +442,7 @@ public class DataCatalogPerspective implements IHopPerspective {
                   node.getRecordKey(),
                   hopGui.getVariables(),
                   hopGui.getMetadataProvider());
+      selectedRecordDefinition = definition;
       detailsPanel.setRecordDefinition(node.getCatalogConnectionName(), definition);
     } catch (HopException e) {
       detailsPanel.clear();
@@ -428,6 +452,7 @@ public class DataCatalogPerspective implements IHopPerspective {
           BaseMessages.getString(PKG, "DataCatalogPerspective.Error.LoadRecord.Message"),
           e);
     }
+    updateToolbar();
   }
 
   private String resolveSelectedCatalogConnectionName() {
@@ -451,6 +476,10 @@ public class DataCatalogPerspective implements IHopPerspective {
       recordSelected = node != null && node.getType() == DataCatalogTreeNode.Type.RECORD;
     }
     toolBarWidgets.enableToolbarItem(TOOLBAR_ITEM_DELETE, recordSelected);
+    toolBarWidgets.enableToolbarItem(
+        TOOLBAR_ITEM_PREVIEW,
+        selectedRecordDefinition != null
+            && RecordDefinitionPreviewSupport.supportsPreview(selectedRecordDefinition));
   }
 
   private List<DataCatalogMeta> listEnabledConnections(IHopMetadataProvider metadataProvider)

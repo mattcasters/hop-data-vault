@@ -103,7 +103,7 @@ public final class DvDatabaseSourcePreviewSupport {
     }
   }
 
-  static String buildPreviewSql(
+  public static String buildPreviewSql(
       DatabaseMeta databaseMeta, IVariables variables, DvDatabaseSource source) {
     List<SourceField> fields = source.getFields();
     if (fields == null || fields.isEmpty()) {

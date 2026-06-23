@@ -96,6 +96,8 @@ public class SourceField {
   @HopMetadataProperty(intCodeConverter = ValueMetaBase.ValueTypeCodeConverter.class)
   private int hopType;
 
+  @HopMetadataProperty private SourceFieldInputOptions inputOptions;
+
   public SourceField() {}
 
   public SourceField(String name) {
