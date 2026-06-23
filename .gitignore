@@ -6,3 +6,5 @@ target/**
 
 project/metrics
 project/vault-catalog
+**/TEST-*.json
+
