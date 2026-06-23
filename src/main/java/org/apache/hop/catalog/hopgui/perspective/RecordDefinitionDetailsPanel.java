@@ -32,6 +32,10 @@ import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionType;
 import org.apache.hop.catalog.model.RecordOrigin;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
+import org.apache.hop.datavault.catalog.DvSourceFieldSupport;
+import org.apache.hop.datavault.catalog.RecordSourceIndicatorSupport;
+import org.apache.hop.datavault.metadata.DvSourceDeliveryType;
+import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.row.IRowMeta;
@@ -54,6 +58,7 @@ import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
@@ -111,7 +116,7 @@ public class RecordDefinitionDetailsPanel {
   private Text wDvSourceIndicator;
   private Text wDvSourceIndicatorField;
   private Text wDvSourceGroup;
-  private Text wDvDeliveryType;
+  private Combo wDvDeliveryType;
 
   private TableView wFields;
   private TableView wTags;
@@ -121,6 +126,7 @@ public class RecordDefinitionDetailsPanel {
   private final List<Control> physicalTableSectionControls = new ArrayList<>();
   private final List<Control> physicalFileSectionControls = new ArrayList<>();
   private final List<Control> csvFormatSectionControls = new ArrayList<>();
+  private final List<Control> dvSourceSectionControls = new ArrayList<>();
 
   public RecordDefinitionDetailsPanel(Composite parent, IVariables variables, Runnable onUpdate) {
     this.parent = parent;
@@ -437,45 +443,76 @@ public class RecordDefinitionDetailsPanel {
             this::updateCsvFormat,
             csvFormatSectionControls);
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("DvSource.Label"), lastControl, margin, null);
+    lastControl =
+        addSectionLabel(
+            wPropertiesComp, messageKey("DvSource.Label"), lastControl, margin, dvSourceSectionControls);
     lastControl =
         addReadOnlyField(
-            wPropertiesComp, messageKey("DvSource.SourceType.Label"), middle, margin, lastControl);
+            wPropertiesComp,
+            messageKey("DvSource.SourceType.Label"),
+            middle,
+            margin,
+            lastControl,
+            dvSourceSectionControls);
     wDvSourceType = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp,
             messageKey("DvSource.SourceIndicator.Label"),
             middle,
             margin,
-            wDvSourceType);
+            wDvSourceType,
+            dvSourceSectionControls);
     wDvSourceIndicator = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp,
             messageKey("DvSource.SourceIndicatorField.Label"),
             middle,
             margin,
-            wDvSourceIndicator);
+            wDvSourceIndicator,
+            dvSourceSectionControls);
     wDvSourceIndicatorField = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
-            wPropertiesComp, messageKey("DvSource.Group.Label"), middle, margin, wDvSourceIndicatorField);
+        addEditableField(
+            wPropertiesComp,
+            messageKey("DvSource.Group.Label"),
+            middle,
+            margin,
+            wDvSourceIndicatorField,
+            dvSourceSectionControls);
     wDvSourceGroup = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
-            wPropertiesComp, messageKey("DvSource.DeliveryType.Label"), middle, margin, wDvSourceGroup);
-    wDvDeliveryType = (Text) lastControl;
+        addComboField(
+            wPropertiesComp,
+            messageKey("DvSource.DeliveryType.Label"),
+            middle,
+            margin,
+            wDvSourceGroup,
+            dvSourceSectionControls);
+    wDvDeliveryType = (Combo) lastControl;
+    for (DvSourceDeliveryType deliveryType : DvSourceDeliveryType.values()) {
+      wDvDeliveryType.add(deliveryType.name());
+    }
+
+    lastControl =
+        addSectionUpdateButton(
+            wPropertiesComp,
+            messageKey("DvSource.UpdateButton.Label"),
+            wDvDeliveryType,
+            margin,
+            this::updateDvSource,
+            dvSourceSectionControls);
 
     FormData fdProps = new FormData();
     fdProps.left = new FormAttachment(0, 0);
     fdProps.right = new FormAttachment(100, 0);
     fdProps.top = new FormAttachment(0, 0);
-    fdProps.bottom = new FormAttachment(wDvDeliveryType, margin * 2);
+    fdProps.bottom = new FormAttachment(lastControl, margin * 2);
     wPropertiesComp.setLayoutData(fdProps);
 
     wPropertiesComp.pack();
@@ -551,6 +588,48 @@ public class RecordDefinitionDetailsPanel {
   private Control addReadOnlyField(
       Composite composite, String messageKey, int middle, int margin, Control previous) {
     return addTextField(composite, messageKey, middle, margin, previous, true, null);
+  }
+
+  private Control addReadOnlyField(
+      Composite composite,
+      String messageKey,
+      int middle,
+      int margin,
+      Control previous,
+      List<Control> section) {
+    return addTextField(composite, messageKey, middle, margin, previous, true, section);
+  }
+
+  private Control addComboField(
+      Composite composite,
+      String messageKey,
+      int middle,
+      int margin,
+      Control previous,
+      List<Control> section) {
+    Label label = new Label(composite, SWT.RIGHT);
+    PropsUi.setLook(label);
+    label.setText(BaseMessages.getString(PKG, messageKey));
+    FormData fdl = new FormData();
+    fdl.left = new FormAttachment(0, 0);
+    fdl.right = new FormAttachment(middle, -margin);
+    if (previous == null) {
+      fdl.top = new FormAttachment(0, margin);
+    } else {
+      fdl.top = new FormAttachment(previous, margin);
+    }
+    label.setLayoutData(fdl);
+
+    Combo combo = new Combo(composite, SWT.SINGLE | SWT.LEFT | SWT.BORDER | SWT.READ_ONLY);
+    PropsUi.setLook(combo);
+    FormData fd = new FormData();
+    fd.left = new FormAttachment(middle, 0);
+    fd.right = new FormAttachment(100, 0);
+    fd.top = new FormAttachment(label, 0, SWT.CENTER);
+    combo.setLayoutData(fd);
+    registerSectionControl(section, label);
+    registerSectionControl(section, combo);
+    return combo;
   }
 
   private Control addTextField(
@@ -651,12 +730,15 @@ public class RecordDefinitionDetailsPanel {
     }
   }
 
-  private void updatePropertySectionVisibility(String sourceType) {
+  private void updatePropertySectionVisibility(RecordDefinition definition, String sourceType) {
+    boolean isDvSource =
+        definition != null && definition.getType() == RecordDefinitionType.DV_SOURCE;
     boolean isDatabase = "DATABASE".equalsIgnoreCase(sourceType);
     boolean isCsv = "CSV".equalsIgnoreCase(sourceType);
     boolean isParquet = "PARQUET".equalsIgnoreCase(sourceType);
     boolean isFileSource = isCsv || isParquet;
 
+    setSectionVisible(dvSourceSectionControls, isDvSource);
     setSectionVisible(physicalTableSectionControls, isDatabase);
     setSectionVisible(physicalFileSectionControls, isFileSource);
     setSectionVisible(csvFormatSectionControls, isCsv);
@@ -825,7 +907,7 @@ public class RecordDefinitionDetailsPanel {
     populateDvSourceFields(definition);
     String sourceType =
         definition.getDvSource() != null ? definition.getDvSource().getSourceType() : "";
-    updatePropertySectionVisibility(sourceType);
+    updatePropertySectionVisibility(definition, sourceType);
     populateFieldsTable(definition.getFields());
     populateListTable(wTags, definition.getTags());
     populateListTable(wGlossaryTerms, definition.getGlossaryTerms());
@@ -859,6 +941,38 @@ public class RecordDefinitionDetailsPanel {
       }
 
       definition.setFields(rowMeta);
+      if (definition.getType() == RecordDefinitionType.DV_SOURCE) {
+        List<SourceField> sourceFields = DvSourceFieldSupport.fromRowMeta(rowMeta);
+        DvSourceRecord dvSource = definition.getDvSource();
+        if (dvSource == null) {
+          dvSource = new DvSourceRecord();
+          definition.setDvSource(dvSource);
+        }
+        dvSource.setFields(DvSourceFieldSupport.toCatalogFields(sourceFields));
+      }
+      persistDefinition();
+    } catch (Exception e) {
+      showUpdateError(e);
+    }
+  }
+
+  private void updateDvSource() {
+    if (!confirmUpdate(messageKey("UpdateConfirm.DvSource.Message"))) {
+      return;
+    }
+
+    try {
+      DvSourceRecord dvSource = definition.getDvSource();
+      if (dvSource == null) {
+        dvSource = new DvSourceRecord();
+        definition.setDvSource(dvSource);
+      }
+      RecordSourceIndicatorSupport.applyToDvSourceRecord(
+          dvSource, wDvSourceIndicator.getText(), wDvSourceIndicatorField.getText());
+      dvSource.setGroup(wDvSourceGroup.getText().trim());
+      dvSource.setDeliveryType(
+          RecordSourceIndicatorSupport.deliveryTypeLabel(
+              RecordSourceIndicatorSupport.parseDeliveryType(wDvDeliveryType.getText())));
       persistDefinition();
     } catch (Exception e) {
       showUpdateError(e);
@@ -974,7 +1088,9 @@ public class RecordDefinitionDetailsPanel {
       wDvSourceIndicator.setText(Const.NVL(dvSource.getSourceIndicator(), ""));
       wDvSourceIndicatorField.setText(Const.NVL(dvSource.getSourceIndicatorField(), ""));
       wDvSourceGroup.setText(Const.NVL(dvSource.getGroup(), ""));
-      wDvDeliveryType.setText(Const.NVL(dvSource.getDeliveryType(), ""));
+      wDvDeliveryType.setText(
+          RecordSourceIndicatorSupport.deliveryTypeLabel(
+              RecordSourceIndicatorSupport.parseDeliveryType(dvSource.getDeliveryType())));
     } else {
       clearDvSourceFields();
     }
@@ -985,7 +1101,7 @@ public class RecordDefinitionDetailsPanel {
     wDvSourceIndicator.setText("");
     wDvSourceIndicatorField.setText("");
     wDvSourceGroup.setText("");
-    wDvDeliveryType.setText("");
+    wDvDeliveryType.setText(DvSourceDeliveryType.CHANGES_ONLY.name());
   }
 
   private void clearOriginFields() {

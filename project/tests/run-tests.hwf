@@ -64,8 +64,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>240</xloc>
-      <yloc>208</yloc>
+      <xloc>256</xloc>
+      <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -87,8 +87,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>240</xloc>
-      <yloc>160</yloc>
+      <xloc>80</xloc>
+      <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -110,8 +110,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>80</xloc>
-      <yloc>160</yloc>
+      <xloc>448</xloc>
+      <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -133,8 +133,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>416</xloc>
-      <yloc>160</yloc>
+      <xloc>80</xloc>
+      <yloc>288</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -156,8 +156,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>592</xloc>
-      <yloc>160</yloc>
+      <xloc>256</xloc>
+      <yloc>288</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -179,8 +179,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>592</xloc>
-      <yloc>272</yloc>
+      <xloc>256</xloc>
+      <yloc>400</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -202,8 +202,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>240</xloc>
-      <yloc>160</yloc>
+      <xloc>608</xloc>
+      <yloc>176</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -225,8 +225,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>240</xloc>
-      <yloc>272</yloc>
+      <xloc>608</xloc>
+      <yloc>288</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -248,8 +248,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>416</xloc>
-      <yloc>272</yloc>
+      <xloc>80</xloc>
+      <yloc>400</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -271,8 +271,8 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>80</xloc>
-      <yloc>272</yloc>
+      <xloc>448</xloc>
+      <yloc>288</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -281,8 +281,8 @@
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>784</xloc>
-      <yloc>272</yloc>
+      <xloc>448</xloc>
+      <yloc>400</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -304,7 +304,7 @@
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>192</xloc>
+      <xloc>256</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -331,7 +331,7 @@
       <name>create-source-tables-from-data-catalog.hpl</name>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>304</xloc>
+      <xloc>608</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>

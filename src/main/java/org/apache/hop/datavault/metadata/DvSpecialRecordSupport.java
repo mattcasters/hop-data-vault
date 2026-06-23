@@ -439,8 +439,7 @@ public final class DvSpecialRecordSupport {
       return null;
     }
 
-    HashKeyDataType hdt =
-        config.getHashKeyDataType() != null ? config.getHashKeyDataType() : HashKeyDataType.BINARY;
+    HashKeyDataType hdt = config.resolveHashKeyDataType();
 
     if (valueMetaType == IValueMeta.TYPE_BINARY || hdt == HashKeyDataType.BINARY) {
       byte[] bytes = parseBinaryValue(resolved, variables);
@@ -457,8 +456,7 @@ public final class DvSpecialRecordSupport {
   }
 
   private static byte[] normalizeBinaryLength(byte[] bytes, DataVaultConfiguration config) {
-    HashAlgorithm algo =
-        config.getHashAlgorithm() != null ? config.getHashAlgorithm() : HashAlgorithm.MD5;
+    HashAlgorithm algo = config.resolveHashAlgorithm();
     int expected = algo.getDigestLength();
     if (bytes == null) {
       return new byte[expected];
@@ -559,8 +557,7 @@ public final class DvSpecialRecordSupport {
     if (hash == null) {
       return null;
     }
-    HashKeyDataType hdt =
-        config.getHashKeyDataType() != null ? config.getHashKeyDataType() : HashKeyDataType.BINARY;
+    HashKeyDataType hdt = config.resolveHashKeyDataType();
     if (valueMetaType == IValueMeta.TYPE_BINARY || hdt == HashKeyDataType.BINARY) {
       if (hash instanceof byte[] bytes) {
         return bytes;

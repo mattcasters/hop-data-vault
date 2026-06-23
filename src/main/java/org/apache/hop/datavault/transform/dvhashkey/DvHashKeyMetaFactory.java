@@ -47,15 +47,9 @@ public final class DvHashKeyMetaFactory {
     if (meta == null || config == null) {
       return;
     }
-    if (config.getHashAlgorithm() != null) {
-      meta.setHashAlgorithm(config.getHashAlgorithm());
-    }
-    if (config.getHashKeyDataType() != null) {
-      meta.setHashKeyDataType(config.getHashKeyDataType());
-    }
-    if (config.getHashContentCasing() != null) {
-      meta.setHashContentCasing(config.getHashContentCasing());
-    }
+    meta.setHashAlgorithm(config.resolveHashAlgorithm());
+    meta.setHashKeyDataType(config.resolveHashKeyDataType());
+    meta.setHashContentCasing(config.resolveHashContentCasing());
     if (config.getBusinessKeyDelimiter() != null) {
       meta.setBusinessKeyDelimiter(config.getBusinessKeyDelimiter());
     }

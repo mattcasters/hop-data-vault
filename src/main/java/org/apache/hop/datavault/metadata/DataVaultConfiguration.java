@@ -18,6 +18,7 @@
 
 package org.apache.hop.datavault.metadata;
 
+import java.util.Arrays;
 import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -99,23 +100,29 @@ public class DataVaultConfiguration {
   private String dataCatalogConnection;
 
   // --- Hashing Strategy ---
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
   @GuiWidgetElement(
       order = "0100",
       type = GuiElementType.COMBO,
       label = "i18n::DataVaultConfiguration.HashAlgorithm.Label",
       toolTip = "i18n::DataVaultConfiguration.HashAlgorithm.ToolTip",
+      comboValuesMethod = "getHashAlgorithmOptions",
       parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
   @HopMetadataProperty
-  private HashAlgorithm hashAlgorithm = HashAlgorithm.MD5;
+  private String hashAlgorithm = HashAlgorithm.MD5.name();
 
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
   @GuiWidgetElement(
       order = "0110",
       type = GuiElementType.COMBO,
       label = "i18n::DataVaultConfiguration.HashKeyDataType.Label",
       toolTip = "i18n::DataVaultConfiguration.HashKeyDataType.ToolTip",
+      comboValuesMethod = "getHashKeyDataTypeOptions",
       parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
   @HopMetadataProperty
-  private HashKeyDataType hashKeyDataType = HashKeyDataType.BINARY;
+  private String hashKeyDataType = HashKeyDataType.BINARY.name();
 
   // --- Unknown / ghost record handling (common DV pattern) ---
   @GuiWidgetElement(
@@ -217,14 +224,17 @@ public class DataVaultConfiguration {
   @HopMetadataProperty
   private String invalidRecordSource;
 
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
   @GuiWidgetElement(
       order = "0120",
       type = GuiElementType.COMBO,
       label = "i18n::DataVaultConfiguration.HashContentCasing.Label",
       toolTip = "i18n::DataVaultConfiguration.HashContentCasing.ToolTip",
+      comboValuesMethod = "getHashContentCasingOptions",
       parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
   @HopMetadataProperty
-  private HashContentCasing hashContentCasing = HashContentCasing.UPPER;
+  private String hashContentCasing = HashContentCasing.UPPER.name();
 
   @GuiWidgetElement(
       order = "0130",
@@ -452,6 +462,24 @@ public class DataVaultConfiguration {
     return copies;
   }
 
+  /** Combo items for the hash algorithm widget. */
+  public List<String> getHashAlgorithmOptions(
+      ILogChannel log, IHopMetadataProvider metadataProvider) {
+    return enumNames(HashAlgorithm.class);
+  }
+
+  /** Combo items for the hash key data type widget. */
+  public List<String> getHashKeyDataTypeOptions(
+      ILogChannel log, IHopMetadataProvider metadataProvider) {
+    return enumNames(HashKeyDataType.class);
+  }
+
+  /** Combo items for the hash content casing widget. */
+  public List<String> getHashContentCasingOptions(
+      ILogChannel log, IHopMetadataProvider metadataProvider) {
+    return enumNames(HashContentCasing.class);
+  }
+
   /** Combo items for the execution log level widget (localized descriptions). */
   public List<String> getExecutionLogLevelDescriptions(
       ILogChannel log, IHopMetadataProvider metadataProvider) {
@@ -534,5 +562,88 @@ public class DataVaultConfiguration {
       prefix = variables.resolve(prefix);
     }
     return prefix + targetTableName + "-" + sourceName;
+  }
+
+  /** Returns the persisted hash algorithm name for GUI combo widgets. */
+  public String getHashAlgorithm() {
+    return Utils.isEmpty(hashAlgorithm) ? HashAlgorithm.MD5.name() : hashAlgorithm;
+  }
+
+  /** Persists a hash algorithm name, ignoring blank or unknown values. */
+  public void setHashAlgorithm(String value) {
+    hashAlgorithm = parseHashAlgorithm(value, HashAlgorithm.MD5).name();
+  }
+
+  /** Resolves the configured hash algorithm for pipeline generation and DDL. */
+  public HashAlgorithm resolveHashAlgorithm() {
+    return parseHashAlgorithm(hashAlgorithm, HashAlgorithm.MD5);
+  }
+
+  /** Returns the persisted hash key data type name for GUI combo widgets. */
+  public String getHashKeyDataType() {
+    return Utils.isEmpty(hashKeyDataType) ? HashKeyDataType.BINARY.name() : hashKeyDataType;
+  }
+
+  /** Persists a hash key data type name, ignoring blank or unknown values. */
+  public void setHashKeyDataType(String value) {
+    hashKeyDataType = parseHashKeyDataType(value, HashKeyDataType.BINARY).name();
+  }
+
+  /** Resolves the configured hash key data type for pipeline generation and DDL. */
+  public HashKeyDataType resolveHashKeyDataType() {
+    return parseHashKeyDataType(hashKeyDataType, HashKeyDataType.BINARY);
+  }
+
+  /** Returns the persisted hash content casing name for GUI combo widgets. */
+  public String getHashContentCasing() {
+    return Utils.isEmpty(hashContentCasing) ? HashContentCasing.UPPER.name() : hashContentCasing;
+  }
+
+  /** Persists a hash content casing name, ignoring blank or unknown values. */
+  public void setHashContentCasing(String value) {
+    hashContentCasing = parseHashContentCasing(value, HashContentCasing.UPPER).name();
+  }
+
+  /** Resolves the configured hash content casing for hash key transforms. */
+  public HashContentCasing resolveHashContentCasing() {
+    return parseHashContentCasing(hashContentCasing, HashContentCasing.UPPER);
+  }
+
+  private static HashAlgorithm parseHashAlgorithm(String value, HashAlgorithm defaultValue) {
+    if (Utils.isEmpty(value)) {
+      return defaultValue;
+    }
+    try {
+      return HashAlgorithm.valueOf(value.trim());
+    } catch (IllegalArgumentException ignored) {
+      return defaultValue;
+    }
+  }
+
+  private static HashKeyDataType parseHashKeyDataType(String value, HashKeyDataType defaultValue) {
+    if (Utils.isEmpty(value)) {
+      return defaultValue;
+    }
+    try {
+      return HashKeyDataType.valueOf(value.trim());
+    } catch (IllegalArgumentException ignored) {
+      return defaultValue;
+    }
+  }
+
+  private static HashContentCasing parseHashContentCasing(
+      String value, HashContentCasing defaultValue) {
+    if (Utils.isEmpty(value)) {
+      return defaultValue;
+    }
+    try {
+      return HashContentCasing.valueOf(value.trim());
+    } catch (IllegalArgumentException ignored) {
+      return defaultValue;
+    }
+  }
+
+  private static <E extends Enum<E>> List<String> enumNames(Class<E> enumClass) {
+    return Arrays.stream(enumClass.getEnumConstants()).map(Enum::name).toList();
   }
 }

@@ -18,6 +18,7 @@
 
 package org.apache.hop.datavault.hopgui.file.vault;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.AreaOwner.AreaType;
 import org.apache.hop.core.gui.IGc;
@@ -35,16 +37,18 @@ import org.apache.hop.core.gui.Rectangle;
 import org.apache.hop.core.svg.SvgFile;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.BusinessKey;
 import org.apache.hop.datavault.metadata.DataVaultModel;
-import org.apache.hop.datavault.metadata.DvNote;
-import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
+import org.apache.hop.datavault.metadata.DvNote;
+import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.i18n.BaseMessages;
 
 /**
  * Basic painter for a Data Vault model using IGc. Draws tables (hubs, links, satellites) at their
@@ -60,6 +64,10 @@ import org.apache.hop.datavault.metadata.IDvTable;
 @Setter
 public class DataVaultModelPainter extends BasePainter {
 
+  private static final Class<?> PKG = DataVaultModelPainter.class;
+  private static final int EMPTY_MODEL_HINT_PADDING = 16;
+  private static final int EMPTY_MODEL_HINT_LINE_GAP = 6;
+
   private final DataVaultModel model;
   private final Map<String, IDvTable> tableByName;
 
@@ -72,6 +80,9 @@ public class DataVaultModelPainter extends BasePainter {
 
   /** When true, render the resolved hash key field name in small print below the table name. */
   private boolean showHashKeyFieldNames;
+
+  /** When false, suppress the first-run empty canvas hint (e.g. SVG export). */
+  private boolean showEmptyModelHint = true;
 
   private static final int ICON_SIZE = 32;
   private static final int HASH_KEY_LABEL_GAP = 2;
@@ -138,6 +149,11 @@ public class DataVaultModelPainter extends BasePainter {
     // Draw the navigation view in native pixels to make calculation a bit easier.
     //
     gc.setTransform(0.0f, 0.0f, 1.0f);
+
+    if (showEmptyModelHint && isEmptyModel()) {
+      drawEmptyModelHint();
+    }
+
     drawNavigationView();
   }
 
@@ -233,6 +249,90 @@ public class DataVaultModelPainter extends BasePainter {
     }
   }
 
+  private boolean isEmptyModel() {
+    return model.getTables().isEmpty() && model.getNotes().isEmpty();
+  }
+
+  private boolean hasCatalogRecordDefinitions() {
+    if (metadataProvider == null) {
+      return false;
+    }
+    try {
+      return !DvSourceCatalogService.listSourceNames(model, variables, metadataProvider).isEmpty();
+    } catch (HopException ignored) {
+      return false;
+    }
+  }
+
+  private List<String> getEmptyModelHintLines() {
+    List<String> lines = new ArrayList<>();
+    lines.add(BaseMessages.getString(PKG, "DataVaultModelPainter.EmptyModel.Intro"));
+    if (!hasCatalogRecordDefinitions()) {
+      lines.add(
+          BaseMessages.getString(PKG, "DataVaultModelPainter.EmptyModel.AddRecordDefinitions"));
+    }
+    lines.add(BaseMessages.getString(PKG, "DataVaultModelPainter.EmptyModel.AddTables"));
+    return lines;
+  }
+
+  /** Onboarding hint centered in the canvas when the model has no tables or notes. */
+  private void drawEmptyModelHint() {
+    if (area == null || area.x <= 0 || area.y <= 0) {
+      return;
+    }
+
+    List<String> lines = getEmptyModelHintLines();
+    if (lines.isEmpty()) {
+      return;
+    }
+
+    gc.setFont(EFont.GRAPH);
+    int maxLineWidth = 0;
+    int totalTextHeight = 0;
+    List<Point> lineExtents = new ArrayList<>(lines.size());
+    int lineHeight = gc.textExtent("Ay").y;
+    for (String line : lines) {
+      Point extent = Utils.isEmpty(line) ? new Point(0, lineHeight / 2) : gc.textExtent(line);
+      lineExtents.add(extent);
+      maxLineWidth = Math.max(maxLineWidth, extent.x);
+      totalTextHeight += extent.y;
+      if (lineExtents.size() < lines.size()) {
+        totalTextHeight += EMPTY_MODEL_HINT_LINE_GAP;
+      }
+    }
+
+    int boxWidth = maxLineWidth + (2 * EMPTY_MODEL_HINT_PADDING);
+    int boxHeight = totalTextHeight + (2 * EMPTY_MODEL_HINT_PADDING);
+    int boxX = 32;
+    int boxY = 32;
+
+    int alpha = gc.getAlpha();
+    gc.setAlpha(210);
+    gc.setTransform(0, 0, 2.5f);
+    gc.setBackground(IGc.EColor.WHITE);
+    gc.setForeground(IGc.EColor.LIGHTGRAY);
+    gc.fillRoundRectangle(boxX, boxY, boxWidth, boxHeight, CORNER_RADIUS_5, CORNER_RADIUS_5);
+    gc.drawRoundRectangle(boxX, boxY, boxWidth, boxHeight, CORNER_RADIUS_5, CORNER_RADIUS_5);
+    gc.setAlpha(alpha);
+
+    gc.setForeground(IGc.EColor.DARKGRAY);
+    int textY = boxY + EMPTY_MODEL_HINT_PADDING;
+    for (int i = 0; i < lines.size(); i++) {
+      String line = lines.get(i);
+      Point extent = lineExtents.get(i);
+      if (!Utils.isEmpty(line)) {
+        int textX = boxX + EMPTY_MODEL_HINT_PADDING + Math.max(0, (maxLineWidth - extent.x) / 2);
+        gc.drawText(line, textX, textY, true);
+      }
+      textY += extent.y;
+      if (i < lines.size() - 1) {
+        textY += EMPTY_MODEL_HINT_LINE_GAP;
+      }
+    }
+    gc.setTransform(0, 0, 1.0f);
+
+  }
+
   private void drawNotes() {
     if (model.getNotes().isEmpty()) {
       return;
@@ -314,14 +414,7 @@ public class DataVaultModelPainter extends BasePainter {
       Point lineExtent = gc.textExtent("Ay");
       int lineHeight = lineExtent.y;
       for (int i = 0; i < lines.length; i++) {
-        drawNoteLine(
-            note,
-            lines[i],
-            textX,
-            textY + (i * lineHeight),
-            lineHeight,
-            textRgb,
-            linkRgb);
+        drawNoteLine(note, lines[i], textX, textY + (i * lineHeight), lineHeight, textRgb, linkRgb);
       }
     }
   }
@@ -673,8 +766,7 @@ public class DataVaultModelPainter extends BasePainter {
     int margP = MARGIN;
     int textColumnWidth = Math.max(nameExtent.x, hashKeyExtent.x);
     int textColumnHeight =
-        nameExtent.y
-            + (hashKeyExtent.y > 0 ? HASH_KEY_LABEL_GAP + hashKeyExtent.y : 0);
+        nameExtent.y + (hashKeyExtent.y > 0 ? HASH_KEY_LABEL_GAP + hashKeyExtent.y : 0);
     int leftColumnHeight = iconP + margP + typeExtent.y;
     int boxW = margP + iconP + margP + textColumnWidth + margP;
     int boxH = margP + Math.max(leftColumnHeight, textColumnHeight) + margP;

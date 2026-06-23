@@ -267,7 +267,7 @@ public class DataVaultModel extends HopMetadataBase
     if (Utils.isEmpty(config.getTargetDatabase())) {
       remarks.add(
           new CheckResult(
-              ICheckResult.TYPE_RESULT_WARNING,
+              ICheckResult.TYPE_RESULT_ERROR,
               BaseMessages.getString(PKG, "DataVaultModel.CheckResult.NoTargetDatabase"),
               null));
       return;

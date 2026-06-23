@@ -60,6 +60,7 @@ public final class DataVaultModelSvgPainter {
       painter.setGridSize(1);
       painter.setShowingNavigationView(false);
       painter.setShowHashKeyFieldNames(showHashKeyFieldNames);
+      painter.setShowEmptyModelHint(false);
       painter.setMaximum(model.getMaximum());
       painter.drawDataVaultModel();
 

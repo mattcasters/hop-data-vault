@@ -31,11 +31,12 @@ import java.util.Map;
 import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.hop.catalog.hopgui.perspective.DataCatalogPerspective;
+import org.apache.hop.catalog.hopgui.perspective.importmenu.DataCatalogImportMenu;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.DbCache;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
-import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
@@ -53,6 +54,7 @@ import org.apache.hop.core.gui.plugin.key.GuiOsxKeyboardShortcut;
 import org.apache.hop.core.gui.plugin.menu.GuiMenuElement;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElementType;
+import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.row.RowMeta;
@@ -66,10 +68,10 @@ import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultSnapshotUndo;
 import org.apache.hop.datavault.metadata.DataVaultModel;
-import org.apache.hop.datavault.metadata.DvModelCheckOptions;
-import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvHub;
+import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvLink;
+import org.apache.hop.datavault.metadata.DvModelCheckOptions;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvSatellite;
@@ -77,7 +79,8 @@ import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
-import org.apache.hop.datavault.metadata.database.DvDatabaseSourceImportSupport;
+import org.apache.hop.datavault.workflow.actions.datavaultupdate.ActionDataVaultUpdate;
+import org.apache.hop.datavault.workflow.actions.datavaultupdate.ActionDataVaultUpdateDialog;
 import org.apache.hop.history.AuditManager;
 import org.apache.hop.history.AuditState;
 import org.apache.hop.i18n.BaseMessages;
@@ -102,10 +105,16 @@ import org.apache.hop.ui.hopgui.file.IGraphSnapAlignDistribute;
 import org.apache.hop.ui.hopgui.file.IHopFileType;
 import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
 import org.apache.hop.ui.hopgui.file.shared.HopGuiAbstractGraph;
+import org.apache.hop.ui.hopgui.file.workflow.HopGuiWorkflowGraph;
 import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.hopgui.shared.SwtGc;
 import org.apache.hop.ui.util.EnvironmentUtils;
+import org.apache.hop.workflow.WorkflowHopMeta;
+import org.apache.hop.workflow.WorkflowMeta;
+import org.apache.hop.workflow.action.ActionMeta;
+import org.apache.hop.workflow.action.IAction;
+import org.apache.hop.workflow.actions.start.ActionStart;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.graphics.Cursor;
@@ -139,6 +148,10 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   private static final String DEBUG_VARIABLES_AUDIT_TYPE = "DebugVariables";
   private static final String DEBUG_VARIABLES_AUDIT_STATE_NAME = "values";
 
+  private static final String DATA_VAULT_UPDATE_AUDIT_GROUP = "DataVault";
+  private static final String DATA_VAULT_UPDATE_AUDIT_TYPE = "DataVaultUpdateAction";
+  private static final String DATA_VAULT_UPDATE_AUDIT_STATE_ACTION_XML = "actionXml";
+
   public static final String GUI_PLUGIN_TOOLBAR_PARENT_ID = "HopGuiVaultGraph-Toolbar";
   public static final String TOOLBAR_ITEM_ZOOM_LEVEL = "HopGuiVaultGraph-ToolBar-10500-Zoom-Level";
   public static final String TOOLBAR_ITEM_ZOOM_IN = "HopGuiVaultGraph-ToolBar-10010-Zoom-In";
@@ -161,16 +174,16 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   public static final String TOOLBAR_ITEM_CHECK_MODEL =
       "HopGuiVaultGraph-ToolBar-10060-Check-Model";
 
+  public static final String TOOLBAR_ITEM_RUN_DATA_VAULT_UPDATE =
+      "HopGuiVaultGraph-ToolBar-10065-Run-Data-Vault-Update";
+
   public static final String TOOLBAR_ITEM_DEBUG = "HopGuiVaultGraph-ToolBar-10070-Debug";
 
   public static final String TOOLBAR_ITEM_GENERATE_DDL =
       "HopGuiVaultGraph-ToolBar-10080-Generate-Ddl";
 
-  public static final String TOOLBAR_ITEM_IMPORT_SOURCES =
-      "HopGuiVaultGraph-ToolBar-10085-Import-Sources";
-
-  public static final String TOOLBAR_ITEM_SHOW_HASH_KEYS =
-      "HopGuiVaultGraph-ToolBar-10090-Show-Hash-Keys";
+  public static final String TOOLBAR_ITEM_IMPORT_RECORD_DEFINITIONS =
+      "HopGuiVaultGraph-ToolBar-10085-Import-Record-Definitions";
 
   public static final String STATE_MAGNIFICATION = "magnification";
   public static final String STATE_SCROLL_X_SELECTION = "offset-x";
@@ -1368,6 +1381,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       painter.setShowingNavigationView(!propsUi.isHideViewportEnabled());
       painter.setShowHashKeyFieldNames(
           DataVaultConfigSingleton.getConfig().isDrawingHashKeysInModel());
+      painter.setMetadataProvider(hopGui.getMetadataProvider());
       painter.setMaximum(model.getMaximum());
 
       // Pass current (if any) relationship drag state so painter can render the candidate line
@@ -1482,12 +1496,14 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
   @GuiToolbarElement(
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
-      id = TOOLBAR_ITEM_IMPORT_SOURCES,
-      toolTip = "i18n::HopGuiVaultGraph.Toolbar.ImportSources.Tooltip",
-      image = "ui/images/schema.svg")
-  public void importDatabaseSourceTables() {
-    DvDatabaseSourceImportSupport.importDatabaseTables(
-        hopGui.getShell(), hopGui, hopGui.getVariables(), hopGui.getMetadataProvider(), model);
+      id = TOOLBAR_ITEM_IMPORT_RECORD_DEFINITIONS,
+      toolTip = "i18n::HopGuiVaultGraph.ImportSources.Tooltip",
+      image = "data_catalog.svg")
+  public void importCatalogRecordDefinitions() {
+    DataCatalogPerspective dcp = DataCatalogPerspective.getInstance();
+    if (dcp != null) {
+      DataCatalogImportMenu.open(hopGui, model, null, () -> dcp.refresh());
+    }
   }
 
   @GuiToolbarElement(
@@ -1499,9 +1515,188 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (model == null) {
       return;
     }
-    List<ICheckResult> remarks =
-        model.check(
-            hopGui.getMetadataProvider(), getVariables(), DvModelCheckOptions.defaults());
+    showCheckResultsDialog(runModelCheck());
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_RUN_DATA_VAULT_UPDATE,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.RunDataVaultUpdate.Tooltip",
+      image = "ui/images/run.svg")
+  public void runDataVaultUpdate() {
+    if (model == null) {
+      return;
+    }
+    if (!ensureModelSavedBeforeRun()) {
+      return;
+    }
+
+    try {
+      ActionDataVaultUpdate updateAction = loadStoredDataVaultUpdateAction();
+      updateAction.setDataVaultModelFile(getFilename());
+
+      WorkflowMeta dialogWorkflowMeta = new WorkflowMeta();
+      dialogWorkflowMeta.setName(buildDataVaultUpdateWorkflowName());
+
+      ActionDataVaultUpdateDialog dialog =
+          new ActionDataVaultUpdateDialog(
+              hopGui.getShell(), updateAction, dialogWorkflowMeta, getVariables());
+      IAction configuredAction = dialog.open();
+      if (configuredAction == null) {
+        return;
+      }
+
+      ActionDataVaultUpdate confirmedAction = (ActionDataVaultUpdate) configuredAction;
+      storeDataVaultUpdateAction(confirmedAction);
+      openAndRunDataVaultUpdateWorkflow(confirmedAction);
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.RunDataVaultUpdate.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.RunDataVaultUpdate.Error.Message"),
+          e);
+    }
+  }
+
+  private boolean ensureModelSavedBeforeRun() {
+    if (!hasChanged()) {
+      return true;
+    }
+
+    MessageBox messageDialog =
+        new MessageBox(hopShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO | SWT.CANCEL);
+    messageDialog.setText(
+        BaseMessages.getString(PKG, "HopGuiVaultGraph.RunDataVaultUpdate.Save.Dialog.Header"));
+    messageDialog.setMessage(
+        BaseMessages.getString(
+            PKG, "HopGuiVaultGraph.RunDataVaultUpdate.Save.Dialog.Message", buildTabName()));
+    int answer = messageDialog.open();
+    if ((answer & SWT.YES) != 0) {
+      try {
+        if (Utils.isEmpty(getFilename())) {
+          String chosenFilename =
+              BaseDialog.presentFileDialog(
+                  true,
+                  hopGui.getActiveShell(),
+                  fileType.getFilterExtensions(),
+                  fileType.getFilterNames(),
+                  true);
+          if (chosenFilename == null) {
+            return false;
+          }
+          saveAs(hopGui.getVariables().resolve(chosenFilename));
+        } else {
+          save();
+        }
+        return true;
+      } catch (Exception e) {
+        new ErrorDialog(
+            hopGui.getShell(),
+            BaseMessages.getString(PKG, "HopGuiVaultGraph.SaveFile.Error.Header"),
+            BaseMessages.getString(PKG, "HopGuiVaultGraph.SaveFile.Error.Message"),
+            e);
+        return false;
+      }
+    }
+    return (answer & SWT.NO) != 0;
+  }
+
+  private String buildDataVaultUpdateWorkflowName() {
+    String modelName = model != null ? model.getName() : null;
+    if (Utils.isEmpty(modelName)) {
+      modelName = buildTabName();
+    }
+    return "Update " + modelName;
+  }
+
+  private ActionDataVaultUpdate loadStoredDataVaultUpdateAction() throws HopException {
+    String actionXml = retrieveStoredDataVaultUpdateActionXml();
+    if (!Utils.isEmpty(actionXml)) {
+      Node actionNode = XmlHandler.loadXmlString(actionXml, ActionMeta.XML_TAG);
+      ActionMeta actionMeta =
+          new ActionMeta(actionNode, hopGui.getMetadataProvider(), getVariables());
+      if (actionMeta.getAction() instanceof ActionDataVaultUpdate storedAction) {
+        return storedAction;
+      }
+    }
+    return new ActionDataVaultUpdate();
+  }
+
+  private String retrieveStoredDataVaultUpdateActionXml() {
+    try {
+      AuditState auditState =
+          AuditManager.getActive()
+              .retrieveState(
+                  DATA_VAULT_UPDATE_AUDIT_GROUP,
+                  DATA_VAULT_UPDATE_AUDIT_TYPE,
+                  dataVaultUpdateAuditStateName());
+      if (auditState == null || auditState.getStateMap() == null) {
+        return null;
+      }
+      Object value = auditState.getStateMap().get(DATA_VAULT_UPDATE_AUDIT_STATE_ACTION_XML);
+      return value instanceof String xml ? xml : null;
+    } catch (Exception e) {
+      LogChannel.UI.logError("Error restoring Data Vault update action settings", e);
+      return null;
+    }
+  }
+
+  private void storeDataVaultUpdateAction(ActionDataVaultUpdate updateAction) {
+    try {
+      ActionMeta actionMeta = new ActionMeta(updateAction.clone());
+      Map<String, Object> stateMap = new HashMap<>();
+      stateMap.put(DATA_VAULT_UPDATE_AUDIT_STATE_ACTION_XML, actionMeta.getXml());
+      AuditState auditState = new AuditState(dataVaultUpdateAuditStateName(), stateMap);
+      AuditManager.getActive()
+          .storeState(DATA_VAULT_UPDATE_AUDIT_GROUP, DATA_VAULT_UPDATE_AUDIT_TYPE, auditState);
+    } catch (Exception e) {
+      LogChannel.UI.logError("Error storing Data Vault update action settings", e);
+    }
+  }
+
+  private String dataVaultUpdateAuditStateName() {
+    String modelFilename = getFilename();
+    if (Utils.isEmpty(modelFilename)) {
+      return "<unsaved-model>";
+    }
+    return modelFilename;
+  }
+
+  private WorkflowMeta buildDataVaultUpdateWorkflow(ActionDataVaultUpdate updateAction) {
+    WorkflowMeta workflowMeta = new WorkflowMeta();
+    workflowMeta.setName(buildDataVaultUpdateWorkflowName());
+    workflowMeta.setMetadataProvider(hopGui.getMetadataProvider());
+
+    ActionStart startAction = new ActionStart("Start");
+    ActionMeta startMeta = new ActionMeta(startAction);
+    startMeta.setLocation(50, 50);
+
+    ActionMeta updateMeta = new ActionMeta(updateAction.clone());
+    updateMeta.setLocation(250, 50);
+
+    workflowMeta.addAction(startMeta);
+    workflowMeta.addAction(updateMeta);
+    workflowMeta.addWorkflowHop(new WorkflowHopMeta(startMeta, updateMeta));
+
+    return workflowMeta;
+  }
+
+  private void openAndRunDataVaultUpdateWorkflow(ActionDataVaultUpdate updateAction)
+      throws HopException {
+    WorkflowMeta workflowMeta = buildDataVaultUpdateWorkflow(updateAction);
+    IHopFileTypeHandler handler = HopGui.getExplorerPerspective().addWorkflow(workflowMeta);
+    if (handler instanceof HopGuiWorkflowGraph workflowGraph) {
+      workflowGraph.workflowRunDelegate.executeWorkflow(
+          workflowGraph.getVariables(), workflowMeta, null);
+    }
+  }
+
+  private List<ICheckResult> runModelCheck() {
+    return model.check(
+        hopGui.getMetadataProvider(), getVariables(), DvModelCheckOptions.defaults());
+  }
+
+  private void showCheckResultsDialog(List<ICheckResult> remarks) {
     CheckResultDialog dialog = new CheckResultDialog(hopGui.getShell(), remarks);
     String tableName = dialog.open();
     if (tableName != null) {
@@ -1510,6 +1705,23 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
         editTable(table);
       }
     }
+  }
+
+  private static boolean hasCheckErrors(List<ICheckResult> remarks) {
+    return remarks.stream().anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR);
+  }
+
+  /** Returns false when the model has check errors (dialog already shown). */
+  private boolean validateModelForDebug() {
+    if (model == null) {
+      return false;
+    }
+    List<ICheckResult> remarks = runModelCheck();
+    if (!hasCheckErrors(remarks)) {
+      return true;
+    }
+    showCheckResultsDialog(remarks);
+    return false;
   }
 
   @GuiToolbarElement(
@@ -1576,6 +1788,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (model == null) {
       return;
     }
+    if (!validateModelForDebug()) {
+      return;
+    }
     IVariables debugVariables = resolveVariablesForDebug();
     if (debugVariables == null) {
       return;
@@ -1591,6 +1806,9 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   public void openUpdatePipeline(IDvTable table) {
+    if (!validateModelForDebug()) {
+      return;
+    }
     IVariables debugVariables = resolveVariablesForDebug();
     if (debugVariables == null) {
       return;
@@ -1648,8 +1866,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
     List<String> usedVariables = new ArrayList<>();
     for (String variableName : model.getUsedVariables()) {
-      if (Utils.isEmpty(variableName)
-          || variableName.startsWith(Const.INTERNAL_VARIABLE_PREFIX)) {
+      if (Utils.isEmpty(variableName) || variableName.startsWith(Const.INTERNAL_VARIABLE_PREFIX)) {
         continue;
       }
       usedVariables.add(variableName);
@@ -1748,8 +1965,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   private void storeDebugVariableValues(Map<String, String> values) {
     try {
       Map<String, Object> stateMap = new HashMap<>(values);
-      AuditState auditState =
-          new AuditState(DEBUG_VARIABLES_AUDIT_STATE_NAME, stateMap);
+      AuditState auditState = new AuditState(DEBUG_VARIABLES_AUDIT_STATE_NAME, stateMap);
       AuditManager.getActive()
           .storeState(DEBUG_VARIABLES_AUDIT_GROUP, DEBUG_VARIABLES_AUDIT_TYPE, auditState);
     } catch (Exception e) {
@@ -1892,16 +2108,16 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
   }
 
   @GuiContextAction(
-      id = "vault-graph-import-sources",
+      id = "vault-graph-import-record-definitions",
       parentId = HopGuiVaultContext.CONTEXT_ID,
       type = GuiActionType.Create,
       name = "i18n::HopGuiVaultGraph.ImportSources.Name",
       tooltip = "i18n::HopGuiVaultGraph.ImportSources.Tooltip",
-      image = "ui/images/schema.svg",
+      image = "data_catalog.svg",
       category = "Import",
       categoryOrder = "1")
   public void importDatabaseSourceTables(HopGuiVaultContext context) {
-    importDatabaseSourceTables();
+    importCatalogRecordDefinitions();
   }
 
   // --- @GuiContextAction methods for table context (left click on icon body, not name) ---

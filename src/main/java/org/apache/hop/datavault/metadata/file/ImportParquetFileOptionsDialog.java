@@ -18,9 +18,12 @@
 
 package org.apache.hop.datavault.metadata.file;
 
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.Const;
+import org.apache.hop.datavault.catalog.RecordSourceIndicatorOptions;
+import org.apache.hop.datavault.metadata.RecordSourceIndicatorImportSection;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
@@ -35,7 +38,7 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
-/** Collects the target record definition name before importing a Parquet file. */
+/** Collects import options before importing a Parquet file as a catalog record definition. */
 @Getter
 @Setter
 public class ImportParquetFileOptionsDialog {
@@ -45,19 +48,23 @@ public class ImportParquetFileOptionsDialog {
   private final Shell parent;
   private final String filePath;
   private final String defaultSourceName;
+  private final List<String> discoveredFieldNames;
 
   private Shell shell;
   private Text wFilePath;
   private Text wSourceName;
+  private RecordSourceIndicatorImportSection recordSourceSection;
   private Button wOk;
 
   private ImportParquetFileOptions options;
   private boolean cancelled = true;
 
-  public ImportParquetFileOptionsDialog(Shell parent, String filePath, String defaultSourceName) {
+  public ImportParquetFileOptionsDialog(
+      Shell parent, String filePath, String defaultSourceName, List<String> discoveredFieldNames) {
     this.parent = parent;
     this.filePath = filePath;
     this.defaultSourceName = defaultSourceName;
+    this.discoveredFieldNames = discoveredFieldNames;
   }
 
   public ImportParquetFileOptions open() {
@@ -119,6 +126,11 @@ public class ImportParquetFileOptionsDialog {
     fdSourceName.left = new FormAttachment(middle, 0);
     fdSourceName.right = new FormAttachment(100, 0);
     wSourceName.setLayoutData(fdSourceName);
+    lastControl = wSourceName;
+
+    recordSourceSection =
+        new RecordSourceIndicatorImportSection(
+            shell, middle, margin, discoveredFieldNames, defaultSourceName, lastControl);
 
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
@@ -126,9 +138,17 @@ public class ImportParquetFileOptionsDialog {
   }
 
   private void ok() {
+    String sourceName = Const.NVL(wSourceName.getText(), "").trim();
+    RecordSourceIndicatorOptions recordSourceOptions =
+        recordSourceSection.collectOptions(sourceName);
+    if (recordSourceOptions == null) {
+      return;
+    }
+
     options = new ImportParquetFileOptions();
     options.setFilePath(wFilePath.getText());
     options.setSourceName(wSourceName.getText());
+    options.setRecordSourceOptions(recordSourceOptions);
     cancelled = false;
     shell.dispose();
   }
@@ -144,5 +164,6 @@ public class ImportParquetFileOptionsDialog {
   public static final class ImportParquetFileOptions {
     private String filePath;
     private String sourceName;
+    private RecordSourceIndicatorOptions recordSourceOptions;
   }
 }

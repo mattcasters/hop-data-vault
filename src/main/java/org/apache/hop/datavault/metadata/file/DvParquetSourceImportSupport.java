@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.metadata.file;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
@@ -29,6 +30,8 @@ import org.apache.hop.catalog.discovery.PhysicalSourceRef;
 import org.apache.hop.catalog.discovery.RecordDefinitionCatalogWriter;
 import org.apache.hop.catalog.discovery.RecordDefinitionDiscoveryService;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
+import org.apache.hop.datavault.catalog.RecordSourceIndicatorOptions;
+import org.apache.hop.datavault.catalog.RecordSourceIndicatorSupport;
 import org.apache.hop.datavault.metadata.DvSourceType;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
@@ -73,9 +76,31 @@ public final class DvParquetSourceImportSupport {
     }
 
     String resolvedFile = variables != null ? variables.resolve(selectedFile) : selectedFile;
+
+    RecordDefinitionDiscoveryService.DiscoveryResult discovery;
+    try {
+      discovery =
+          RecordDefinitionDiscoveryService.discover(
+              DvSourceType.PARQUET,
+              PhysicalSourceRef.builder().filePath(resolvedFile).build(),
+              variables,
+              metadataProvider);
+    } catch (Exception e) {
+      new ErrorDialog(
+          shell,
+          BaseMessages.getString(PKG, "DvParquetSourceImportSupport.Error.DialogTitle"),
+          BaseMessages.getString(
+              PKG, "DvParquetSourceImportSupport.Error.DialogMessage", resolvedFile),
+          e);
+      return;
+    }
+
+    List<String> discoveredFieldNames =
+        discovery.fields().stream().map(SourceField::getName).collect(Collectors.toList());
+    String suggestedSourceName = DvFileLocationSupport.buildSuggestedSourceName(resolvedFile);
     ImportParquetFileOptionsDialog optionsDialog =
         new ImportParquetFileOptionsDialog(
-            shell, resolvedFile, DvFileLocationSupport.buildSuggestedSourceName(resolvedFile));
+            shell, resolvedFile, suggestedSourceName, discoveredFieldNames);
     ImportParquetFileOptionsDialog.ImportParquetFileOptions options = optionsDialog.open();
     if (options == null) {
       return;
@@ -113,16 +138,13 @@ public final class DvParquetSourceImportSupport {
         return;
       }
 
-      RecordDefinitionDiscoveryService.DiscoveryResult discovery =
-          RecordDefinitionDiscoveryService.discover(
-              DvSourceType.PARQUET,
-              PhysicalSourceRef.builder().filePath(resolvedFile).build(),
-              variables,
-              metadataProvider);
-
       DvParquetSource parquetSource = createParquetSource(resolvedFile, variables);
       DataVaultSource source =
-          createDataVaultSource(sourceName, parquetSource, discovery.fields());
+          createDataVaultSource(
+              sourceName,
+              parquetSource,
+              discovery.fields(),
+              options.getRecordSourceOptions());
       RecordDefinitionCatalogWriter.upsertDataVaultSource(
           source, catalogConnectionName, model, variables, metadataProvider, null, null, null);
 
@@ -182,9 +204,20 @@ public final class DvParquetSourceImportSupport {
 
   public static DataVaultSource createDataVaultSource(
       String metadataName, DvParquetSource parquetSource, List<SourceField> fields) {
+    return createDataVaultSource(metadataName, parquetSource, fields, null);
+  }
+
+  public static DataVaultSource createDataVaultSource(
+      String metadataName,
+      DvParquetSource parquetSource,
+      List<SourceField> fields,
+      RecordSourceIndicatorOptions recordSourceOptions) {
     parquetSource.setFields(fields);
     DataVaultSource source = new DataVaultSource(metadataName);
     source.setSource(parquetSource);
+    if (recordSourceOptions != null) {
+      RecordSourceIndicatorSupport.applyRecordSource(source, recordSourceOptions);
+    }
     return source;
   }
 

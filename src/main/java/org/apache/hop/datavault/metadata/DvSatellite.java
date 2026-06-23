@@ -721,8 +721,8 @@ public class DvSatellite extends DvTableBase
       }
 
       IValueMeta hashMeta;
-      HashKeyDataType hdt = config.getHashKeyDataType();
-      HashAlgorithm algo = config.getHashAlgorithm();
+      HashKeyDataType hdt = config.resolveHashKeyDataType();
+      HashAlgorithm algo = config.resolveHashAlgorithm();
       if (algo == null) {
         algo = HashAlgorithm.MD5;
       }
@@ -954,8 +954,8 @@ public class DvSatellite extends DvTableBase
 
   private IValueMeta createHashKeyValueMeta(String hashKeyName, DataVaultConfiguration config)
       throws HopException {
-    HashKeyDataType hdt = config.getHashKeyDataType();
-    HashAlgorithm algo = config.getHashAlgorithm();
+    HashKeyDataType hdt = config.resolveHashKeyDataType();
+    HashAlgorithm algo = config.resolveHashAlgorithm();
     if (algo == null) {
       algo = HashAlgorithm.MD5;
     }

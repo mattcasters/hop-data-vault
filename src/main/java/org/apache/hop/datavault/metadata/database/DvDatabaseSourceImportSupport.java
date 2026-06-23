@@ -39,6 +39,8 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.catalog.discovery.RecordDefinitionCatalogWriter;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
+import org.apache.hop.datavault.catalog.RecordSourceIndicatorOptions;
+import org.apache.hop.datavault.catalog.RecordSourceIndicatorSupport;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.SourceField;
@@ -227,9 +229,17 @@ public final class DvDatabaseSourceImportSupport {
           }
 
           List<SourceField> fields = importFieldsFromTable(db, variables, schemaName, tableName);
+          RecordSourceIndicatorOptions tableRecordSource =
+              RecordSourceIndicatorSupport.resolveForTable(
+                  options.getRecordSourceOptions(), fields, dataVaultSourceName);
           DataVaultSource imported =
               createDataVaultSource(
-                  dataVaultSourceName, connectionName, schemaName, tableName, fields);
+                  dataVaultSourceName,
+                  connectionName,
+                  schemaName,
+                  tableName,
+                  fields,
+                  tableRecordSource);
           RecordDefinitionCatalogWriter.upsertDataVaultSource(
               imported, catalogConnectionName, model, variables, metadataProvider, null, null, null);
           importedCount++;
@@ -426,8 +436,22 @@ public final class DvDatabaseSourceImportSupport {
       String schemaName,
       String tableName,
       List<SourceField> fields) {
+    return createDataVaultSource(
+        metadataName, connectionName, schemaName, tableName, fields, null);
+  }
+
+  public static DataVaultSource createDataVaultSource(
+      String metadataName,
+      String connectionName,
+      String schemaName,
+      String tableName,
+      List<SourceField> fields,
+      RecordSourceIndicatorOptions recordSourceOptions) {
     DataVaultSource source = new DataVaultSource(metadataName);
     source.setSource(createDatabaseSource(connectionName, schemaName, tableName, fields));
+    if (recordSourceOptions != null) {
+      RecordSourceIndicatorSupport.applyRecordSource(source, recordSourceOptions);
+    }
     return source;
   }
 

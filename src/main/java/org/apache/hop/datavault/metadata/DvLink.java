@@ -569,8 +569,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       if (Utils.isEmpty(linkHashName)) {
         linkHashName = getName() + "_LK";
       }
-      HashKeyDataType hdt = config.getHashKeyDataType();
-      HashAlgorithm algo = config.getHashAlgorithm();
+      HashKeyDataType hdt = config.resolveHashKeyDataType();
+      HashAlgorithm algo = config.resolveHashAlgorithm();
       if (algo == null) algo = HashAlgorithm.MD5;
       int digestBytes = algo.getDigestLength();
 

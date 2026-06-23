@@ -32,6 +32,7 @@ public class DataVaultConfig {
   private boolean drawingHashKeysInModel;
   private int maxUndoOperations = DEFAULT_MAX_UNDO_OPERATIONS;
   private ElkLayout elkLayout = ElkLayout.createDefault();
+  private boolean suppressLocalCatalogOffer;
 
   public DataVaultConfig() {
     drawingHashKeysInModel = true;
@@ -40,6 +41,7 @@ public class DataVaultConfig {
   public DataVaultConfig(DataVaultConfig config) {
     this();
     drawingHashKeysInModel = config.drawingHashKeysInModel;
+    suppressLocalCatalogOffer = config.suppressLocalCatalogOffer;
     setMaxUndoOperations(config.maxUndoOperations);
     setElkLayout(new ElkLayout(config.getElkLayout()));
   }

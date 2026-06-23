@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.metadata.file;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.catalog.hopgui.perspective.DataCatalogPerspective;
 import org.apache.hop.core.Const;
@@ -30,6 +31,8 @@ import org.apache.hop.catalog.discovery.PhysicalSourceRef;
 import org.apache.hop.catalog.discovery.RecordDefinitionCatalogWriter;
 import org.apache.hop.catalog.discovery.RecordDefinitionDiscoveryService;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
+import org.apache.hop.datavault.catalog.RecordSourceIndicatorOptions;
+import org.apache.hop.datavault.catalog.RecordSourceIndicatorSupport;
 import org.apache.hop.datavault.metadata.DvSourceType;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
@@ -75,9 +78,31 @@ public final class DvCsvSourceImportSupport {
     }
 
     String resolvedFile = variables != null ? variables.resolve(selectedFile) : selectedFile;
+
+    RecordDefinitionDiscoveryService.DiscoveryResult discovery;
+    try {
+      discovery =
+          RecordDefinitionDiscoveryService.discover(
+              DvSourceType.CSV,
+              PhysicalSourceRef.builder().filePath(resolvedFile).build(),
+              variables,
+              metadataProvider);
+    } catch (Exception e) {
+      new ErrorDialog(
+          shell,
+          BaseMessages.getString(PKG, "DvCsvSourceImportSupport.Error.DialogTitle"),
+          BaseMessages.getString(
+              PKG, "DvCsvSourceImportSupport.Error.DialogMessage", resolvedFile),
+          e);
+      return;
+    }
+
+    List<String> discoveredFieldNames =
+        discovery.fields().stream().map(SourceField::getName).collect(Collectors.toList());
+    String suggestedSourceName = buildSuggestedCsvSourceName(resolvedFile);
     ImportCsvFileOptionsDialog optionsDialog =
         new ImportCsvFileOptionsDialog(
-            shell, resolvedFile, buildSuggestedCsvSourceName(resolvedFile));
+            shell, resolvedFile, suggestedSourceName, discoveredFieldNames);
     ImportCsvFileOptionsDialog.ImportCsvFileOptions options = optionsDialog.open();
     if (options == null) {
       return;
@@ -115,16 +140,14 @@ public final class DvCsvSourceImportSupport {
         return;
       }
 
-      RecordDefinitionDiscoveryService.DiscoveryResult discovery =
-          RecordDefinitionDiscoveryService.discover(
-              DvSourceType.CSV,
-              PhysicalSourceRef.builder().filePath(resolvedFile).build(),
-              variables,
-              metadataProvider);
-
       DvCsvSource csvSource =
           createCsvSource(resolvedFile, discovery.csvDiscovery(), variables);
-      DataVaultSource source = createDataVaultSource(sourceName, csvSource, discovery.fields());
+      DataVaultSource source =
+          createDataVaultSource(
+              sourceName,
+              csvSource,
+              discovery.fields(),
+              options.getRecordSourceOptions());
       RecordDefinitionCatalogWriter.upsertDataVaultSource(
           source, catalogConnectionName, model, variables, metadataProvider, null, null, null);
 
@@ -205,9 +228,20 @@ public final class DvCsvSourceImportSupport {
 
   public static DataVaultSource createDataVaultSource(
       String metadataName, DvCsvSource csvSource, List<SourceField> fields) {
+    return createDataVaultSource(metadataName, csvSource, fields, null);
+  }
+
+  public static DataVaultSource createDataVaultSource(
+      String metadataName,
+      DvCsvSource csvSource,
+      List<SourceField> fields,
+      RecordSourceIndicatorOptions recordSourceOptions) {
     csvSource.setFields(fields);
     DataVaultSource source = new DataVaultSource(metadataName);
     source.setSource(csvSource);
+    if (recordSourceOptions != null) {
+      RecordSourceIndicatorSupport.applyRecordSource(source, recordSourceOptions);
+    }
     return source;
   }
 

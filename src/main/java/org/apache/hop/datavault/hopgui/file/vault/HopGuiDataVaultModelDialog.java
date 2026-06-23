@@ -69,6 +69,7 @@ public class HopGuiDataVaultModelDialog {
   private Composite wGeneratedPipelinesTabComp;
 
   private boolean ok;
+  private boolean populatingWidgets;
 
   public HopGuiDataVaultModelDialog(Shell parent, HopGui hopGui, DataVaultModel model) {
     this.parent = parent;
@@ -219,11 +220,17 @@ public class HopGuiDataVaultModelDialog {
 
     wTabFolder.setSelection(0);
 
+    getData();
+    updateSingleStoreShardWidgets(input.getConfigurationOrDefault());
+
     widgets.setWidgetsListener(
         new GuiCompositeWidgetsAdapter() {
           @Override
           public void widgetModified(
               GuiCompositeWidgets compositeWidgets, Control changedWidget, String widgetId) {
+            if (populatingWidgets) {
+              return;
+            }
             input.setChanged();
             if ("targetDatabase".equals(widgetId)) {
               DataVaultConfiguration configuration = input.getConfigurationOrDefault();
@@ -234,9 +241,6 @@ public class HopGuiDataVaultModelDialog {
             }
           }
         });
-
-    getData();
-    updateSingleStoreShardWidgets(input.getConfigurationOrDefault());
 
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
@@ -261,30 +265,35 @@ public class HopGuiDataVaultModelDialog {
   }
 
   private void getData() {
-    if (input.getName() != null) {
-      wName.setText(input.getName());
-    }
-    if (input.getDescription() != null) {
-      wDescription.setText(input.getDescription());
-    }
+    populatingWidgets = true;
+    try {
+      if (input.getName() != null) {
+        wName.setText(input.getName());
+      }
+      if (input.getDescription() != null) {
+        wDescription.setText(input.getDescription());
+      }
 
-    DataVaultConfiguration configuration = input.getConfigurationOrDefault();
-    widgets.setWidgetsContents(
-        configuration, wGeneralTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID);
-    widgets.setWidgetsContents(
-        configuration, wUnknownTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID);
-    widgets.setWidgetsContents(
-        configuration, wInvalidTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_INVALID_TAB_ID);
-    widgets.setWidgetsContents(
-        configuration, wColumnsTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID);
-    widgets.setWidgetsContents(
-        configuration,
-        wTargetLoadTabComp,
-        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
-    widgets.setWidgetsContents(
-        configuration,
-        wGeneratedPipelinesTabComp,
-        DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_PIPELINES_TAB_ID);
+      DataVaultConfiguration configuration = input.getConfigurationOrDefault();
+      widgets.setWidgetsContents(
+          configuration, wGeneralTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID);
+      widgets.setWidgetsContents(
+          configuration, wUnknownTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_UNKNOWN_TAB_ID);
+      widgets.setWidgetsContents(
+          configuration, wInvalidTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_INVALID_TAB_ID);
+      widgets.setWidgetsContents(
+          configuration, wColumnsTabComp, DataVaultConfiguration.GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID);
+      widgets.setWidgetsContents(
+          configuration,
+          wTargetLoadTabComp,
+          DataVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
+      widgets.setWidgetsContents(
+          configuration,
+          wGeneratedPipelinesTabComp,
+          DataVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_PIPELINES_TAB_ID);
+    } finally {
+      populatingWidgets = false;
+    }
   }
 
   private void ok() {
@@ -322,10 +331,15 @@ public class HopGuiDataVaultModelDialog {
     DatabaseMeta targetDatabase = loadTargetDatabase(configuration);
     if (DvDdlSupport.isSingleStore(targetDatabase)) {
       configuration.setSingleStoreShardKeyOnHashKey(true);
-      widgets.setWidgetsContents(
-          configuration,
-          wTargetLoadTabComp,
-          DataVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
+      populatingWidgets = true;
+      try {
+        widgets.setWidgetsContents(
+            configuration,
+            wTargetLoadTabComp,
+            DataVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
+      } finally {
+        populatingWidgets = false;
+      }
     }
   }
 

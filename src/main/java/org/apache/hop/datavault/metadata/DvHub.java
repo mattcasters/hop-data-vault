@@ -720,7 +720,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       this.metadataProvider = metadataProvider;
       this.variables = variables;
       this.config = config;
-      this.hashAlgorithm = (config != null) ? config.getHashAlgorithm() : HashAlgorithm.MD5;
+      this.hashAlgorithm =
+          (config != null) ? config.resolveHashAlgorithm() : HashAlgorithm.MD5;
       this.dataVaultSource = dataVaultSource;
       this.targetDatabaseMeta = targetDatabaseMeta;
       this.targetDbName = targetDbName;
@@ -832,8 +833,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       }
 
       IValueMeta hashMeta;
-      HashKeyDataType hdt = config.getHashKeyDataType();
-      HashAlgorithm algo = config.getHashAlgorithm();
+      HashKeyDataType hdt = config.resolveHashKeyDataType();
+      HashAlgorithm algo = config.resolveHashAlgorithm();
       if (algo == null) {
         algo = HashAlgorithm.MD5;
       }

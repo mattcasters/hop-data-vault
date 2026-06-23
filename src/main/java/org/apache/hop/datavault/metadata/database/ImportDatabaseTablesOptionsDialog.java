@@ -33,6 +33,8 @@ import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
+import org.apache.hop.datavault.catalog.RecordSourceIndicatorOptions;
+import org.apache.hop.datavault.metadata.RecordSourceIndicatorDatabaseImportSection;
 import org.apache.hop.ui.core.widget.MetaSelectionLine;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.eclipse.swt.SWT;
@@ -68,6 +70,7 @@ public class ImportDatabaseTablesOptionsDialog {
   private MetaSelectionLine<DatabaseMeta> wDatabaseName;
   private Text wSchemaName;
   private Text wDataVaultSourcePrefix;
+  private RecordSourceIndicatorDatabaseImportSection recordSourceSection;
   private Button wOk;
 
   private ImportDatabaseTablesOptions options;
@@ -164,6 +167,9 @@ public class ImportDatabaseTablesOptionsDialog {
     wDataVaultSourcePrefix.setLayoutData(fdDataVaultSourcePrefix);
     lastControl = wDataVaultSourcePrefix;
 
+    recordSourceSection =
+        new RecordSourceIndicatorDatabaseImportSection(shell, middle, margin, lastControl);
+
     restoreAuditState();
 
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
@@ -209,6 +215,7 @@ public class ImportDatabaseTablesOptionsDialog {
     options.setDatabaseName(wDatabaseName.getText());
     options.setSchemaName(wSchemaName.getText());
     options.setDataVaultSourcePrefix(wDataVaultSourcePrefix.getText());
+    options.setRecordSourceOptions(recordSourceSection.collectOptions());
     cancelled = false;
     shell.dispose();
   }
@@ -226,6 +233,7 @@ public class ImportDatabaseTablesOptionsDialog {
     private String databaseName;
     private String schemaName;
     private String dataVaultSourcePrefix;
+    private RecordSourceIndicatorOptions recordSourceOptions;
 
     public ImportDatabaseTablesOptions() {
       // Empty by design

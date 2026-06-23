@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import org.apache.hop.catalog.hopgui.LocalCatalogOfferSupport;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.file.IHasFilename;
@@ -199,6 +200,10 @@ public class HopVaultFileType extends HopFileTypeBase {
     targetFolder.setSelection(tabItem);
 
     explorer.activate();
+
+    targetFolder
+        .getDisplay()
+        .asyncExec(() -> LocalCatalogOfferSupport.maybeOffer(hopGui, model));
 
     return vaultGraph;
   }

@@ -46,6 +46,7 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
   private static final Class<?> PKG = ActionDataVaultUpdate.class;
 
   private final ActionDataVaultUpdate action;
+  private boolean cancelled = true;
   private GuiCompositeWidgets widgets;
   private Composite wModelTabComp;
   private Composite wDdlTabComp;
@@ -140,8 +141,13 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
 
     setWidgetsContent();
 
+    boolean changedBeforeOpen = action.hasChanged();
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
+    if (cancelled) {
+      action.setChanged(changedBeforeOpen);
+      return null;
+    }
     return action;
   }
 
@@ -167,12 +173,14 @@ public class ActionDataVaultUpdateDialog extends ActionDialog {
   }
 
   private void ok() {
+    cancelled = false;
     getWidgetsContent();
     action.setChanged();
     dispose();
   }
 
   private void cancel() {
+    cancelled = true;
     dispose();
   }
 }
