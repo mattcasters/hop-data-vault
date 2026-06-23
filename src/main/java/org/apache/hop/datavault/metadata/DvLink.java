@@ -653,8 +653,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       LinkUpdateContext ctx, PipelineMeta pipelineMeta, DvLinkHubSource linkSource)
       throws HopException {
 
-    DvDatabaseLinkSourcePipelineBuilder builder =
-        new DvDatabaseLinkSourcePipelineBuilder(
+    DvSourcePipelineBuilder builder =
+        DvSourcePipelineBuilderFactory.forLink(
             ctx.variables,
             ctx.metadataProvider,
             ctx.model,
@@ -663,7 +663,11 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
             ctx.dvSource,
             this,
             new Point(LOCATION_START_LINE_2.x, LOCATION_START_LINE_2.y));
-    builder.setDvLinkHubSource(linkSource);
+    if (builder instanceof DvDatabaseLinkSourcePipelineBuilder dbBuilder) {
+      dbBuilder.setDvLinkHubSource(linkSource);
+    } else if (builder instanceof org.apache.hop.datavault.metadata.file.DvCsvLinkSourcePipelineBuilder csvBuilder) {
+      csvBuilder.setDvLinkHubSource(linkSource);
+    }
     builder.build();
     return builder.getResultTransform();
   }

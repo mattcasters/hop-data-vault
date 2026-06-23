@@ -52,7 +52,7 @@ import org.apache.hop.ui.core.widget.TreeMemory;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.hopgui.ToolbarFacade;
 import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
-import org.apache.hop.datavault.metadata.database.DvDatabaseSourceImportSupport;
+import org.apache.hop.catalog.hopgui.perspective.importmenu.DataCatalogImportMenu;
 import org.apache.hop.ui.hopgui.perspective.HopPerspectivePlugin;
 import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
 import org.eclipse.swt.SWT;
@@ -80,8 +80,8 @@ public class DataCatalogPerspective implements IHopPerspective {
   public static final Class<?> PKG = DataCatalogPerspective.class;
   public static final String ID_PERSPECTIVE_TOOLBAR_ITEM = "20035-perspective-data-catalog";
   public static final String GUI_PLUGIN_TOOLBAR_PARENT_ID = "DataCatalogPerspective-Toolbar";
-  public static final String TOOLBAR_ITEM_IMPORT_TABLES =
-      "DataCatalogPerspective-Toolbar-10005-Import-Tables";
+  public static final String TOOLBAR_ITEM_IMPORT =
+      "DataCatalogPerspective-Toolbar-10005-Import";
   public static final String TOOLBAR_ITEM_REFRESH = "DataCatalogPerspective-Toolbar-10000-Refresh";
   public static final String TOOLBAR_ITEM_DELETE = "DataCatalogPerspective-Toolbar-10010-Delete";
   private static final String TREE_KEY = "Data catalog perspective tree";
@@ -217,18 +217,12 @@ public class DataCatalogPerspective implements IHopPerspective {
 
   @GuiToolbarElement(
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
-      id = TOOLBAR_ITEM_IMPORT_TABLES,
-      toolTip = "i18n::DataCatalogPerspective.Toolbar.ImportTables.Tooltip",
+      id = TOOLBAR_ITEM_IMPORT,
+      toolTip = "i18n::DataCatalogPerspective.Toolbar.Import.Tooltip",
       image = "ui/images/add.svg")
-  public void importTables() {
-    DvDatabaseSourceImportSupport.importDatabaseTables(
-        hopGui.getShell(),
-        hopGui,
-        hopGui.getVariables(),
-        hopGui.getMetadataProvider(),
-        null,
-        resolveSelectedCatalogConnectionName());
-    refresh();
+  public void openImportMenu() {
+    DataCatalogImportMenu.open(
+        hopGui, null, resolveSelectedCatalogConnectionName(), this::refresh);
   }
 
   @GuiToolbarElement(

@@ -414,8 +414,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       throws HopException {
     // Let's ask our source to provide the needed Hop transforms.
     //
-    DvDatabaseHubSourcePipelineBuilder builder =
-        new DvDatabaseHubSourcePipelineBuilder(
+    DvSourcePipelineBuilder builder =
+        DvSourcePipelineBuilderFactory.forHub(
             ctx.variables,
             ctx.metadataProvider,
             ctx.model,

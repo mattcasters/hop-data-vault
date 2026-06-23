@@ -95,6 +95,16 @@ public class RecordDefinitionDetailsPanel {
   private Text wDatabaseMetaName;
   private Text wSchemaName;
   private Text wTableName;
+  private Text wFileFolder;
+  private Text wIncludeFileMask;
+  private Text wExcludeFileMask;
+  private Text wIncludeSubfolders;
+  private Text wCsvDelimiter;
+  private Text wCsvEnclosure;
+  private Text wCsvEncoding;
+  private Text wCsvHeaderPresent;
+  private Text wCsvHeaderLines;
+  private Text wCsvInputTransform;
   private Text wDvSourceType;
   private Text wDvSourceIndicator;
   private Text wDvSourceIndicatorField;
@@ -259,7 +269,63 @@ public class RecordDefinitionDetailsPanel {
             wPropertiesComp, messageKey("PhysicalTable.Table.Label"), middle, margin, wSchemaName);
     wTableName = (Text) lastControl;
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("DvSource.Label"), wTableName, margin);
+    lastControl = addSectionLabel(wPropertiesComp, messageKey("PhysicalFile.Label"), wTableName, margin);
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp, messageKey("PhysicalFile.Folder.Label"), middle, margin, lastControl);
+    wFileFolder = (Text) lastControl;
+
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp, messageKey("PhysicalFile.IncludeMask.Label"), middle, margin, wFileFolder);
+    wIncludeFileMask = (Text) lastControl;
+
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp, messageKey("PhysicalFile.ExcludeMask.Label"), middle, margin, wIncludeFileMask);
+    wExcludeFileMask = (Text) lastControl;
+
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp,
+            messageKey("PhysicalFile.IncludeSubfolders.Label"),
+            middle,
+            margin,
+            wExcludeFileMask);
+    wIncludeSubfolders = (Text) lastControl;
+
+    lastControl = addSectionLabel(wPropertiesComp, messageKey("CsvFormat.Label"), wIncludeSubfolders, margin);
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp, messageKey("CsvFormat.Delimiter.Label"), middle, margin, lastControl);
+    wCsvDelimiter = (Text) lastControl;
+
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp, messageKey("CsvFormat.Enclosure.Label"), middle, margin, wCsvDelimiter);
+    wCsvEnclosure = (Text) lastControl;
+
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp, messageKey("CsvFormat.Encoding.Label"), middle, margin, wCsvEnclosure);
+    wCsvEncoding = (Text) lastControl;
+
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp, messageKey("CsvFormat.HeaderPresent.Label"), middle, margin, wCsvEncoding);
+    wCsvHeaderPresent = (Text) lastControl;
+
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp, messageKey("CsvFormat.HeaderLines.Label"), middle, margin, wCsvHeaderPresent);
+    wCsvHeaderLines = (Text) lastControl;
+
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp, messageKey("CsvFormat.InputTransform.Label"), middle, margin, wCsvHeaderLines);
+    wCsvInputTransform = (Text) lastControl;
+
+    lastControl = addSectionLabel(wPropertiesComp, messageKey("DvSource.Label"), wCsvInputTransform, margin);
     lastControl =
         addReadOnlyField(
             wPropertiesComp, messageKey("DvSource.SourceType.Label"), middle, margin, lastControl);
@@ -297,7 +363,7 @@ public class RecordDefinitionDetailsPanel {
     fdProps.left = new FormAttachment(0, 0);
     fdProps.right = new FormAttachment(100, 0);
     fdProps.top = new FormAttachment(0, 0);
-    fdProps.bottom = new FormAttachment(wDvDeliveryType, margin);
+    fdProps.bottom = new FormAttachment(wDvDeliveryType, margin * 2);
     wPropertiesComp.setLayoutData(fdProps);
 
     wPropertiesComp.pack();
@@ -510,6 +576,37 @@ public class RecordDefinitionDetailsPanel {
       wDatabaseMetaName.setText("");
       wSchemaName.setText("");
       wTableName.setText("");
+    }
+
+    org.apache.hop.catalog.model.PhysicalFileRef physicalFile = definition.getPhysicalFile();
+    if (physicalFile != null) {
+      wFileFolder.setText(Const.NVL(physicalFile.getFolder(), ""));
+      wIncludeFileMask.setText(Const.NVL(physicalFile.getIncludeFileMask(), ""));
+      wExcludeFileMask.setText(Const.NVL(physicalFile.getExcludeFileMask(), ""));
+      wIncludeSubfolders.setText(physicalFile.isIncludeSubfolders() ? "Y" : "N");
+    } else {
+      wFileFolder.setText("");
+      wIncludeFileMask.setText("");
+      wExcludeFileMask.setText("");
+      wIncludeSubfolders.setText("");
+    }
+
+    org.apache.hop.catalog.model.DvCsvFormatRecord csvFormat =
+        definition.getDvSource() != null ? definition.getDvSource().getCsvFormat() : null;
+    if (csvFormat != null) {
+      wCsvDelimiter.setText(Const.NVL(csvFormat.getDelimiter(), ""));
+      wCsvEnclosure.setText(Const.NVL(csvFormat.getEnclosure(), ""));
+      wCsvEncoding.setText(Const.NVL(csvFormat.getEncoding(), ""));
+      wCsvHeaderPresent.setText(csvFormat.isHeaderPresent() ? "Y" : "N");
+      wCsvHeaderLines.setText(Integer.toString(csvFormat.getHeaderLines()));
+      wCsvInputTransform.setText(Const.NVL(csvFormat.getInputTransform(), ""));
+    } else {
+      wCsvDelimiter.setText("");
+      wCsvEnclosure.setText("");
+      wCsvEncoding.setText("");
+      wCsvHeaderPresent.setText("");
+      wCsvHeaderLines.setText("");
+      wCsvInputTransform.setText("");
     }
 
     populateDvSourceFields(definition);

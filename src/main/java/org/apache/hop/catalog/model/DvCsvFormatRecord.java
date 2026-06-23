@@ -18,23 +18,34 @@
 
 package org.apache.hop.catalog.model;
 
-import java.util.ArrayList;
-import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.apache.hop.metadata.api.HopMetadataProperty;
 
-/** Structured Data Vault source metadata stored on a {@link RecordDefinition} of type DV_SOURCE. */
+/** CSV / delimited text format options for a catalog DV source of type CSV. */
 @Getter
 @Setter
 @NoArgsConstructor
-public class DvSourceRecord {
+public class DvCsvFormatRecord {
 
-  private String sourceType;
-  private String sourceIndicator;
-  private String sourceIndicatorField;
-  private String group;
-  private String deliveryType;
-  private List<CatalogSourceField> fields = new ArrayList<>();
-  private DvCsvFormatRecord csvFormat;
+  @HopMetadataProperty private String delimiter = ",";
+
+  @HopMetadataProperty private String enclosure = "\"";
+
+  @HopMetadataProperty private String escapeCharacter;
+
+  @HopMetadataProperty private String encoding;
+
+  @HopMetadataProperty private boolean headerPresent = true;
+
+  @HopMetadataProperty private int headerLines = 1;
+
+  @HopMetadataProperty private String fileFormat = "CSV";
+
+  /** {@code TEXT_FILE_INPUT} (default) or {@code CSV_INPUT}. */
+  @HopMetadataProperty private String inputTransform = "TEXT_FILE_INPUT";
+
+  /** Optional explicit file path when not using folder + masks. */
+  @HopMetadataProperty private String singleFilename;
 }

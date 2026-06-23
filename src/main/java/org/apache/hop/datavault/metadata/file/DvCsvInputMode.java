@@ -16,28 +16,12 @@
  *
  */
 
-package org.apache.hop.datavault.metadata;
+package org.apache.hop.datavault.metadata.file;
 
-/**
- * Enumeration of supported source system types for a Data Vault model.
- *
- * <p>Each source type describes how rows are obtained (e.g. from an RDBMS table/query,
- * a CSV file, a Parquet file, etc). The common aspects (name + expected row layout via
- * fields) live in the base; type-specific connection details live in the concrete
- * implementations (DvDatabaseSource, ...).
- */
-public enum DvSourceType {
-  DATABASE("Database (RDBMS)"),
-  CSV("CSV / delimited text file"),
-  ;
-
-  private final String description;
-
-  DvSourceType(String description) {
-    this.description = description;
-  }
-
-  public String getDescription() {
-    return description;
-  }
+/** How a CSV Data Vault source is read in generated pipelines. */
+public enum DvCsvInputMode {
+  /** Folder and file masks via Text File Input. */
+  TEXT_FILE_INPUT,
+  /** Single explicit file via CSV Input. */
+  CSV_INPUT
 }

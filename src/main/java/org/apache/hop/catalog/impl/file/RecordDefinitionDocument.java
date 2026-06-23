@@ -27,6 +27,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.apache.hop.catalog.model.CatalogCustomProperty;
 import org.apache.hop.catalog.model.DvSourceRecord;
+import org.apache.hop.catalog.model.PhysicalFileRef;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
@@ -49,6 +50,7 @@ class RecordDefinitionDocument {
   private String rowMetaXml;
   private RecordOrigin origin;
   private PhysicalTableRef physicalTable;
+  private PhysicalFileRef physicalFile;
   private List<String> tags = new ArrayList<>();
   private List<String> glossaryTerms = new ArrayList<>();
   private Map<String, CatalogCustomProperty> customProperties = new HashMap<>();
@@ -65,6 +67,7 @@ class RecordDefinitionDocument {
     doc.rowMetaXml = RowMetaCatalogSupport.toXml(definition.getFields());
     doc.origin = definition.getOrigin();
     doc.physicalTable = definition.getPhysicalTable();
+    doc.physicalFile = definition.getPhysicalFile();
     if (definition.getTags() != null) {
       doc.tags = new ArrayList<>(definition.getTags());
     }
@@ -86,6 +89,7 @@ class RecordDefinitionDocument {
     definition.setFields(RowMetaCatalogSupport.fromXml(rowMetaXml));
     definition.setOrigin(origin);
     definition.setPhysicalTable(physicalTable);
+    definition.setPhysicalFile(physicalFile);
     definition.setTags(tags != null ? new ArrayList<>(tags) : new ArrayList<>());
     definition.setGlossaryTerms(
         glossaryTerms != null ? new ArrayList<>(glossaryTerms) : new ArrayList<>());

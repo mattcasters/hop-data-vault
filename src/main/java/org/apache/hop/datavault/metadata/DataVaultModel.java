@@ -31,6 +31,7 @@ import lombok.Setter;
 import org.apache.hop.base.AbstractMeta;
 import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.changed.ChangedFlag;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.file.IHasFilename;
@@ -40,6 +41,8 @@ import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.undo.ChangeAction;
+import org.apache.hop.core.reflection.StringSearchResult;
+import org.apache.hop.core.util.StringUtil;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
@@ -49,6 +52,7 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadata;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -542,6 +546,72 @@ public class DataVaultModel extends HopMetadataBase
       }
     }
     return nr;
+  }
+
+  /**
+   * Collects all strings from this model that may contain variable references. Used by {@link
+   * #getUsedVariables()} in the same way as {@link org.apache.hop.pipeline.PipelineMeta#getStringList(boolean,
+   * boolean, boolean, boolean)} supports {@link org.apache.hop.pipeline.PipelineMeta#getUsedVariables()}.
+   */
+  public List<StringSearchResult> getStringList() {
+    List<StringSearchResult> stringList = new ArrayList<>();
+
+    try {
+      String xml = XmlMetadataUtil.serializeObjectToXml(this);
+      stringList.add(
+          new StringSearchResult(
+              xml,
+              this,
+              this,
+              BaseMessages.getString(PKG, "DataVaultModel.StringList.ModelXml")));
+    } catch (HopException e) {
+      addStringListEntry(stringList, getDescription(), "description");
+      DataVaultConfiguration config = getConfigurationOrDefault();
+      addStringListEntry(stringList, config.getTargetTableBatchSize(), "targetTableBatchSize");
+      addStringListEntry(
+          stringList, config.getTargetTableParallelCopies(), "targetTableParallelCopies");
+      for (IDvTable table : getTables()) {
+        if (table == null) {
+          continue;
+        }
+        addStringListEntry(stringList, table.getName(), "tableName");
+        addStringListEntry(stringList, table.getTableName(), "physicalTableName");
+        addStringListEntry(stringList, table.getDescription(), "tableDescription");
+      }
+      for (DvNote note : getNotes()) {
+        if (note == null) {
+          continue;
+        }
+        addStringListEntry(stringList, note.getText(), "note");
+      }
+    }
+
+    return stringList;
+  }
+
+  /**
+   * Gets a list of the variables used in this model (for example {@code OUTPUT_COPIES} in {@link
+   * DataVaultConfiguration#getTargetTableParallelCopies()}).
+   *
+   * @return a list of the used variables in this model.
+   */
+  public List<String> getUsedVariables() {
+    List<StringSearchResult> stringList = getStringList();
+
+    List<String> varList = new ArrayList<>();
+
+    for (StringSearchResult result : stringList) {
+      StringUtil.getUsedVariables(result.getString(), varList, false);
+    }
+
+    return varList;
+  }
+
+  private static void addStringListEntry(
+      List<StringSearchResult> stringList, String value, String fieldName) {
+    if (!Utils.isEmpty(value)) {
+      stringList.add(new StringSearchResult(value, value, value, fieldName));
+    }
   }
 
   // Undo/Redo is implemented in HopGuiVaultConfig with model snapshots.

@@ -47,6 +47,29 @@
       <attributes_hac/>
     </action>
     <action>
+      <filename>${PROJECT_HOME}/tests/csv-basic/update-vault1-csv.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>update-vault1-csv</name>
+      <description/>
+      <type>WORKFLOW</type>
+      <attributes/>
+      <xloc>240</xloc>
+      <yloc>160</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
       <filename>${PROJECT_HOME}/tests/basic/update-vault1.hwf</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
@@ -270,6 +293,13 @@
   </actions>
   <hops>
     <hop>
+      <from>update-vault1-csv</from>
+      <to>update-vault1</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
       <from>update-vault1</from>
       <to>update-customer-phone</to>
       <evaluation>Y</evaluation>
@@ -327,7 +357,7 @@
     </hop>
     <hop>
       <from>create-source-tables-from-data-catalog.hpl</from>
-      <to>update-vault1</to>
+      <to>update-vault1-csv</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

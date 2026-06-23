@@ -1,0 +1,6 @@
+customer_id,name,email,address,city,load_date,record_source
+1001,John Smith,john.smith@crm.com,123 Main St,New York,2024-01-01,CRM
+1002,Jane Doe,jane.doe@crm.com,456 Oak Ave,Los Angeles,2024-01-01,CRM
+1003,Bob Martin,bob.martin@crm.com,789 Pine Rd,Chicago,2024-01-01,CRM
+1004,Alice Wong,alice.wong@crm.com,321 Elm St,Houston,2024-01-01,CRM
+1005,Carlos Rivera,carlos.rivera@crm.com,654 Maple Dr,Phoenix,2024-01-01,CRM

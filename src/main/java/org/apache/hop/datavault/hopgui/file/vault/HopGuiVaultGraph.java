@@ -35,6 +35,7 @@ import org.apache.hop.core.Const;
 import org.apache.hop.core.DbCache;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
+import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
@@ -52,6 +53,10 @@ import org.apache.hop.core.gui.plugin.key.GuiOsxKeyboardShortcut;
 import org.apache.hop.core.gui.plugin.menu.GuiMenuElement;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElementType;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.row.RowMeta;
+import org.apache.hop.core.row.value.ValueMetaFactory;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
@@ -73,6 +78,8 @@ import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSourceImportSupport;
+import org.apache.hop.history.AuditManager;
+import org.apache.hop.history.AuditState;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.ui.core.ConstUi;
@@ -80,6 +87,7 @@ import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.database.dialog.SqlEditor;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.CheckResultDialog;
+import org.apache.hop.ui.core.dialog.EditRowsDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.dialog.MessageBox;
 import org.apache.hop.ui.core.gui.GuiResource;
@@ -126,6 +134,10 @@ import org.w3c.dom.Node;
 public class HopGuiVaultGraph extends HopGuiAbstractGraph
     implements IHopFileTypeHandler, IGuiRefresher, IGraphSnapAlignDistribute, IRedrawable {
   private static final Class<?> PKG = HopGuiVaultGraph.class;
+
+  private static final String DEBUG_VARIABLES_AUDIT_GROUP = "DataVault";
+  private static final String DEBUG_VARIABLES_AUDIT_TYPE = "DebugVariables";
+  private static final String DEBUG_VARIABLES_AUDIT_STATE_NAME = "values";
 
   public static final String GUI_PLUGIN_TOOLBAR_PARENT_ID = "HopGuiVaultGraph-Toolbar";
   public static final String TOOLBAR_ITEM_ZOOM_LEVEL = "HopGuiVaultGraph-ToolBar-10500-Zoom-Level";
@@ -1564,22 +1576,34 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     if (model == null) {
       return;
     }
+    IVariables debugVariables = resolveVariablesForDebug();
+    if (debugVariables == null) {
+      return;
+    }
     for (IDvTable table : model.getTables()) {
       // Only show the pipelines of the selected tables if one or more tables are selected.
       //
       if (!table.isSelected() && model.nrSelectedTables() > 0) {
         continue;
       }
-      openUpdatePipeline(table);
+      openUpdatePipeline(table, debugVariables);
     }
   }
 
   public void openUpdatePipeline(IDvTable table) {
+    IVariables debugVariables = resolveVariablesForDebug();
+    if (debugVariables == null) {
+      return;
+    }
+    openUpdatePipeline(table, debugVariables);
+  }
+
+  private void openUpdatePipeline(IDvTable table, IVariables debugVariables) {
     String tableName =
         !Utils.isEmpty(table.getTableName()) ? table.getTableName() : table.getName();
     try {
       DvIntegerSettingValidationSupport.requireModelPipelineIntegerSettings(
-          model.getConfigurationOrDefault(), getVariables());
+          model.getConfigurationOrDefault(), debugVariables);
 
       // Provide a static load date value for this batch (used in Constant transform + stored in
       // target)
@@ -1587,7 +1611,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
       List<PipelineMeta> pipelineMetas =
           table.generateUpdatePipelines(
-              hopGui.getMetadataProvider(), getVariables(), model, loadDate, null);
+              hopGui.getMetadataProvider(), debugVariables, model, loadDate, null);
       if (pipelineMetas == null || pipelineMetas.isEmpty()) {
         return;
       }
@@ -1599,7 +1623,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
         // This ensures the transforms are loaded via the Hop plugin registry / proper classloaders
         // (instead of direct compile-time classes) which prevents class loading issues when
         // opening e.g. the Table Input transform dialog in the generated pipeline.
-        String xml = pipelineMeta.getXml(hopGui.getVariables());
+        String xml = pipelineMeta.getXml(debugVariables);
         Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
         PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
 
@@ -1609,6 +1633,127 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
     } catch (Exception e) {
       new ErrorDialog(
           hopGui.getShell(), "Error", "Error generating debug pipeline for '" + tableName + "'", e);
+    }
+  }
+
+  /**
+   * Prompts the user for values of variables referenced in the model (for example {@code
+   * OUTPUT_COPIES}). Returns a copy of the graph variables with any entered values applied, or
+   * {@code null} when the user cancels.
+   */
+  private @Nullable IVariables resolveVariablesForDebug() {
+    if (model == null) {
+      return getVariables();
+    }
+
+    List<String> usedVariables = new ArrayList<>();
+    for (String variableName : model.getUsedVariables()) {
+      if (Utils.isEmpty(variableName)
+          || variableName.startsWith(Const.INTERNAL_VARIABLE_PREFIX)) {
+        continue;
+      }
+      usedVariables.add(variableName);
+    }
+
+    if (usedVariables.isEmpty()) {
+      return getVariables();
+    }
+
+    IRowMeta rowMeta;
+    try {
+      rowMeta = new RowMeta();
+      rowMeta.addValueMeta(
+          ValueMetaFactory.createValueMeta(
+              BaseMessages.getString(PKG, "HopGuiVaultGraph.DebugVariables.Column.Name"),
+              IValueMeta.TYPE_STRING));
+      rowMeta.addValueMeta(
+          ValueMetaFactory.createValueMeta(
+              BaseMessages.getString(PKG, "HopGuiVaultGraph.DebugVariables.Column.Value"),
+              IValueMeta.TYPE_STRING));
+    } catch (HopException e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.DebugVariables.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.DebugVariables.Error.Message"),
+          e);
+      return null;
+    }
+
+    Map<String, String> savedValues = retrieveDebugVariableValues();
+    List<Object[]> rows = new ArrayList<>();
+    for (String variableName : usedVariables) {
+      String value = savedValues.get(variableName);
+      if (value == null) {
+        value = Const.NVL(getVariables().getVariable(variableName), "");
+      }
+      rows.add(new Object[] {variableName, value});
+    }
+
+    EditRowsDialog dialog =
+        new EditRowsDialog(
+            hopGui.getShell(),
+            SWT.NONE,
+            BaseMessages.getString(PKG, "HopGuiVaultGraph.DebugVariables.Title"),
+            BaseMessages.getString(PKG, "HopGuiVaultGraph.DebugVariables.Message"),
+            rowMeta,
+            rows);
+    List<Object[]> resultRows = dialog.open();
+    if (resultRows == null) {
+      return null;
+    }
+
+    Map<String, String> valuesToStore = new HashMap<>(savedValues);
+    Variables debugVariables = new Variables();
+    debugVariables.copyFrom(getVariables());
+    for (Object[] row : resultRows) {
+      if (row == null || row.length < 2 || row[0] == null) {
+        continue;
+      }
+      String variableName = row[0].toString();
+      String variableValue = row[1] != null ? row[1].toString() : "";
+      if (!Utils.isEmpty(variableName)) {
+        debugVariables.setVariable(variableName, variableValue);
+        valuesToStore.put(variableName, variableValue);
+      }
+    }
+    storeDebugVariableValues(valuesToStore);
+    return debugVariables;
+  }
+
+  private Map<String, String> retrieveDebugVariableValues() {
+    try {
+      AuditState auditState =
+          AuditManager.getActive()
+              .retrieveState(
+                  DEBUG_VARIABLES_AUDIT_GROUP,
+                  DEBUG_VARIABLES_AUDIT_TYPE,
+                  DEBUG_VARIABLES_AUDIT_STATE_NAME);
+      if (auditState == null || auditState.getStateMap() == null) {
+        return new HashMap<>();
+      }
+
+      Map<String, String> values = new HashMap<>();
+      for (Map.Entry<String, Object> entry : auditState.getStateMap().entrySet()) {
+        if (entry.getValue() instanceof String value) {
+          values.put(entry.getKey(), value);
+        }
+      }
+      return values;
+    } catch (Exception e) {
+      LogChannel.UI.logError("Error restoring debug variable values", e);
+      return new HashMap<>();
+    }
+  }
+
+  private void storeDebugVariableValues(Map<String, String> values) {
+    try {
+      Map<String, Object> stateMap = new HashMap<>(values);
+      AuditState auditState =
+          new AuditState(DEBUG_VARIABLES_AUDIT_STATE_NAME, stateMap);
+      AuditManager.getActive()
+          .storeState(DEBUG_VARIABLES_AUDIT_GROUP, DEBUG_VARIABLES_AUDIT_TYPE, auditState);
+    } catch (Exception e) {
+      LogChannel.UI.logError("Error storing debug variable values", e);
     }
   }
 

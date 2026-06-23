@@ -111,7 +111,24 @@
               <isnull>N</isnull>
               <mask/>
             </value>
-            <conditions/>
+            <conditions>
+              <condition>
+                <negated>N</negated>
+                <operator>AND</operator>
+                <leftvalue>dv_source_type</leftvalue>
+                <function>=</function>
+                <value>
+                  <name>constant</name>
+                  <type>String</type>
+                  <text>DATABASE</text>
+                  <length>-1</length>
+                  <precision>-1</precision>
+                  <isnull>N</isnull>
+                  <mask/>
+                </value>
+                <conditions/>
+              </condition>
+            </conditions>
           </condition>
         </conditions>
       </condition>
@@ -158,6 +175,12 @@
       </field>
       <field>
         <name>physical_table</name>
+        <rename/>
+        <length>-2</length>
+        <precision>-2</precision>
+      </field>
+      <field>
+        <name>dv_source_type</name>
         <rename/>
         <length>-2</length>
         <precision>-2</precision>

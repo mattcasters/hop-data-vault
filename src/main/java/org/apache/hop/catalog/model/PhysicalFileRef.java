@@ -16,28 +16,26 @@
  *
  */
 
-package org.apache.hop.datavault.metadata;
+package org.apache.hop.catalog.model;
 
-/**
- * Enumeration of supported source system types for a Data Vault model.
- *
- * <p>Each source type describes how rows are obtained (e.g. from an RDBMS table/query,
- * a CSV file, a Parquet file, etc). The common aspects (name + expected row layout via
- * fields) live in the base; type-specific connection details live in the concrete
- * implementations (DvDatabaseSource, ...).
- */
-public enum DvSourceType {
-  DATABASE("Database (RDBMS)"),
-  CSV("CSV / delimited text file"),
-  ;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.apache.hop.metadata.api.HopMetadataProperty;
 
-  private final String description;
+/** Optional link from a record definition to a physical file location (folder + masks). */
+@Getter
+@Setter
+@NoArgsConstructor
+public class PhysicalFileRef {
 
-  DvSourceType(String description) {
-    this.description = description;
-  }
+  @HopMetadataProperty private String folder;
 
-  public String getDescription() {
-    return description;
-  }
+  @HopMetadataProperty private String includeFileMask;
+
+  @HopMetadataProperty private String excludeFileMask;
+
+  @HopMetadataProperty private boolean includeSubfolders;
+
+  @HopMetadataProperty private boolean required = true;
 }

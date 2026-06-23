@@ -20,7 +20,9 @@ package org.apache.hop.datavault.catalog;
 
 import java.util.Date;
 import java.util.List;
+import org.apache.hop.catalog.model.DvCsvFormatRecord;
 import org.apache.hop.catalog.model.DvSourceRecord;
+import org.apache.hop.catalog.model.PhysicalFileRef;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
@@ -36,6 +38,8 @@ import org.apache.hop.datavault.metadata.DvSourceDeliveryType;
 import org.apache.hop.datavault.metadata.DvSourceType;
 import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
+import org.apache.hop.datavault.metadata.file.DvCsvInputMode;
+import org.apache.hop.datavault.metadata.file.DvCsvSource;
 import org.apache.hop.datavault.metadata.IDvSource;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
@@ -73,7 +77,17 @@ public final class DvSourceCatalogMapper {
     definition.setDvSource(dvSourceRecord);
     definition.setFields(DvSourceFieldSupport.toRowMeta(sourceFields, variables));
     definition.setOrigin(buildOrigin(source, model, updatedAt, workflowName));
-    definition.setPhysicalTable(buildPhysicalTableRef(source.getDvSourceOrDefault()));
+    IDvSource dvSource = source.getDvSourceOrDefault();
+    if (source.getSourceType() == DvSourceType.CSV) {
+      definition.setPhysicalFile(buildPhysicalFileRef(dvSource));
+      definition.setPhysicalTable(null);
+      if (definition.getDvSource() != null && dvSource instanceof DvCsvSource csvSource) {
+        definition.getDvSource().setCsvFormat(buildCsvFormatRecord(csvSource));
+      }
+    } else {
+      definition.setPhysicalTable(buildPhysicalTableRef(dvSource));
+      definition.setPhysicalFile(null);
+    }
     definition.getTags().add("DV Source");
     definition.getTags().add(source.getDeliveryTypeOrDefault().name());
 
@@ -113,5 +127,33 @@ public final class DvSourceCatalogMapper {
     ref.setSchemaName(dbSource.getSchemaName());
     ref.setTableName(dbSource.getTableName());
     return ref;
+  }
+
+  private static PhysicalFileRef buildPhysicalFileRef(IDvSource dvSource) {
+    if (!(dvSource instanceof DvCsvSource csvSource)) {
+      return null;
+    }
+    PhysicalFileRef ref = new PhysicalFileRef();
+    ref.setFolder(csvSource.getFolder());
+    ref.setIncludeFileMask(csvSource.getIncludeFileMask());
+    ref.setExcludeFileMask(csvSource.getExcludeFileMask());
+    ref.setIncludeSubfolders(csvSource.isIncludeSubfolders());
+    ref.setRequired(true);
+    return ref;
+  }
+
+  private static DvCsvFormatRecord buildCsvFormatRecord(DvCsvSource csvSource) {
+    DvCsvFormatRecord format = new DvCsvFormatRecord();
+    format.setDelimiter(csvSource.getDelimiter());
+    format.setEnclosure(csvSource.getEnclosure());
+    format.setEscapeCharacter(csvSource.getEscapeCharacter());
+    format.setEncoding(csvSource.getEncoding());
+    format.setHeaderPresent(csvSource.isHeaderPresent());
+    format.setHeaderLines(csvSource.getHeaderLines());
+    format.setFileFormat("CSV");
+    format.setInputTransform(
+        csvSource.getInputMode() == DvCsvInputMode.CSV_INPUT ? "CSV_INPUT" : "TEXT_FILE_INPUT");
+    format.setSingleFilename(csvSource.getSingleFilename());
+    return format;
   }
 }

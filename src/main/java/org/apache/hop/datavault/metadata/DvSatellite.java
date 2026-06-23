@@ -999,8 +999,8 @@ public class DvSatellite extends DvTableBase
   private TransformMeta addSourceTableInput(
       SatelliteUpdateContext ctx, DataVaultSource dataVaultSource, PipelineMeta pipelineMeta)
       throws HopException {
-    DvDatabaseSatelliteSourcePipelineBuilder builder =
-        new DvDatabaseSatelliteSourcePipelineBuilder(
+    DvSourcePipelineBuilder builder =
+        DvSourcePipelineBuilderFactory.forSatellite(
             ctx.variables,
             ctx.metadataProvider,
             ctx.model,
@@ -1010,9 +1010,16 @@ public class DvSatellite extends DvTableBase
             this,
             new Point(LOCATION_START_LINE_2.x, LOCATION_START_LINE_2.y));
     if (ctx.linkSatellite) {
-      builder.setLinkedLink(ctx.linkedLink);
-      builder.setDvLinkHubSource(ctx.linkHubSource);
-      builder.setDvLinkSatelliteSource(ctx.linkSatelliteSource);
+      if (builder instanceof DvDatabaseSatelliteSourcePipelineBuilder dbBuilder) {
+        dbBuilder.setLinkedLink(ctx.linkedLink);
+        dbBuilder.setDvLinkHubSource(ctx.linkHubSource);
+        dbBuilder.setDvLinkSatelliteSource(ctx.linkSatelliteSource);
+      } else if (builder
+          instanceof org.apache.hop.datavault.metadata.file.DvCsvSatelliteSourcePipelineBuilder csvBuilder) {
+        csvBuilder.setLinkedLink(ctx.linkedLink);
+        csvBuilder.setDvLinkHubSource(ctx.linkHubSource);
+        csvBuilder.setDvLinkSatelliteSource(ctx.linkSatelliteSource);
+      }
     }
     builder.build();
 
@@ -1675,8 +1682,8 @@ public class DvSatellite extends DvTableBase
       PipelineMeta pipelineMeta,
       Point startLine)
       throws HopException {
-    DvDatabaseSatelliteSourcePipelineBuilder builder =
-        new DvDatabaseSatelliteSourcePipelineBuilder(
+    DvSourcePipelineBuilder builder =
+        DvSourcePipelineBuilderFactory.forSatellite(
             ctx.variables,
             ctx.metadataProvider,
             ctx.model,
@@ -1686,9 +1693,16 @@ public class DvSatellite extends DvTableBase
             this,
             new Point(startLine.x, startLine.y));
     if (ctx.linkSatellite) {
-      builder.setLinkedLink(ctx.linkedLink);
-      builder.setDvLinkHubSource(ctx.linkHubSource);
-      builder.setDvLinkSatelliteSource(ctx.linkSatelliteSource);
+      if (builder instanceof DvDatabaseSatelliteSourcePipelineBuilder dbBuilder) {
+        dbBuilder.setLinkedLink(ctx.linkedLink);
+        dbBuilder.setDvLinkHubSource(ctx.linkHubSource);
+        dbBuilder.setDvLinkSatelliteSource(ctx.linkSatelliteSource);
+      } else if (builder
+          instanceof org.apache.hop.datavault.metadata.file.DvCsvSatelliteSourcePipelineBuilder csvBuilder) {
+        csvBuilder.setLinkedLink(ctx.linkedLink);
+        csvBuilder.setDvLinkHubSource(ctx.linkHubSource);
+        csvBuilder.setDvLinkSatelliteSource(ctx.linkSatelliteSource);
+      }
     }
     builder.build();
     return builder.getResultTransform();
@@ -2350,38 +2364,33 @@ public class DvSatellite extends DvTableBase
             throw new HopException("Database connection not found in metadata: " + sourceDbName);
           }
         }
+      }
 
-        sourceIndicator = recordSource.getSourceIndicator();
-        sourceIndicatorField = recordSource.getSourceIndicatorField();
+      sourceIndicator = recordSource.getSourceIndicator();
+      sourceIndicatorField = recordSource.getSourceIndicatorField();
 
-        List<SourceField> sourceFields = recordSource.getFields(metadataProvider);
+      List<SourceField> sourceFields = recordSource.getFields(metadataProvider);
 
-        if (hubSatellite) {
-          for (String hubBk : hubBkNames) {
-            for (SourceField sf : sourceFields) {
-              if (hubBk.equals(sf.getName())) {
-                pkSourceFieldNames.add(variables.resolve(sf.getName()));
-                break;
-              }
-            }
-          }
-          
-          loadHubSatelliteAttributeFields(
-              linkedHub,
-              sat,
-              variables,
-              sourceFields,
-              satAttrFieldNames,
-              satAttrSourceFieldNames);
-        } else {
-          loadLinkSatelliteAttributeFields(
-              sat,
-              variables,
-              linkSatelliteSource,
-              sourceFields,
-              satAttrFieldNames,
-              satAttrSourceFieldNames);
+      if (hubSatellite) {
+        for (String hubBk : hubBkNames) {
+          pkSourceFieldNames.add(variables.resolve(hubBk));
         }
+
+        loadHubSatelliteAttributeFields(
+            linkedHub,
+            sat,
+            variables,
+            sourceFields,
+            satAttrFieldNames,
+            satAttrSourceFieldNames);
+      } else {
+        loadLinkSatelliteAttributeFields(
+            sat,
+            variables,
+            linkSatelliteSource,
+            sourceFields,
+            satAttrFieldNames,
+            satAttrSourceFieldNames);
       }
 
       String drivingKeyFieldName = null;

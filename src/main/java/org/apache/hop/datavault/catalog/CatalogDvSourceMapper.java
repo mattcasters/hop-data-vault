@@ -19,7 +19,9 @@
 package org.apache.hop.datavault.catalog;
 
 import java.util.List;
+import org.apache.hop.catalog.model.DvCsvFormatRecord;
 import org.apache.hop.catalog.model.DvSourceRecord;
+import org.apache.hop.catalog.model.PhysicalFileRef;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionType;
@@ -31,6 +33,8 @@ import org.apache.hop.datavault.metadata.DvSourceDeliveryType;
 import org.apache.hop.datavault.metadata.DvSourceType;
 import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
+import org.apache.hop.datavault.metadata.file.DvCsvInputMode;
+import org.apache.hop.datavault.metadata.file.DvCsvSource;
 import org.apache.hop.datavault.metadata.IDvSource;
 
 /** Maps catalog {@link RecordDefinition} entries back to in-memory {@link DataVaultSource}. */
@@ -62,7 +66,7 @@ public final class CatalogDvSourceMapper {
       source.setGroup(dvSourceRecord.getGroup());
       source.setDeliveryType(parseDeliveryType(dvSourceRecord.getDeliveryType()));
       List<SourceField> fields = DvSourceFieldSupport.fromCatalogFields(dvSourceRecord.getFields());
-      source.setSource(buildDvSource(dvSourceRecord.getSourceType(), definition, fields));
+      source.setSource(buildDvSource(dvSourceRecord, definition, fields));
     } else {
       applyLegacyProperties(source, definition);
       source.setSource(buildLegacyDvSource(definition, variables));
@@ -79,14 +83,23 @@ public final class CatalogDvSourceMapper {
   }
 
   private static IDvSource buildDvSource(
-      String sourceTypeName, RecordDefinition definition, List<SourceField> fields) {
-    DvSourceType sourceType = parseSourceType(sourceTypeName);
+      DvSourceRecord dvSourceRecord, RecordDefinition definition, List<SourceField> fields) {
+    DvSourceType sourceType =
+        parseSourceType(dvSourceRecord != null ? dvSourceRecord.getSourceType() : null);
     if (sourceType == DvSourceType.DATABASE) {
       DvDatabaseSource dbSource = new DvDatabaseSource();
       dbSource.setDescription(definition.getDescription());
       dbSource.setFields(fields);
       applyPhysicalTable(dbSource, definition.getPhysicalTable());
       return dbSource;
+    }
+    if (sourceType == DvSourceType.CSV) {
+      DvCsvSource csvSource = new DvCsvSource();
+      csvSource.setDescription(definition.getDescription());
+      csvSource.setFields(fields);
+      applyPhysicalFile(csvSource, definition.getPhysicalFile());
+      applyCsvFormat(csvSource, dvSourceRecord.getCsvFormat());
+      return csvSource;
     }
     DvDatabaseSource fallback = new DvDatabaseSource();
     fallback.setDescription(definition.getDescription());
@@ -125,6 +138,46 @@ public final class CatalogDvSourceMapper {
     dbSource.setDatabaseName(physicalTable.getDatabaseMetaName());
     dbSource.setSchemaName(physicalTable.getSchemaName());
     dbSource.setTableName(physicalTable.getTableName());
+  }
+
+  private static void applyPhysicalFile(DvCsvSource csvSource, PhysicalFileRef physicalFile) {
+    if (physicalFile == null) {
+      return;
+    }
+    csvSource.setFolder(physicalFile.getFolder());
+    csvSource.setIncludeFileMask(physicalFile.getIncludeFileMask());
+    csvSource.setExcludeFileMask(physicalFile.getExcludeFileMask());
+    csvSource.setIncludeSubfolders(physicalFile.isIncludeSubfolders());
+  }
+
+  private static void applyCsvFormat(DvCsvSource csvSource, DvCsvFormatRecord csvFormat) {
+    if (csvFormat == null) {
+      return;
+    }
+    if (!Utils.isEmpty(csvFormat.getDelimiter())) {
+      csvSource.setDelimiter(csvFormat.getDelimiter());
+    }
+    if (csvFormat.getEnclosure() != null) {
+      csvSource.setEnclosure(csvFormat.getEnclosure());
+    }
+    csvSource.setEscapeCharacter(csvFormat.getEscapeCharacter());
+    csvSource.setEncoding(csvFormat.getEncoding());
+    csvSource.setHeaderPresent(csvFormat.isHeaderPresent());
+    csvSource.setHeaderLines(csvFormat.getHeaderLines());
+    if (!Utils.isEmpty(csvFormat.getSingleFilename())) {
+      csvSource.setSingleFilename(csvFormat.getSingleFilename());
+    }
+    csvSource.setInputMode(parseInputMode(csvFormat.getInputTransform()));
+  }
+
+  private static DvCsvInputMode parseInputMode(String raw) {
+    if (Utils.isEmpty(raw)) {
+      return DvCsvInputMode.TEXT_FILE_INPUT;
+    }
+    if ("CSV_INPUT".equalsIgnoreCase(raw)) {
+      return DvCsvInputMode.CSV_INPUT;
+    }
+    return DvCsvInputMode.TEXT_FILE_INPUT;
   }
 
   private static String getCustomProperty(RecordDefinition definition, String name) {

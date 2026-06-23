@@ -44,6 +44,8 @@ public class RecordDefinition {
 
   @HopMetadataProperty private PhysicalTableRef physicalTable;
 
+  @HopMetadataProperty private PhysicalFileRef physicalFile;
+
   @HopMetadataProperty private List<String> tags = new ArrayList<>();
 
   @HopMetadataProperty private List<String> glossaryTerms = new ArrayList<>();
