@@ -24,7 +24,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import org.apache.hop.catalog.model.CatalogCustomProperty;
+import org.apache.hop.catalog.model.DvCsvFormatRecord;
 import org.apache.hop.catalog.model.DvSourceRecord;
+import org.apache.hop.catalog.model.PhysicalFileRef;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionType;
@@ -59,7 +61,7 @@ import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 
-/** Read-only detail view for a selected record definition. */
+/** Detail view for a selected record definition. */
 public class RecordDefinitionDetailsPanel {
 
   private static final Class<?> PKG = RecordDefinitionDetailsPanel.class;
@@ -98,11 +100,11 @@ public class RecordDefinitionDetailsPanel {
   private Text wFileFolder;
   private Text wIncludeFileMask;
   private Text wExcludeFileMask;
-  private Text wIncludeSubfolders;
+  private Button wIncludeSubfolders;
   private Text wCsvDelimiter;
   private Text wCsvEnclosure;
   private Text wCsvEncoding;
-  private Text wCsvHeaderPresent;
+  private Button wCsvHeaderPresent;
   private Text wCsvHeaderLines;
   private Text wCsvInputTransform;
   private Text wDvSourceType;
@@ -255,77 +257,101 @@ public class RecordDefinitionDetailsPanel {
 
     lastControl = addSectionLabel(wPropertiesComp, messageKey("PhysicalTable.Label"), wLastPipeline, margin);
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp, messageKey("PhysicalTable.Database.Label"), middle, margin, lastControl);
     wDatabaseMetaName = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp, messageKey("PhysicalTable.Schema.Label"), middle, margin, wDatabaseMetaName);
     wSchemaName = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp, messageKey("PhysicalTable.Table.Label"), middle, margin, wSchemaName);
     wTableName = (Text) lastControl;
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("PhysicalFile.Label"), wTableName, margin);
     lastControl =
-        addReadOnlyField(
+        addSectionUpdateButton(
+            wPropertiesComp,
+            messageKey("PhysicalTable.UpdateButton.Label"),
+            wTableName,
+            margin,
+            this::updatePhysicalTable);
+
+    lastControl = addSectionLabel(wPropertiesComp, messageKey("PhysicalFile.Label"), lastControl, margin);
+    lastControl =
+        addEditableField(
             wPropertiesComp, messageKey("PhysicalFile.Folder.Label"), middle, margin, lastControl);
     wFileFolder = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp, messageKey("PhysicalFile.IncludeMask.Label"), middle, margin, wFileFolder);
     wIncludeFileMask = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp, messageKey("PhysicalFile.ExcludeMask.Label"), middle, margin, wIncludeFileMask);
     wExcludeFileMask = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addCheckboxField(
             wPropertiesComp,
             messageKey("PhysicalFile.IncludeSubfolders.Label"),
             middle,
             margin,
             wExcludeFileMask);
-    wIncludeSubfolders = (Text) lastControl;
+    wIncludeSubfolders = (Button) lastControl;
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("CsvFormat.Label"), wIncludeSubfolders, margin);
     lastControl =
-        addReadOnlyField(
+        addSectionUpdateButton(
+            wPropertiesComp,
+            messageKey("PhysicalFile.UpdateButton.Label"),
+            wIncludeSubfolders,
+            margin,
+            this::updatePhysicalFile);
+
+    lastControl = addSectionLabel(wPropertiesComp, messageKey("CsvFormat.Label"), lastControl, margin);
+    lastControl =
+        addEditableField(
             wPropertiesComp, messageKey("CsvFormat.Delimiter.Label"), middle, margin, lastControl);
     wCsvDelimiter = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp, messageKey("CsvFormat.Enclosure.Label"), middle, margin, wCsvDelimiter);
     wCsvEnclosure = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp, messageKey("CsvFormat.Encoding.Label"), middle, margin, wCsvEnclosure);
     wCsvEncoding = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addCheckboxField(
             wPropertiesComp, messageKey("CsvFormat.HeaderPresent.Label"), middle, margin, wCsvEncoding);
-    wCsvHeaderPresent = (Text) lastControl;
+    wCsvHeaderPresent = (Button) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp, messageKey("CsvFormat.HeaderLines.Label"), middle, margin, wCsvHeaderPresent);
     wCsvHeaderLines = (Text) lastControl;
 
     lastControl =
-        addReadOnlyField(
+        addEditableField(
             wPropertiesComp, messageKey("CsvFormat.InputTransform.Label"), middle, margin, wCsvHeaderLines);
     wCsvInputTransform = (Text) lastControl;
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("DvSource.Label"), wCsvInputTransform, margin);
+    lastControl =
+        addSectionUpdateButton(
+            wPropertiesComp,
+            messageKey("CsvFormat.UpdateButton.Label"),
+            wCsvInputTransform,
+            margin,
+            this::updateCsvFormat);
+
+    lastControl = addSectionLabel(wPropertiesComp, messageKey("DvSource.Label"), lastControl, margin);
     lastControl =
         addReadOnlyField(
             wPropertiesComp, messageKey("DvSource.SourceType.Label"), middle, margin, lastControl);
@@ -424,8 +450,23 @@ public class RecordDefinitionDetailsPanel {
     return label;
   }
 
+  private Control addEditableField(
+      Composite composite, String messageKey, int middle, int margin, Control previous) {
+    return addTextField(composite, messageKey, middle, margin, previous, false);
+  }
+
   private Control addReadOnlyField(
       Composite composite, String messageKey, int middle, int margin, Control previous) {
+    return addTextField(composite, messageKey, middle, margin, previous, true);
+  }
+
+  private Control addTextField(
+      Composite composite,
+      String messageKey,
+      int middle,
+      int margin,
+      Control previous,
+      boolean readOnly) {
     Label label = new Label(composite, SWT.RIGHT);
     PropsUi.setLook(label);
     label.setText(BaseMessages.getString(PKG, messageKey));
@@ -439,7 +480,11 @@ public class RecordDefinitionDetailsPanel {
     }
     label.setLayoutData(fdl);
 
-    Text text = new Text(composite, SWT.SINGLE | SWT.LEFT | SWT.BORDER | SWT.READ_ONLY);
+    int style = SWT.SINGLE | SWT.LEFT | SWT.BORDER;
+    if (readOnly) {
+      style |= SWT.READ_ONLY;
+    }
+    Text text = new Text(composite, style);
     PropsUi.setLook(text);
     FormData fd = new FormData();
     fd.left = new FormAttachment(middle, 0);
@@ -447,6 +492,39 @@ public class RecordDefinitionDetailsPanel {
     fd.top = new FormAttachment(label, 0, SWT.CENTER);
     text.setLayoutData(fd);
     return text;
+  }
+
+  private Control addCheckboxField(
+      Composite composite, String messageKey, int middle, int margin, Control previous) {
+    Label label = new Label(composite, SWT.RIGHT);
+    PropsUi.setLook(label);
+    label.setText(BaseMessages.getString(PKG, messageKey));
+    FormData fdl = new FormData();
+    fdl.left = new FormAttachment(0, 0);
+    fdl.right = new FormAttachment(middle, -margin);
+    fdl.top = new FormAttachment(previous, margin);
+    label.setLayoutData(fdl);
+
+    Button checkbox = new Button(composite, SWT.CHECK);
+    PropsUi.setLook(checkbox);
+    FormData fd = new FormData();
+    fd.left = new FormAttachment(middle, 0);
+    fd.top = new FormAttachment(label, 0, SWT.CENTER);
+    checkbox.setLayoutData(fd);
+    return checkbox;
+  }
+
+  private Control addSectionUpdateButton(
+      Composite composite, String messageKey, Control previous, int margin, Runnable action) {
+    Button button = new Button(composite, SWT.PUSH);
+    button.setText(BaseMessages.getString(PKG, messageKey));
+    PropsUi.setLook(button);
+    FormData fd = new FormData();
+    fd.right = new FormAttachment(100, 0);
+    fd.top = new FormAttachment(previous, margin);
+    button.setLayoutData(fd);
+    button.addListener(SWT.Selection, e -> action.run());
+    return button;
   }
 
   private TableView createListTable(Composite tabComp, String columnKey) {
@@ -578,33 +656,33 @@ public class RecordDefinitionDetailsPanel {
       wTableName.setText("");
     }
 
-    org.apache.hop.catalog.model.PhysicalFileRef physicalFile = definition.getPhysicalFile();
+    PhysicalFileRef physicalFile = definition.getPhysicalFile();
     if (physicalFile != null) {
       wFileFolder.setText(Const.NVL(physicalFile.getFolder(), ""));
       wIncludeFileMask.setText(Const.NVL(physicalFile.getIncludeFileMask(), ""));
       wExcludeFileMask.setText(Const.NVL(physicalFile.getExcludeFileMask(), ""));
-      wIncludeSubfolders.setText(physicalFile.isIncludeSubfolders() ? "Y" : "N");
+      wIncludeSubfolders.setSelection(physicalFile.isIncludeSubfolders());
     } else {
       wFileFolder.setText("");
       wIncludeFileMask.setText("");
       wExcludeFileMask.setText("");
-      wIncludeSubfolders.setText("");
+      wIncludeSubfolders.setSelection(false);
     }
 
-    org.apache.hop.catalog.model.DvCsvFormatRecord csvFormat =
+    DvCsvFormatRecord csvFormat =
         definition.getDvSource() != null ? definition.getDvSource().getCsvFormat() : null;
     if (csvFormat != null) {
       wCsvDelimiter.setText(Const.NVL(csvFormat.getDelimiter(), ""));
       wCsvEnclosure.setText(Const.NVL(csvFormat.getEnclosure(), ""));
       wCsvEncoding.setText(Const.NVL(csvFormat.getEncoding(), ""));
-      wCsvHeaderPresent.setText(csvFormat.isHeaderPresent() ? "Y" : "N");
+      wCsvHeaderPresent.setSelection(csvFormat.isHeaderPresent());
       wCsvHeaderLines.setText(Integer.toString(csvFormat.getHeaderLines()));
       wCsvInputTransform.setText(Const.NVL(csvFormat.getInputTransform(), ""));
     } else {
       wCsvDelimiter.setText("");
       wCsvEnclosure.setText("");
       wCsvEncoding.setText("");
-      wCsvHeaderPresent.setText("");
+      wCsvHeaderPresent.setSelection(false);
       wCsvHeaderLines.setText("");
       wCsvInputTransform.setText("");
     }
@@ -621,14 +699,7 @@ public class RecordDefinitionDetailsPanel {
   }
 
   private void updateRecordDefinitionFields() {
-    if (definition == null || catalogConnectionName == null) {
-      return;
-    }
-
-    MessageBox confirm = new MessageBox(parent.getShell(), SWT.YES | SWT.NO | SWT.ICON_QUESTION);
-    confirm.setText(BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.UpdateConfirm.Title"));
-    confirm.setMessage(BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.UpdateConfirm.Message"));
-    if (confirm.open() != SWT.YES) {
+    if (!confirmUpdate(messageKey("UpdateConfirm.Fields.Message"))) {
       return;
     }
 
@@ -650,25 +721,111 @@ public class RecordDefinitionDetailsPanel {
       }
 
       definition.setFields(rowMeta);
-
-      RecordDefinitionRegistry.getInstance()
-          .update(
-              catalogConnectionName,
-              definition,
-              variables,
-              HopGui.getInstance().getMetadataProvider());
-
-      if (onUpdate != null) {
-        onUpdate.run();
-      }
-
+      persistDefinition();
     } catch (Exception e) {
-      new ErrorDialog(
-          parent.getShell(),
-          BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.UpdateError.Title"),
-          BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.UpdateError.Message"),
-          e);
+      showUpdateError(e);
     }
+  }
+
+  private void updatePhysicalTable() {
+    if (!confirmUpdate(messageKey("UpdateConfirm.PhysicalTable.Message"))) {
+      return;
+    }
+
+    try {
+      PhysicalTableRef physicalTable = definition.getPhysicalTable();
+      if (physicalTable == null) {
+        physicalTable = new PhysicalTableRef();
+        definition.setPhysicalTable(physicalTable);
+      }
+      physicalTable.setDatabaseMetaName(wDatabaseMetaName.getText().trim());
+      physicalTable.setSchemaName(wSchemaName.getText().trim());
+      physicalTable.setTableName(wTableName.getText().trim());
+      persistDefinition();
+    } catch (Exception e) {
+      showUpdateError(e);
+    }
+  }
+
+  private void updatePhysicalFile() {
+    if (!confirmUpdate(messageKey("UpdateConfirm.PhysicalFile.Message"))) {
+      return;
+    }
+
+    try {
+      PhysicalFileRef physicalFile = definition.getPhysicalFile();
+      if (physicalFile == null) {
+        physicalFile = new PhysicalFileRef();
+        definition.setPhysicalFile(physicalFile);
+      }
+      physicalFile.setFolder(wFileFolder.getText().trim());
+      physicalFile.setIncludeFileMask(wIncludeFileMask.getText().trim());
+      physicalFile.setExcludeFileMask(wExcludeFileMask.getText().trim());
+      physicalFile.setIncludeSubfolders(wIncludeSubfolders.getSelection());
+      persistDefinition();
+    } catch (Exception e) {
+      showUpdateError(e);
+    }
+  }
+
+  private void updateCsvFormat() {
+    if (!confirmUpdate(messageKey("UpdateConfirm.CsvFormat.Message"))) {
+      return;
+    }
+
+    try {
+      DvSourceRecord dvSource = definition.getDvSource();
+      if (dvSource == null) {
+        dvSource = new DvSourceRecord();
+        definition.setDvSource(dvSource);
+      }
+      DvCsvFormatRecord csvFormat = dvSource.getCsvFormat();
+      if (csvFormat == null) {
+        csvFormat = new DvCsvFormatRecord();
+        dvSource.setCsvFormat(csvFormat);
+      }
+      csvFormat.setDelimiter(wCsvDelimiter.getText().trim());
+      csvFormat.setEnclosure(wCsvEnclosure.getText().trim());
+      csvFormat.setEncoding(wCsvEncoding.getText().trim());
+      csvFormat.setHeaderPresent(wCsvHeaderPresent.getSelection());
+      csvFormat.setHeaderLines(Const.toInt(wCsvHeaderLines.getText(), 1));
+      csvFormat.setInputTransform(wCsvInputTransform.getText().trim());
+      persistDefinition();
+    } catch (Exception e) {
+      showUpdateError(e);
+    }
+  }
+
+  private boolean confirmUpdate(String messageKey) {
+    if (definition == null || catalogConnectionName == null) {
+      return false;
+    }
+
+    MessageBox confirm = new MessageBox(parent.getShell(), SWT.YES | SWT.NO | SWT.ICON_QUESTION);
+    confirm.setText(BaseMessages.getString(PKG, messageKey("UpdateConfirm.Title")));
+    confirm.setMessage(BaseMessages.getString(PKG, messageKey));
+    return confirm.open() == SWT.YES;
+  }
+
+  private void persistDefinition() throws Exception {
+    RecordDefinitionRegistry.getInstance()
+        .update(
+            catalogConnectionName,
+            definition,
+            variables,
+            HopGui.getInstance().getMetadataProvider());
+
+    if (onUpdate != null) {
+      onUpdate.run();
+    }
+  }
+
+  private void showUpdateError(Exception e) {
+    new ErrorDialog(
+        parent.getShell(),
+        BaseMessages.getString(PKG, messageKey("UpdateError.Title")),
+        BaseMessages.getString(PKG, messageKey("UpdateError.Message")),
+        e);
   }
 
   private void populateDvSourceFields(RecordDefinition definition) {

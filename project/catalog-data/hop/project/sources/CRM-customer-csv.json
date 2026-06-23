@@ -16,10 +16,11 @@
     "lastWorkflow" : null,
     "lastPipeline" : null
   },
+  "physicalTable" : null,
   "physicalFile" : {
     "folder" : "${PROJECT_HOME}/files/csv-basic",
     "includeFileMask" : "customer_load1\\.csv",
-    "excludeFileMask" : "",
+    "excludeFileMask" : ".*\\.txt",
     "includeSubfolders" : false,
     "required" : true
   },
