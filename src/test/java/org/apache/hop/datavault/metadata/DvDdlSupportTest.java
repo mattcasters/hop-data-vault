@@ -18,8 +18,12 @@
 
 package org.apache.hop.datavault.metadata;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Arrays;
+import java.util.List;
 
 import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.database.DatabaseMeta;
@@ -95,6 +99,36 @@ class DvDdlSupportTest {
     assertTrue(DvDdlSupport.isCreateTableDdl("CREATE TABLE foo (id INT);"));
     assertFalse(DvDdlSupport.isCreateTableDdl("ALTER TABLE foo ADD COLUMN bar INT;"));
     assertFalse(DvDdlSupport.isCreateTableDdl(""));
+  }
+
+  @Test
+  void extractCreateTableNameParsesSimpleAndQualifiedNames() {
+    assertEquals(
+        "sat_syn_product",
+        DvDdlSupport.extractCreateTableName(
+            "CREATE TABLE sat_syn_product\n(\n  order_hk BYTEA\n);"));
+    assertEquals(
+        "sat_syn_product",
+        DvDdlSupport.extractCreateTableName("CREATE TABLE vault.sat_syn_product (id INT);"));
+    assertEquals(
+        "sat_syn_product",
+        DvDdlSupport.extractCreateTableName("CREATE TABLE \"sat_syn_product\" (id INT);"));
+  }
+
+  @Test
+  void deduplicateCreateTableDdlKeepsFirstStatementPerTable() {
+    String first =
+        "CREATE TABLE sat_syn_product\n(\n  product_hk BYTEA\n, product_code VARCHAR(8)\n);";
+    String second =
+        "CREATE TABLE sat_syn_product\n(\n  order_hk BYTEA\n, product_code VARCHAR(8)\n);";
+    String link = "CREATE TABLE lnk_syn_order\n(\n  lnk_syn_order_hk BYTEA\n);";
+
+    List<String> deduplicated =
+        DvDdlSupport.deduplicateCreateTableDdl(Arrays.asList(first, second, link));
+
+    assertEquals(2, deduplicated.size());
+    assertEquals(first, deduplicated.get(0));
+    assertEquals(link, deduplicated.get(1));
   }
 
   private static DatabaseMeta singleStoreDatabaseMeta() {

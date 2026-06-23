@@ -226,6 +226,7 @@ public class DataVaultModel extends HopMetadataBase
     checkTablesPresent(remarks);
     checkTables(remarks, metadataProvider, variables, collectDefinedHubAndLinkNames(), options);
     checkDuplicateTableNames(remarks);
+    checkDuplicateTargetTableNames(remarks);
     checkDuplicateStsTableNames(remarks, variables);
     checkDuplicateSourceNames(remarks, sources);
 
@@ -359,6 +360,31 @@ public class DataVaultModel extends HopMetadataBase
 
   private void checkDuplicateTableNames(List<ICheckResult> remarks) {
     checkDuplicateNames(remarks, getTables(), "DataVaultModel.CheckResult.DuplicateTableName");
+  }
+
+  private void checkDuplicateTargetTableNames(List<ICheckResult> remarks) {
+    Map<String, Integer> targetTableNameCount = new HashMap<>();
+    for (IDvTable table : getTables()) {
+      if (table == null) {
+        continue;
+      }
+      String targetTableName =
+          !Utils.isEmpty(table.getTableName()) ? table.getTableName() : table.getName();
+      if (Utils.isEmpty(targetTableName)) {
+        continue;
+      }
+      targetTableNameCount.merge(targetTableName, 1, Integer::sum);
+    }
+    for (Map.Entry<String, Integer> entry : targetTableNameCount.entrySet()) {
+      if (entry.getValue() > 1) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG, "DataVaultModel.CheckResult.DuplicateTargetTableName", entry.getKey()),
+                null));
+      }
+    }
   }
 
   private void checkDuplicateStsTableNames(List<ICheckResult> remarks, IVariables variables) {
@@ -570,6 +596,7 @@ public class DataVaultModel extends HopMetadataBase
       addStringListEntry(stringList, config.getTargetTableBatchSize(), "targetTableBatchSize");
       addStringListEntry(
           stringList, config.getTargetTableParallelCopies(), "targetTableParallelCopies");
+      addStringListEntry(stringList, config.getSortRowsSize(), "sortRowsSize");
       for (IDvTable table : getTables()) {
         if (table == null) {
           continue;

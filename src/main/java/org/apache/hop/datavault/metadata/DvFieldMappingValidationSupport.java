@@ -141,6 +141,17 @@ public final class DvFieldMappingValidationSupport {
       return;
     }
 
+    if (!Utils.isEmpty(satellite.getHubName()) && model != null) {
+      validateSatelliteHubBusinessKeys(
+          satellite,
+          model,
+          resolved,
+          recordSource,
+          variables,
+          checkSource,
+          remarks);
+    }
+
     if (satellite.hasDrivingKey()) {
       String drivingKeySourceField =
           resolveName(satellite.getDrivingKeySourceField(), variables);
@@ -347,6 +358,79 @@ public final class DvFieldMappingValidationSupport {
                 new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
           }
         }
+      }
+    }
+  }
+
+  static void validateSatelliteHubBusinessKeys(
+      DvSatellite satellite,
+      DataVaultModel model,
+      ResolvedSourceFields resolved,
+      DataVaultSource recordSource,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    if (satellite == null
+        || model == null
+        || resolved == null
+        || recordSource == null
+        || Utils.isEmpty(satellite.getHubName())) {
+      return;
+    }
+    DvHub hub = model.findHub(satellite.getHubName());
+    if (hub == null || hub.getBusinessKeys() == null) {
+      return;
+    }
+    String satelliteSourceName = resolveName(recordSource.getName(), variables);
+    for (BusinessKey bk : hub.getBusinessKeys()) {
+      if (bk == null || Utils.isEmpty(bk.getName())) {
+        continue;
+      }
+      String sourceFieldName =
+          resolveSourceFieldName(bk.getSourceFieldName(), bk.getName(), variables);
+      IValueMeta sourceMeta = resolved.fields.get(sourceFieldName);
+      if (sourceMeta == null) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DvFieldMappingValidation.SatelliteHubBusinessKeyMissing",
+                    sourceFieldName,
+                    bk.getName(),
+                    hub.getName(),
+                    satelliteSourceName),
+                checkSource));
+        continue;
+      }
+      try {
+        IValueMeta targetMeta = buildTargetValueMetaForHubBusinessKey(bk, variables);
+        validateMapping(
+            sourceMeta,
+            targetMeta,
+            BaseMessages.getString(
+                PKG,
+                "DvFieldMappingValidation.Context.SatelliteHubBusinessKey",
+                bk.getName(),
+                sourceFieldName,
+                satelliteSourceName,
+                hub.getName()),
+            checkSource,
+            remarks);
+        if (resolved.usedLive) {
+          addStoredDriftWarnings(
+              resolved.storedFields,
+              sourceFieldName,
+              sourceMeta,
+              satelliteSourceName,
+              bk.getName(),
+              variables,
+              checkSource,
+              remarks);
+        }
+      } catch (HopException e) {
+        remarks.add(
+            new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
       }
     }
   }

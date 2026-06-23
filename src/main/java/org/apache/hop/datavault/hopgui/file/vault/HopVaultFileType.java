@@ -190,6 +190,7 @@ public class HopVaultFileType extends HopFileTypeBase {
     tabItem.setFont(GuiResource.getInstance().getFontDefault());
     tabItem.setText(Const.NVL(vaultGraph.getName(), "<>"));
     tabItem.setToolTipText(filename != null ? filename : "unsaved");
+    tabItem.setImage(explorer.getFileTypeImage(fileType));
     vaultGraph.setData("KEY_TAB_FOLDER", targetFolder);
     tabItem.setControl(vaultGraph);
     tabItem.setData(vaultGraph);

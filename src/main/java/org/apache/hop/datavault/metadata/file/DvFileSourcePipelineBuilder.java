@@ -37,6 +37,7 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
+import org.apache.hop.datavault.metadata.DvSortRowsSupport;
 import org.apache.hop.datavault.metadata.DvSourceFieldMappingSupport;
 import org.apache.hop.datavault.metadata.DvSourcePipelineBuilder;
 import org.apache.hop.datavault.metadata.IDvSource;
@@ -131,6 +132,7 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
       sortFields.add(sortField);
     }
     sortMeta.setSortFields(sortFields);
+    DvSortRowsSupport.applyConfiguration(sortMeta, configuration, variables);
 
     TransformMeta sortTransform = new TransformMeta("SortRows", "sort source rows", sortMeta);
     sortTransform.setLocation(predecessor.getLocation().x + TRANSFORM_SPACING_X, location.y);

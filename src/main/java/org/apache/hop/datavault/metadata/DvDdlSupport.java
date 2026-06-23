@@ -18,6 +18,11 @@
 
 package org.apache.hop.datavault.metadata;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.database.Database;
 import org.apache.hop.core.database.DatabaseMeta;
@@ -82,6 +87,106 @@ public final class DvDdlSupport {
       return false;
     }
     return ddl.trim().regionMatches(true, 0, "CREATE", 0, 6);
+  }
+
+  /**
+   * Extracts the physical table name from a CREATE TABLE statement. Returns {@code null} when the
+   * statement cannot be parsed.
+   */
+  public static String extractCreateTableName(String ddl) {
+    if (!isCreateTableDdl(ddl)) {
+      return null;
+    }
+    String remainder =
+        ddl.trim()
+            .replaceFirst(
+                "(?is)^CREATE\\s+(OR\\s+REPLACE\\s+)?TABLE\\s+(IF\\s+NOT\\s+EXISTS\\s+)?", "");
+    remainder = remainder.trim();
+    if (remainder.isEmpty()) {
+      return null;
+    }
+    if (remainder.charAt(0) == '"') {
+      int endQuote = remainder.indexOf('"', 1);
+      if (endQuote > 1) {
+        return remainder.substring(1, endQuote);
+      }
+    }
+    StringBuilder name = new StringBuilder();
+    for (int i = 0; i < remainder.length(); i++) {
+      char c = remainder.charAt(i);
+      if (Character.isLetterOrDigit(c) || c == '_' || c == '.') {
+        name.append(c);
+      } else {
+        break;
+      }
+    }
+    String parsed = name.toString();
+    if (parsed.isEmpty()) {
+      return null;
+    }
+    int dot = parsed.lastIndexOf('.');
+    return dot >= 0 ? parsed.substring(dot + 1) : parsed;
+  }
+
+  /**
+   * Removes duplicate CREATE TABLE statements that target the same physical table. Keeps the first
+   * statement for each table name.
+   */
+  public static List<String> deduplicateCreateTableDdl(List<String> ddlStatements) {
+    if (ddlStatements == null || ddlStatements.isEmpty()) {
+      return ddlStatements;
+    }
+    List<String> result = new ArrayList<>(ddlStatements.size());
+    Set<String> seenCreateTables = new HashSet<>();
+    for (String ddl : ddlStatements) {
+      if (isCreateTableDdl(ddl)) {
+        String tableName = extractCreateTableName(ddl);
+        if (!Utils.isEmpty(tableName)) {
+          String key = tableName.toLowerCase(Locale.ROOT);
+          if (seenCreateTables.contains(key)) {
+            continue;
+          }
+          seenCreateTables.add(key);
+        }
+      }
+      result.add(ddl);
+    }
+    return result;
+  }
+
+  /**
+   * Returns {@code true} when a CREATE TABLE statement should not be executed because the table
+   * was already created in the current batch or already exists in the target database.
+   */
+  public static boolean shouldSkipCreateTable(
+      Database db,
+      IVariables variables,
+      DatabaseMeta databaseMeta,
+      String ddl,
+      Set<String> createdInBatch)
+      throws HopDatabaseException {
+    if (!isCreateTableDdl(ddl)) {
+      return false;
+    }
+    String tableName = extractCreateTableName(ddl);
+    if (Utils.isEmpty(tableName)) {
+      return false;
+    }
+    String key = tableName.toLowerCase(Locale.ROOT);
+    if (createdInBatch != null && createdInBatch.contains(key)) {
+      return true;
+    }
+    if (db == null) {
+      return false;
+    }
+    String schema =
+        databaseMeta != null && variables != null
+            ? variables.resolve(databaseMeta.getPreferredSchemaName())
+            : databaseMeta != null ? databaseMeta.getPreferredSchemaName() : null;
+    if (db.checkTableExists(schema, tableName)) {
+      return true;
+    }
+    return createdInBatch != null && createdInBatch.contains(key);
   }
 
   /**

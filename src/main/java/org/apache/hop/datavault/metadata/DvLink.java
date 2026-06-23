@@ -528,7 +528,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         TransformMeta targetInputTransform =
             addTargetTableInput(ctx, pipelineMeta);
 
-        TransformMeta sortTransform = addSortRows(pipelineMeta, selectTransform, linkHashKeyFieldName);
+        TransformMeta sortTransform =
+            addSortRows(ctx, pipelineMeta, selectTransform, linkHashKeyFieldName);
 
         TransformMeta mergeTransform =
             addMergeRows(ctx, pipelineMeta, sortTransform, targetInputTransform);
@@ -943,13 +944,17 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   }
 
   private TransformMeta addSortRows(
-      PipelineMeta pipelineMeta, TransformMeta predecessor, String sortFieldName) {
+      LinkUpdateContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      String sortFieldName) {
     SortRowsMeta sortRowsMeta = new SortRowsMeta();
     SortRowsField sf = new SortRowsField();
     sf.setFieldName(sortFieldName);
     sf.setAscending(true);
     sf.setCaseSensitive(true);
     sortRowsMeta.getSortFields().add(sf);
+    DvSortRowsSupport.applyConfiguration(sortRowsMeta, ctx.config, ctx.variables);
 
     TransformMeta tm = new TransformMeta("SortRows", "sort_" + sortFieldName, sortRowsMeta);
     Point loc =

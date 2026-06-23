@@ -23,7 +23,10 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
@@ -51,6 +54,7 @@ import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.datavault.catalog.DvCatalogPublisher;
 import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvModelCheckOptions;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvGeneratedPipelineSupport;
@@ -376,6 +380,8 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           }
         }
 
+        ddlStatements = DvDdlSupport.deduplicateCreateTableDdl(ddlStatements);
+
         if (hasDdlStatements(ddlStatements)) {
           if (failIfDdlNeeded) {
             logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Log.AbortingOnDdlNeeded"));
@@ -415,14 +421,33 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                   new SimpleLoggingObject("ActionDataVaultUpdate", LoggingObjectType.GENERAL, null);
               try (Database db = new Database(loggingObject, getVariables(), targetDatabase)) {
                 db.connect();
+                Set<String> createdInBatch = new HashSet<>();
                 for (String ddl : ddlStatements) {
-                  if (!Utils.isEmpty(ddl)) {
+                  if (Utils.isEmpty(ddl)) {
+                    continue;
+                  }
+                  if (DvDdlSupport.shouldSkipCreateTable(
+                      db, getVariables(), targetDatabase, ddl, createdInBatch)) {
+                    String tableName = DvDdlSupport.extractCreateTableName(ddl);
                     logBasic(
                         BaseMessages.getString(
                             PKG,
-                            "ActionDataVaultUpdate.Log.ExecutingDdl",
-                            targetDatabase.getName()));
-                    db.execStatements(ddl);
+                            "ActionDataVaultUpdate.Log.SkippingCreateTable",
+                            tableName != null ? tableName : ddl.trim()));
+                    if (!Utils.isEmpty(tableName)) {
+                      createdInBatch.add(tableName.toLowerCase(Locale.ROOT));
+                    }
+                    continue;
+                  }
+                  logBasic(
+                      BaseMessages.getString(
+                          PKG,
+                          "ActionDataVaultUpdate.Log.ExecutingDdl",
+                          targetDatabase.getName()));
+                  db.execStatements(ddl);
+                  String tableName = DvDdlSupport.extractCreateTableName(ddl);
+                  if (!Utils.isEmpty(tableName)) {
+                    createdInBatch.add(tableName.toLowerCase(Locale.ROOT));
                   }
                 }
               } catch (Exception e) {

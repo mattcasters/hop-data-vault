@@ -142,6 +142,12 @@ public final class DvIntegerSettingValidationSupport {
             DataVaultConfiguration.DEFAULT_TARGET_TABLE_PARALLEL_COPIES,
             BaseMessages.getString(
                 PKG, "DvIntegerSettingValidation.Label.TargetTableParallelCopies")));
+    results.add(
+        validatePositiveInteger(
+            config.getSortRowsSize(),
+            variables,
+            DataVaultConfiguration.DEFAULT_SORT_ROWS_SIZE,
+            BaseMessages.getString(PKG, "DvIntegerSettingValidation.Label.SortRowsSize")));
     return results;
   }
 

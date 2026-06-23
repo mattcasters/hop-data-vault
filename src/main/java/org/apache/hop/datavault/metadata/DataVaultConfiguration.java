@@ -70,6 +70,9 @@ public class DataVaultConfiguration {
   /** Default number of parallel Table Output copies writing to the target table. */
   public static final String DEFAULT_TARGET_TABLE_PARALLEL_COPIES = "1";
 
+  /** Default in-memory row buffer for generated Sort Rows transforms (Hop SortRowsMeta default). */
+  public static final String DEFAULT_SORT_ROWS_SIZE = "1000000";
+
   public static final String DEFAULT_HUB_PIPELINE_NAME_PREFIX = "hub-";
   public static final String DEFAULT_LINK_PIPELINE_NAME_PREFIX = "link-";
   public static final String DEFAULT_SATELLITE_PIPELINE_NAME_PREFIX = "sat-";
@@ -350,6 +353,16 @@ public class DataVaultConfiguration {
   @HopMetadataProperty
   private String targetTableParallelCopies = DEFAULT_TARGET_TABLE_PARALLEL_COPIES;
 
+  @GuiWidgetElement(
+      order = "0515",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.SortRowsSize.Label",
+      toolTip = "i18n::DataVaultConfiguration.SortRowsSize.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private String sortRowsSize = DEFAULT_SORT_ROWS_SIZE;
+
   @Getter(AccessLevel.NONE)
   @Setter(AccessLevel.NONE)
   @GuiWidgetElement(
@@ -460,6 +473,21 @@ public class DataVaultConfiguration {
       copies = variables.resolve(copies);
     }
     return copies;
+  }
+
+  /**
+   * Resolves the in-memory row buffer ({@code sortSize}) for generated Sort Rows transforms used in
+   * hub, link, and satellite update pipelines.
+   */
+  public String resolveSortRowsSize(IVariables variables) {
+    String size = sortRowsSize;
+    if (Utils.isEmpty(size)) {
+      return DEFAULT_SORT_ROWS_SIZE;
+    }
+    if (variables != null) {
+      size = variables.resolve(size);
+    }
+    return size;
   }
 
   /** Combo items for the hash algorithm widget. */

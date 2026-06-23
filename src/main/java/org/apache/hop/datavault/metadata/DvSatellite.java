@@ -371,9 +371,11 @@ public class DvSatellite extends DvTableBase
       checkStatusTracking(remarks, metadataProvider, variables, model);
     }
 
-    if (metadataProvider != null && options != null) {
+    if (metadataProvider != null) {
+      DvModelCheckOptions effectiveOptions =
+          options != null ? options : DvModelCheckOptions.fastOnly();
       DvFieldMappingValidationSupport.validateSatelliteMappings(
-          this, model, options, metadataProvider, variables, this, remarks);
+          this, model, effectiveOptions, metadataProvider, variables, this, remarks);
     }
   }
 
@@ -1196,8 +1198,7 @@ public class DvSatellite extends DvTableBase
       sortRowsMeta.getSortFields().add(drivingKeySort);
     }
 
-    // Other SortRowsMeta defaults (tmp dir, sort size, no compress, not unique-only) are
-    // acceptable.
+    DvSortRowsSupport.applyConfiguration(sortRowsMeta, ctx.config, ctx.variables);
 
     TransformMeta tm = new TransformMeta("SortRows", sortTransformName, sortRowsMeta);
     tm.setLocation(

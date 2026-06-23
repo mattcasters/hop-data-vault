@@ -50,6 +50,14 @@ class DataVaultConfigurationTest {
   }
 
   @Test
+  void blankSortRowsSizeFallsBackToHopDefault() {
+    DataVaultConfiguration configuration = new DataVaultConfiguration();
+    configuration.setSortRowsSize("");
+    assertEquals(
+        DataVaultConfiguration.DEFAULT_SORT_ROWS_SIZE, configuration.resolveSortRowsSize(null));
+  }
+
+  @Test
   void hashComboOptionsIncludeAllEnumValues() {
     DataVaultConfiguration configuration = new DataVaultConfiguration();
     assertEquals(

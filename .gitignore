@@ -7,4 +7,5 @@ target/**
 project/metrics
 project/vault-catalog
 **/TEST-*.json
+project/files/large/syn*.csv
 
