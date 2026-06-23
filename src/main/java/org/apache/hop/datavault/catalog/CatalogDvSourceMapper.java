@@ -35,6 +35,8 @@ import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.datavault.metadata.file.DvCsvInputMode;
 import org.apache.hop.datavault.metadata.file.DvCsvSource;
+import org.apache.hop.datavault.metadata.file.DvFileLocationSupport;
+import org.apache.hop.datavault.metadata.file.DvParquetSource;
 import org.apache.hop.datavault.metadata.IDvSource;
 
 /** Maps catalog {@link RecordDefinition} entries back to in-memory {@link DataVaultSource}. */
@@ -97,9 +99,16 @@ public final class CatalogDvSourceMapper {
       DvCsvSource csvSource = new DvCsvSource();
       csvSource.setDescription(definition.getDescription());
       csvSource.setFields(fields);
-      applyPhysicalFile(csvSource, definition.getPhysicalFile());
+      DvFileLocationSupport.applyPhysicalFile(csvSource, definition.getPhysicalFile());
       applyCsvFormat(csvSource, dvSourceRecord.getCsvFormat());
       return csvSource;
+    }
+    if (sourceType == DvSourceType.PARQUET) {
+      DvParquetSource parquetSource = new DvParquetSource();
+      parquetSource.setDescription(definition.getDescription());
+      parquetSource.setFields(fields);
+      DvFileLocationSupport.applyPhysicalFile(parquetSource, definition.getPhysicalFile());
+      return parquetSource;
     }
     DvDatabaseSource fallback = new DvDatabaseSource();
     fallback.setDescription(definition.getDescription());
@@ -138,16 +147,6 @@ public final class CatalogDvSourceMapper {
     dbSource.setDatabaseName(physicalTable.getDatabaseMetaName());
     dbSource.setSchemaName(physicalTable.getSchemaName());
     dbSource.setTableName(physicalTable.getTableName());
-  }
-
-  private static void applyPhysicalFile(DvCsvSource csvSource, PhysicalFileRef physicalFile) {
-    if (physicalFile == null) {
-      return;
-    }
-    csvSource.setFolder(physicalFile.getFolder());
-    csvSource.setIncludeFileMask(physicalFile.getIncludeFileMask());
-    csvSource.setExcludeFileMask(physicalFile.getExcludeFileMask());
-    csvSource.setIncludeSubfolders(physicalFile.isIncludeSubfolders());
   }
 
   private static void applyCsvFormat(DvCsvSource csvSource, DvCsvFormatRecord csvFormat) {

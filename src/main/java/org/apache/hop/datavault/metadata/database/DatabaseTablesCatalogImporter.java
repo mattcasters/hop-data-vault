@@ -21,7 +21,7 @@ package org.apache.hop.datavault.metadata.database;
 import org.apache.hop.catalog.hopgui.perspective.importmenu.DataCatalogImportContext;
 import org.apache.hop.catalog.hopgui.perspective.importmenu.DataCatalogImporter;
 
-/** Imports database tables as Data Vault sources into the data catalog. */
+/** Imports database tables into the data catalog as record definitions. */
 public final class DatabaseTablesCatalogImporter implements DataCatalogImporter {
 
   public static final String IMPORTER_ID = "data-catalog-import-database-tables";

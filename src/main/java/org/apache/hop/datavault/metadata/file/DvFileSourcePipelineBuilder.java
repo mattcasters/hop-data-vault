@@ -67,7 +67,7 @@ import org.apache.hop.pipeline.transforms.uniquerowsbyhashset.UniqueRowsByHashSe
  */
 public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilder {
 
-  protected DvCsvSource source;
+  protected IDvFileBasedSource source;
 
   protected DvFileSourcePipelineBuilder(
       IVariables variables,
@@ -87,7 +87,11 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
         dvSource,
         dvTable,
         startPoint);
-    source = (DvCsvSource) dvSource;
+    if (!(dvSource instanceof IDvFileBasedSource fileBasedSource)) {
+      throw new IllegalArgumentException(
+          "Expected a file-based source but got " + dvSource.getClass().getName());
+    }
+    source = fileBasedSource;
   }
 
   @Override
@@ -246,41 +250,44 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
     return constantTransform;
   }
 
-  private TransformMeta createFileInput(String transformName, Point location, ColumnMapping mapping)
+  protected TransformMeta createFileInput(String transformName, Point location, ColumnMapping mapping)
       throws HopException {
-    if (source.usesSingleFile()) {
-      return createCsvInput(transformName, location, mapping);
+    DvCsvSource csvSource = (DvCsvSource) source;
+    if (csvSource.usesSingleFile()) {
+      return createCsvInput(transformName, location, mapping, csvSource);
     }
-    return createTextFileInput(transformName, location, mapping);
+    return createTextFileInput(transformName, location, mapping, csvSource);
   }
 
-  private TransformMeta createCsvInput(String transformName, Point location, ColumnMapping mapping)
+  private TransformMeta createCsvInput(
+      String transformName, Point location, ColumnMapping mapping, DvCsvSource csvSource)
       throws HopException {
-    String filename = variables.resolve(source.getSingleFilename());
+    String filename = variables.resolve(csvSource.getSingleFilename());
     if (Utils.isEmpty(filename)) {
       throw new HopException("Please specify a filename for CSV source " + recordSource.getName());
     }
 
     CsvInputMeta csvMeta = new CsvInputMeta();
     csvMeta.setFilename(filename);
-    csvMeta.setDelimiter(variables.resolve(source.getDelimiter()));
-    if (source.getEnclosure() != null) {
-      csvMeta.setEnclosure(source.getEnclosure());
+    csvMeta.setDelimiter(variables.resolve(csvSource.getDelimiter()));
+    if (csvSource.getEnclosure() != null) {
+      csvMeta.setEnclosure(csvSource.getEnclosure());
     }
-    if (!Utils.isEmpty(source.getEncoding())) {
-      csvMeta.setEncoding(variables.resolve(source.getEncoding()));
+    if (!Utils.isEmpty(csvSource.getEncoding())) {
+      csvMeta.setEncoding(variables.resolve(csvSource.getEncoding()));
     }
-    csvMeta.setHeaderPresent(source.isHeaderPresent());
-    csvMeta.setInputFields(buildCsvInputFields(mapping));
+    csvMeta.setHeaderPresent(csvSource.isHeaderPresent());
+    csvMeta.setInputFields(buildCsvInputFields(mapping, csvSource));
 
     TransformMeta transformMeta = new TransformMeta("CSVInput", transformName, csvMeta);
     transformMeta.setLocation(location.x, location.y);
     return transformMeta;
   }
 
-  private TransformMeta createTextFileInput(String transformName, Point location, ColumnMapping mapping)
+  private TransformMeta createTextFileInput(
+      String transformName, Point location, ColumnMapping mapping, DvCsvSource csvSource)
       throws HopException {
-    String folder = variables.resolve(source.getFolder());
+    String folder = variables.resolve(csvSource.getFolder());
     if (Utils.isEmpty(folder)) {
       throw new HopException("Please specify a folder for CSV source " + recordSource.getName());
     }
@@ -288,25 +295,25 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
     TextFileInputMeta textMeta = new TextFileInputMeta();
     TextFileInputMeta.Content content = textMeta.getContent();
     content.setFileType("CSV");
-    content.setSeparator(variables.resolve(source.getDelimiter()));
-    if (source.getEnclosure() != null) {
-      content.setEnclosure(source.getEnclosure());
+    content.setSeparator(variables.resolve(csvSource.getDelimiter()));
+    if (csvSource.getEnclosure() != null) {
+      content.setEnclosure(csvSource.getEnclosure());
     }
-    if (!Utils.isEmpty(source.getEscapeCharacter())) {
-      content.setEscapeCharacter(variables.resolve(source.getEscapeCharacter()));
+    if (!Utils.isEmpty(csvSource.getEscapeCharacter())) {
+      content.setEscapeCharacter(variables.resolve(csvSource.getEscapeCharacter()));
     }
-    if (!Utils.isEmpty(source.getEncoding())) {
-      content.setEncoding(variables.resolve(source.getEncoding()));
+    if (!Utils.isEmpty(csvSource.getEncoding())) {
+      content.setEncoding(variables.resolve(csvSource.getEncoding()));
     }
-    content.setHeader(source.isHeaderPresent());
-    content.setNrHeaderLines(source.getHeaderLines());
-    textMeta.setInputFields(buildTextFileInputFields(mapping));
+    content.setHeader(csvSource.isHeaderPresent());
+    content.setNrHeaderLines(csvSource.getHeaderLines());
+    textMeta.setInputFields(buildTextFileInputFields(mapping, csvSource));
 
     InputFile inputFile = new InputFile();
     inputFile.setFileName(folder);
-    inputFile.setFileMask(variables.resolve(source.getIncludeFileMask()));
-    inputFile.setExcludeFileMask(variables.resolve(source.getExcludeFileMask()));
-    inputFile.setIncludeSubFolders(source.isIncludeSubfolders());
+    inputFile.setFileMask(variables.resolve(csvSource.getIncludeFileMask()));
+    inputFile.setExcludeFileMask(variables.resolve(csvSource.getExcludeFileMask()));
+    inputFile.setIncludeSubFolders(csvSource.isIncludeSubfolders());
     textMeta.getInputFiles().add(inputFile);
 
     TransformMeta transformMeta = new TransformMeta("TextFileInput2", transformName, textMeta);
@@ -314,10 +321,11 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
     return transformMeta;
   }
 
-  private List<CsvInputField> buildCsvInputFields(ColumnMapping mapping) throws HopException {
+  private List<CsvInputField> buildCsvInputFields(ColumnMapping mapping, DvCsvSource csvSource)
+      throws HopException {
     List<CsvInputField> fields = new ArrayList<>();
     Set<String> mappedSourceNames = mappedSourceNames(mapping);
-    List<SourceField> catalogFields = source.getFields();
+    List<SourceField> catalogFields = csvSource.getFields();
     if (catalogFields != null && !catalogFields.isEmpty()) {
       for (SourceField sourceField : catalogFields) {
         if (sourceField == null || Utils.isEmpty(sourceField.getName())) {
@@ -349,10 +357,11 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
     return fields;
   }
 
-  private List<TextFileInputField> buildTextFileInputFields(ColumnMapping mapping) throws HopException {
+  private List<TextFileInputField> buildTextFileInputFields(
+      ColumnMapping mapping, DvCsvSource csvSource) throws HopException {
     List<TextFileInputField> fields = new ArrayList<>();
     Set<String> mappedSourceNames = mappedSourceNames(mapping);
-    List<SourceField> catalogFields = source.getFields();
+    List<SourceField> catalogFields = csvSource.getFields();
     if (catalogFields != null && !catalogFields.isEmpty()) {
       for (SourceField sourceField : catalogFields) {
         if (sourceField == null || Utils.isEmpty(sourceField.getName())) {
@@ -360,7 +369,7 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
         }
         String name = variables.resolve(sourceField.getName());
         TextFileInputField field = new TextFileInputField(name);
-        if (source.isHeaderPresent()) {
+        if (csvSource.isHeaderPresent()) {
           field.setPosition(-1);
         }
         if (mappedSourceNames.contains(name)) {
@@ -374,7 +383,7 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
       for (ColumnRename rename : mapping.renames()) {
         SourceField sourceField = findSourceField(rename.sourceName());
         TextFileInputField field = new TextFileInputField(rename.sourceName());
-        if (source.isHeaderPresent()) {
+        if (csvSource.isHeaderPresent()) {
           field.setPosition(-1);
         }
         if (sourceField != null) {
@@ -390,7 +399,7 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
     return fields;
   }
 
-  private Set<String> mappedSourceNames(ColumnMapping mapping) {
+  protected Set<String> mappedSourceNames(ColumnMapping mapping) {
     Set<String> mapped = new LinkedHashSet<>();
     for (ColumnRename rename : mapping.renames()) {
       mapped.add(rename.sourceName());
@@ -398,7 +407,7 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
     return mapped;
   }
 
-  private SourceField findSourceField(String name) {
+  protected SourceField findSourceField(String name) {
     if (source.getFields() == null) {
       return null;
     }
@@ -464,10 +473,10 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
     }
   }
 
-  protected String calculateTransformName(DvCsvSource source) {
-    String folder = variables.resolve(source.getFolder());
-    if (!Utils.isEmpty(source.getSingleFilename())) {
-      return "source " + variables.resolve(source.getSingleFilename());
+  protected String calculateTransformName(IDvFileBasedSource fileSource) {
+    String folder = variables.resolve(fileSource.getFolder());
+    if (!Utils.isEmpty(fileSource.getSingleFilename())) {
+      return "source " + variables.resolve(fileSource.getSingleFilename());
     }
     if (!Utils.isEmpty(folder)) {
       return "source " + folder;

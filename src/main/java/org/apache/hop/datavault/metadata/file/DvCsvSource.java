@@ -33,7 +33,7 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
  */
 @Getter
 @Setter
-public class DvCsvSource extends DvSourceBase implements IDvSource {
+public class DvCsvSource extends DvSourceBase implements IDvFileBasedSource {
 
   public static final String GUI_PLUGIN_ELEMENT_CSV_TAB_ID = "DATAVAULT_SOURCE_CSV_TAB";
 

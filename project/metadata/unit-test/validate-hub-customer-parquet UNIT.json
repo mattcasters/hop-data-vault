@@ -1,0 +1,32 @@
+{
+  "database_replacements": [],
+  "autoOpening": true,
+  "description": "",
+  "persist_filename": "",
+  "test_type": "UNIT_TEST",
+  "variableValues": [],
+  "basePath": "${HOP_UNIT_TESTS_FOLDER}",
+  "golden_data_sets": [
+    {
+      "field_mappings": [
+        {
+          "transform_field": "customer_hk",
+          "data_set_field": "customer_hk"
+        },
+        {
+          "transform_field": "x_record_source",
+          "data_set_field": "x_record_source"
+        }
+      ],
+      "field_order": [
+        "customer_hk"
+      ],
+      "data_set_name": "hub-customer-golden",
+      "transform_name": "Dummy (do nothing)"
+    }
+  ],
+  "input_data_sets": [],
+  "name": "validate-hub-customer-parquet UNIT",
+  "trans_test_tweaks": [],
+  "pipeline_filename": "./tests/parquet-basic/validate-hub-customer.hpl"
+}

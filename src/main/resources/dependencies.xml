@@ -28,6 +28,8 @@
     <folder>../../transforms/getfilenames/</folder>
     <folder>../../transforms/textfile/</folder>
     <folder>../../transforms/filemetadata/</folder>
+    <folder>../../transforms/metastructure/</folder>
+    <folder>../../tech/parquet/</folder>
     <folder>../../transforms/uniquerowsbyhashset/</folder>
     <folder>../../transforms/pipelineexecutor/</folder>
 </dependencies>

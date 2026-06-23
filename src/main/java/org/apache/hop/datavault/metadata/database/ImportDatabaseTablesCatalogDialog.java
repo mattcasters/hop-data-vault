@@ -45,7 +45,7 @@ import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Shell;
 
-/** Asks which data catalog connection should receive imported Data Vault sources. */
+/** Asks which data catalog connection should receive imported record definitions. */
 @Getter
 @Setter
 public class ImportDatabaseTablesCatalogDialog {

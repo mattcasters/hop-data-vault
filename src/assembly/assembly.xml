@@ -66,6 +66,7 @@
                 <include>org.apache.hop:hop-transform-sql:jar</include>
                 <include>org.apache.hop:hop-transform-textfile:jar</include>
                 <include>org.apache.hop:hop-transform-filemetadata:jar</include>
+                <include>org.apache.hop:hop-transform-metastructure:jar</include>
                 <include>org.apache.hop:hop-transform-uniquerowsbyhashset:jar</include>
                 <include>org.apache.hop:hop-transform-tableinput:jar</include>
                 <include>org.apache.hop:hop-transform-tableoutput:jar</include>

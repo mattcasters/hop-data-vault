@@ -36,7 +36,7 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
-/** Collects the target Data Vault source name before importing a CSV file. */
+/** Collects the target record definition name before importing a CSV file. */
 @Getter
 @Setter
 public class ImportCsvFileOptionsDialog {

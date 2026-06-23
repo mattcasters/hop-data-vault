@@ -63,7 +63,7 @@ When you click **Check model** (or when the Data Vault Update action runs with m
 
 When **detailed data type checking** is active, database sources additionally resolve field types from the live table or view (`connection`, `schema`, `table`). The stored field layout on the Database tab remains the baseline for target column definitions and drift detection. If live resolution fails, the check falls back to stored metadata and reports the failure.
 
-Non-database source types (planned: Parquet, Avro, Iceberg) use stored metadata until live resolution is implemented for those types.
+Parquet file sources use stored metadata until live field resolution is implemented for that type. Additional file types (planned: Avro, Iceberg) will follow the same pattern.
 
 == Practical advice
 

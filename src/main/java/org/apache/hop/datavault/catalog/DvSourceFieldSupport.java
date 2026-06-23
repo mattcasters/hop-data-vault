@@ -56,6 +56,23 @@ public final class DvSourceFieldSupport {
     return result;
   }
 
+  public static List<SourceField> fromRowMeta(IRowMeta rowMeta) throws HopException {
+    List<SourceField> fields = new ArrayList<>();
+    if (rowMeta == null || rowMeta.isEmpty()) {
+      return fields;
+    }
+    for (org.apache.hop.core.row.IValueMeta vm : rowMeta.getValueMetaList()) {
+      SourceField sf = new SourceField(vm.getName());
+      sf.setDescription("");
+      sf.setSourceDataType(vm.getTypeDesc());
+      sf.setLength(vm.getLength() > 0 ? String.valueOf(vm.getLength()) : "");
+      sf.setPrecision(vm.getPrecision() >= 0 ? String.valueOf(vm.getPrecision()) : "");
+      sf.setHopType(vm.getType());
+      fields.add(sf);
+    }
+    return fields;
+  }
+
   public static List<SourceField> fromCatalogFields(List<CatalogSourceField> fields) {
     List<SourceField> result = new ArrayList<>();
     if (fields == null) {

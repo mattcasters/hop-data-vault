@@ -47,6 +47,29 @@
       <attributes_hac/>
     </action>
     <action>
+      <filename>${PROJECT_HOME}/tests/parquet-basic/update-vault1-parquet.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>update-vault1-parquet</name>
+      <description/>
+      <type>WORKFLOW</type>
+      <attributes/>
+      <xloc>240</xloc>
+      <yloc>208</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
       <filename>${PROJECT_HOME}/tests/csv-basic/update-vault1-csv.hwf</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
@@ -264,6 +287,29 @@
       <attributes_hac/>
     </action>
     <action>
+      <filename>${PROJECT_HOME}/tests/shared/discover-catalog-tests.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>discover-catalog-tests</name>
+      <description/>
+      <type>WORKFLOW</type>
+      <attributes/>
+      <xloc>192</xloc>
+      <yloc>64</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
       <filename>${PROJECT_HOME}/tests/shared/create-source-tables-from-data-catalog.hpl</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
@@ -294,6 +340,13 @@
   <hops>
     <hop>
       <from>update-vault1-csv</from>
+      <to>update-vault1-parquet</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>update-vault1-parquet</from>
       <to>update-vault1</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
@@ -364,9 +417,16 @@
     </hop>
     <hop>
       <from>Start</from>
-      <to>create-source-tables-from-data-catalog.hpl</to>
+      <to>discover-catalog-tests</to>
       <evaluation>Y</evaluation>
       <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>discover-catalog-tests</from>
+      <to>create-source-tables-from-data-catalog.hpl</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
   </hops>

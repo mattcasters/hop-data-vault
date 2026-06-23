@@ -21,7 +21,7 @@ package org.apache.hop.datavault.metadata.file;
 import org.apache.hop.catalog.hopgui.perspective.importmenu.DataCatalogImportContext;
 import org.apache.hop.catalog.hopgui.perspective.importmenu.DataCatalogImporter;
 
-/** Imports a single CSV file as a Data Vault source using File Metadata discovery. */
+/** Imports a single CSV file into the data catalog as a record definition. */
 public final class CsvFileCatalogImporter implements DataCatalogImporter {
 
   public static final String IMPORTER_ID = "data-catalog-import-csv-file";

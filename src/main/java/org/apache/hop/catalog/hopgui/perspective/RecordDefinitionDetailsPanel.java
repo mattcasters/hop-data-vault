@@ -118,6 +118,10 @@ public class RecordDefinitionDetailsPanel {
   private TableView wGlossaryTerms;
   private TableView wCustomProperties;
 
+  private final List<Control> physicalTableSectionControls = new ArrayList<>();
+  private final List<Control> physicalFileSectionControls = new ArrayList<>();
+  private final List<Control> csvFormatSectionControls = new ArrayList<>();
+
   public RecordDefinitionDetailsPanel(Composite parent, IVariables variables, Runnable onUpdate) {
     this.parent = parent;
     this.variables = variables;
@@ -200,7 +204,7 @@ public class RecordDefinitionDetailsPanel {
             wPropertiesComp, messageKey("General.Description.Label"), middle, margin, wType);
     wDescription = (Text) lastControl;
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("Origin.Label"), wDescription, margin);
+    lastControl = addSectionLabel(wPropertiesComp, messageKey("Origin.Label"), wDescription, margin, null);
     lastControl =
         addReadOnlyField(
             wPropertiesComp, messageKey("Origin.ModelType.Label"), middle, margin, lastControl);
@@ -255,20 +259,41 @@ public class RecordDefinitionDetailsPanel {
             wPropertiesComp, messageKey("Origin.LastPipeline.Label"), middle, margin, wLastWorkflow);
     wLastPipeline = (Text) lastControl;
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("PhysicalTable.Label"), wLastPipeline, margin);
+    lastControl =
+        addSectionLabel(
+            wPropertiesComp,
+            messageKey("PhysicalTable.Label"),
+            wLastPipeline,
+            margin,
+            physicalTableSectionControls);
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("PhysicalTable.Database.Label"), middle, margin, lastControl);
+            wPropertiesComp,
+            messageKey("PhysicalTable.Database.Label"),
+            middle,
+            margin,
+            lastControl,
+            physicalTableSectionControls);
     wDatabaseMetaName = (Text) lastControl;
 
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("PhysicalTable.Schema.Label"), middle, margin, wDatabaseMetaName);
+            wPropertiesComp,
+            messageKey("PhysicalTable.Schema.Label"),
+            middle,
+            margin,
+            wDatabaseMetaName,
+            physicalTableSectionControls);
     wSchemaName = (Text) lastControl;
 
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("PhysicalTable.Table.Label"), middle, margin, wSchemaName);
+            wPropertiesComp,
+            messageKey("PhysicalTable.Table.Label"),
+            middle,
+            margin,
+            wSchemaName,
+            physicalTableSectionControls);
     wTableName = (Text) lastControl;
 
     lastControl =
@@ -277,22 +302,44 @@ public class RecordDefinitionDetailsPanel {
             messageKey("PhysicalTable.UpdateButton.Label"),
             wTableName,
             margin,
-            this::updatePhysicalTable);
+            this::updatePhysicalTable,
+            physicalTableSectionControls);
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("PhysicalFile.Label"), lastControl, margin);
+    lastControl =
+        addSectionLabel(
+            wPropertiesComp,
+            messageKey("PhysicalFile.Label"),
+            lastControl,
+            margin,
+            physicalFileSectionControls);
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("PhysicalFile.Folder.Label"), middle, margin, lastControl);
+            wPropertiesComp,
+            messageKey("PhysicalFile.Folder.Label"),
+            middle,
+            margin,
+            lastControl,
+            physicalFileSectionControls);
     wFileFolder = (Text) lastControl;
 
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("PhysicalFile.IncludeMask.Label"), middle, margin, wFileFolder);
+            wPropertiesComp,
+            messageKey("PhysicalFile.IncludeMask.Label"),
+            middle,
+            margin,
+            wFileFolder,
+            physicalFileSectionControls);
     wIncludeFileMask = (Text) lastControl;
 
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("PhysicalFile.ExcludeMask.Label"), middle, margin, wIncludeFileMask);
+            wPropertiesComp,
+            messageKey("PhysicalFile.ExcludeMask.Label"),
+            middle,
+            margin,
+            wIncludeFileMask,
+            physicalFileSectionControls);
     wExcludeFileMask = (Text) lastControl;
 
     lastControl =
@@ -301,7 +348,8 @@ public class RecordDefinitionDetailsPanel {
             messageKey("PhysicalFile.IncludeSubfolders.Label"),
             middle,
             margin,
-            wExcludeFileMask);
+            wExcludeFileMask,
+            physicalFileSectionControls);
     wIncludeSubfolders = (Button) lastControl;
 
     lastControl =
@@ -310,37 +358,74 @@ public class RecordDefinitionDetailsPanel {
             messageKey("PhysicalFile.UpdateButton.Label"),
             wIncludeSubfolders,
             margin,
-            this::updatePhysicalFile);
+            this::updatePhysicalFile,
+            physicalFileSectionControls);
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("CsvFormat.Label"), lastControl, margin);
+    lastControl =
+        addSectionLabel(
+            wPropertiesComp,
+            messageKey("CsvFormat.Label"),
+            lastControl,
+            margin,
+            csvFormatSectionControls);
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("CsvFormat.Delimiter.Label"), middle, margin, lastControl);
+            wPropertiesComp,
+            messageKey("CsvFormat.Delimiter.Label"),
+            middle,
+            margin,
+            lastControl,
+            csvFormatSectionControls);
     wCsvDelimiter = (Text) lastControl;
 
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("CsvFormat.Enclosure.Label"), middle, margin, wCsvDelimiter);
+            wPropertiesComp,
+            messageKey("CsvFormat.Enclosure.Label"),
+            middle,
+            margin,
+            wCsvDelimiter,
+            csvFormatSectionControls);
     wCsvEnclosure = (Text) lastControl;
 
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("CsvFormat.Encoding.Label"), middle, margin, wCsvEnclosure);
+            wPropertiesComp,
+            messageKey("CsvFormat.Encoding.Label"),
+            middle,
+            margin,
+            wCsvEnclosure,
+            csvFormatSectionControls);
     wCsvEncoding = (Text) lastControl;
 
     lastControl =
         addCheckboxField(
-            wPropertiesComp, messageKey("CsvFormat.HeaderPresent.Label"), middle, margin, wCsvEncoding);
+            wPropertiesComp,
+            messageKey("CsvFormat.HeaderPresent.Label"),
+            middle,
+            margin,
+            wCsvEncoding,
+            csvFormatSectionControls);
     wCsvHeaderPresent = (Button) lastControl;
 
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("CsvFormat.HeaderLines.Label"), middle, margin, wCsvHeaderPresent);
+            wPropertiesComp,
+            messageKey("CsvFormat.HeaderLines.Label"),
+            middle,
+            margin,
+            wCsvHeaderPresent,
+            csvFormatSectionControls);
     wCsvHeaderLines = (Text) lastControl;
 
     lastControl =
         addEditableField(
-            wPropertiesComp, messageKey("CsvFormat.InputTransform.Label"), middle, margin, wCsvHeaderLines);
+            wPropertiesComp,
+            messageKey("CsvFormat.InputTransform.Label"),
+            middle,
+            margin,
+            wCsvHeaderLines,
+            csvFormatSectionControls);
     wCsvInputTransform = (Text) lastControl;
 
     lastControl =
@@ -349,9 +434,10 @@ public class RecordDefinitionDetailsPanel {
             messageKey("CsvFormat.UpdateButton.Label"),
             wCsvInputTransform,
             margin,
-            this::updateCsvFormat);
+            this::updateCsvFormat,
+            csvFormatSectionControls);
 
-    lastControl = addSectionLabel(wPropertiesComp, messageKey("DvSource.Label"), lastControl, margin);
+    lastControl = addSectionLabel(wPropertiesComp, messageKey("DvSource.Label"), lastControl, margin, null);
     lastControl =
         addReadOnlyField(
             wPropertiesComp, messageKey("DvSource.SourceType.Label"), middle, margin, lastControl);
@@ -439,7 +525,8 @@ public class RecordDefinitionDetailsPanel {
     return composite;
   }
 
-  private Control addSectionLabel(Composite composite, String messageKey, Control previous, int margin) {
+  private Control addSectionLabel(
+      Composite composite, String messageKey, Control previous, int margin, List<Control> section) {
     Label label = new Label(composite, SWT.LEFT);
     PropsUi.setLook(label);
     label.setText(BaseMessages.getString(PKG, messageKey));
@@ -447,17 +534,23 @@ public class RecordDefinitionDetailsPanel {
     fd.left = new FormAttachment(0, 0);
     fd.top = new FormAttachment(previous, margin * 2);
     label.setLayoutData(fd);
+    registerSectionControl(section, label);
     return label;
   }
 
   private Control addEditableField(
-      Composite composite, String messageKey, int middle, int margin, Control previous) {
-    return addTextField(composite, messageKey, middle, margin, previous, false);
+      Composite composite,
+      String messageKey,
+      int middle,
+      int margin,
+      Control previous,
+      List<Control> section) {
+    return addTextField(composite, messageKey, middle, margin, previous, false, section);
   }
 
   private Control addReadOnlyField(
       Composite composite, String messageKey, int middle, int margin, Control previous) {
-    return addTextField(composite, messageKey, middle, margin, previous, true);
+    return addTextField(composite, messageKey, middle, margin, previous, true, null);
   }
 
   private Control addTextField(
@@ -466,7 +559,8 @@ public class RecordDefinitionDetailsPanel {
       int middle,
       int margin,
       Control previous,
-      boolean readOnly) {
+      boolean readOnly,
+      List<Control> section) {
     Label label = new Label(composite, SWT.RIGHT);
     PropsUi.setLook(label);
     label.setText(BaseMessages.getString(PKG, messageKey));
@@ -491,11 +585,18 @@ public class RecordDefinitionDetailsPanel {
     fd.right = new FormAttachment(100, 0);
     fd.top = new FormAttachment(label, 0, SWT.CENTER);
     text.setLayoutData(fd);
+    registerSectionControl(section, label);
+    registerSectionControl(section, text);
     return text;
   }
 
   private Control addCheckboxField(
-      Composite composite, String messageKey, int middle, int margin, Control previous) {
+      Composite composite,
+      String messageKey,
+      int middle,
+      int margin,
+      Control previous,
+      List<Control> section) {
     Label label = new Label(composite, SWT.RIGHT);
     PropsUi.setLook(label);
     label.setText(BaseMessages.getString(PKG, messageKey));
@@ -511,11 +612,18 @@ public class RecordDefinitionDetailsPanel {
     fd.left = new FormAttachment(middle, 0);
     fd.top = new FormAttachment(label, 0, SWT.CENTER);
     checkbox.setLayoutData(fd);
+    registerSectionControl(section, label);
+    registerSectionControl(section, checkbox);
     return checkbox;
   }
 
   private Control addSectionUpdateButton(
-      Composite composite, String messageKey, Control previous, int margin, Runnable action) {
+      Composite composite,
+      String messageKey,
+      Control previous,
+      int margin,
+      Runnable action,
+      List<Control> section) {
     Button button = new Button(composite, SWT.PUSH);
     button.setText(BaseMessages.getString(PKG, messageKey));
     PropsUi.setLook(button);
@@ -524,7 +632,34 @@ public class RecordDefinitionDetailsPanel {
     fd.top = new FormAttachment(previous, margin);
     button.setLayoutData(fd);
     button.addListener(SWT.Selection, e -> action.run());
+    registerSectionControl(section, button);
     return button;
+  }
+
+  private static void registerSectionControl(List<Control> section, Control control) {
+    if (section != null && control != null) {
+      section.add(control);
+    }
+  }
+
+  private void setSectionVisible(List<Control> section, boolean visible) {
+    if (section == null) {
+      return;
+    }
+    for (Control control : section) {
+      control.setVisible(visible);
+    }
+  }
+
+  private void updatePropertySectionVisibility(String sourceType) {
+    boolean isDatabase = "DATABASE".equalsIgnoreCase(sourceType);
+    boolean isCsv = "CSV".equalsIgnoreCase(sourceType);
+    boolean isParquet = "PARQUET".equalsIgnoreCase(sourceType);
+    boolean isFileSource = isCsv || isParquet;
+
+    setSectionVisible(physicalTableSectionControls, isDatabase);
+    setSectionVisible(physicalFileSectionControls, isFileSource);
+    setSectionVisible(csvFormatSectionControls, isCsv);
   }
 
   private TableView createListTable(Composite tabComp, String columnKey) {
@@ -688,6 +823,9 @@ public class RecordDefinitionDetailsPanel {
     }
 
     populateDvSourceFields(definition);
+    String sourceType =
+        definition.getDvSource() != null ? definition.getDvSource().getSourceType() : "";
+    updatePropertySectionVisibility(sourceType);
     populateFieldsTable(definition.getFields());
     populateListTable(wTags, definition.getTags());
     populateListTable(wGlossaryTerms, definition.getGlossaryTerms());

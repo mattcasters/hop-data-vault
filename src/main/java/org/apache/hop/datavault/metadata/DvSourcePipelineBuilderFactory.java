@@ -24,6 +24,9 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.file.DvCsvHubSourcePipelineBuilder;
 import org.apache.hop.datavault.metadata.file.DvCsvLinkSourcePipelineBuilder;
 import org.apache.hop.datavault.metadata.file.DvCsvSatelliteSourcePipelineBuilder;
+import org.apache.hop.datavault.metadata.file.DvParquetHubSourcePipelineBuilder;
+import org.apache.hop.datavault.metadata.file.DvParquetLinkSourcePipelineBuilder;
+import org.apache.hop.datavault.metadata.file.DvParquetSatelliteSourcePipelineBuilder;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
 
@@ -49,6 +52,9 @@ public final class DvSourcePipelineBuilderFactory {
       case CSV ->
           new DvCsvHubSourcePipelineBuilder(
               variables, metadataProvider, model, pipelineMeta, recordSource, dvSource, hub, startPoint);
+      case PARQUET ->
+          new DvParquetHubSourcePipelineBuilder(
+              variables, metadataProvider, model, pipelineMeta, recordSource, dvSource, hub, startPoint);
     };
   }
 
@@ -68,6 +74,9 @@ public final class DvSourcePipelineBuilderFactory {
               variables, metadataProvider, model, pipelineMeta, recordSource, dvSource, link, startPoint);
       case CSV ->
           new DvCsvLinkSourcePipelineBuilder(
+              variables, metadataProvider, model, pipelineMeta, recordSource, dvSource, link, startPoint);
+      case PARQUET ->
+          new DvParquetLinkSourcePipelineBuilder(
               variables, metadataProvider, model, pipelineMeta, recordSource, dvSource, link, startPoint);
     };
   }
@@ -95,6 +104,16 @@ public final class DvSourcePipelineBuilderFactory {
               startPoint);
       case CSV ->
           new DvCsvSatelliteSourcePipelineBuilder(
+              variables,
+              metadataProvider,
+              model,
+              pipelineMeta,
+              recordSource,
+              dvSource,
+              satellite,
+              startPoint);
+      case PARQUET ->
+          new DvParquetSatelliteSourcePipelineBuilder(
               variables,
               metadataProvider,
               model,

@@ -40,6 +40,8 @@ import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.datavault.metadata.file.DvCsvInputMode;
 import org.apache.hop.datavault.metadata.file.DvCsvSource;
+import org.apache.hop.datavault.metadata.file.DvFileLocationSupport;
+import org.apache.hop.datavault.metadata.file.IDvFileBasedSource;
 import org.apache.hop.datavault.metadata.IDvSource;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
@@ -57,26 +59,75 @@ public final class DvSourceCatalogMapper {
       Date updatedAt,
       String workflowName)
       throws HopException {
+    return toRecordDefinition(
+        source,
+        namespace,
+        RecordDefinitionType.DV_SOURCE,
+        model,
+        variables,
+        metadataProvider,
+        updatedAt,
+        workflowName,
+        null);
+  }
+
+  public static RecordDefinition toRecordDefinition(
+      DataVaultSource source,
+      String namespace,
+      RecordDefinitionType recordType,
+      DataVaultModel model,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      Date updatedAt,
+      String workflowName)
+      throws HopException {
+    return toRecordDefinition(
+        source,
+        namespace,
+        recordType,
+        model,
+        variables,
+        metadataProvider,
+        updatedAt,
+        workflowName,
+        null);
+  }
+
+  public static RecordDefinition toRecordDefinition(
+      DataVaultSource source,
+      String namespace,
+      RecordDefinitionType recordType,
+      DataVaultModel model,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      Date updatedAt,
+      String workflowName,
+      String pipelineName)
+      throws HopException {
     if (source == null || Utils.isEmpty(source.getName())) {
       throw new HopException("Data Vault source is missing a name");
     }
 
     List<SourceField> sourceFields = source.getFields(metadataProvider);
-    DvSourceRecord dvSourceRecord = new DvSourceRecord();
-    dvSourceRecord.setSourceType(source.getSourceType().name());
-    dvSourceRecord.setSourceIndicator(source.getSourceIndicator());
-    dvSourceRecord.setSourceIndicatorField(source.getSourceIndicatorField());
-    dvSourceRecord.setGroup(source.getGroup());
-    dvSourceRecord.setDeliveryType(source.getDeliveryTypeOrDefault().name());
-    dvSourceRecord.setFields(DvSourceFieldSupport.toCatalogFields(sourceFields));
+    RecordDefinitionType effectiveType =
+        recordType != null ? recordType : RecordDefinitionType.DV_SOURCE;
 
     RecordDefinition definition = new RecordDefinition();
     definition.setKey(new RecordDefinitionKey(namespace, source.getName()));
-    definition.setType(RecordDefinitionType.DV_SOURCE);
+    definition.setType(effectiveType);
     definition.setDescription(source.getDvSourceOrDefault().getDescription());
-    definition.setDvSource(dvSourceRecord);
+    if (effectiveType == RecordDefinitionType.DV_SOURCE) {
+      DvSourceRecord dvSourceRecord = new DvSourceRecord();
+      dvSourceRecord.setSourceType(source.getSourceType().name());
+      dvSourceRecord.setSourceIndicator(source.getSourceIndicator());
+      dvSourceRecord.setSourceIndicatorField(source.getSourceIndicatorField());
+      dvSourceRecord.setGroup(source.getGroup());
+      dvSourceRecord.setDeliveryType(source.getDeliveryTypeOrDefault().name());
+      dvSourceRecord.setFields(DvSourceFieldSupport.toCatalogFields(sourceFields));
+      definition.setDvSource(dvSourceRecord);
+    }
     definition.setFields(DvSourceFieldSupport.toRowMeta(sourceFields, variables));
-    definition.setOrigin(buildOrigin(source, model, updatedAt, workflowName));
+    definition.setOrigin(buildOrigin(source, model, updatedAt, workflowName, pipelineName));
     IDvSource dvSource = source.getDvSourceOrDefault();
     if (source.getSourceType() == DvSourceType.CSV) {
       definition.setPhysicalFile(buildPhysicalFileRef(dvSource));
@@ -84,12 +135,19 @@ public final class DvSourceCatalogMapper {
       if (definition.getDvSource() != null && dvSource instanceof DvCsvSource csvSource) {
         definition.getDvSource().setCsvFormat(buildCsvFormatRecord(csvSource));
       }
+    } else if (source.getSourceType() == DvSourceType.PARQUET) {
+      definition.setPhysicalFile(buildPhysicalFileRef(dvSource));
+      definition.setPhysicalTable(null);
     } else {
       definition.setPhysicalTable(buildPhysicalTableRef(dvSource));
       definition.setPhysicalFile(null);
     }
-    definition.getTags().add("DV Source");
-    definition.getTags().add(source.getDeliveryTypeOrDefault().name());
+    if (definition.getType() == RecordDefinitionType.DV_SOURCE) {
+      definition.getTags().add("DV Source");
+      definition.getTags().add(source.getDeliveryTypeOrDefault().name());
+    } else if (definition.getType() != null) {
+      definition.getTags().add(definition.getType().name());
+    }
 
     return definition;
   }
@@ -104,7 +162,11 @@ public final class DvSourceCatalogMapper {
   }
 
   private static RecordOrigin buildOrigin(
-      DataVaultSource source, DataVaultModel model, Date updatedAt, String workflowName) {
+      DataVaultSource source,
+      DataVaultModel model,
+      Date updatedAt,
+      String workflowName,
+      String pipelineName) {
     RecordOrigin origin = new RecordOrigin();
     origin.setModelType("DATA_VAULT_SOURCE");
     if (model != null) {
@@ -115,6 +177,7 @@ public final class DvSourceCatalogMapper {
     origin.setModelElementName(source.getName());
     origin.setUpdatedAt(updatedAt);
     origin.setLastWorkflow(workflowName);
+    origin.setLastPipeline(pipelineName);
     return origin;
   }
 
@@ -130,16 +193,10 @@ public final class DvSourceCatalogMapper {
   }
 
   private static PhysicalFileRef buildPhysicalFileRef(IDvSource dvSource) {
-    if (!(dvSource instanceof DvCsvSource csvSource)) {
+    if (!(dvSource instanceof IDvFileBasedSource fileSource)) {
       return null;
     }
-    PhysicalFileRef ref = new PhysicalFileRef();
-    ref.setFolder(csvSource.getFolder());
-    ref.setIncludeFileMask(csvSource.getIncludeFileMask());
-    ref.setExcludeFileMask(csvSource.getExcludeFileMask());
-    ref.setIncludeSubfolders(csvSource.isIncludeSubfolders());
-    ref.setRequired(true);
-    return ref;
+    return DvFileLocationSupport.toPhysicalFileRef(fileSource);
   }
 
   private static DvCsvFormatRecord buildCsvFormatRecord(DvCsvSource csvSource) {

@@ -37,6 +37,7 @@ import org.apache.hop.core.row.RowMeta;
 import org.apache.hop.core.row.value.ValueMetaFactory;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.catalog.discovery.RecordDefinitionCatalogWriter;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
@@ -50,14 +51,14 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 
-/** Shared helpers for importing database tables as Data Vault sources in the data catalog. */
+/** Shared helpers for importing database tables as record definitions in the data catalog. */
 public final class DvDatabaseSourceImportSupport {
 
   private static final Class<?> PKG = DvDatabaseSourceImportSupport.class;
 
   private DvDatabaseSourceImportSupport() {}
 
-  /** Bulk-import database tables as catalog-backed Data Vault sources. */
+  /** Bulk-import database tables as catalog-backed record definitions. */
   public static void importDatabaseTables(
       Shell shell, HopGui hopGui, IVariables variables, IHopMetadataProvider metadataProvider) {
     importDatabaseTables(shell, hopGui, variables, metadataProvider, null, null);
@@ -229,8 +230,8 @@ public final class DvDatabaseSourceImportSupport {
           DataVaultSource imported =
               createDataVaultSource(
                   dataVaultSourceName, connectionName, schemaName, tableName, fields);
-          DvSourceCatalogService.upsertSource(
-              imported, catalogConnectionName, model, variables, metadataProvider, null, null);
+          RecordDefinitionCatalogWriter.upsertDataVaultSource(
+              imported, catalogConnectionName, model, variables, metadataProvider, null, null, null);
           importedCount++;
         } catch (Exception e) {
           errors.add(
@@ -371,7 +372,7 @@ public final class DvDatabaseSourceImportSupport {
       throws HopException {
     String candidate = Const.NVL(baseName, "");
     if (Utils.isEmpty(candidate)) {
-      throw new HopException("Data Vault source name cannot be empty");
+      throw new HopException("Record definition name cannot be empty");
     }
     if (!DvSourceCatalogService.exists(
         candidate, catalogConnectionName, variables, metadataProvider)) {

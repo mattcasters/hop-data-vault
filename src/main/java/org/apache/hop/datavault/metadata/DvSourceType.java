@@ -29,6 +29,7 @@ package org.apache.hop.datavault.metadata;
 public enum DvSourceType {
   DATABASE("Database (RDBMS)"),
   CSV("CSV / delimited text file"),
+  PARQUET("Parquet file"),
   ;
 
   private final String description;

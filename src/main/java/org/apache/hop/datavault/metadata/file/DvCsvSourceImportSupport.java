@@ -26,7 +26,11 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
+import org.apache.hop.catalog.discovery.PhysicalSourceRef;
+import org.apache.hop.catalog.discovery.RecordDefinitionCatalogWriter;
+import org.apache.hop.catalog.discovery.RecordDefinitionDiscoveryService;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
+import org.apache.hop.datavault.metadata.DvSourceType;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.SourceField;
@@ -41,7 +45,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 
-/** Imports a single CSV file as a catalog-backed Data Vault source using File Metadata discovery. */
+/** Imports a single CSV file as a catalog-backed record definition using File Metadata discovery. */
 public final class DvCsvSourceImportSupport {
 
   private static final Class<?> PKG = DvCsvSourceImportSupport.class;
@@ -111,13 +115,18 @@ public final class DvCsvSourceImportSupport {
         return;
       }
 
-      CsvFileMetadataDiscovery.DiscoveryResult discovery =
-          CsvFileMetadataDiscovery.discover(resolvedFile, variables, metadataProvider);
+      RecordDefinitionDiscoveryService.DiscoveryResult discovery =
+          RecordDefinitionDiscoveryService.discover(
+              DvSourceType.CSV,
+              PhysicalSourceRef.builder().filePath(resolvedFile).build(),
+              variables,
+              metadataProvider);
 
-      DvCsvSource csvSource = createCsvSource(resolvedFile, discovery, variables);
+      DvCsvSource csvSource =
+          createCsvSource(resolvedFile, discovery.csvDiscovery(), variables);
       DataVaultSource source = createDataVaultSource(sourceName, csvSource, discovery.fields());
-      DvSourceCatalogService.upsertSource(
-          source, catalogConnectionName, model, variables, metadataProvider, null, null);
+      RecordDefinitionCatalogWriter.upsertDataVaultSource(
+          source, catalogConnectionName, model, variables, metadataProvider, null, null, null);
 
       DvDatabaseSourceImportSupport.refreshCatalogPerspective();
 

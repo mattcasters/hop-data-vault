@@ -26,6 +26,7 @@ import java.util.Map;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.database.DatabaseTablesCatalogImporter;
 import org.apache.hop.datavault.metadata.file.CsvFileCatalogImporter;
+import org.apache.hop.datavault.metadata.file.ParquetFileCatalogImporter;
 
 /** Registry of data catalog import actions. */
 public final class DataCatalogImporterRegistry {
@@ -35,6 +36,7 @@ public final class DataCatalogImporterRegistry {
   static {
     register(new DatabaseTablesCatalogImporter());
     register(new CsvFileCatalogImporter());
+    register(new ParquetFileCatalogImporter());
   }
 
   private DataCatalogImporterRegistry() {}

@@ -181,11 +181,13 @@ public final class DvSourceCatalogService {
         DvSourceCatalogMapper.toRecordDefinition(
             source,
             projectSourcesNamespace(variables),
+            RecordDefinitionType.DV_SOURCE,
             model,
             variables,
             metadataProvider,
             updatedAt != null ? updatedAt : new Date(),
-            workflowName);
+            workflowName,
+            null);
     RecordDefinitionRegistry.getInstance()
         .upsert(connectionName, definition, variables, metadataProvider);
   }
