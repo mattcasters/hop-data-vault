@@ -1,0 +1,3 @@
+Scenario: General Data Vault modeling and Hop integration help.
+
+Answer the user's question using the model summary, catalog sources, check results, and configuration in the context. Suggest next steps for modeling, loading, or validation.

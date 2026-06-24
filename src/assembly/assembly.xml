@@ -35,6 +35,11 @@
             <outputDirectory>plugins/misc/datavault/</outputDirectory>
             <filtered>true</filtered>
         </file>
+        <file>
+            <source>${project.basedir}/src/main/resources/dependencies.xml</source>
+            <outputDirectory>plugins/misc/datavault/</outputDirectory>
+            <filtered>true</filtered>
+        </file>
     </files>
     <dependencySets>
         <dependencySet>
@@ -73,6 +78,7 @@
                 <include>org.apache.hop:hop-transform-update:jar</include>
                 <include>org.apache.hop:hop-transform-getfilenames:jar</include>
                 <include>org.apache.hop:hop-transform-pipelineexecutor:jar</include>
+                <include>org.apache.hop:hop-transform-languagemodelchat:jar</include>
             </includes>
             <outputDirectory>plugins/misc/datavault/lib</outputDirectory>
         </dependencySet>

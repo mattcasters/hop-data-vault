@@ -1,0 +1,3 @@
+Scenario: Type mapping and normalisation.
+
+Review source field types versus target hash key settings and satellite attributes. Recommend normalisation (casing, trimming, null placeholders, date/timestamp handling) consistent with the model configuration.

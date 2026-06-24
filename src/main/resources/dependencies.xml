@@ -6,7 +6,7 @@
   ~ (the "License"); you may not use this file except in compliance with
   ~ the License.  You may obtain a copy of the License at
   ~
-  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~       http://www.apache.org/licenses/LICENSE-2.0
   ~
   ~ Unless required by applicable law or agreed to in writing, software
   ~ distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,19 +17,6 @@
   -->
 
 <dependencies>
-    <folder>../../transforms/tableinput/</folder>
-    <folder>../../transforms/tableoutput/</folder>
-    <folder>../../transforms/mergerows/</folder>
-    <folder>../../transforms/filterrows/</folder>
-    <folder>../../transforms/checksum/</folder>
-    <folder>../../transforms/sql/</folder>
-    <folder>../../transforms/update/</folder>
-    <folder>../../transforms/append/</folder>
-    <folder>../../transforms/getfilenames/</folder>
-    <folder>../../transforms/textfile/</folder>
-    <folder>../../transforms/filemetadata/</folder>
-    <folder>../../transforms/metastructure/</folder>
-    <folder>../../tech/parquet/</folder>
-    <folder>../../transforms/uniquerowsbyhashset/</folder>
-    <folder>../../transforms/pipelineexecutor/</folder>
+    <folder>../../transforms/languagemodelchat</folder>
+    <folder>../../transforms/languagemodelchat/lib</folder>
 </dependencies>

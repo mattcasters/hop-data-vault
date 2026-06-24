@@ -99,6 +99,15 @@ public final class DvSourceCatalogService {
         resolveCatalogConnection(model, variables, metadataProvider), variables, metadataProvider);
   }
 
+  public static List<String> listEnabledCatalogConnectionNames(
+      IHopMetadataProvider metadataProvider) throws HopException {
+    List<String> names = new ArrayList<>();
+    for (DataCatalogMeta connection : listEnabledCatalogConnections(metadataProvider)) {
+      names.add(connection.getName());
+    }
+    return names;
+  }
+
   public static List<String> listSourceNames(
       String catalogConnectionName, IVariables variables, IHopMetadataProvider metadataProvider)
       throws HopException {

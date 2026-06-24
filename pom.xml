@@ -181,6 +181,12 @@
       <artifactId>hop-transform-pipelineexecutor</artifactId>
       <version>${hop.version}</version>
     </dependency>
+    <!-- LangChain4j language model chat (provided; 2.18.1 artifact not published for this module) -->
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-languagemodelchat</artifactId>
+      <version>2.18.0</version>
+    </dependency>
 
     <!-- ELK layered layout for generated pipeline auto-positioning (bundled in plugin lib/) -->
     <dependency>

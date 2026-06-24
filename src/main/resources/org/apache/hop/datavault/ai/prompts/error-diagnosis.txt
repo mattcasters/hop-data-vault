@@ -1,0 +1,3 @@
+Scenario: Error diagnosis.
+
+Focus on model check results and any log excerpts. Explain likely root causes and fixes for validation errors, mapping mismatches, missing sources, or load failures. Propose minimal model or configuration changes when appropriate.

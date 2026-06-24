@@ -1,0 +1,3 @@
+Scenario: Hop integration work.
+
+Advise on generated update pipelines, Data Vault Update workflow setup, parallel copies, sort memory, catalog connections, and run configurations. Relate recommendations to the model configuration and target database.

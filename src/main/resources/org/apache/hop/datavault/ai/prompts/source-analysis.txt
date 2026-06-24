@@ -1,0 +1,3 @@
+Scenario: Source analysis.
+
+Analyze the record definitions and catalog metadata. Identify business keys, degenerate fields, potential hubs, links, and satellites. Note data quality or naming issues. Recommend how sources should map into the current or proposed Data Vault model.

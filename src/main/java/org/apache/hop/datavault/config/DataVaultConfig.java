@@ -34,6 +34,24 @@ public class DataVaultConfig {
   private ElkLayout elkLayout = ElkLayout.createDefault();
   private boolean suppressLocalCatalogOffer;
 
+  /** Master switch for AI advisory in the Data Vault modeler. */
+  private boolean aiEnabled;
+
+  /** Provider preset: GROK, OPENAI, ANTHROPIC, OLLAMA, MISTRAL, HUGGING_FACE, CUSTOM. */
+  private String aiProviderPreset = "GROK";
+
+  /** API key for the selected LLM provider (stored in Hop config; never embedded in prompts). */
+  private String aiApiKey;
+
+  /** Optional override of the provider base URL (empty uses preset default). */
+  private String aiBaseUrl;
+
+  /** Optional override of the model name (empty uses preset default). */
+  private String aiModelName;
+
+  /** Sampling temperature for advisory requests (0.0–1.0 typical). */
+  private String aiTemperature = "0.3";
+
   public DataVaultConfig() {
     drawingHashKeysInModel = true;
   }
@@ -42,6 +60,12 @@ public class DataVaultConfig {
     this();
     drawingHashKeysInModel = config.drawingHashKeysInModel;
     suppressLocalCatalogOffer = config.suppressLocalCatalogOffer;
+    aiEnabled = config.aiEnabled;
+    aiProviderPreset = config.aiProviderPreset;
+    aiApiKey = config.aiApiKey;
+    aiBaseUrl = config.aiBaseUrl;
+    aiModelName = config.aiModelName;
+    aiTemperature = config.aiTemperature;
     setMaxUndoOperations(config.maxUndoOperations);
     setElkLayout(new ElkLayout(config.getElkLayout()));
   }

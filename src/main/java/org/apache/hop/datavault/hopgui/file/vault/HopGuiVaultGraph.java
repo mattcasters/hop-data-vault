@@ -65,6 +65,7 @@ import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.config.DataVaultConfigSingleton;
+import org.apache.hop.datavault.hopgui.ai.DvAiAdvisorDialog;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultSnapshotUndo;
 import org.apache.hop.datavault.metadata.DataVaultModel;
@@ -173,6 +174,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
 
   public static final String TOOLBAR_ITEM_CHECK_MODEL =
       "HopGuiVaultGraph-ToolBar-10060-Check-Model";
+  public static final String TOOLBAR_ITEM_AI_HELP = "HopGuiVaultGraph-ToolBar-10065-AI-Help";
 
   public static final String TOOLBAR_ITEM_RUN_DATA_VAULT_UPDATE =
       "HopGuiVaultGraph-ToolBar-10065-Run-Data-Vault-Update";
@@ -1516,6 +1518,30 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       return;
     }
     showCheckResultsDialog(runModelCheck());
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_AI_HELP,
+      toolTip = "i18n::HopGuiVaultGraph.Toolbar.AiHelp.Tooltip",
+      image = "ui/images/help.svg")
+  public void openAiAdvisor() {
+    if (model == null) {
+      return;
+    }
+    new DvAiAdvisorDialog(
+            hopShell(),
+            hopGui,
+            model,
+            getVariables(),
+            hopGui.getMetadataProvider(),
+            this::markUndoPoint,
+            () -> {
+              setChanged();
+              redraw();
+              enableUndoToolbarItems();
+            })
+        .open();
   }
 
   @GuiToolbarElement(

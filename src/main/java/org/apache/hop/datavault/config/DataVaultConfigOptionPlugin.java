@@ -18,6 +18,8 @@
 
 package org.apache.hop.datavault.config;
 
+import java.util.Arrays;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.config.plugin.ConfigPlugin;
@@ -28,7 +30,7 @@ import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.variables.IVariables;
-import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.datavault.ai.DvAiProviderPreset;
 import org.apache.hop.datavault.layout.ElkCrossingMinimization;
 import org.apache.hop.datavault.layout.ElkCycleBreaking;
 import org.apache.hop.datavault.layout.ElkLayeringStrategy;
@@ -36,7 +38,9 @@ import org.apache.hop.datavault.layout.ElkLayout;
 import org.apache.hop.datavault.layout.ElkLayoutDirection;
 import org.apache.hop.datavault.layout.ElkLayoutValues;
 import org.apache.hop.datavault.layout.ElkNodePlacement;
+import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHasHopMetadataProvider;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
 import org.apache.hop.ui.core.gui.IGuiPluginCompositeWidgetsListener;
@@ -67,7 +71,8 @@ public class DataVaultConfigOptionPlugin
   private static final String WIDGET_ID_MAX_UNDO_OPERATIONS = "10010-max-undo-operations";
   private static final String WIDGET_ID_LAYOUT_ENABLED = "10020-layout-enabled";
   private static final String WIDGET_ID_LAYOUT_DIRECTION = "10030-layout-direction";
-  private static final String WIDGET_ID_LAYOUT_SPACING_WITHIN_LAYER = "10040-layout-spacing-within-layer";
+  private static final String WIDGET_ID_LAYOUT_SPACING_WITHIN_LAYER =
+      "10040-layout-spacing-within-layer";
   private static final String WIDGET_ID_LAYOUT_SPACING_BETWEEN_LAYERS =
       "10050-layout-spacing-between-layers";
   private static final String WIDGET_ID_LAYOUT_SPACING_EDGE_NODE = "10060-layout-spacing-edge-node";
@@ -81,6 +86,12 @@ public class DataVaultConfigOptionPlugin
   private static final String WIDGET_ID_LAYOUT_GRID_SIZE = "10130-layout-grid-size";
   private static final String WIDGET_ID_LAYOUT_MIN_NODE_WIDTH = "10140-layout-min-node-width";
   private static final String WIDGET_ID_LAYOUT_NODE_HEIGHT = "10150-layout-node-height";
+  private static final String WIDGET_ID_AI_ENABLED = "10200-ai-enabled";
+  private static final String WIDGET_ID_AI_PROVIDER_PRESET = "10210-ai-provider-preset";
+  private static final String WIDGET_ID_AI_API_KEY = "10220-ai-api-key";
+  private static final String WIDGET_ID_AI_BASE_URL = "10230-ai-base-url";
+  private static final String WIDGET_ID_AI_MODEL_NAME = "10240-ai-model-name";
+  private static final String WIDGET_ID_AI_TEMPERATURE = "10250-ai-temperature";
 
   @GuiWidgetElement(
       id = WIDGET_ID_DRAW_HASH_KEYS_IN_MODEL,
@@ -256,6 +267,68 @@ public class DataVaultConfigOptionPlugin
       description = "Transform height used by generated pipeline layout (pixels)")
   private String layoutNodeHeight;
 
+  @GuiWidgetElement(
+      id = WIDGET_ID_AI_ENABLED,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::DataVaultConfigOptionPlugin.AiEnabled.Message")
+  @CommandLine.Option(
+      names = {"--dv-ai-enabled"},
+      description = "Enable AI advisory in the Data Vault modeler")
+  private Boolean aiEnabled;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_AI_PROVIDER_PRESET,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.COMBO,
+      label = "i18n::DataVaultConfigOptionPlugin.AiProviderPreset.Message",
+      comboValuesMethod = "getAiProviderPresetOptions")
+  @CommandLine.Option(
+      names = {"--dv-ai-provider"},
+      description = "AI provider preset for Data Vault advisory")
+  private String aiProviderPreset;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_AI_API_KEY,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      password = true,
+      label = "i18n::DataVaultConfigOptionPlugin.AiApiKey.Message")
+  @CommandLine.Option(
+      names = {"--dv-ai-api-key"},
+      description = "API key for the Data Vault AI provider")
+  private String aiApiKey;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_AI_BASE_URL,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      label = "i18n::DataVaultConfigOptionPlugin.AiBaseUrl.Message")
+  @CommandLine.Option(
+      names = {"--dv-ai-base-url"},
+      description = "Optional override of the AI provider base URL")
+  private String aiBaseUrl;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_AI_MODEL_NAME,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      label = "i18n::DataVaultConfigOptionPlugin.AiModelName.Message")
+  @CommandLine.Option(
+      names = {"--dv-ai-model-name"},
+      description = "Optional override of the AI model name")
+  private String aiModelName;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_AI_TEMPERATURE,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      label = "i18n::DataVaultConfigOptionPlugin.AiTemperature.Message")
+  @CommandLine.Option(
+      names = {"--dv-ai-temperature"},
+      description = "Sampling temperature for Data Vault AI advisory")
+  private String aiTemperature;
+
   public static DataVaultConfigOptionPlugin getInstance() {
     DataVaultConfigOptionPlugin instance = new DataVaultConfigOptionPlugin();
 
@@ -277,6 +350,12 @@ public class DataVaultConfigOptionPlugin
     instance.layoutGridSize = Integer.toString(layout.getGridSize());
     instance.layoutMinNodeWidth = Integer.toString(layout.getMinNodeWidth());
     instance.layoutNodeHeight = Integer.toString(layout.getNodeHeight());
+    instance.aiEnabled = config.isAiEnabled();
+    instance.aiProviderPreset = DvAiProviderPreset.resolve(config.getAiProviderPreset()).getLabel();
+    instance.aiApiKey = config.getAiApiKey();
+    instance.aiBaseUrl = config.getAiBaseUrl();
+    instance.aiModelName = config.getAiModelName();
+    instance.aiTemperature = config.getAiTemperature();
     return instance;
   }
 
@@ -321,21 +400,22 @@ public class DataVaultConfigOptionPlugin
             ElkLayoutValues.parseNonNegativeInt(
                 layoutSpacingWithinLayer, ElkLayout.DEFAULT_SPACING_WITHIN_LAYER));
         log.logBasic(
-            "Set generated pipeline within-layer spacing to "
-                + elkLayout.getSpacingWithinLayer());
+            "Set generated pipeline within-layer spacing to " + elkLayout.getSpacingWithinLayer());
         changed = true;
       }
       if (layoutSpacingBetweenLayers != null) {
-        elkLayout.setSpacingBetweenLayers(ElkLayoutValues.parseNonNegativeInt(
-            layoutSpacingBetweenLayers, ElkLayout.DEFAULT_SPACING_BETWEEN_LAYERS));
+        elkLayout.setSpacingBetweenLayers(
+            ElkLayoutValues.parseNonNegativeInt(
+                layoutSpacingBetweenLayers, ElkLayout.DEFAULT_SPACING_BETWEEN_LAYERS));
         log.logBasic(
             "Set generated pipeline between-layer spacing to "
                 + elkLayout.getSpacingBetweenLayers());
         changed = true;
       }
       if (layoutSpacingEdgeNode != null) {
-        elkLayout.setSpacingEdgeNode(ElkLayoutValues.parseNonNegativeInt(
-            layoutSpacingEdgeNode, ElkLayout.DEFAULT_SPACING_EDGE_NODE));
+        elkLayout.setSpacingEdgeNode(
+            ElkLayoutValues.parseNonNegativeInt(
+                layoutSpacingEdgeNode, ElkLayout.DEFAULT_SPACING_EDGE_NODE));
         log.logBasic("Set generated pipeline edge spacing to " + elkLayout.getSpacingEdgeNode());
         changed = true;
       }
@@ -361,17 +441,20 @@ public class DataVaultConfigOptionPlugin
         changed = true;
       }
       if (layoutOriginX != null) {
-        elkLayout.setOriginX(ElkLayoutValues.parseNonNegativeInt(layoutOriginX, ElkLayout.DEFAULT_ORIGIN_X));
+        elkLayout.setOriginX(
+            ElkLayoutValues.parseNonNegativeInt(layoutOriginX, ElkLayout.DEFAULT_ORIGIN_X));
         log.logBasic("Set generated pipeline layout origin X to " + elkLayout.getOriginX());
         changed = true;
       }
       if (layoutOriginY != null) {
-        elkLayout.setOriginY(ElkLayoutValues.parseNonNegativeInt(layoutOriginY, ElkLayout.DEFAULT_ORIGIN_Y));
+        elkLayout.setOriginY(
+            ElkLayoutValues.parseNonNegativeInt(layoutOriginY, ElkLayout.DEFAULT_ORIGIN_Y));
         log.logBasic("Set generated pipeline layout origin Y to " + elkLayout.getOriginY());
         changed = true;
       }
       if (layoutGridSize != null) {
-        elkLayout.setGridSize(ElkLayoutValues.parsePositiveInt(layoutGridSize, ElkLayout.DEFAULT_GRID_SIZE));
+        elkLayout.setGridSize(
+            ElkLayoutValues.parsePositiveInt(layoutGridSize, ElkLayout.DEFAULT_GRID_SIZE));
         log.logBasic("Set generated pipeline layout grid size to " + elkLayout.getGridSize());
         changed = true;
       }
@@ -382,8 +465,35 @@ public class DataVaultConfigOptionPlugin
         changed = true;
       }
       if (layoutNodeHeight != null) {
-        elkLayout.setNodeHeight(ElkLayoutValues.parsePositiveInt(layoutNodeHeight, ElkLayout.DEFAULT_NODE_HEIGHT));
+        elkLayout.setNodeHeight(
+            ElkLayoutValues.parsePositiveInt(layoutNodeHeight, ElkLayout.DEFAULT_NODE_HEIGHT));
         log.logBasic("Set generated pipeline node height to " + elkLayout.getNodeHeight());
+        changed = true;
+      }
+      if (aiEnabled != null) {
+        config.setAiEnabled(aiEnabled);
+        log.logBasic(
+            aiEnabled ? "Enabled Data Vault AI advisory" : "Disabled Data Vault AI advisory");
+        changed = true;
+      }
+      if (aiProviderPreset != null) {
+        config.setAiProviderPreset(DvAiProviderPreset.fromLabel(aiProviderPreset).name());
+        changed = true;
+      }
+      if (aiApiKey != null) {
+        config.setAiApiKey(aiApiKey);
+        changed = true;
+      }
+      if (aiBaseUrl != null) {
+        config.setAiBaseUrl(aiBaseUrl);
+        changed = true;
+      }
+      if (aiModelName != null) {
+        config.setAiModelName(aiModelName);
+        changed = true;
+      }
+      if (aiTemperature != null) {
+        config.setAiTemperature(aiTemperature);
         changed = true;
       }
 
@@ -432,23 +542,27 @@ public class DataVaultConfigOptionPlugin
           elkLayout.setEnabled(layoutEnabled);
           break;
         case WIDGET_ID_LAYOUT_DIRECTION:
-          layoutDirection = ElkLayoutValues.parseEnum(getComboText(control), ElkLayoutDirection.class);
+          layoutDirection =
+              ElkLayoutValues.parseEnum(getComboText(control), ElkLayoutDirection.class);
           elkLayout.setDirection(layoutDirection);
           break;
         case WIDGET_ID_LAYOUT_SPACING_WITHIN_LAYER:
           layoutSpacingWithinLayer = getTextValue(control);
-          elkLayout.setSpacingWithinLayer(ElkLayoutValues.parseNonNegativeInt(
-              layoutSpacingWithinLayer, ElkLayout.DEFAULT_SPACING_WITHIN_LAYER));
+          elkLayout.setSpacingWithinLayer(
+              ElkLayoutValues.parseNonNegativeInt(
+                  layoutSpacingWithinLayer, ElkLayout.DEFAULT_SPACING_WITHIN_LAYER));
           break;
         case WIDGET_ID_LAYOUT_SPACING_BETWEEN_LAYERS:
           layoutSpacingBetweenLayers = getTextValue(control);
-          elkLayout.setSpacingBetweenLayers(ElkLayoutValues.parseNonNegativeInt(
-              layoutSpacingBetweenLayers, ElkLayout.DEFAULT_SPACING_BETWEEN_LAYERS));
+          elkLayout.setSpacingBetweenLayers(
+              ElkLayoutValues.parseNonNegativeInt(
+                  layoutSpacingBetweenLayers, ElkLayout.DEFAULT_SPACING_BETWEEN_LAYERS));
           break;
         case WIDGET_ID_LAYOUT_SPACING_EDGE_NODE:
           layoutSpacingEdgeNode = getTextValue(control);
-          elkLayout.setSpacingEdgeNode(ElkLayoutValues.parseNonNegativeInt(
-              layoutSpacingEdgeNode, ElkLayout.DEFAULT_SPACING_EDGE_NODE));
+          elkLayout.setSpacingEdgeNode(
+              ElkLayoutValues.parseNonNegativeInt(
+                  layoutSpacingEdgeNode, ElkLayout.DEFAULT_SPACING_EDGE_NODE));
           break;
         case WIDGET_ID_LAYOUT_CROSSING_MINIMIZATION:
           layoutCrossingMinimization =
@@ -456,7 +570,8 @@ public class DataVaultConfigOptionPlugin
           elkLayout.setCrossingMinimization(layoutCrossingMinimization);
           break;
         case WIDGET_ID_LAYOUT_NODE_PLACEMENT:
-          layoutNodePlacement = ElkLayoutValues.parseEnum(getComboText(control), ElkNodePlacement.class);
+          layoutNodePlacement =
+              ElkLayoutValues.parseEnum(getComboText(control), ElkNodePlacement.class);
           elkLayout.setNodePlacement(layoutNodePlacement);
           break;
         case WIDGET_ID_LAYOUT_LAYERING_STRATEGY:
@@ -465,7 +580,8 @@ public class DataVaultConfigOptionPlugin
           elkLayout.setLayeringStrategy(layoutLayeringStrategy);
           break;
         case WIDGET_ID_LAYOUT_CYCLE_BREAKING:
-          layoutCycleBreaking = ElkLayoutValues.parseEnum(getComboText(control), ElkCycleBreaking.class);
+          layoutCycleBreaking =
+              ElkLayoutValues.parseEnum(getComboText(control), ElkCycleBreaking.class);
           elkLayout.setCycleBreaking(layoutCycleBreaking);
           break;
         case WIDGET_ID_LAYOUT_ORIGIN_X:
@@ -480,17 +596,43 @@ public class DataVaultConfigOptionPlugin
           break;
         case WIDGET_ID_LAYOUT_GRID_SIZE:
           layoutGridSize = getTextValue(control);
-          elkLayout.setGridSize(ElkLayoutValues.parsePositiveInt(layoutGridSize, ElkLayout.DEFAULT_GRID_SIZE));
+          elkLayout.setGridSize(
+              ElkLayoutValues.parsePositiveInt(layoutGridSize, ElkLayout.DEFAULT_GRID_SIZE));
           break;
         case WIDGET_ID_LAYOUT_MIN_NODE_WIDTH:
           layoutMinNodeWidth = getTextValue(control);
           elkLayout.setMinNodeWidth(
-              ElkLayoutValues.parsePositiveInt(layoutMinNodeWidth, ElkLayout.DEFAULT_MIN_NODE_WIDTH));
+              ElkLayoutValues.parsePositiveInt(
+                  layoutMinNodeWidth, ElkLayout.DEFAULT_MIN_NODE_WIDTH));
           break;
         case WIDGET_ID_LAYOUT_NODE_HEIGHT:
           layoutNodeHeight = getTextValue(control);
           elkLayout.setNodeHeight(
               ElkLayoutValues.parsePositiveInt(layoutNodeHeight, ElkLayout.DEFAULT_NODE_HEIGHT));
+          break;
+        case WIDGET_ID_AI_ENABLED:
+          aiEnabled = ((Button) control).getSelection();
+          config.setAiEnabled(aiEnabled);
+          break;
+        case WIDGET_ID_AI_PROVIDER_PRESET:
+          aiProviderPreset = getComboText(control);
+          config.setAiProviderPreset(DvAiProviderPreset.fromLabel(aiProviderPreset).name());
+          break;
+        case WIDGET_ID_AI_API_KEY:
+          aiApiKey = getTextValue(control);
+          config.setAiApiKey(aiApiKey);
+          break;
+        case WIDGET_ID_AI_BASE_URL:
+          aiBaseUrl = getTextValue(control);
+          config.setAiBaseUrl(aiBaseUrl);
+          break;
+        case WIDGET_ID_AI_MODEL_NAME:
+          aiModelName = getTextValue(control);
+          config.setAiModelName(aiModelName);
+          break;
+        case WIDGET_ID_AI_TEMPERATURE:
+          aiTemperature = getTextValue(control);
+          config.setAiTemperature(aiTemperature);
           break;
         default:
           break;
@@ -501,8 +643,10 @@ public class DataVaultConfigOptionPlugin
     } catch (Exception e) {
       new ErrorDialog(
           HopGui.getInstance().getShell(),
-          BaseMessages.getString(PKG, "DataVaultConfigOptionPlugin.SavingOption.ErrorDialog.Header"),
-          BaseMessages.getString(PKG, "DataVaultConfigOptionPlugin.SavingOption.ErrorDialog.Message"),
+          BaseMessages.getString(
+              PKG, "DataVaultConfigOptionPlugin.SavingOption.ErrorDialog.Header"),
+          BaseMessages.getString(
+              PKG, "DataVaultConfigOptionPlugin.SavingOption.ErrorDialog.Message"),
           e);
     }
   }
@@ -529,6 +673,12 @@ public class DataVaultConfigOptionPlugin
         "Unsupported combo control type: " + control.getClass().getName());
   }
 
+  /** Combo items for the AI provider preset widget. */
+  public List<String> getAiProviderPresetOptions(
+      ILogChannel log, IHopMetadataProvider metadataProvider) {
+    return Arrays.asList(DvAiProviderPreset.labels());
+  }
+
   private static int parseMaxUndoOperations(String value) {
     if (value == null || value.isBlank()) {
       return DataVaultConfig.DEFAULT_MAX_UNDO_OPERATIONS;
@@ -540,5 +690,4 @@ public class DataVaultConfigOptionPlugin
       return DataVaultConfig.DEFAULT_MAX_UNDO_OPERATIONS;
     }
   }
-
 }
