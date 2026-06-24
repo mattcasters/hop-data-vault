@@ -1524,7 +1524,7 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_AI_HELP,
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.AiHelp.Tooltip",
-      image = "ui/images/help.svg")
+      image = "datavault_ai_help.svg")
   public void openAiAdvisor() {
     if (model == null) {
       return;
@@ -2144,6 +2144,22 @@ public class HopGuiVaultGraph extends HopGuiAbstractGraph
       categoryOrder = "1")
   public void importDatabaseSourceTables(HopGuiVaultContext context) {
     importCatalogRecordDefinitions();
+  }
+
+  @GuiContextAction(
+      id = "vault-graph-ai-help",
+      parentId = HopGuiVaultContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiVaultGraph.AiHelp.Name",
+      tooltip = "i18n::HopGuiVaultGraph.AiHelp.Tooltip",
+      image = "datavault_ai_help.svg",
+      category = "Help",
+      categoryOrder = "1")
+  public void openAiAdvisorContext(HopGuiVaultContext context) {
+    HopGuiVaultGraph realGraph = context.getVaultGraph();
+    if (realGraph != null) {
+      realGraph.openAiAdvisor();
+    }
   }
 
   // --- @GuiContextAction methods for table context (left click on icon body, not name) ---
