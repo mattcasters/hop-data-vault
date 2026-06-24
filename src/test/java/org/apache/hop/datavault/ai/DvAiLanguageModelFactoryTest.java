@@ -40,4 +40,18 @@ class DvAiLanguageModelFactoryTest {
     assertEquals("test-key", meta.getOpenAiApiKey());
     assertEquals("grok-4", meta.getOpenAiModelName());
   }
+  @Test
+  void googleGeminiPresetMapsToOpenAiCompatibleSettings() throws Exception {
+    DataVaultConfig config = new DataVaultConfig();
+    config.setAiProviderPreset(DvAiProviderPreset.GOOGLE_GEMINI.name());
+    config.setAiApiKey("test-key-gemini");
+    config.setAiModelName("gemini-2.5-flash");
+
+    LanguageModelChatMeta meta = DvAiLanguageModelFactory.fromConfig(config, null);
+
+    assertEquals("OPEN_AI", meta.getModelType());
+    assertEquals("https://generativelanguage.googleapis.com/v1beta/openai", meta.getOpenAiBaseUrl());
+    assertEquals("test-key-gemini", meta.getOpenAiApiKey());
+    assertEquals("gemini-2.5-flash", meta.getOpenAiModelName());
+  }
 }

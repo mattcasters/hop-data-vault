@@ -16,12 +16,12 @@
   </info>
   <transform>
     <type>RowGenerator</type>
-    <name>25M rows</name>
+    <name>1M rows</name>
     <never_ending>N</never_ending>
     <interval_in_ms>5000</interval_in_ms>
     <row_time_field>now</row_time_field>
     <last_time_field>FiveSecondsAgo</last_time_field>
-    <limit>25000000</limit>
+    <limit>1000000</limit>
     <fields/>
     <distribute>Y</distribute>
     <copies>1</copies>
@@ -110,7 +110,7 @@ var price = getRandomInt(100, 4000)/100;
         <name>price</name>
         <rename>price</rename>
         <type>Number</type>
-        <length>16</length>
+        <length>8</length>
         <precision>2</precision>
         <replace>N</replace>
       </field>
@@ -219,8 +219,8 @@ var price = getRandomInt(100, 4000)/100;
         <name>price</name>
         <type>Number</type>
         <format>0.00</format>
-        <length>-1</length>
-        <precision>-1</precision>
+        <length>7</length>
+        <precision>2</precision>
         <currency>$</currency>
         <decimal>.</decimal>
         <group>,</group>
@@ -243,7 +243,7 @@ var price = getRandomInt(100, 4000)/100;
   </transform>
   <order>
     <hop>
-      <from>25M rows</from>
+      <from>1M rows</from>
       <to>order_id</to>
       <enabled>Y</enabled>
     </hop>

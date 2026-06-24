@@ -1,0 +1,14 @@
+{
+  "virtualPath": "",
+  "executionInfoLocation": {
+    "caching-file-location": {
+      "persistenceDelay": "5000",
+      "rootFolder": "/tmp/executions",
+      "maxCacheAge": "86400000"
+    }
+  },
+  "dataLoggingDelay": "2000",
+  "name": "tmp-executions",
+  "description": "",
+  "dataLoggingInterval": "5000"
+}

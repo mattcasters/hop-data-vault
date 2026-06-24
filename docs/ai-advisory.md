@@ -23,6 +23,7 @@ The AI Advisor supports various LLM providers using standard Hop Language Model 
 | :--- | :--- | :--- | :--- |
 | **Grok (xAI)** | `https://api.x.ai/v1` | `grok-4` | API key from [console.x.ai](https://console.x.ai) |
 | **OpenAI** | `https://api.openai.com/v1` | `gpt-4o-mini` | API key from [platform.openai.com](https://platform.openai.com) |
+| **Google (Gemini)**| `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash` | API key from [Google AI Studio](https://ai.google.dev/) |
 | **Anthropic** | *(Uses default endpoint)* | `claude-3-5-sonnet-20241022` | API key from Anthropic console |
 | **Mistral** | `https://api.mistral.ai/v1` | `mistral-small-latest` | Mistral API Key |
 | **Ollama** | `http://localhost:11434` | `llama3.2` | Local Ollama instance (No API key needed) |

@@ -37,7 +37,7 @@ public class DataVaultConfig {
   /** Master switch for AI advisory in the Data Vault modeler. */
   private boolean aiEnabled;
 
-  /** Provider preset: GROK, OPENAI, ANTHROPIC, OLLAMA, MISTRAL, HUGGING_FACE, CUSTOM. */
+  /** Provider preset: GROK, OPENAI, GOOGLE_GEMINI, ANTHROPIC, OLLAMA, MISTRAL, HUGGING_FACE, CUSTOM. */
   private String aiProviderPreset = "GROK";
 
   /** API key for the selected LLM provider (stored in Hop config; never embedded in prompts). */

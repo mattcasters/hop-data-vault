@@ -60,7 +60,7 @@ public final class DvAiLanguageModelFactory {
     }
 
     switch (preset) {
-      case GROK, OPENAI, CUSTOM -> applyOpenAi(meta, baseUrl, apiKey, modelName, temp);
+      case GROK, OPENAI, GOOGLE_GEMINI, CUSTOM -> applyOpenAi(meta, baseUrl, apiKey, modelName, temp);
       case ANTHROPIC -> {
         meta.setAnthropicApiKey(apiKey);
         meta.setAnthropicModelName(modelName);

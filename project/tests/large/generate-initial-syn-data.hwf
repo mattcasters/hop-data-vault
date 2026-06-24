@@ -28,7 +28,7 @@
       <attributes_hac/>
     </action>
     <action>
-      <filename>${PROJECT_HOME}/files/large/generate-syn-customer.hpl</filename>
+      <filename>${PROJECT_HOME}/tests/large/generate-syn-customer.hpl</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <clear_rows>N</clear_rows>
@@ -36,6 +36,8 @@
       <create_parent_folder>N</create_parent_folder>
       <set_logfile>N</set_logfile>
       <set_append_logfile>N</set_append_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
       <loglevel>Basic</loglevel>
@@ -54,7 +56,7 @@
       <attributes_hac/>
     </action>
     <action>
-      <filename>${PROJECT_HOME}/files/large/generate-syn-product.hpl</filename>
+      <filename>${PROJECT_HOME}/tests/large/generate-syn-product.hpl</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <clear_rows>N</clear_rows>
@@ -62,6 +64,8 @@
       <create_parent_folder>N</create_parent_folder>
       <set_logfile>N</set_logfile>
       <set_append_logfile>N</set_append_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
       <loglevel>Basic</loglevel>
@@ -88,6 +92,8 @@
       <create_parent_folder>N</create_parent_folder>
       <set_logfile>N</set_logfile>
       <set_append_logfile>N</set_append_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
       <loglevel>Basic</loglevel>
@@ -96,7 +102,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>generate-syn-order</name>
+      <name>generate-syn-order.hpl</name>
       <description/>
       <type>PIPELINE</type>
       <attributes/>
@@ -123,7 +129,7 @@
     </hop>
     <hop>
       <from>generate-syn-product</from>
-      <to>generate-syn-order</to>
+      <to>generate-syn-order.hpl</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
