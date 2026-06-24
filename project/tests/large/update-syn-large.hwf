@@ -28,7 +28,7 @@
       <attributes_hac/>
     </action>
     <action>
-      <dataVaultModelFile>/home/matt/git/mattcasters/hop-data-vault/project/files/large/syn-large.hdv</dataVaultModelFile>
+      <dataVaultModelFile>${PROJECT_HOME}/tests/large/syn-large.hdv</dataVaultModelFile>
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>Y</logModelCheckFailures>
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
@@ -85,7 +85,7 @@ DROP TABLE IF EXISTS lnk_syn_order
       <attributes_hac/>
     </action>
     <action>
-      <dataVaultModelFile>/home/matt/git/mattcasters/hop-data-vault/project/files/large/syn-large.hdv</dataVaultModelFile>
+      <dataVaultModelFile>${PROJECT_HOME}/tests/large/syn-large.hdv</dataVaultModelFile>
       <pipelineRunConfiguration>local</pipelineRunConfiguration>
       <logModelCheckFailures>Y</logModelCheckFailures>
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>

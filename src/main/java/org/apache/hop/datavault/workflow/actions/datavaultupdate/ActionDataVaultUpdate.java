@@ -361,6 +361,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
               || !Utils.isEmpty(realDdlSqlFilename);
 
       if (processDdl) {
+        boolean ddlPhaseFailed = false;
         List<String> ddlStatements = new ArrayList<>();
         for (IDvTable table : tables) {
           try {
@@ -377,6 +378,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                 ex);
             totalErrors++;
             success = false;
+            ddlPhaseFailed = true;
           }
         }
 
@@ -407,6 +409,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                   e);
               totalErrors++;
               success = false;
+              ddlPhaseFailed = true;
             }
           }
 
@@ -416,6 +419,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                   BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.DdlExecutionFailed", ""));
               totalErrors++;
               success = false;
+              ddlPhaseFailed = true;
             } else {
               ILoggingObject loggingObject =
                   new SimpleLoggingObject("ActionDataVaultUpdate", LoggingObjectType.GENERAL, null);
@@ -459,6 +463,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                     e);
                 totalErrors++;
                 success = false;
+                ddlPhaseFailed = true;
               }
             }
           } else {
@@ -466,6 +471,11 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           }
         } else {
           logBasic(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Log.NoDdlNeeded"));
+        }
+
+        if (updateTargetDatabaseStructure && ddlPhaseFailed) {
+          logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Log.AbortingOnDdlFailure"));
+          return finishExecution(result, false, Math.max(totalErrors, 1), model);
         }
       }
 
