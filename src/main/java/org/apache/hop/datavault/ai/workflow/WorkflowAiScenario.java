@@ -16,24 +16,20 @@
  *
  */
 
-package org.apache.hop.datavault.ai;
+package org.apache.hop.datavault.ai.workflow;
 
-import org.apache.hop.core.exception.HopException;
+import lombok.Getter;
 
-/** Loads system prompt templates from classpath resources. */
-public final class DvAiPromptLoader {
+@Getter
+public enum WorkflowAiScenario {
+  WORKFLOW_GENERAL("workflow-general"),
+  ACTION_SELECTION("action-selection"),
+  WORKFLOW_ERROR_DIAGNOSIS("workflow-error-diagnosis"),
+  WORKFLOW_DESIGN("workflow-design");
 
-  private static final String PROMPT_ROOT = "/org/apache/hop/datavault/ai/prompts/";
+  private final String promptResource;
 
-  private DvAiPromptLoader() {}
-
-  public static String loadPreamble() throws HopException {
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, "preamble.txt");
-  }
-
-  public static String loadScenarioPrompt(DvAiScenario scenario) throws HopException {
-    String name =
-        scenario != null ? scenario.getPromptResource() : DvAiScenario.GENERAL.getPromptResource();
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, name + ".txt");
+  WorkflowAiScenario(String promptResource) {
+    this.promptResource = promptResource;
   }
 }

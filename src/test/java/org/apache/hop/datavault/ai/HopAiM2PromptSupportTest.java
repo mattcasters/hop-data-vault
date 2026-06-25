@@ -18,22 +18,17 @@
 
 package org.apache.hop.datavault.ai;
 
-import org.apache.hop.core.exception.HopException;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Loads system prompt templates from classpath resources. */
-public final class DvAiPromptLoader {
+import org.junit.jupiter.api.Test;
 
-  private static final String PROMPT_ROOT = "/org/apache/hop/datavault/ai/prompts/";
+class HopAiM2PromptSupportTest {
 
-  private DvAiPromptLoader() {}
-
-  public static String loadPreamble() throws HopException {
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, "preamble.txt");
-  }
-
-  public static String loadScenarioPrompt(DvAiScenario scenario) throws HopException {
-    String name =
-        scenario != null ? scenario.getPromptResource() : DvAiScenario.GENERAL.getPromptResource();
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, name + ".txt");
+  @Test
+  void includesM2SchemaAndStandards() throws Exception {
+    String supplement = HopAiM2PromptSupport.buildM2Supplement();
+    assertTrue(supplement.contains("hop_proposals"));
+    assertTrue(supplement.contains("ADD_TRANSFORM"));
+    assertTrue(supplement.contains("Transform plugin type index JSON"));
   }
 }

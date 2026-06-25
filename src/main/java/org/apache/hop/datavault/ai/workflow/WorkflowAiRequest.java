@@ -16,24 +16,25 @@
  *
  */
 
-package org.apache.hop.datavault.ai;
+package org.apache.hop.datavault.ai.workflow;
 
-import org.apache.hop.core.exception.HopException;
+import java.util.List;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Singular;
 
-/** Loads system prompt templates from classpath resources. */
-public final class DvAiPromptLoader {
-
-  private static final String PROMPT_ROOT = "/org/apache/hop/datavault/ai/prompts/";
-
-  private DvAiPromptLoader() {}
-
-  public static String loadPreamble() throws HopException {
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, "preamble.txt");
-  }
-
-  public static String loadScenarioPrompt(DvAiScenario scenario) throws HopException {
-    String name =
-        scenario != null ? scenario.getPromptResource() : DvAiScenario.GENERAL.getPromptResource();
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, name + ".txt");
-  }
+@Getter
+@Builder
+public class WorkflowAiRequest {
+  private final String userPrompt;
+  private final WorkflowAiScenario scenario;
+  private final boolean includeCheckResults;
+  private final boolean includeTopologyXml;
+  private final boolean includeExecutionLog;
+  private final boolean includeActionCatalog;
+  private final String focusActionName;
+  private final String logsExcerpt;
+  private final boolean followUp;
+  @Singular("appliedChangeSummary")
+  private final List<String> appliedChangeSummaries;
 }

@@ -19,21 +19,26 @@
 package org.apache.hop.datavault.ai;
 
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.plugins.ActionPluginType;
+import org.apache.hop.core.plugins.PluginRegistry;
+import org.apache.hop.workflow.action.ActionMeta;
+import org.apache.hop.workflow.action.IAction;
 
-/** Loads system prompt templates from classpath resources. */
-public final class DvAiPromptLoader {
+/** Loads workflow action plugin metadata with plugin defaults for AI proposal application. */
+public final class HopAiActionPluginSupport {
 
-  private static final String PROMPT_ROOT = "/org/apache/hop/datavault/ai/prompts/";
+  private HopAiActionPluginSupport() {}
 
-  private DvAiPromptLoader() {}
-
-  public static String loadPreamble() throws HopException {
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, "preamble.txt");
-  }
-
-  public static String loadScenarioPrompt(DvAiScenario scenario) throws HopException {
-    String name =
-        scenario != null ? scenario.getPromptResource() : DvAiScenario.GENERAL.getPromptResource();
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, name + ".txt");
+  public static ActionMeta newActionMeta(String pluginId, String name) throws HopException {
+    try {
+      IAction action =
+          PluginRegistry.getInstance()
+              .loadClass(ActionPluginType.class, pluginId, IAction.class);
+      ActionMeta actionMeta = new ActionMeta(action);
+      actionMeta.setName(name);
+      return actionMeta;
+    } catch (Exception e) {
+      throw new HopException("Unable to load workflow action plugin: " + pluginId, e);
+    }
   }
 }

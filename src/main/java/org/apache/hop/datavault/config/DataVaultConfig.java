@@ -34,23 +34,23 @@ public class DataVaultConfig {
   private ElkLayout elkLayout = ElkLayout.createDefault();
   private boolean suppressLocalCatalogOffer;
 
-  /** Master switch for AI advisory in the Data Vault modeler. */
-  private boolean aiEnabled;
+  /** @deprecated Migrated to {@link org.apache.hop.datavault.ai.HopAiConfig}; kept for JSON migration. */
+  @Deprecated private boolean aiEnabled;
 
-  /** Provider preset: GROK, OPENAI, GOOGLE_GEMINI, ANTHROPIC, OLLAMA, MISTRAL, HUGGING_FACE, CUSTOM. */
-  private String aiProviderPreset = "GROK";
+  /** @deprecated Migrated to HopAiConfig. */
+  @Deprecated private String aiProviderPreset = "GROK";
 
-  /** API key for the selected LLM provider (stored in Hop config; never embedded in prompts). */
-  private String aiApiKey;
+  /** @deprecated Migrated to HopAiConfig. */
+  @Deprecated private String aiApiKey;
 
-  /** Optional override of the provider base URL (empty uses preset default). */
-  private String aiBaseUrl;
+  /** @deprecated Migrated to HopAiConfig. */
+  @Deprecated private String aiBaseUrl;
 
-  /** Optional override of the model name (empty uses preset default). */
-  private String aiModelName;
+  /** @deprecated Migrated to HopAiConfig. */
+  @Deprecated private String aiModelName;
 
-  /** Sampling temperature for advisory requests (0.0–1.0 typical). */
-  private String aiTemperature = "0.3";
+  /** @deprecated Migrated to HopAiConfig. */
+  @Deprecated private String aiTemperature = "0.3";
 
   public DataVaultConfig() {
     drawingHashKeysInModel = true;

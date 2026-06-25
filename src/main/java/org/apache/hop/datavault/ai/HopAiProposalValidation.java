@@ -18,22 +18,25 @@
 
 package org.apache.hop.datavault.ai;
 
-import org.apache.hop.core.exception.HopException;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-/** Loads system prompt templates from classpath resources. */
-public final class DvAiPromptLoader {
+/** Validation outcome for a single Hop AI proposal. */
+public final class HopAiProposalValidation {
 
-  private static final String PROMPT_ROOT = "/org/apache/hop/datavault/ai/prompts/";
-
-  private DvAiPromptLoader() {}
-
-  public static String loadPreamble() throws HopException {
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, "preamble.txt");
+  public enum Status {
+    OK,
+    WARNING,
+    BLOCKED
   }
 
-  public static String loadScenarioPrompt(DvAiScenario scenario) throws HopException {
-    String name =
-        scenario != null ? scenario.getPromptResource() : DvAiScenario.GENERAL.getPromptResource();
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, name + ".txt");
+  private HopAiProposalValidation() {}
+
+  @Getter
+  @AllArgsConstructor
+  public static class Result {
+    private final HopAiProposal proposal;
+    private final Status status;
+    private final String message;
   }
 }

@@ -11,4 +11,16 @@ components for Apache Hop.
 See: https://x.ai
      https://github.com/apache/hop/issues/7077
 
+---
+
+Bundled Apache Hop development guidance (hop-standards prompt resources)
+
+Condensed extracts used in Pipeline & Workflow AI Help Milestone 2 prompts are
+derived from the Apache Hop Development Skill by De Bortoli Wines Pty Limited:
+https://github.com/DeBortoliWines/skill-apache-hop-development
+
+Copyright 2026 De Bortoli Wines Pty Limited. Licensed under the Apache License,
+Version 2.0. See src/main/resources/org/apache/hop/datavault/ai/prompts/hop-standards/
+NOTICE-debortoli-hop-skill.txt for full attribution.
+
 

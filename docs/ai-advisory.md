@@ -10,8 +10,10 @@ The Apache Hop Data Vault plugin includes an AI-powered assistant (the **AI Help
 
 To use the AI Helper:
 1. Ensure the Hop **Language Model Chat** transform (`hop-transform-languagemodelchat`) is installed in your Apache Hop distribution (bundled by default under the plugin’s dependencies).
-2. Configure your preferred AI provider in **Hop GUI → Configuration → Data Vault 2.0**.
+2. Configure your preferred AI provider in **Hop GUI → Configuration → AI Assistant**.
 3. Enable the **Enable AI advisory** flag and select or configure your model details.
+
+> **Note:** AI settings previously stored under **Data Vault 2.0** configuration are migrated automatically to **AI Assistant** on first load.
 
 ---
 
@@ -34,11 +36,31 @@ The AI Advisor supports various LLM providers using standard Hop Language Model 
 
 ## How to Use AI Help
 
+### Data Vault modeler
+
 1. Open your Data Vault model (`.hdv`) in the visual modeler canvas.
-2. Click **AI Help** on the modeler toolbar (next to **Check model**).
+2. Click **AI Help** on the modeler toolbar (next to **Check model**), or right-click the canvas and choose **AI Help** under **Help**.
 3. Select an advisory **Scenario** corresponding to your goal.
 4. Set your **Context Inclusions** (described below) and type your question in the prompt input field.
 5. Click **Send**. The advisor runs the prompt in the background, updating the conversation transcript when a response is ready.
+
+### Pipelines and workflows
+
+Pipeline and workflow **AI Help** supports multi-turn advisory chat and, when the model suggests concrete edits, **structural proposals** you can review and apply to the open graph. See [Pipeline & Workflow AI Help — M2](hop-ai-assistant-m2.md) for proposal types, validation rules, and bundled Hop standards.
+
+Open a pipeline (`.hpl`) or workflow (`.hwf`) and use:
+
+- **AI Help** on the graph toolbar
+- Right-click the canvas → **Help** → **AI Help**
+- Right-click a transform or action → **Help** → **AI Help** (sets focus on that node)
+
+**Pipeline scenarios:** General, Transform selection, Error diagnosis, Pipeline design.
+
+**Workflow scenarios:** General, Action selection, Error diagnosis, Workflow design.
+
+**Context inclusions:** pipeline/workflow check results, transform/action plugin catalog, optional full XML, and execution log excerpt from the Hop GUI log panel.
+
+When a response includes `hop_proposals`, click **Review N proposed change(s)** in the transcript (same flow as the Data Vault modeler). Applied changes register undo on the pipeline/workflow graph; follow-up turns include summaries of what you applied.
 
 ### Advisory Scenarios
 
@@ -63,7 +85,10 @@ You can control what metadata is sent to the LLM to balance response accuracy an
 
 ## Interactive Structural Proposals
 
-In addition to providing conversational guidance, the AI can propose specific modifications to your Data Vault model. When a response contains actionable model edits, a **Review Turn's Proposed Changes** button appears in the conversation history.
+In addition to providing conversational guidance, the AI can propose specific modifications to your open artifact. When a response contains actionable edits, a **Review … proposed change(s)** button appears in the conversation history.
+
+- **Data Vault model** (`.hdv`): table/hub/link/satellite proposals (`dv_proposals`) — details below.
+- **Pipeline** (`.hpl`) and **workflow** (`.hwf`): graph topology proposals (`hop_proposals`) — see [M2 documentation](hop-ai-assistant-m2.md).
 
 ![Proposal Review Dialog](images/data-vault-ai-help-review-proposals-dialog.png)
 
@@ -104,9 +129,20 @@ The Hop Data Vault AI Helper values the security of your enterprise metadata:
 
 ## Programmatic API
 
-For headless, automated, or test environments, the underlying AI services can be invoked programmatically:
+For headless, automated, or test environments, the underlying AI services can be invoked programmatically.
 
-* [DvAiContextBuilder](file:///home/matt/git/mattcasters/hop-data-vault/src/main/java/org/apache/hop/datavault/ai/DvAiContextBuilder.java): Assembles and redacts context bundles, combining scenario details, model XML, structures, and catalog schemas.
-* [DvAiAdvisorService](file:///home/matt/git/mattcasters/hop-data-vault/src/main/java/org/apache/hop/datavault/ai/DvAiAdvisorService.java): Communicates directly with the configured language model.
-* [DvAiConversationSession](file:///home/matt/git/mattcasters/hop-data-vault/src/main/java/org/apache/hop/datavault/ai/DvAiConversationSession.java): Manages state and conversation turns for interactive applications.
-* [DvAiProposalApplier](file:///home/matt/git/mattcasters/hop-data-vault/src/main/java/org/apache/hop/datavault/ai/DvAiProposalApplier.java): Validates and writes approved proposals directly back to the model memory.
+**Data Vault modeler**
+
+* [DvAiContextBuilder](../src/main/java/org/apache/hop/datavault/ai/DvAiContextBuilder.java): Assembles and redacts context bundles, combining scenario details, model XML, structures, and catalog schemas.
+* [DvAiAdvisorService](../src/main/java/org/apache/hop/datavault/ai/DvAiAdvisorService.java): Communicates directly with the configured language model.
+* [DvAiConversationSession](../src/main/java/org/apache/hop/datavault/ai/DvAiConversationSession.java): Manages state and conversation turns for interactive applications.
+* [DvAiProposalApplier](../src/main/java/org/apache/hop/datavault/ai/DvAiProposalApplier.java): Validates and writes approved proposals directly back to the model memory.
+
+**Pipeline and workflow (M2)**
+
+* [PipelineAiAdvisorService](../src/main/java/org/apache/hop/datavault/ai/pipeline/PipelineAiAdvisorService.java) / [WorkflowAiAdvisorService](../src/main/java/org/apache/hop/datavault/ai/workflow/WorkflowAiAdvisorService.java): LLM calls with M2 prompt supplement and `hop_proposals` parsing.
+* [HopAiProposalParser](../src/main/java/org/apache/hop/datavault/ai/HopAiProposalParser.java): Extracts proposals from raw assistant text.
+* [PipelineAiProposalValidator](../src/main/java/org/apache/hop/datavault/ai/pipeline/PipelineAiProposalValidator.java) / [WorkflowAiProposalValidator](../src/main/java/org/apache/hop/datavault/ai/workflow/WorkflowAiProposalValidator.java): Topology validation before apply.
+* [PipelineAiProposalApplier](../src/main/java/org/apache/hop/datavault/ai/pipeline/PipelineAiProposalApplier.java) / [WorkflowAiProposalApplier](../src/main/java/org/apache/hop/datavault/ai/workflow/WorkflowAiProposalApplier.java): Applies selected proposals.
+
+Full M2 design and proposal tables: [hop-ai-assistant-m2.md](hop-ai-assistant-m2.md).

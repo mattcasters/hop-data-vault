@@ -18,22 +18,33 @@
 
 package org.apache.hop.datavault.ai;
 
-import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.util.Utils;
 
-/** Loads system prompt templates from classpath resources. */
-public final class DvAiPromptLoader {
+public final class HopAiTextUtil {
 
-  private static final String PROMPT_ROOT = "/org/apache/hop/datavault/ai/prompts/";
+  private HopAiTextUtil() {}
 
-  private DvAiPromptLoader() {}
-
-  public static String loadPreamble() throws HopException {
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, "preamble.txt");
+  public static String truncate(String value, int maxChars) {
+    if (Utils.isEmpty(value) || maxChars <= 0) {
+      return value != null ? value : "";
+    }
+    if (value.length() <= maxChars) {
+      return value;
+    }
+    return value.substring(0, maxChars) + "\n... [truncated]";
   }
 
-  public static String loadScenarioPrompt(DvAiScenario scenario) throws HopException {
-    String name =
-        scenario != null ? scenario.getPromptResource() : DvAiScenario.GENERAL.getPromptResource();
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, name + ".txt");
+  public static String jsonString(String value) {
+    if (value == null) {
+      return "null";
+    }
+    return "\""
+        + value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\r", "\\r")
+            .replace("\n", "\\n")
+            .replace("\t", "\\t")
+        + "\"";
   }
 }

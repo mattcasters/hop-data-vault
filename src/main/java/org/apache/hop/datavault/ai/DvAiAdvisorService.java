@@ -28,7 +28,6 @@ import java.util.List;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
-import org.apache.hop.datavault.config.DataVaultConfig;
 import org.apache.hop.pipeline.transforms.languagemodelchat.LanguageModelChatMeta;
 import org.apache.hop.pipeline.transforms.languagemodelchat.internals.LanguageModelFacade;
 
@@ -38,28 +37,18 @@ public final class DvAiAdvisorService {
   private DvAiAdvisorService() {}
 
   public static DvAiResponse advise(
-      DataVaultConfig config, IVariables variables, DvAiContextBundle context)
+      HopAiConfig config, IVariables variables, DvAiContextBundle context)
       throws HopException {
     return advise(config, variables, context, List.of());
   }
 
   public static DvAiResponse advise(
-      DataVaultConfig config,
+      HopAiConfig config,
       IVariables variables,
       DvAiContextBundle context,
       List<ChatMessage> conversationHistory)
       throws HopException {
-    if (config == null || !config.isAiEnabled()) {
-      throw new HopException(
-          "AI advisory is disabled. Enable it under Hop Configuration → Data Vault 2.0.");
-    }
-    if (!DvAiAvailability.isLanguageModelChatAvailable()) {
-      throw new HopException(
-          "The Hop Language Model Chat plugin is not installed. Add hop-transform-languagemodelchat to your Hop assembly.");
-    }
-    if (Utils.isEmpty(config.getAiApiKey()) && !useMock(config)) {
-      throw new HopException("Please configure an API key for the AI provider.");
-    }
+    HopAiAdvisorEngine.validateConfig(config);
 
     LanguageModelChatMeta meta = DvAiLanguageModelFactory.fromConfig(config, variables);
     LanguageModelFacade facade = new LanguageModelFacade(variables, meta);
@@ -82,11 +71,6 @@ public final class DvAiAdvisorService {
     } catch (Exception e) {
       throw new HopException("AI advisory request failed: " + e.getMessage(), e);
     }
-  }
-
-  private static boolean useMock(DataVaultConfig config) {
-    DvAiProviderPreset preset = DvAiProviderPreset.resolve(config.getAiProviderPreset());
-    return preset == DvAiProviderPreset.CUSTOM && Utils.isEmpty(config.getAiApiKey());
   }
 
   static String buildSystemPrompt(DvAiContextBundle context) throws HopException {

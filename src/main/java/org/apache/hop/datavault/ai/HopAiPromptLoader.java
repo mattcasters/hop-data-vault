@@ -18,22 +18,27 @@
 
 package org.apache.hop.datavault.ai;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import org.apache.hop.core.exception.HopException;
 
-/** Loads system prompt templates from classpath resources. */
-public final class DvAiPromptLoader {
+/** Loads AI prompt templates from classpath resources. */
+public final class HopAiPromptLoader {
 
-  private static final String PROMPT_ROOT = "/org/apache/hop/datavault/ai/prompts/";
+  private HopAiPromptLoader() {}
 
-  private DvAiPromptLoader() {}
-
-  public static String loadPreamble() throws HopException {
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, "preamble.txt");
-  }
-
-  public static String loadScenarioPrompt(DvAiScenario scenario) throws HopException {
-    String name =
-        scenario != null ? scenario.getPromptResource() : DvAiScenario.GENERAL.getPromptResource();
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, name + ".txt");
+  public static String loadResource(String classpathRoot, String fileName) throws HopException {
+    String root = classpathRoot.endsWith("/") ? classpathRoot : classpathRoot + "/";
+    String path = root + fileName;
+    try (InputStream in = HopAiPromptLoader.class.getResourceAsStream(path)) {
+      if (in == null) {
+        throw new HopException("AI prompt resource not found: " + path);
+      }
+      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (HopException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new HopException("Unable to load AI prompt resource: " + path, e);
+    }
   }
 }

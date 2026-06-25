@@ -20,7 +20,7 @@ package org.apache.hop.datavault.ai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.apache.hop.datavault.config.DataVaultConfig;
+import org.apache.hop.datavault.ai.HopAiConfig;
 import org.apache.hop.pipeline.transforms.languagemodelchat.LanguageModelChatMeta;
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +28,7 @@ class DvAiLanguageModelFactoryTest {
 
   @Test
   void grokPresetMapsToXaiOpenAiCompatibleSettings() throws Exception {
-    DataVaultConfig config = new DataVaultConfig();
+    HopAiConfig config = new HopAiConfig();
     config.setAiProviderPreset(DvAiProviderPreset.GROK.name());
     config.setAiApiKey("test-key");
     config.setAiModelName("grok-4");
@@ -42,7 +42,7 @@ class DvAiLanguageModelFactoryTest {
   }
   @Test
   void googleGeminiPresetMapsToOpenAiCompatibleSettings() throws Exception {
-    DataVaultConfig config = new DataVaultConfig();
+    HopAiConfig config = new HopAiConfig();
     config.setAiProviderPreset(DvAiProviderPreset.GOOGLE_GEMINI.name());
     config.setAiApiKey("test-key-gemini");
     config.setAiModelName("gemini-2.5-flash");

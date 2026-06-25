@@ -32,8 +32,8 @@ import org.apache.hop.datavault.ai.DvAiProposalValidator;
 import org.apache.hop.datavault.ai.DvAiRequest;
 import org.apache.hop.datavault.ai.DvAiResponse;
 import org.apache.hop.datavault.ai.DvAiScenario;
-import org.apache.hop.datavault.config.DataVaultConfig;
-import org.apache.hop.datavault.config.DataVaultConfigSingleton;
+import org.apache.hop.datavault.ai.HopAiConfig;
+import org.apache.hop.datavault.ai.HopAiConfigSingleton;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
@@ -344,7 +344,7 @@ public class DvAiAdvisorDialog {
   }
 
   private String statusMessage() {
-    DataVaultConfig config = DataVaultConfigSingleton.getConfig();
+    HopAiConfig config = HopAiConfigSingleton.getConfig();
     if (!config.isAiEnabled()) {
       return BaseMessages.getString(PKG, "DvAiAdvisorDialog.Status.Disabled");
     }
@@ -367,7 +367,7 @@ public class DvAiAdvisorDialog {
       return;
     }
 
-    DataVaultConfig config = DataVaultConfigSingleton.getConfig();
+    HopAiConfig config = HopAiConfigSingleton.getConfig();
     List<String> catalogSources = List.of();
     if (wIncludeCatalog.getSelection()) {
       catalogSources =

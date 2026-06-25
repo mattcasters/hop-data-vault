@@ -18,22 +18,21 @@
 
 package org.apache.hop.datavault.ai;
 
-import org.apache.hop.core.exception.HopException;
+import java.util.ArrayList;
+import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
 
-/** Loads system prompt templates from classpath resources. */
-public final class DvAiPromptLoader {
-
-  private static final String PROMPT_ROOT = "/org/apache/hop/datavault/ai/prompts/";
-
-  private DvAiPromptLoader() {}
-
-  public static String loadPreamble() throws HopException {
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, "preamble.txt");
-  }
-
-  public static String loadScenarioPrompt(DvAiScenario scenario) throws HopException {
-    String name =
-        scenario != null ? scenario.getPromptResource() : DvAiScenario.GENERAL.getPromptResource();
-    return HopAiPromptLoader.loadResource(PROMPT_ROOT, name + ".txt");
-  }
+@Getter
+@Setter
+public class HopAiTurn {
+  private String userPrompt;
+  /** Exact user message content sent to the LLM for this turn. */
+  private String llmUserMessage;
+  /** Assistant advice with hop_proposals blocks removed. */
+  private String assistantAdvice;
+  private List<HopAiProposal> proposals = new ArrayList<>();
+  private List<String> appliedSummaries = new ArrayList<>();
+  private boolean proposalBlockPresent;
+  private boolean proposalsDropped;
 }

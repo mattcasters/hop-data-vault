@@ -1,5 +1,5 @@
 <data-vault-model>
-  <filename>/home/matt/git/mattcasters/hop-data-vault/project/files/large/syn-large.hdv</filename>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/project/tests/large/syn-large.hdv</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description/>
   <configuration>
@@ -30,7 +30,7 @@
     <useLoadEndDate>N</useLoadEndDate>
     <targetTableBatchSize>5000</targetTableBatchSize>
     <targetTableParallelCopies>4</targetTableParallelCopies>
-    <sortRowsSize>5000000</sortRowsSize>
+    <sortRowsSize>2000000</sortRowsSize>
     <execution_log_level>Basic</execution_log_level>
     <singleStoreShardKeyOnHashKey>N</singleStoreShardKeyOnHashKey>
     <singleStoreShardKeyIncludeDrivingKeys>Y</singleStoreShardKeyIncludeDrivingKeys>
@@ -60,12 +60,11 @@
       <tableType>HUB</tableType>
       <xloc>352</xloc>
       <yloc>128</yloc>
-      <name>hub_syn_customer</name>
+      <name>HUB_CUSTOMER</name>
       <virtualPath/>
     </table>
     <table>
-      <hub>hub_syn_customer</hub>
-      <link/>
+      <hub>HUB_CUSTOMER</hub>
       <attributes>
         <name>firstname</name>
         <description/>
@@ -95,7 +94,7 @@
       <tableType>SATELLITE</tableType>
       <xloc>608</xloc>
       <yloc>128</yloc>
-      <name>sat_syn_customer</name>
+      <name>SAT_CUSTOMER_SYN</name>
       <virtualPath/>
     </table>
     <table>
@@ -117,12 +116,11 @@
       <tableType>HUB</tableType>
       <xloc>352</xloc>
       <yloc>256</yloc>
-      <name>hub_syn_product</name>
+      <name>HUB_PRODUCT</name>
       <virtualPath/>
     </table>
     <table>
-      <hub>hub_syn_product</hub>
-      <link/>
+      <hub>HUB_PRODUCT</hub>
       <attributes>
         <name>product_code</name>
         <description/>
@@ -152,7 +150,7 @@
       <tableType>SATELLITE</tableType>
       <xloc>608</xloc>
       <yloc>256</yloc>
-      <name>sat_syn_product</name>
+      <name>SAT_PRODUCT_SYN</name>
       <virtualPath/>
     </table>
     <table>
@@ -174,12 +172,11 @@
       <tableType>HUB</tableType>
       <xloc>352</xloc>
       <yloc>384</yloc>
-      <name>hub_syn_order</name>
+      <name>HUB_ORDER</name>
       <virtualPath/>
     </table>
     <table>
-      <hub>hub_syn_order</hub>
-      <link/>
+      <hub>HUB_ORDER</hub>
       <attributes>
         <name>product_id</name>
         <description/>
@@ -209,7 +206,7 @@
         <description/>
         <dataType>Number</dataType>
         <length>15</length>
-        <precision>1</precision>
+        <precision>2</precision>
         <includeInChangeDataCapture>Y</includeInChangeDataCapture>
       </attributes>
       <drivingKey/>
@@ -225,19 +222,19 @@
       <tableType>SATELLITE</tableType>
       <xloc>608</xloc>
       <yloc>384</yloc>
-      <name>sat_syn_order</name>
+      <name>SAT_ORDER_SYN</name>
       <virtualPath/>
     </table>
     <table>
-      <hubNames>hub_syn_customer</hubNames>
-      <hubNames>hub_syn_product</hubNames>
-      <hubNames>hub_syn_order</hubNames>
+      <hubNames>HUB_CUSTOMER</hubNames>
+      <hubNames>HUB_PRODUCT</hubNames>
+      <hubNames>HUB_ORDER</hubNames>
       <linkHubSources>
         <linkHubSource>
           <source>syn-order</source>
           <hubSourceKeyFields>
             <hubSourceKeyField>
-              <hubName>hub_syn_customer</hubName>
+              <hubName>HUB_CUSTOMER</hubName>
               <businessKeySources>
                 <businessKeySource>
                   <businessKeyField>customer_id</businessKeyField>
@@ -247,21 +244,21 @@
               <drivingKeySources/>
             </hubSourceKeyField>
             <hubSourceKeyField>
-              <hubName>hub_syn_order</hubName>
+              <hubName>HUB_PRODUCT</hubName>
               <businessKeySources>
                 <businessKeySource>
-                  <businessKeyField>order_id</businessKeyField>
-                  <sourceFieldName>order_id</sourceFieldName>
+                  <businessKeyField>product_id</businessKeyField>
+                  <sourceFieldName>product_id</sourceFieldName>
                 </businessKeySource>
               </businessKeySources>
               <drivingKeySources/>
             </hubSourceKeyField>
             <hubSourceKeyField>
-              <hubName>hub_syn_product</hubName>
+              <hubName>HUB_ORDER</hubName>
               <businessKeySources>
                 <businessKeySource>
-                  <businessKeyField>product_id</businessKeyField>
-                  <sourceFieldName>product_id</sourceFieldName>
+                  <businessKeyField>order_id</businessKeyField>
+                  <sourceFieldName>order_id</sourceFieldName>
                 </businessKeySource>
               </businessKeySources>
               <drivingKeySources/>
@@ -277,9 +274,9 @@
       <tableName>lnk_syn_order</tableName>
       <description/>
       <tableType>LINK</tableType>
-      <xloc>128</xloc>
+      <xloc>48</xloc>
       <yloc>256</yloc>
-      <name>lnk_syn_order</name>
+      <name>LNK_ORDER</name>
       <virtualPath/>
     </table>
   </tables>
