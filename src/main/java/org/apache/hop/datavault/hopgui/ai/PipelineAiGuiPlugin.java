@@ -49,13 +49,13 @@ public class PipelineAiGuiPlugin {
   }
 
   @GuiContextAction(
-      id = "pipeline-graph-ai-help",
+      id = "pipeline-graph-zzz-ai-help",
       parentId = HopGuiPipelineContext.CONTEXT_ID,
       type = GuiActionType.Modify,
       name = "i18n::PipelineAiGuiPlugin.AiHelp.Name",
       tooltip = "i18n::PipelineAiGuiPlugin.AiHelp.Tooltip",
       image = "datavault_ai_help.svg",
-      category = "Help",
+      category = "i18n:org.apache.hop.ui.hopgui.file.pipeline:HopGuiPipelineGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
   public void openAiAdvisorPipelineContext(HopGuiPipelineContext context) {
     if (context.getPipelineGraph() != null) {
@@ -64,13 +64,13 @@ public class PipelineAiGuiPlugin {
   }
 
   @GuiContextAction(
-      id = "pipeline-graph-transform-ai-help",
+      id = "pipeline-graph-transform-zzz-ai-help",
       parentId = HopGuiPipelineTransformContext.CONTEXT_ID,
       type = GuiActionType.Modify,
       name = "i18n::PipelineAiGuiPlugin.AiHelp.Name",
       tooltip = "i18n::PipelineAiGuiPlugin.AiHelp.Tooltip",
       image = "datavault_ai_help.svg",
-      category = "Help",
+      category = "i18n:org.apache.hop.ui.hopgui.file.pipeline:HopGuiPipelineGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
   public void openAiAdvisorTransformContext(HopGuiPipelineTransformContext context) {
     if (context.getPipelineGraph() != null) {

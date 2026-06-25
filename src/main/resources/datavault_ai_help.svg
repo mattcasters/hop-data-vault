@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!--
   - Licensed to the Apache Software Foundation (ASF) under one or more
   - contributor license agreements.  See the NOTICE file distributed with
@@ -16,37 +17,42 @@
   -
   -->
 
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <rect width="32" height="32" fill="#808080"/>
-
-  <g fill="none" stroke="#000000" stroke-linecap="round">
-    <g stroke-width="1.1">
-      <line x1="8" y1="9" x2="16" y2="5"/>
-      <line x1="8" y1="17" x2="16" y2="5"/>
-      <line x1="8" y1="17" x2="16" y2="13"/>
-      <line x1="8" y1="9" x2="16" y2="13"/>
-      <line x1="16" y1="5" x2="24" y2="9"/>
-      <line x1="16" y1="5" x2="24" y2="17"/>
-      <line x1="16" y1="13" x2="24" y2="9"/>
-      <line x1="16" y1="13" x2="24" y2="17"/>
+<svg
+        width="32"
+        height="32"
+        viewBox="0 0 32 32"
+        version="1.1"
+        xmlns="http://www.w3.org/2000/svg"
+>
+    <g fill="none"
+       stroke="#3D6380"
+       stroke-linecap="round"
+       transform="matrix(1.4865249,0,0,1.4865249,-7.2146798,-4.7389302)">
+        <g stroke-width="1.1">
+            <line x1="8" y1="9" x2="16" y2="5"/>
+            <line x1="8" y1="17" x2="16" y2="5"/>
+            <line x1="8" y1="17" x2="16" y2="13"/>
+            <line x1="8" y1="9" x2="16" y2="13"/>
+            <line x1="16" y1="5" x2="24" y2="9"/>
+            <line x1="16" y1="5" x2="24" y2="17"/>
+            <line x1="16" y1="13" x2="24" y2="9"/>
+            <line x1="16" y1="13" x2="24" y2="17"/>
+        </g>
     </g>
-  </g>
-
-  <g fill="#000000">
-    <circle cx="8" cy="9" r="1.4"/>
-    <circle cx="8" cy="17" r="1.4"/>
-    <circle cx="16" cy="5" r="1.6"/>
-    <circle cx="16" cy="13" r="1.6"/>
-    <circle cx="24" cy="9" r="1.4"/>
-    <circle cx="24" cy="17" r="1.4"/>
-  </g>
-
-  <text
-    x="16"
-    y="27"
-    font-family="Arial, Helvetica, sans-serif"
-    font-size="10"
-    font-weight="bold"
-    fill="#000000"
-    text-anchor="middle">AI</text>
+    <g fill="#0e3a5a" transform="matrix(1.4865249,0,0,1.4865249,-7.2146798,-4.7389302)">
+        <rect x="6.6" y="7.6" width="2.8" height="2.8"/>
+        <rect x="6.6" y="15.6" width="2.8" height="2.8"/>
+        <rect x="14.4" y="3.4" width="3.2" height="3.2"/>
+        <rect x="14.4" y="11.4" width="3.2" height="3.2"/>
+        <rect x="22.6" y="7.6" width="2.8" height="2.8"/>
+        <rect x="22.6" y="15.6" width="2.8" height="2.8"/>
+    </g>
+    <text x="16.016949"
+          y="30.559322"
+          font-family="Arial, Helvetica, sans-serif"
+          font-size="12px"
+          font-weight="bold"
+          fill="#0e3a5a"
+          text-anchor="middle">AI
+    </text>
 </svg>

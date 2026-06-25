@@ -51,8 +51,8 @@ Pipeline and workflow **AI Help** supports multi-turn advisory chat and, when th
 Open a pipeline (`.hpl`) or workflow (`.hwf`) and use:
 
 - **AI Help** on the graph toolbar
-- Right-click the canvas → **Help** → **AI Help**
-- Right-click a transform or action → **Help** → **AI Help** (sets focus on that node)
+- Right-click the canvas → **Basic** → **AI Help**
+- Right-click a transform or action → **Basic** → **AI Help** (sets focus on that node)
 
 **Pipeline scenarios:** General, Transform selection, Error diagnosis, Pipeline design.
 

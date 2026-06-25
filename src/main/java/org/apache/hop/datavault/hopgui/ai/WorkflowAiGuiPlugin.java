@@ -49,13 +49,13 @@ public class WorkflowAiGuiPlugin {
   }
 
   @GuiContextAction(
-      id = "workflow-graph-ai-help",
+      id = "workflow-graph-zzz-ai-help",
       parentId = HopGuiWorkflowContext.CONTEXT_ID,
       type = GuiActionType.Modify,
       name = "i18n::WorkflowAiGuiPlugin.AiHelp.Name",
       tooltip = "i18n::WorkflowAiGuiPlugin.AiHelp.Tooltip",
       image = "datavault_ai_help.svg",
-      category = "Help",
+      category = "i18n:org.apache.hop.ui.hopgui.file.workflow:HopGuiWorkflowGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
   public void openAiAdvisorWorkflowContext(HopGuiWorkflowContext context) {
     if (context.getWorkflowGraph() != null) {
@@ -64,13 +64,13 @@ public class WorkflowAiGuiPlugin {
   }
 
   @GuiContextAction(
-      id = "workflow-graph-action-ai-help",
+      id = "workflow-graph-action-zzz-ai-help",
       parentId = HopGuiWorkflowActionContext.CONTEXT_ID,
       type = GuiActionType.Modify,
       name = "i18n::WorkflowAiGuiPlugin.AiHelp.Name",
       tooltip = "i18n::WorkflowAiGuiPlugin.AiHelp.Tooltip",
       image = "datavault_ai_help.svg",
-      category = "Help",
+      category = "i18n:org.apache.hop.ui.hopgui.file.workflow:HopGuiWorkflowGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
   public void openAiAdvisorActionContext(HopGuiWorkflowActionContext context) {
     if (context.getWorkflowGraph() != null) {
