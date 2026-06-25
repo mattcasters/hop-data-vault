@@ -1,0 +1,137 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.catalog.discovery;
+
+import org.apache.hop.catalog.model.DvSourceRecord;
+import org.apache.hop.catalog.model.PhysicalFileRef;
+import org.apache.hop.catalog.model.PhysicalIcebergTableRef;
+import org.apache.hop.catalog.model.PhysicalTableRef;
+import org.apache.hop.catalog.model.RecordDefinition;
+import org.apache.hop.catalog.model.RecordDefinitionType;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.metadata.DvSourceType;
+import org.apache.hop.i18n.BaseMessages;
+
+/** Builds physical discovery references from catalog record definitions. */
+public final class RecordDefinitionPhysicalRefSupport {
+
+  private static final Class<?> PKG = RecordDefinitionPhysicalRefSupport.class;
+
+  private RecordDefinitionPhysicalRefSupport() {}
+
+  public static boolean supportsRefreshFromSource(RecordDefinition definition) {
+    if (definition == null || definition.getType() != RecordDefinitionType.DV_SOURCE) {
+      return false;
+    }
+    DvSourceType sourceType = resolveSourceType(definition);
+    if (sourceType == null) {
+      return false;
+    }
+    return switch (sourceType) {
+      case DATABASE -> definition.getPhysicalTable() != null;
+      case CSV, PARQUET -> definition.getPhysicalFile() != null;
+      case ICEBERG -> definition.getPhysicalIcebergTable() != null;
+    };
+  }
+
+  public static DvSourceType resolveSourceType(RecordDefinition definition) {
+    if (definition == null || definition.getDvSource() == null) {
+      return null;
+    }
+    String sourceType = definition.getDvSource().getSourceType();
+    if (Utils.isEmpty(sourceType)) {
+      return null;
+    }
+    try {
+      return DvSourceType.valueOf(sourceType.trim().toUpperCase());
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+  }
+
+  public static PhysicalSourceRef toPhysicalSourceRef(RecordDefinition definition)
+      throws HopException {
+    if (definition == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "RecordDefinitionPhysicalRefSupport.Error.MissingDefinition"));
+    }
+    DvSourceType sourceType = resolveSourceType(definition);
+    if (sourceType == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "RecordDefinitionPhysicalRefSupport.Error.MissingSourceType"));
+    }
+
+    return switch (sourceType) {
+      case DATABASE -> fromPhysicalTable(definition.getPhysicalTable());
+      case CSV, PARQUET -> fromPhysicalFile(definition.getPhysicalFile());
+      case ICEBERG -> fromPhysicalIcebergTable(definition.getPhysicalIcebergTable());
+    };
+  }
+
+  private static PhysicalSourceRef fromPhysicalTable(PhysicalTableRef physicalTable)
+      throws HopException {
+    if (physicalTable == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "RecordDefinitionPhysicalRefSupport.Error.MissingPhysicalRef"));
+    }
+    return PhysicalSourceRef.builder()
+        .databaseConnectionName(physicalTable.getDatabaseMetaName())
+        .schemaName(physicalTable.getSchemaName())
+        .tableName(physicalTable.getTableName())
+        .build();
+  }
+
+  private static PhysicalSourceRef fromPhysicalFile(PhysicalFileRef physicalFile)
+      throws HopException {
+    if (physicalFile == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "RecordDefinitionPhysicalRefSupport.Error.MissingPhysicalRef"));
+    }
+    return PhysicalSourceRef.builder()
+        .folder(physicalFile.getFolder())
+        .includeFileMask(physicalFile.getIncludeFileMask())
+        .excludeFileMask(physicalFile.getExcludeFileMask())
+        .includeSubfolders(physicalFile.isIncludeSubfolders())
+        .build();
+  }
+
+  private static PhysicalSourceRef fromPhysicalIcebergTable(PhysicalIcebergTableRef physicalIcebergTable)
+      throws HopException {
+    if (physicalIcebergTable == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "RecordDefinitionPhysicalRefSupport.Error.MissingPhysicalRef"));
+    }
+    PhysicalSourceRef physicalRef =
+        PhysicalSourceRef.fromPhysicalIcebergTableRef(physicalIcebergTable);
+    if (physicalRef == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "RecordDefinitionPhysicalRefSupport.Error.MissingPhysicalRef"));
+    }
+    return physicalRef;
+  }
+
+  public static DvSourceRecord requireDvSource(RecordDefinition definition) throws HopException {
+    if (definition == null || definition.getDvSource() == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "RecordDefinitionPhysicalRefSupport.Error.MissingDvSource"));
+    }
+    return definition.getDvSource();
+  }
+}

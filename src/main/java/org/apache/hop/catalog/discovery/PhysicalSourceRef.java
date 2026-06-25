@@ -20,6 +20,7 @@ package org.apache.hop.catalog.discovery;
 
 import java.util.regex.Pattern;
 import org.apache.commons.vfs2.FileObject;
+import org.apache.hop.catalog.model.PhysicalIcebergTableRef;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
@@ -40,6 +41,15 @@ public final class PhysicalSourceRef {
   private final String includeFileMask;
   private final String excludeFileMask;
   private final boolean includeSubfolders;
+  private final String catalogUri;
+  private final String warehouse;
+  private final String icebergNamespace;
+  private final String icebergTableName;
+  private final String snapshotId;
+  private final String branch;
+  private final String s3Endpoint;
+  private final String s3AccessKey;
+  private final String s3SecretKey;
 
   private PhysicalSourceRef(Builder builder) {
     this.databaseConnectionName = builder.databaseConnectionName;
@@ -50,6 +60,15 @@ public final class PhysicalSourceRef {
     this.includeFileMask = builder.includeFileMask;
     this.excludeFileMask = builder.excludeFileMask;
     this.includeSubfolders = builder.includeSubfolders;
+    this.catalogUri = builder.catalogUri;
+    this.warehouse = builder.warehouse;
+    this.icebergNamespace = builder.icebergNamespace;
+    this.icebergTableName = builder.icebergTableName;
+    this.snapshotId = builder.snapshotId;
+    this.branch = builder.branch;
+    this.s3Endpoint = builder.s3Endpoint;
+    this.s3AccessKey = builder.s3AccessKey;
+    this.s3SecretKey = builder.s3SecretKey;
   }
 
   public String getDatabaseConnectionName() {
@@ -82,6 +101,87 @@ public final class PhysicalSourceRef {
 
   public boolean isIncludeSubfolders() {
     return includeSubfolders;
+  }
+
+  public String getCatalogUri() {
+    return catalogUri;
+  }
+
+  public String getWarehouse() {
+    return warehouse;
+  }
+
+  public String getIcebergNamespace() {
+    return icebergNamespace;
+  }
+
+  public String getIcebergTableName() {
+    return icebergTableName;
+  }
+
+  public String getSnapshotId() {
+    return snapshotId;
+  }
+
+  public String getBranch() {
+    return branch;
+  }
+
+  public String getS3Endpoint() {
+    return s3Endpoint;
+  }
+
+  public String getS3AccessKey() {
+    return s3AccessKey;
+  }
+
+  public String getS3SecretKey() {
+    return s3SecretKey;
+  }
+
+  public void validateIcebergLocation(IVariables variables) throws HopException {
+    HopVariableResolutionSupport.requireResolved(variables, catalogUri, "Iceberg catalog URI");
+    HopVariableResolutionSupport.requireResolved(variables, icebergNamespace, "Iceberg namespace");
+    HopVariableResolutionSupport.requireResolved(
+        variables, icebergTableName, "Iceberg table name");
+
+    if (Utils.isEmpty(resolve(variables, catalogUri))
+        || Utils.isEmpty(resolve(variables, icebergNamespace))
+        || Utils.isEmpty(resolve(variables, icebergTableName))) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "PhysicalSourceRef.Error.MissingIcebergLocation"));
+    }
+  }
+
+  public PhysicalIcebergTableRef toPhysicalIcebergTableRef(IVariables variables) {
+    PhysicalIcebergTableRef ref = new PhysicalIcebergTableRef();
+    ref.setCatalogUri(resolve(variables, catalogUri));
+    ref.setWarehouse(resolve(variables, warehouse));
+    ref.setNamespace(resolve(variables, icebergNamespace));
+    ref.setTableName(resolve(variables, icebergTableName));
+    ref.setSnapshotId(resolve(variables, snapshotId));
+    ref.setBranch(resolve(variables, branch));
+    ref.setS3Endpoint(resolve(variables, s3Endpoint));
+    ref.setS3AccessKey(resolve(variables, s3AccessKey));
+    ref.setS3SecretKey(resolve(variables, s3SecretKey));
+    return ref;
+  }
+
+  public static PhysicalSourceRef fromPhysicalIcebergTableRef(PhysicalIcebergTableRef ref) {
+    if (ref == null) {
+      return null;
+    }
+    return builder()
+        .catalogUri(ref.getCatalogUri())
+        .warehouse(ref.getWarehouse())
+        .icebergNamespace(ref.getNamespace())
+        .icebergTableName(ref.getTableName())
+        .snapshotId(ref.getSnapshotId())
+        .branch(ref.getBranch())
+        .s3Endpoint(ref.getS3Endpoint())
+        .s3AccessKey(ref.getS3AccessKey())
+        .s3SecretKey(ref.getS3SecretKey())
+        .build();
   }
 
   public String resolveDiscoveryFilePath(IVariables variables) throws HopException {
@@ -165,6 +265,15 @@ public final class PhysicalSourceRef {
     private String includeFileMask;
     private String excludeFileMask;
     private boolean includeSubfolders;
+    private String catalogUri;
+    private String warehouse;
+    private String icebergNamespace;
+    private String icebergTableName;
+    private String snapshotId;
+    private String branch;
+    private String s3Endpoint;
+    private String s3AccessKey;
+    private String s3SecretKey;
 
     public Builder databaseConnectionName(String value) {
       this.databaseConnectionName = value;
@@ -203,6 +312,51 @@ public final class PhysicalSourceRef {
 
     public Builder includeSubfolders(boolean value) {
       this.includeSubfolders = value;
+      return this;
+    }
+
+    public Builder catalogUri(String value) {
+      this.catalogUri = value;
+      return this;
+    }
+
+    public Builder warehouse(String value) {
+      this.warehouse = value;
+      return this;
+    }
+
+    public Builder icebergNamespace(String value) {
+      this.icebergNamespace = value;
+      return this;
+    }
+
+    public Builder icebergTableName(String value) {
+      this.icebergTableName = value;
+      return this;
+    }
+
+    public Builder snapshotId(String value) {
+      this.snapshotId = value;
+      return this;
+    }
+
+    public Builder branch(String value) {
+      this.branch = value;
+      return this;
+    }
+
+    public Builder s3Endpoint(String value) {
+      this.s3Endpoint = value;
+      return this;
+    }
+
+    public Builder s3AccessKey(String value) {
+      this.s3AccessKey = value;
+      return this;
+    }
+
+    public Builder s3SecretKey(String value) {
+      this.s3SecretKey = value;
       return this;
     }
 

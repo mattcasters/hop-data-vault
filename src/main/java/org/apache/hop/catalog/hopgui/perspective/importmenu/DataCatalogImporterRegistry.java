@@ -27,6 +27,7 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.database.DatabaseTablesCatalogImporter;
 import org.apache.hop.datavault.metadata.file.CsvFileCatalogImporter;
 import org.apache.hop.datavault.metadata.file.ParquetFileCatalogImporter;
+import org.apache.hop.datavault.metadata.iceberg.IcebergTableCatalogImporter;
 
 /** Registry of data catalog import actions. */
 public final class DataCatalogImporterRegistry {
@@ -37,6 +38,7 @@ public final class DataCatalogImporterRegistry {
     register(new DatabaseTablesCatalogImporter());
     register(new CsvFileCatalogImporter());
     register(new ParquetFileCatalogImporter());
+    register(new IcebergTableCatalogImporter());
   }
 
   private DataCatalogImporterRegistry() {}

@@ -37,6 +37,8 @@ import org.apache.hop.datavault.metadata.file.DvCsvInputMode;
 import org.apache.hop.datavault.metadata.file.DvCsvSource;
 import org.apache.hop.datavault.metadata.file.DvFileLocationSupport;
 import org.apache.hop.datavault.metadata.file.DvParquetSource;
+import org.apache.hop.datavault.metadata.iceberg.DvIcebergLocationSupport;
+import org.apache.hop.datavault.metadata.iceberg.DvIcebergSource;
 import org.apache.hop.datavault.metadata.IDvSource;
 
 /** Maps catalog {@link RecordDefinition} entries back to in-memory {@link DataVaultSource}. */
@@ -109,6 +111,14 @@ public final class CatalogDvSourceMapper {
       parquetSource.setFields(fields);
       DvFileLocationSupport.applyPhysicalFile(parquetSource, definition.getPhysicalFile());
       return parquetSource;
+    }
+    if (sourceType == DvSourceType.ICEBERG) {
+      DvIcebergSource icebergSource = new DvIcebergSource();
+      icebergSource.setDescription(definition.getDescription());
+      icebergSource.setFields(fields);
+      DvIcebergLocationSupport.applyPhysicalIcebergTable(
+          icebergSource, definition.getPhysicalIcebergTable());
+      return icebergSource;
     }
     DvDatabaseSource fallback = new DvDatabaseSource();
     fallback.setDescription(definition.getDescription());

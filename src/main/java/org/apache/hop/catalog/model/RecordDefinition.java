@@ -46,6 +46,8 @@ public class RecordDefinition {
 
   @HopMetadataProperty private PhysicalFileRef physicalFile;
 
+  @HopMetadataProperty private PhysicalIcebergTableRef physicalIcebergTable;
+
   @HopMetadataProperty private List<String> tags = new ArrayList<>();
 
   @HopMetadataProperty private List<String> glossaryTerms = new ArrayList<>();

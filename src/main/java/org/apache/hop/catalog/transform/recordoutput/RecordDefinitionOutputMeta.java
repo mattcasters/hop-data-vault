@@ -129,6 +129,60 @@ public class RecordDefinitionOutputMeta
   @HopMetadataProperty(key = "include_file_mask_field")
   private String includeFileMaskField;
 
+  @HopMetadataProperty(key = "iceberg_catalog_uri")
+  private String icebergCatalogUri;
+
+  @HopMetadataProperty(key = "iceberg_warehouse")
+  private String icebergWarehouse;
+
+  @HopMetadataProperty(key = "iceberg_namespace")
+  private String icebergNamespace;
+
+  @HopMetadataProperty(key = "iceberg_table_name")
+  private String icebergTableName;
+
+  @HopMetadataProperty(key = "iceberg_snapshot_id")
+  private String icebergSnapshotId;
+
+  @HopMetadataProperty(key = "iceberg_branch")
+  private String icebergBranch;
+
+  @HopMetadataProperty(key = "iceberg_s3_endpoint")
+  private String icebergS3Endpoint;
+
+  @HopMetadataProperty(key = "iceberg_s3_access_key")
+  private String icebergS3AccessKey;
+
+  @HopMetadataProperty(key = "iceberg_s3_secret_key")
+  private String icebergS3SecretKey;
+
+  @HopMetadataProperty(key = "iceberg_catalog_uri_field")
+  private String icebergCatalogUriField;
+
+  @HopMetadataProperty(key = "iceberg_warehouse_field")
+  private String icebergWarehouseField;
+
+  @HopMetadataProperty(key = "iceberg_namespace_field")
+  private String icebergNamespaceField;
+
+  @HopMetadataProperty(key = "iceberg_table_name_field")
+  private String icebergTableNameField;
+
+  @HopMetadataProperty(key = "iceberg_snapshot_id_field")
+  private String icebergSnapshotIdField;
+
+  @HopMetadataProperty(key = "iceberg_branch_field")
+  private String icebergBranchField;
+
+  @HopMetadataProperty(key = "iceberg_s3_endpoint_field")
+  private String icebergS3EndpointField;
+
+  @HopMetadataProperty(key = "iceberg_s3_access_key_field")
+  private String icebergS3AccessKeyField;
+
+  @HopMetadataProperty(key = "iceberg_s3_secret_key_field")
+  private String icebergS3SecretKeyField;
+
   @HopMetadataProperty(key = "source_indicator")
   private String sourceIndicator;
 

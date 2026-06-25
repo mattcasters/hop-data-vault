@@ -39,6 +39,9 @@ import org.apache.hop.datavault.metadata.file.DvParquetPluginSupport;
 import org.apache.hop.datavault.metadata.file.DvParquetSource;
 import org.apache.hop.datavault.metadata.file.DvTextFileInputFieldSupport;
 import org.apache.hop.datavault.metadata.file.IDvFileBasedSource;
+import org.apache.hop.datavault.metadata.iceberg.DvIcebergSource;
+import org.apache.hop.datavault.transform.iceberginput.IcebergTableInputField;
+import org.apache.hop.datavault.transform.iceberginput.IcebergTableInputMeta;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
@@ -93,6 +96,8 @@ public final class DvSourcePreviewInputSupport {
       case DATABASE -> buildDatabasePreview(recordSource, (DvDatabaseSource) dvSource, variables, metadataProvider, rowLimit);
       case CSV -> buildCsvPreview(recordSource, (DvCsvSource) dvSource, variables, metadataProvider, rowLimit);
       case PARQUET -> buildParquetPreview(recordSource, (DvParquetSource) dvSource, variables, metadataProvider, rowLimit);
+      case ICEBERG ->
+          buildIcebergPreview(recordSource, (DvIcebergSource) dvSource, variables, metadataProvider, rowLimit);
     };
   }
 
@@ -221,6 +226,32 @@ public final class DvSourcePreviewInputSupport {
 
     PipelineMeta previewMeta =
         PipelinePreviewFactory.generatePreviewPipeline(metadataProvider, inputMeta, transformName);
+    return new PreviewPipeline(previewMeta, transformName);
+  }
+
+  private static PreviewPipeline buildIcebergPreview(
+      DataVaultSource recordSource,
+      DvIcebergSource icebergSource,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      int rowLimit)
+      throws HopException {
+    String transformName = calculateIcebergTransformName(recordSource, icebergSource, variables);
+
+    IcebergTableInputMeta meta = new IcebergTableInputMeta();
+    meta.setCatalogUri(icebergSource.getCatalogUri());
+    meta.setWarehouse(icebergSource.getWarehouse());
+    meta.setNamespace(icebergSource.getNamespace());
+    meta.setTableName(icebergSource.getTableName());
+    meta.setSnapshotId(icebergSource.getSnapshotId());
+    meta.setBranch(icebergSource.getBranch());
+    meta.setS3Endpoint(icebergSource.getS3Endpoint());
+    meta.setS3AccessKey(icebergSource.getS3AccessKey());
+    meta.setS3SecretKey(icebergSource.getS3SecretKey());
+    meta.setFields(buildIcebergInputFields(icebergSource, variables));
+
+    PipelineMeta previewMeta =
+        PipelinePreviewFactory.generatePreviewPipeline(metadataProvider, meta, transformName);
     return new PreviewPipeline(previewMeta, transformName);
   }
 
@@ -470,6 +501,47 @@ public final class DvSourcePreviewInputSupport {
     }
     name.append(source.getTableName());
     return name.toString();
+  }
+
+  private static List<IcebergTableInputField> buildIcebergInputFields(
+      DvIcebergSource icebergSource, IVariables variables) throws HopException {
+    List<IcebergTableInputField> fields = new ArrayList<>();
+    List<SourceField> catalogFields = icebergSource.getFields();
+    if (catalogFields == null || catalogFields.isEmpty()) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "DvSourcePreviewInputSupport.Error.MissingSourceFields"));
+    }
+    for (SourceField sourceField : catalogFields) {
+      if (sourceField == null || Utils.isEmpty(sourceField.getName())) {
+        continue;
+      }
+      int hopType =
+          sourceField.getHopType() > 0 ? sourceField.getHopType() : IValueMeta.TYPE_STRING;
+      IcebergTableInputField field =
+          new IcebergTableInputField(variables.resolve(sourceField.getName()), hopType);
+      if (sourceField.getLength() != null) {
+        field.setLength(sourceField.getLength());
+      }
+      if (sourceField.getPrecision() != null) {
+        field.setPrecision(sourceField.getPrecision());
+      }
+      fields.add(field);
+    }
+    if (fields.isEmpty()) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "DvSourcePreviewInputSupport.Error.MissingSourceFields"));
+    }
+    return fields;
+  }
+
+  private static String calculateIcebergTransformName(
+      DataVaultSource recordSource, DvIcebergSource icebergSource, IVariables variables) {
+    String namespace = variables.resolve(icebergSource.getNamespace());
+    String tableName = variables.resolve(icebergSource.getTableName());
+    if (!Utils.isEmpty(namespace) && !Utils.isEmpty(tableName)) {
+      return "source " + namespace + "." + tableName;
+    }
+    return "source " + (recordSource != null ? recordSource.getName() : "iceberg");
   }
 
   private static String calculateFileTransformName(

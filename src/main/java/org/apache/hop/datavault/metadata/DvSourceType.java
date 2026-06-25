@@ -30,6 +30,7 @@ public enum DvSourceType {
   DATABASE("Database (RDBMS)"),
   CSV("CSV / delimited text file"),
   PARQUET("Parquet file"),
+  ICEBERG("Iceberg table"),
   ;
 
   private final String description;

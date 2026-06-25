@@ -68,7 +68,7 @@ import org.apache.hop.pipeline.transforms.uniquerowsbyhashset.UniqueRowsByHashSe
  */
 public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilder {
 
-  protected IDvFileBasedSource source;
+  protected IDvSource source;
 
   protected DvFileSourcePipelineBuilder(
       IVariables variables,
@@ -88,11 +88,7 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
         dvSource,
         dvTable,
         startPoint);
-    if (!(dvSource instanceof IDvFileBasedSource fileBasedSource)) {
-      throw new IllegalArgumentException(
-          "Expected a file-based source but got " + dvSource.getClass().getName());
-    }
-    source = fileBasedSource;
+    source = dvSource;
   }
 
   @Override
@@ -421,13 +417,15 @@ public abstract class DvFileSourcePipelineBuilder extends DvSourcePipelineBuilde
     return null;
   }
 
-  protected String calculateTransformName(IDvFileBasedSource fileSource) {
-    String folder = variables.resolve(fileSource.getFolder());
-    if (!Utils.isEmpty(fileSource.getSingleFilename())) {
-      return "source " + variables.resolve(fileSource.getSingleFilename());
-    }
-    if (!Utils.isEmpty(folder)) {
-      return "source " + folder;
+  protected String calculateTransformName(IDvSource dvSource) {
+    if (dvSource instanceof IDvFileBasedSource fileSource) {
+      String folder = variables.resolve(fileSource.getFolder());
+      if (!Utils.isEmpty(fileSource.getSingleFilename())) {
+        return "source " + variables.resolve(fileSource.getSingleFilename());
+      }
+      if (!Utils.isEmpty(folder)) {
+        return "source " + folder;
+      }
     }
     return "source " + recordSource.getName();
   }

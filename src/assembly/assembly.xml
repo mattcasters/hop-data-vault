@@ -60,6 +60,22 @@
         </dependencySet>
         <dependencySet>
             <includes>
+                <include>org.apache.iceberg:iceberg-hive-runtime</include>
+                <include>org.apache.hadoop:*</include>
+                <include>software.amazon.awssdk:*</include>
+                <include>software.amazon.eventstream:*</include>
+                <include>org.apache.httpcomponents:*</include>
+                <include>org.apache.httpcomponents.client5:*</include>
+                <include>com.github.ben-manes.caffeine:*</include>
+                <include>io.airlift:aircompressor</include>
+                <include>org.roaringbitmap:*</include>
+            </includes>
+            <outputDirectory>plugins/misc/datavault/lib</outputDirectory>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <useProjectArtifact>false</useProjectArtifact>
+        </dependencySet>
+        <dependencySet>
+            <includes>
                 <include>org.apache.hop:hop-transform-checksum:jar</include>
                 <include>org.apache.hop:hop-transform-constant:jar</include>
                 <include>org.apache.hop:hop-transform-filterrows:jar</include>

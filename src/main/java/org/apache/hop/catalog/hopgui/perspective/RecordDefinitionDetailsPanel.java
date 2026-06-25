@@ -29,7 +29,9 @@ import org.apache.hop.catalog.model.CatalogSourceField;
 import org.apache.hop.catalog.model.DvCsvFormatRecord;
 import org.apache.hop.catalog.model.DvSourceRecord;
 import org.apache.hop.catalog.model.PhysicalFileRef;
+import org.apache.hop.catalog.model.PhysicalIcebergTableRef;
 import org.apache.hop.catalog.model.PhysicalTableRef;
+import org.apache.hop.catalog.discovery.RecordDefinitionPhysicalRefSupport;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewRunner;
 import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewSupport;
@@ -111,6 +113,7 @@ public class RecordDefinitionDetailsPanel {
   private Text wHopProject;
   private Text wCreatedAt;
   private Text wUpdatedAt;
+  private Text wLastDiscoveredAt;
   private Text wUpdatedBy;
   private Text wLastWorkflow;
   private Text wLastPipeline;
@@ -121,6 +124,15 @@ public class RecordDefinitionDetailsPanel {
   private Text wIncludeFileMask;
   private Text wExcludeFileMask;
   private Button wIncludeSubfolders;
+  private Text wIcebergCatalogUri;
+  private Text wIcebergWarehouse;
+  private Text wIcebergNamespace;
+  private Text wIcebergTableName;
+  private Text wIcebergSnapshotId;
+  private Text wIcebergBranch;
+  private Text wIcebergS3Endpoint;
+  private Text wIcebergS3AccessKey;
+  private Text wIcebergS3SecretKey;
   private Text wCsvDelimiter;
   private Text wCsvEnclosure;
   private Text wCsvEncoding;
@@ -135,12 +147,14 @@ public class RecordDefinitionDetailsPanel {
 
   private TableView wFields;
   private Button wPreviewRecords;
+  private Button wRefreshFromSource;
   private TableView wTags;
   private TableView wGlossaryTerms;
   private TableView wCustomProperties;
 
   private final List<Control> physicalTableSectionControls = new ArrayList<>();
   private final List<Control> physicalFileSectionControls = new ArrayList<>();
+  private final List<Control> physicalIcebergSectionControls = new ArrayList<>();
   private final List<Control> csvFormatSectionControls = new ArrayList<>();
   private final List<Control> dvSourceSectionControls = new ArrayList<>();
 
@@ -273,7 +287,12 @@ public class RecordDefinitionDetailsPanel {
 
     lastControl =
         addReadOnlyField(
-            wPropertiesComp, messageKey("Origin.UpdatedBy.Label"), middle, margin, wUpdatedAt);
+            wPropertiesComp, messageKey("Origin.LastDiscoveredAt.Label"), middle, margin, wUpdatedAt);
+    wLastDiscoveredAt = (Text) lastControl;
+
+    lastControl =
+        addReadOnlyField(
+            wPropertiesComp, messageKey("Origin.UpdatedBy.Label"), middle, margin, wLastDiscoveredAt);
     wUpdatedBy = (Text) lastControl;
 
     lastControl =
@@ -391,6 +410,112 @@ public class RecordDefinitionDetailsPanel {
             margin,
             this::updatePhysicalFile,
             physicalFileSectionControls);
+
+    lastControl =
+        addSectionLabel(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.Label"),
+            lastControl,
+            margin,
+            physicalIcebergSectionControls);
+    lastControl =
+        addEditableField(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.CatalogUri.Label"),
+            middle,
+            margin,
+            lastControl,
+            physicalIcebergSectionControls);
+    wIcebergCatalogUri = (Text) lastControl;
+
+    lastControl =
+        addEditableField(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.Warehouse.Label"),
+            middle,
+            margin,
+            wIcebergCatalogUri,
+            physicalIcebergSectionControls);
+    wIcebergWarehouse = (Text) lastControl;
+
+    lastControl =
+        addEditableField(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.Namespace.Label"),
+            middle,
+            margin,
+            wIcebergWarehouse,
+            physicalIcebergSectionControls);
+    wIcebergNamespace = (Text) lastControl;
+
+    lastControl =
+        addEditableField(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.TableName.Label"),
+            middle,
+            margin,
+            wIcebergNamespace,
+            physicalIcebergSectionControls);
+    wIcebergTableName = (Text) lastControl;
+
+    lastControl =
+        addEditableField(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.SnapshotId.Label"),
+            middle,
+            margin,
+            wIcebergTableName,
+            physicalIcebergSectionControls);
+    wIcebergSnapshotId = (Text) lastControl;
+
+    lastControl =
+        addEditableField(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.Branch.Label"),
+            middle,
+            margin,
+            wIcebergSnapshotId,
+            physicalIcebergSectionControls);
+    wIcebergBranch = (Text) lastControl;
+
+    lastControl =
+        addEditableField(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.S3Endpoint.Label"),
+            middle,
+            margin,
+            wIcebergBranch,
+            physicalIcebergSectionControls);
+    wIcebergS3Endpoint = (Text) lastControl;
+
+    lastControl =
+        addEditableField(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.S3AccessKey.Label"),
+            middle,
+            margin,
+            wIcebergS3Endpoint,
+            physicalIcebergSectionControls);
+    wIcebergS3AccessKey = (Text) lastControl;
+
+    lastControl =
+        addEditableField(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.S3SecretKey.Label"),
+            middle,
+            margin,
+            wIcebergS3AccessKey,
+            physicalIcebergSectionControls);
+    wIcebergS3SecretKey = (Text) lastControl;
+
+    lastControl =
+        addSectionUpdateButton(
+            wPropertiesComp,
+            messageKey("PhysicalIceberg.UpdateButton.Label"),
+            wIcebergS3SecretKey,
+            margin,
+            this::updatePhysicalIceberg,
+            physicalIcebergSectionControls);
 
     lastControl =
         addSectionLabel(
@@ -560,6 +685,14 @@ public class RecordDefinitionDetailsPanel {
     PropsUi.setLook(wPreviewRecords);
     wPreviewRecords.setEnabled(false);
 
+    wRefreshFromSource = new Button(wFieldsTabComp, SWT.PUSH);
+    wRefreshFromSource.setText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Fields.RefreshButton.Label"));
+    wRefreshFromSource.setToolTipText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Fields.RefreshButton.ToolTip"));
+    PropsUi.setLook(wRefreshFromSource);
+    wRefreshFromSource.setEnabled(false);
+
     Button wUpdateFields = new Button(wFieldsTabComp, SWT.PUSH);
     wUpdateFields.setText(
         BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Fields.UpdateButton.Label"));
@@ -571,12 +704,18 @@ public class RecordDefinitionDetailsPanel {
     wUpdateFields.setLayoutData(fdUpdateFields);
 
     FormData fdPreviewRecords = new FormData();
-    fdPreviewRecords.right = new FormAttachment(wUpdateFields, -margin);
+    fdPreviewRecords.right = new FormAttachment(wRefreshFromSource, -margin);
     fdPreviewRecords.bottom = new FormAttachment(100, 0);
     wPreviewRecords.setLayoutData(fdPreviewRecords);
 
+    FormData fdRefreshFromSource = new FormData();
+    fdRefreshFromSource.right = new FormAttachment(wUpdateFields, -margin);
+    fdRefreshFromSource.bottom = new FormAttachment(100, 0);
+    wRefreshFromSource.setLayoutData(fdRefreshFromSource);
+
     wUpdateFields.addListener(SWT.Selection, e -> updateRecordDefinitionFields());
     wPreviewRecords.addListener(SWT.Selection, e -> previewRecords());
+    wRefreshFromSource.addListener(SWT.Selection, e -> refreshFromSource());
 
     FormData fdFields = (FormData) wFields.getLayoutData();
     fdFields.bottom = new FormAttachment(wUpdateFields, -margin);
@@ -780,11 +919,13 @@ public class RecordDefinitionDetailsPanel {
     boolean isDatabase = "DATABASE".equalsIgnoreCase(sourceType);
     boolean isCsv = "CSV".equalsIgnoreCase(sourceType);
     boolean isParquet = "PARQUET".equalsIgnoreCase(sourceType);
+    boolean isIceberg = "ICEBERG".equalsIgnoreCase(sourceType);
     boolean isFileSource = isCsv || isParquet;
 
     setSectionVisible(dvSourceSectionControls, isDvSource);
     setSectionVisible(physicalTableSectionControls, isDatabase);
     setSectionVisible(physicalFileSectionControls, isFileSource);
+    setSectionVisible(physicalIcebergSectionControls, isIceberg);
     setSectionVisible(csvFormatSectionControls, isCsv);
   }
 
@@ -880,6 +1021,9 @@ public class RecordDefinitionDetailsPanel {
     if (wPreviewRecords != null) {
       wPreviewRecords.setEnabled(false);
     }
+    if (wRefreshFromSource != null) {
+      wRefreshFromSource.setEnabled(false);
+    }
     parent.layout(true, true);
   }
 
@@ -914,6 +1058,7 @@ public class RecordDefinitionDetailsPanel {
       wHopProject.setText(Const.NVL(origin.getHopProject(), ""));
       wCreatedAt.setText(formatDate(origin.getCreatedAt()));
       wUpdatedAt.setText(formatDate(origin.getUpdatedAt()));
+      wLastDiscoveredAt.setText(formatDate(origin.getLastDiscoveredAt()));
       wUpdatedBy.setText(Const.NVL(origin.getUpdatedBy(), ""));
       wLastWorkflow.setText(Const.NVL(origin.getLastWorkflow(), ""));
       wLastPipeline.setText(Const.NVL(origin.getLastPipeline(), ""));
@@ -943,6 +1088,29 @@ public class RecordDefinitionDetailsPanel {
       wIncludeFileMask.setText("");
       wExcludeFileMask.setText("");
       wIncludeSubfolders.setSelection(false);
+    }
+
+    PhysicalIcebergTableRef physicalIcebergTable = definition.getPhysicalIcebergTable();
+    if (physicalIcebergTable != null) {
+      wIcebergCatalogUri.setText(Const.NVL(physicalIcebergTable.getCatalogUri(), ""));
+      wIcebergWarehouse.setText(Const.NVL(physicalIcebergTable.getWarehouse(), ""));
+      wIcebergNamespace.setText(Const.NVL(physicalIcebergTable.getNamespace(), ""));
+      wIcebergTableName.setText(Const.NVL(physicalIcebergTable.getTableName(), ""));
+      wIcebergSnapshotId.setText(Const.NVL(physicalIcebergTable.getSnapshotId(), ""));
+      wIcebergBranch.setText(Const.NVL(physicalIcebergTable.getBranch(), ""));
+      wIcebergS3Endpoint.setText(Const.NVL(physicalIcebergTable.getS3Endpoint(), ""));
+      wIcebergS3AccessKey.setText(Const.NVL(physicalIcebergTable.getS3AccessKey(), ""));
+      wIcebergS3SecretKey.setText(Const.NVL(physicalIcebergTable.getS3SecretKey(), ""));
+    } else {
+      wIcebergCatalogUri.setText("");
+      wIcebergWarehouse.setText("");
+      wIcebergNamespace.setText("");
+      wIcebergTableName.setText("");
+      wIcebergSnapshotId.setText("");
+      wIcebergBranch.setText("");
+      wIcebergS3Endpoint.setText("");
+      wIcebergS3AccessKey.setText("");
+      wIcebergS3SecretKey.setText("");
     }
 
     DvCsvFormatRecord csvFormat =
@@ -975,6 +1143,10 @@ public class RecordDefinitionDetailsPanel {
     if (wPreviewRecords != null) {
       wPreviewRecords.setEnabled(RecordDefinitionPreviewSupport.supportsPreview(definition));
     }
+    if (wRefreshFromSource != null) {
+      wRefreshFromSource.setEnabled(
+          RecordDefinitionPhysicalRefSupport.supportsRefreshFromSource(definition));
+    }
 
     wPropertiesComp.pack();
     wScroll.setMinSize(wPropertiesComp.computeSize(SWT.DEFAULT, SWT.DEFAULT));
@@ -990,6 +1162,23 @@ public class RecordDefinitionDetailsPanel {
         definition,
         HopGui.getInstance().getVariables(),
         HopGui.getInstance().getMetadataProvider());
+  }
+
+  private void refreshFromSource() {
+    if (definition == null || catalogConnectionName == null) {
+      return;
+    }
+    RecordDefinitionCatalogRefreshGuiSupport.refreshFromSource(
+        parent.getShell(),
+        definition,
+        catalogConnectionName,
+        HopGui.getInstance().getVariables(),
+        () -> {
+          setRecordDefinition(catalogConnectionName, definition);
+          if (onUpdate != null) {
+            onUpdate.run();
+          }
+        });
   }
 
   private void updateRecordDefinitionFields() {
@@ -1105,6 +1294,32 @@ public class RecordDefinitionDetailsPanel {
     }
   }
 
+  private void updatePhysicalIceberg() {
+    if (!confirmUpdate(messageKey("UpdateConfirm.PhysicalIceberg.Message"))) {
+      return;
+    }
+
+    try {
+      PhysicalIcebergTableRef physicalIcebergTable = definition.getPhysicalIcebergTable();
+      if (physicalIcebergTable == null) {
+        physicalIcebergTable = new PhysicalIcebergTableRef();
+        definition.setPhysicalIcebergTable(physicalIcebergTable);
+      }
+      physicalIcebergTable.setCatalogUri(wIcebergCatalogUri.getText().trim());
+      physicalIcebergTable.setWarehouse(wIcebergWarehouse.getText().trim());
+      physicalIcebergTable.setNamespace(wIcebergNamespace.getText().trim());
+      physicalIcebergTable.setTableName(wIcebergTableName.getText().trim());
+      physicalIcebergTable.setSnapshotId(wIcebergSnapshotId.getText().trim());
+      physicalIcebergTable.setBranch(wIcebergBranch.getText().trim());
+      physicalIcebergTable.setS3Endpoint(wIcebergS3Endpoint.getText().trim());
+      physicalIcebergTable.setS3AccessKey(wIcebergS3AccessKey.getText().trim());
+      physicalIcebergTable.setS3SecretKey(wIcebergS3SecretKey.getText().trim());
+      persistDefinition();
+    } catch (Exception e) {
+      showUpdateError(e);
+    }
+  }
+
   private void updateCsvFormat() {
     if (!confirmUpdate(messageKey("UpdateConfirm.CsvFormat.Message"))) {
       return;
@@ -1197,6 +1412,7 @@ public class RecordDefinitionDetailsPanel {
     wHopProject.setText("");
     wCreatedAt.setText("");
     wUpdatedAt.setText("");
+    wLastDiscoveredAt.setText("");
     wUpdatedBy.setText("");
     wLastWorkflow.setText("");
     wLastPipeline.setText("");

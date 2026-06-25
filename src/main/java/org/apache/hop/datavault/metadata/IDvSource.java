@@ -28,6 +28,7 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.datavault.metadata.file.DvCsvSource;
 import org.apache.hop.datavault.metadata.file.DvParquetSource;
+import org.apache.hop.datavault.metadata.iceberg.DvIcebergSource;
 import org.apache.hop.metadata.api.HopMetadataObject;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadataObjectFactory;
@@ -100,6 +101,9 @@ public interface IDvSource extends IHasName, IChanged {
       }
       if (DvSourceType.PARQUET.name().equals(id)) {
         return new DvParquetSource();
+      }
+      if (DvSourceType.ICEBERG.name().equals(id)) {
+        return new DvIcebergSource();
       }
       throw new HopException(
           "Unable to recognize Data Vault source type with ID '" + id + "'");

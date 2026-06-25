@@ -33,6 +33,7 @@ import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSourceImportSupport;
 import org.apache.hop.datavault.metadata.file.CsvFileMetadataDiscovery;
 import org.apache.hop.datavault.metadata.file.ParquetFileMetadataDiscovery;
+import org.apache.hop.datavault.metadata.iceberg.IcebergTableMetadataDiscovery;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
@@ -64,6 +65,7 @@ public final class RecordDefinitionDiscoveryService {
       case DATABASE -> discoverDatabase(physicalRef, variables, metadataProvider);
       case CSV -> discoverCsv(physicalRef, variables, metadataProvider);
       case PARQUET -> discoverParquet(physicalRef, variables, metadataProvider);
+      case ICEBERG -> discoverIceberg(physicalRef, variables);
     };
   }
 
@@ -115,5 +117,12 @@ public final class RecordDefinitionDiscoveryService {
     ParquetFileMetadataDiscovery.DiscoveryResult parquetDiscovery =
         ParquetFileMetadataDiscovery.discover(resolvedFile, variables, metadataProvider);
     return new DiscoveryResult(parquetDiscovery.fields(), null);
+  }
+
+  private static DiscoveryResult discoverIceberg(PhysicalSourceRef physicalRef, IVariables variables)
+      throws HopException {
+    IcebergTableMetadataDiscovery.DiscoveryResult icebergDiscovery =
+        IcebergTableMetadataDiscovery.discover(physicalRef, variables);
+    return new DiscoveryResult(icebergDiscovery.fields(), null);
   }
 }

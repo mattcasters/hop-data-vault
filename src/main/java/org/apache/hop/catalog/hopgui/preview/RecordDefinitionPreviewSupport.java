@@ -21,6 +21,7 @@ package org.apache.hop.catalog.hopgui.preview;
 import org.apache.hop.catalog.model.DvCsvFormatRecord;
 import org.apache.hop.catalog.model.DvSourceRecord;
 import org.apache.hop.catalog.model.PhysicalFileRef;
+import org.apache.hop.catalog.model.PhysicalIcebergTableRef;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionType;
@@ -128,6 +129,7 @@ public final class RecordDefinitionPreviewSupport {
       case DATABASE -> hasPhysicalTable(definition.getPhysicalTable());
       case CSV -> hasCsvPreviewLocation(definition);
       case PARQUET -> hasParquetPreviewLocation(definition);
+      case ICEBERG -> hasIcebergPreviewLocation(definition);
     };
   }
 
@@ -144,6 +146,14 @@ public final class RecordDefinitionPreviewSupport {
   private static boolean hasParquetPreviewLocation(RecordDefinition definition) {
     PhysicalFileRef physicalFile = definition.getPhysicalFile();
     return physicalFile != null && !Utils.isEmpty(physicalFile.getFolder());
+  }
+
+  private static boolean hasIcebergPreviewLocation(RecordDefinition definition) {
+    PhysicalIcebergTableRef physicalIcebergTable = definition.getPhysicalIcebergTable();
+    return physicalIcebergTable != null
+        && !Utils.isEmpty(physicalIcebergTable.getCatalogUri())
+        && !Utils.isEmpty(physicalIcebergTable.getNamespace())
+        && !Utils.isEmpty(physicalIcebergTable.getTableName());
   }
 
   private static DvSourceType parseSourceType(String raw) {

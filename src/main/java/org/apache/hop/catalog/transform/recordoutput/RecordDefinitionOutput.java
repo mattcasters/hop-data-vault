@@ -173,6 +173,25 @@ public class RecordDefinitionOutput
         builder.excludeFileMask(resolve(meta.getExcludeFileMask()));
         builder.includeSubfolders(meta.isIncludeSubfolders());
       }
+      case ICEBERG -> {
+        builder.catalogUri(
+            resolvePhysicalValue(meta.getIcebergCatalogUri(), meta.getIcebergCatalogUriField(), row));
+        builder.warehouse(
+            resolvePhysicalValue(meta.getIcebergWarehouse(), meta.getIcebergWarehouseField(), row));
+        builder.icebergNamespace(
+            resolvePhysicalValue(meta.getIcebergNamespace(), meta.getIcebergNamespaceField(), row));
+        builder.icebergTableName(
+            resolvePhysicalValue(meta.getIcebergTableName(), meta.getIcebergTableNameField(), row));
+        builder.snapshotId(
+            resolvePhysicalValue(meta.getIcebergSnapshotId(), meta.getIcebergSnapshotIdField(), row));
+        builder.branch(resolvePhysicalValue(meta.getIcebergBranch(), meta.getIcebergBranchField(), row));
+        builder.s3Endpoint(
+            resolvePhysicalValue(meta.getIcebergS3Endpoint(), meta.getIcebergS3EndpointField(), row));
+        builder.s3AccessKey(
+            resolvePhysicalValue(meta.getIcebergS3AccessKey(), meta.getIcebergS3AccessKeyField(), row));
+        builder.s3SecretKey(
+            resolvePhysicalValue(meta.getIcebergS3SecretKey(), meta.getIcebergS3SecretKeyField(), row));
+      }
       default ->
           throw new HopException(
               BaseMessages.getString(

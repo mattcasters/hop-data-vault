@@ -22,6 +22,7 @@ import java.util.Date;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.catalog.model.DvCsvFormatRecord;
 import org.apache.hop.catalog.model.PhysicalFileRef;
+import org.apache.hop.catalog.model.PhysicalIcebergTableRef;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
@@ -48,6 +49,7 @@ import org.apache.hop.datavault.metadata.file.DvCsvSource;
 import org.apache.hop.datavault.metadata.file.DvFileLocationSupport;
 import org.apache.hop.datavault.metadata.file.DvParquetSource;
 import org.apache.hop.datavault.metadata.file.IDvFileBasedSource;
+import org.apache.hop.datavault.metadata.iceberg.DvIcebergSource;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
@@ -194,6 +196,7 @@ public final class RecordDefinitionCatalogWriter {
               request.getFields());
       case CSV -> buildCsvSource(request, variables);
       case PARQUET -> buildParquetSource(request, variables);
+      case ICEBERG -> buildIcebergSource(request, variables);
     };
   }
 
@@ -274,6 +277,22 @@ public final class RecordDefinitionCatalogWriter {
     return parquetSource;
   }
 
+  private static DvIcebergSource buildIcebergSource(
+      RecordDefinitionWriteRequest request, IVariables variables) {
+    PhysicalSourceRef physicalRef = request.getPhysicalRef();
+    DvIcebergSource icebergSource = new DvIcebergSource();
+    icebergSource.setCatalogUri(physicalRef.getCatalogUri());
+    icebergSource.setWarehouse(physicalRef.getWarehouse());
+    icebergSource.setNamespace(physicalRef.getIcebergNamespace());
+    icebergSource.setTableName(physicalRef.getIcebergTableName());
+    icebergSource.setSnapshotId(physicalRef.getSnapshotId());
+    icebergSource.setBranch(physicalRef.getBranch());
+    icebergSource.setS3Endpoint(physicalRef.getS3Endpoint());
+    icebergSource.setS3AccessKey(physicalRef.getS3AccessKey());
+    icebergSource.setS3SecretKey(physicalRef.getS3SecretKey());
+    return icebergSource;
+  }
+
   private static DvParquetSource createParquetSourceFromFile(String filePath, IVariables variables)
       throws HopException {
     try {
@@ -322,7 +341,9 @@ public final class RecordDefinitionCatalogWriter {
       origin.setHopProject(request.getModel().getName());
     }
     origin.setModelElementName(request.getName());
-    origin.setUpdatedAt(request.getUpdatedAt() != null ? request.getUpdatedAt() : new Date());
+    Date updatedAt = request.getUpdatedAt() != null ? request.getUpdatedAt() : new Date();
+    origin.setUpdatedAt(updatedAt);
+    origin.setLastDiscoveredAt(updatedAt);
     origin.setLastWorkflow(request.getWorkflowName());
     origin.setLastPipeline(request.getPipelineName());
     return origin;
@@ -348,6 +369,14 @@ public final class RecordDefinitionCatalogWriter {
       tableRef.setTableName(
           variables != null ? variables.resolve(physicalRef.getTableName()) : physicalRef.getTableName());
       definition.setPhysicalTable(tableRef);
+      definition.setPhysicalFile(null);
+      definition.setPhysicalIcebergTable(null);
+      return;
+    }
+
+    if (sourceType == DvSourceType.ICEBERG) {
+      definition.setPhysicalIcebergTable(physicalRef.toPhysicalIcebergTableRef(variables));
+      definition.setPhysicalTable(null);
       definition.setPhysicalFile(null);
       return;
     }

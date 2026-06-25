@@ -87,6 +87,25 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
   private org.eclipse.swt.custom.CCombo wIncludeFileMaskField;
   private Composite wDatabaseComp;
   private Composite wFileComp;
+  private Composite wIcebergComp;
+  private Text wIcebergCatalogUri;
+  private Text wIcebergWarehouse;
+  private Text wIcebergNamespace;
+  private Text wIcebergTableName;
+  private Text wIcebergSnapshotId;
+  private Text wIcebergBranch;
+  private Text wIcebergS3Endpoint;
+  private Text wIcebergS3AccessKey;
+  private Text wIcebergS3SecretKey;
+  private org.eclipse.swt.custom.CCombo wIcebergCatalogUriField;
+  private org.eclipse.swt.custom.CCombo wIcebergWarehouseField;
+  private org.eclipse.swt.custom.CCombo wIcebergNamespaceField;
+  private org.eclipse.swt.custom.CCombo wIcebergTableNameField;
+  private org.eclipse.swt.custom.CCombo wIcebergSnapshotIdField;
+  private org.eclipse.swt.custom.CCombo wIcebergBranchField;
+  private org.eclipse.swt.custom.CCombo wIcebergS3EndpointField;
+  private org.eclipse.swt.custom.CCombo wIcebergS3AccessKeyField;
+  private org.eclipse.swt.custom.CCombo wIcebergS3SecretKeyField;
   private Text wSourceIndicator;
   private Text wSourceIndicatorFieldName;
   private Text wGroup;
@@ -268,6 +287,35 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     fileLast = wFolderField = addFieldCombo(wFileComp, "RecordDefinitionOutputDialog.FolderField.Label", fileLast, middle, margin);
     fileLast = wIncludeFileMaskField = addFieldCombo(wFileComp, "RecordDefinitionOutputDialog.IncludeFileMaskField.Label", fileLast, middle, margin);
     fdFile.bottom = new FormAttachment(fileLast, margin);
+
+    wIcebergComp = new Composite(comp, SWT.NONE);
+    PropsUi.setLook(wIcebergComp);
+    wIcebergComp.setLayout(new FormLayout());
+    FormData fdIceberg = new FormData();
+    fdIceberg.left = new FormAttachment(0, 0);
+    fdIceberg.right = new FormAttachment(100, 0);
+    fdIceberg.top = new FormAttachment(wFileComp, margin);
+    wIcebergComp.setLayoutData(fdIceberg);
+    Control icebergLast = null;
+    icebergLast = wIcebergCatalogUri = addTextField(wIcebergComp, "RecordDefinitionOutputDialog.IcebergCatalogUri.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergWarehouse = addTextField(wIcebergComp, "RecordDefinitionOutputDialog.IcebergWarehouse.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergNamespace = addTextField(wIcebergComp, "RecordDefinitionOutputDialog.IcebergNamespace.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergTableName = addTextField(wIcebergComp, "RecordDefinitionOutputDialog.IcebergTableName.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergSnapshotId = addTextField(wIcebergComp, "RecordDefinitionOutputDialog.IcebergSnapshotId.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergBranch = addTextField(wIcebergComp, "RecordDefinitionOutputDialog.IcebergBranch.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergS3Endpoint = addTextField(wIcebergComp, "RecordDefinitionOutputDialog.IcebergS3Endpoint.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergS3AccessKey = addTextField(wIcebergComp, "RecordDefinitionOutputDialog.IcebergS3AccessKey.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergS3SecretKey = addTextField(wIcebergComp, "RecordDefinitionOutputDialog.IcebergS3SecretKey.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergCatalogUriField = addFieldCombo(wIcebergComp, "RecordDefinitionOutputDialog.IcebergCatalogUriField.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergWarehouseField = addFieldCombo(wIcebergComp, "RecordDefinitionOutputDialog.IcebergWarehouseField.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergNamespaceField = addFieldCombo(wIcebergComp, "RecordDefinitionOutputDialog.IcebergNamespaceField.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergTableNameField = addFieldCombo(wIcebergComp, "RecordDefinitionOutputDialog.IcebergTableNameField.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergSnapshotIdField = addFieldCombo(wIcebergComp, "RecordDefinitionOutputDialog.IcebergSnapshotIdField.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergBranchField = addFieldCombo(wIcebergComp, "RecordDefinitionOutputDialog.IcebergBranchField.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergS3EndpointField = addFieldCombo(wIcebergComp, "RecordDefinitionOutputDialog.IcebergS3EndpointField.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergS3AccessKeyField = addFieldCombo(wIcebergComp, "RecordDefinitionOutputDialog.IcebergS3AccessKeyField.Label", icebergLast, middle, margin);
+    icebergLast = wIcebergS3SecretKeyField = addFieldCombo(wIcebergComp, "RecordDefinitionOutputDialog.IcebergS3SecretKeyField.Label", icebergLast, middle, margin);
+    fdIceberg.bottom = new FormAttachment(icebergLast, margin);
   }
 
   private void buildDvSourceTab(CTabFolder tabFolder) {
@@ -455,7 +503,16 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
       wTableField,
       wFilePathField,
       wFolderField,
-      wIncludeFileMaskField
+      wIncludeFileMaskField,
+      wIcebergCatalogUriField,
+      wIcebergWarehouseField,
+      wIcebergNamespaceField,
+      wIcebergTableNameField,
+      wIcebergSnapshotIdField,
+      wIcebergBranchField,
+      wIcebergS3EndpointField,
+      wIcebergS3AccessKeyField,
+      wIcebergS3SecretKeyField
     };
     for (org.eclipse.swt.custom.CCombo combo : combos) {
       combo.setItems(fieldNames);
@@ -467,8 +524,11 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
   private void updateSourcePanels() {
     DvSourceType type = parseEnum(wSourceType.getText(), DvSourceType.class, DvSourceType.CSV);
     boolean database = type == DvSourceType.DATABASE;
+    boolean iceberg = type == DvSourceType.ICEBERG;
+    boolean file = !database && !iceberg;
     wDatabaseComp.setVisible(database);
-    wFileComp.setVisible(!database);
+    wFileComp.setVisible(file);
+    wIcebergComp.setVisible(iceberg);
     if (wDatabaseComp.getParent() != null) {
       wDatabaseComp.getParent().layout();
     }
@@ -485,6 +545,15 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     wFilePathField.setEnabled(fromInput);
     wFolderField.setEnabled(fromInput);
     wIncludeFileMaskField.setEnabled(fromInput);
+    wIcebergCatalogUriField.setEnabled(fromInput);
+    wIcebergWarehouseField.setEnabled(fromInput);
+    wIcebergNamespaceField.setEnabled(fromInput);
+    wIcebergTableNameField.setEnabled(fromInput);
+    wIcebergSnapshotIdField.setEnabled(fromInput);
+    wIcebergBranchField.setEnabled(fromInput);
+    wIcebergS3EndpointField.setEnabled(fromInput);
+    wIcebergS3AccessKeyField.setEnabled(fromInput);
+    wIcebergS3SecretKeyField.setEnabled(fromInput);
     wNamespaceValue.setEnabled(!fromInput);
     wNameValue.setEnabled(!fromInput);
     wDescriptionValue.setEnabled(!fromInput);
@@ -496,6 +565,15 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     wIncludeFileMask.setEnabled(!fromInput);
     wExcludeFileMask.setEnabled(!fromInput);
     wIncludeSubfolders.setEnabled(!fromInput);
+    wIcebergCatalogUri.setEnabled(!fromInput);
+    wIcebergWarehouse.setEnabled(!fromInput);
+    wIcebergNamespace.setEnabled(!fromInput);
+    wIcebergTableName.setEnabled(!fromInput);
+    wIcebergSnapshotId.setEnabled(!fromInput);
+    wIcebergBranch.setEnabled(!fromInput);
+    wIcebergS3Endpoint.setEnabled(!fromInput);
+    wIcebergS3AccessKey.setEnabled(!fromInput);
+    wIcebergS3SecretKey.setEnabled(!fromInput);
     updateSourcePanels();
   }
 
@@ -529,6 +607,24 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     wFilePathField.setText(Const.NVL(input.getFilePathField(), ""));
     wFolderField.setText(Const.NVL(input.getFolderField(), ""));
     wIncludeFileMaskField.setText(Const.NVL(input.getIncludeFileMaskField(), ""));
+    wIcebergCatalogUri.setText(Const.NVL(input.getIcebergCatalogUri(), ""));
+    wIcebergWarehouse.setText(Const.NVL(input.getIcebergWarehouse(), ""));
+    wIcebergNamespace.setText(Const.NVL(input.getIcebergNamespace(), ""));
+    wIcebergTableName.setText(Const.NVL(input.getIcebergTableName(), ""));
+    wIcebergSnapshotId.setText(Const.NVL(input.getIcebergSnapshotId(), ""));
+    wIcebergBranch.setText(Const.NVL(input.getIcebergBranch(), ""));
+    wIcebergS3Endpoint.setText(Const.NVL(input.getIcebergS3Endpoint(), ""));
+    wIcebergS3AccessKey.setText(Const.NVL(input.getIcebergS3AccessKey(), ""));
+    wIcebergS3SecretKey.setText(Const.NVL(input.getIcebergS3SecretKey(), ""));
+    wIcebergCatalogUriField.setText(Const.NVL(input.getIcebergCatalogUriField(), ""));
+    wIcebergWarehouseField.setText(Const.NVL(input.getIcebergWarehouseField(), ""));
+    wIcebergNamespaceField.setText(Const.NVL(input.getIcebergNamespaceField(), ""));
+    wIcebergTableNameField.setText(Const.NVL(input.getIcebergTableNameField(), ""));
+    wIcebergSnapshotIdField.setText(Const.NVL(input.getIcebergSnapshotIdField(), ""));
+    wIcebergBranchField.setText(Const.NVL(input.getIcebergBranchField(), ""));
+    wIcebergS3EndpointField.setText(Const.NVL(input.getIcebergS3EndpointField(), ""));
+    wIcebergS3AccessKeyField.setText(Const.NVL(input.getIcebergS3AccessKeyField(), ""));
+    wIcebergS3SecretKeyField.setText(Const.NVL(input.getIcebergS3SecretKeyField(), ""));
     wSourceIndicator.setText(Const.NVL(input.getSourceIndicator(), ""));
     wSourceIndicatorFieldName.setText(Const.NVL(input.getSourceIndicatorField(), ""));
     wGroup.setText(Const.NVL(input.getGroup(), ""));
@@ -575,6 +671,24 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     input.setFilePathField(wFilePathField.getText());
     input.setFolderField(wFolderField.getText());
     input.setIncludeFileMaskField(wIncludeFileMaskField.getText());
+    input.setIcebergCatalogUri(wIcebergCatalogUri.getText());
+    input.setIcebergWarehouse(wIcebergWarehouse.getText());
+    input.setIcebergNamespace(wIcebergNamespace.getText());
+    input.setIcebergTableName(wIcebergTableName.getText());
+    input.setIcebergSnapshotId(wIcebergSnapshotId.getText());
+    input.setIcebergBranch(wIcebergBranch.getText());
+    input.setIcebergS3Endpoint(wIcebergS3Endpoint.getText());
+    input.setIcebergS3AccessKey(wIcebergS3AccessKey.getText());
+    input.setIcebergS3SecretKey(wIcebergS3SecretKey.getText());
+    input.setIcebergCatalogUriField(wIcebergCatalogUriField.getText());
+    input.setIcebergWarehouseField(wIcebergWarehouseField.getText());
+    input.setIcebergNamespaceField(wIcebergNamespaceField.getText());
+    input.setIcebergTableNameField(wIcebergTableNameField.getText());
+    input.setIcebergSnapshotIdField(wIcebergSnapshotIdField.getText());
+    input.setIcebergBranchField(wIcebergBranchField.getText());
+    input.setIcebergS3EndpointField(wIcebergS3EndpointField.getText());
+    input.setIcebergS3AccessKeyField(wIcebergS3AccessKeyField.getText());
+    input.setIcebergS3SecretKeyField(wIcebergS3SecretKeyField.getText());
     input.setSourceIndicator(wSourceIndicator.getText());
     input.setSourceIndicatorField(wSourceIndicatorFieldName.getText());
     input.setGroup(wGroup.getText());

@@ -1,0 +1,49 @@
+{
+  "variables" : [
+    {
+      "name" : "DB_HOST",
+      "value" : "db",
+      "description" : "Docker compose database service hostname"
+    },
+    {
+      "name" : "DB_PORT",
+      "value" : "5432",
+      "description" : "PostgreSQL port"
+    },
+    {
+      "name" : "ICEBERG_CATALOG_URI",
+      "value" : "http://iceberg-rest:8181",
+      "description" : "Iceberg REST catalog endpoint (Docker compose service)"
+    },
+    {
+      "name" : "ICEBERG_WAREHOUSE",
+      "value" : "s3://warehouse/",
+      "description" : "Iceberg warehouse location in object storage"
+    },
+    {
+      "name" : "S3_ENDPOINT",
+      "value" : "http://minio:9000",
+      "description" : "S3-compatible endpoint for MinIO (path-style access)"
+    },
+    {
+      "name" : "S3_ACCESS_KEY",
+      "value" : "admin",
+      "description" : "MinIO access key for local Iceberg warehouse"
+    },
+    {
+      "name" : "S3_SECRET_KEY",
+      "value" : "password",
+      "description" : "MinIO secret key for local Iceberg warehouse"
+    },
+    {
+      "name" : "ICEBERG_NAMESPACE",
+      "value" : "crm",
+      "description" : "Iceberg namespace for CRM integration test tables"
+    },
+    {
+      "name" : "ICEBERG_TABLE",
+      "value" : "customer",
+      "description" : "Iceberg table name for CRM customer source"
+    }
+  ]
+}

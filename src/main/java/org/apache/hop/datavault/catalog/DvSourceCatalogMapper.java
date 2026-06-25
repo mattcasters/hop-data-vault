@@ -41,7 +41,10 @@ import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.datavault.metadata.file.DvCsvInputMode;
 import org.apache.hop.datavault.metadata.file.DvCsvSource;
 import org.apache.hop.datavault.metadata.file.DvFileLocationSupport;
+import org.apache.hop.catalog.model.PhysicalIcebergTableRef;
 import org.apache.hop.datavault.metadata.file.IDvFileBasedSource;
+import org.apache.hop.datavault.metadata.iceberg.DvIcebergLocationSupport;
+import org.apache.hop.datavault.metadata.iceberg.DvIcebergSource;
 import org.apache.hop.datavault.metadata.IDvSource;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
@@ -132,15 +135,22 @@ public final class DvSourceCatalogMapper {
     if (source.getSourceType() == DvSourceType.CSV) {
       definition.setPhysicalFile(buildPhysicalFileRef(dvSource));
       definition.setPhysicalTable(null);
+      definition.setPhysicalIcebergTable(null);
       if (definition.getDvSource() != null && dvSource instanceof DvCsvSource csvSource) {
         definition.getDvSource().setCsvFormat(buildCsvFormatRecord(csvSource));
       }
     } else if (source.getSourceType() == DvSourceType.PARQUET) {
       definition.setPhysicalFile(buildPhysicalFileRef(dvSource));
       definition.setPhysicalTable(null);
+      definition.setPhysicalIcebergTable(null);
+    } else if (source.getSourceType() == DvSourceType.ICEBERG) {
+      definition.setPhysicalIcebergTable(buildPhysicalIcebergTableRef(dvSource));
+      definition.setPhysicalTable(null);
+      definition.setPhysicalFile(null);
     } else {
       definition.setPhysicalTable(buildPhysicalTableRef(dvSource));
       definition.setPhysicalFile(null);
+      definition.setPhysicalIcebergTable(null);
     }
     if (definition.getType() == RecordDefinitionType.DV_SOURCE) {
       definition.getTags().add("DV Source");
@@ -176,6 +186,7 @@ public final class DvSourceCatalogMapper {
     }
     origin.setModelElementName(source.getName());
     origin.setUpdatedAt(updatedAt);
+    origin.setLastDiscoveredAt(updatedAt);
     origin.setLastWorkflow(workflowName);
     origin.setLastPipeline(pipelineName);
     return origin;
@@ -190,6 +201,13 @@ public final class DvSourceCatalogMapper {
     ref.setSchemaName(dbSource.getSchemaName());
     ref.setTableName(dbSource.getTableName());
     return ref;
+  }
+
+  private static PhysicalIcebergTableRef buildPhysicalIcebergTableRef(IDvSource dvSource) {
+    if (!(dvSource instanceof DvIcebergSource icebergSource)) {
+      return null;
+    }
+    return DvIcebergLocationSupport.toPhysicalIcebergTableRef(icebergSource);
   }
 
   private static PhysicalFileRef buildPhysicalFileRef(IDvSource dvSource) {

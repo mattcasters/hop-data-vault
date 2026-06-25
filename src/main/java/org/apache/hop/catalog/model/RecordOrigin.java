@@ -44,6 +44,8 @@ public class RecordOrigin {
 
   @HopMetadataProperty private Date updatedAt;
 
+  @HopMetadataProperty private Date lastDiscoveredAt;
+
   @HopMetadataProperty private String updatedBy;
 
   @HopMetadataProperty private String lastWorkflow;
