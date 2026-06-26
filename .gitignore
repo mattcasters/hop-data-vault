@@ -13,3 +13,5 @@ project/files/large/syn*.csv
 **/__pycache__/**
 
 
+
+.vscode/
