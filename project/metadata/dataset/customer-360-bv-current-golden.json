@@ -1,0 +1,105 @@
+{
+  "base_filename": "multi-satellite-bv/customer-360-bv-current-golden.csv",
+  "virtualPath": "/business-vault",
+  "name": "customer-360-bv-current-golden",
+  "description": "Expected current customer_360_bv rows after five DV loads and one BV rebuild",
+  "dataset_fields": [
+    {
+      "field_comment": "customer_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "customer_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "cust_segment",
+      "field_length": 20,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "cust_segment",
+      "field_format": ""
+    },
+    {
+      "field_comment": "cust_loyalty_tier",
+      "field_length": 20,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "cust_loyalty_tier",
+      "field_format": ""
+    },
+    {
+      "field_comment": "cust_demo_score",
+      "field_length": 3,
+      "field_type": 5,
+      "field_precision": 0,
+      "field_name": "cust_demo_score",
+      "field_format": "#"
+    },
+    {
+      "field_comment": "cust_email",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "cust_email",
+      "field_format": ""
+    },
+    {
+      "field_comment": "cust_phone",
+      "field_length": 20,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "cust_phone",
+      "field_format": ""
+    },
+    {
+      "field_comment": "cust_address",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "cust_address",
+      "field_format": ""
+    },
+    {
+      "field_comment": "cust_city",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "cust_city",
+      "field_format": ""
+    },
+    {
+      "field_comment": "cust_postal_code",
+      "field_length": 10,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "cust_postal_code",
+      "field_format": ""
+    },
+    {
+      "field_comment": "cust_newsletter",
+      "field_length": 1,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "cust_newsletter",
+      "field_format": ""
+    },
+    {
+      "field_comment": "cust_channel",
+      "field_length": 10,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "cust_channel",
+      "field_format": ""
+    },
+    {
+      "field_comment": "cust_language",
+      "field_length": 5,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "cust_language",
+      "field_format": ""
+    }
+  ],
+  "folder_name": ""
+}

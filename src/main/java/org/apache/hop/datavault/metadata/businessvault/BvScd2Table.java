@@ -18,6 +18,7 @@
 
 package org.apache.hop.datavault.metadata.businessvault;
 
+import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -51,8 +52,28 @@ public class BvScd2Table extends BvTableBase {
 
   @HopMetadataProperty private boolean includeHashKey = true;
 
+  @HopMetadataProperty(key = "field_mapping", groupKey = "field_mappings")
+  private List<BvScd2FieldMapping> fieldMappings = new ArrayList<>();
+
+  @HopMetadataProperty(key = "satellite_config", groupKey = "satellite_configs")
+  private List<BvScd2SatelliteConfig> satelliteConfigs = new ArrayList<>();
+
   public BvScd2Table() {
     super(BvTableType.SCD2);
+  }
+
+  public List<BvScd2FieldMapping> getFieldMappings() {
+    if (fieldMappings == null) {
+      fieldMappings = new ArrayList<>();
+    }
+    return fieldMappings;
+  }
+
+  public List<BvScd2SatelliteConfig> getSatelliteConfigs() {
+    if (satelliteConfigs == null) {
+      satelliteConfigs = new ArrayList<>();
+    }
+    return satelliteConfigs;
   }
 
   @Override
@@ -86,6 +107,11 @@ public class BvScd2Table extends BvTableBase {
               BaseMessages.getString(PKG, "BvScd2Table.CheckResult.MissingFunctionalTimestamp", getName()),
               this));
     }
+
+    if (dataVaultModel != null) {
+      BvScd2FieldMappingValidationSupport.validate(
+          remarks, this, bvConfig, dvConfig, dataVaultModel, variables);
+    }
   }
 
   @Override
@@ -109,10 +135,9 @@ public class BvScd2Table extends BvTableBase {
     if (dataVaultModel == null) {
       return null;
     }
-    DvSatellite satellite = BvScd2PipelineSupport.resolveSourceSatellite(this, dataVaultModel);
     BusinessVaultConfiguration bvConfig =
         model != null ? model.getConfigurationOrDefault() : new BusinessVaultConfiguration();
     return BvScd2PipelineSupport.buildTargetTableLayout(
-        this, bvConfig, dataVaultModel, satellite, variables);
+        this, bvConfig, dataVaultModel, variables);
   }
 }

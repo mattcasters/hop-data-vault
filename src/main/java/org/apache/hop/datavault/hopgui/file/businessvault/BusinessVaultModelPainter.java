@@ -52,11 +52,12 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 public class BusinessVaultModelPainter extends BasePainter {
 
   private static final Class<?> PKG = BusinessVaultModelPainter.class;
-  private static final int REF_LINE_HEIGHT = 14;
+  private static final int REF_LINE_HEIGHT = 16;
+  private static final int DERIVATIVES_TOP = 50;
+  private static final int DERIVATIVES_BOTTOM_PADDING = 12;
   private static final int DV_ICON_SIZE = 32;
   private static final int DV_MARGIN = 5;
-  private static final int DV_BOX_WIDTH = 140;
-  private static final int DV_BOX_HEIGHT = 70;
+
 
   private final BusinessVaultModel model;
   private String mouseOverBvTableName;
@@ -105,6 +106,7 @@ public class BusinessVaultModelPainter extends BasePainter {
     }
 
     Map<String, BvDvTableReference> dvRefByName = indexDvReferences();
+    prepareDvReferenceBoxSizes();
     drawDerivativeConnections(dvRefByName);
     drawRelationshipCandidateLine();
     drawNotes(model.getNotes());
@@ -172,8 +174,14 @@ public class BusinessVaultModelPainter extends BasePainter {
       if (loc == null) {
         continue;
       }
-      int w = Math.max(minSize, (int) Math.ceil(DV_BOX_WIDTH * scaleX));
-      int h = Math.max(minSize, (int) Math.ceil(DV_BOX_HEIGHT * scaleY));
+      int w =
+          Math.max(
+              minSize,
+              (int) Math.ceil(Math.max(1, reference.getDrawnBoxWidth()) * scaleX));
+      int h =
+          Math.max(
+              minSize,
+              (int) Math.ceil(Math.max(1, reference.getDrawnBoxHeight()) * scaleY));
       int x = (int) (graphX + loc.x * scaleX);
       int y = (int) (graphY + loc.y * scaleY);
       gc.setBackground(EColor.LIGHTGRAY);
@@ -322,6 +330,42 @@ public class BusinessVaultModelPainter extends BasePainter {
     return false;
   }
 
+  private void prepareDvReferenceBoxSizes() {
+    for (BvDvTableReference reference : model.getDvReferences()) {
+      if (reference == null || Utils.isEmpty(reference.getDvTableName())) {
+        continue;
+      }
+      if (reference.getLocation() == null) {
+        continue;
+      }
+      calculateDvReferenceBoxSize(reference);
+    }
+  }
+
+  private Point calculateDvReferenceBoxSize(BvDvTableReference reference) {
+    String name = reference.getDvTableName() != null ? reference.getDvTableName() : "?";
+    String typeLabel =
+        reference.getDvTableType() != null ? reference.getDvTableType().name() : "?";
+
+    gc.setFont(EFont.GRAPH);
+    Point nameExtent = gc.textExtent(name);
+    gc.setFont(EFont.SMALL);
+    Point typeExtent = gc.textExtent(typeLabel);
+    gc.setFont(EFont.GRAPH);
+
+    int iconP = DV_ICON_SIZE;
+    int margP = DV_MARGIN;
+    int textColumnWidth = nameExtent.x;
+    int textColumnHeight = nameExtent.y;
+    int leftColumnHeight = iconP + margP + typeExtent.y;
+    int boxW = margP + iconP + margP + textColumnWidth + margP;
+    int boxH = margP + Math.max(leftColumnHeight, textColumnHeight) + margP;
+
+    reference.setDrawnBoxWidth(boxW);
+    reference.setDrawnBoxHeight(boxH);
+    return new Point(boxW, boxH);
+  }
+
   private void drawDvTableReferences() {
     for (BvDvTableReference reference : model.getDvReferences()) {
       if (reference == null || Utils.isEmpty(reference.getDvTableName())) {
@@ -331,8 +375,9 @@ public class BusinessVaultModelPainter extends BasePainter {
       if (loc == null) {
         continue;
       }
-      reference.setDrawnBoxWidth(DV_BOX_WIDTH);
-      reference.setDrawnBoxHeight(DV_BOX_HEIGHT);
+      Point box = calculateDvReferenceBoxSize(reference);
+      int boxWidth = box.x;
+      int boxHeight = box.y;
       Point screenLoc = real2screen(loc.x, loc.y);
       int x = screenLoc.x;
       int y = screenLoc.y;
@@ -341,8 +386,10 @@ public class BusinessVaultModelPainter extends BasePainter {
       gc.setForeground(EColor.DARKGRAY);
       gc.setLineStyle(ELineStyle.DOT);
       gc.setLineWidth(reference.isSelected() ? 2 : 1);
-      gc.fillRoundRectangle(x, y, DV_BOX_WIDTH, DV_BOX_HEIGHT, CORNER_RADIUS_5, CORNER_RADIUS_5);
-      gc.drawRoundRectangle(x, y, DV_BOX_WIDTH, DV_BOX_HEIGHT, CORNER_RADIUS_5, CORNER_RADIUS_5);
+      gc.fillRoundRectangle(
+          x, y, boxWidth, boxHeight, CORNER_RADIUS_5, CORNER_RADIUS_5);
+      gc.drawRoundRectangle(
+          x, y, boxWidth, boxHeight, CORNER_RADIUS_5, CORNER_RADIUS_5);
       gc.setLineStyle(ELineStyle.SOLID);
       gc.setLineWidth(1);
 
@@ -372,8 +419,8 @@ public class BusinessVaultModelPainter extends BasePainter {
                 AreaType.TRANSFORM_ICON,
                 x,
                 y,
-                DV_BOX_WIDTH,
-                DV_BOX_HEIGHT,
+                boxWidth,
+                boxHeight,
                 offset,
                 reference,
                 name));
@@ -480,7 +527,8 @@ public class BusinessVaultModelPainter extends BasePainter {
     }
     gc.setFont(EFont.SMALL);
     gc.setForeground(EColor.DARKGRAY);
-    int yRef = y + 44;
+    int lineHeight = derivativeLineHeight();
+    int yRef = y + DERIVATIVES_TOP;
     for (BvDerivativeRef derivative : derivatives) {
       if (derivative == null || Utils.isEmpty(derivative.getDvTableName())) {
         continue;
@@ -488,7 +536,7 @@ public class BusinessVaultModelPainter extends BasePainter {
       String typeLabel =
           derivative.getDvTableType() != null ? derivative.getDvTableType().name() : "?";
       gc.drawText(typeLabel + ": " + derivative.getDvTableName(), x + 8, yRef, true);
-      yRef += REF_LINE_HEIGHT;
+      yRef += lineHeight;
     }
     gc.setForeground(EColor.BLACK);
   }
@@ -520,7 +568,14 @@ public class BusinessVaultModelPainter extends BasePainter {
         refCount++;
       }
     }
-    return Math.max(50, 44 + refCount * REF_LINE_HEIGHT + 6);
+    int lineHeight = derivativeLineHeight();
+    return Math.max(
+        60, DERIVATIVES_TOP + refCount * lineHeight + DERIVATIVES_BOTTOM_PADDING);
+  }
+
+  private int derivativeLineHeight() {
+    gc.setFont(EFont.SMALL);
+    return Math.max(REF_LINE_HEIGHT, gc.textExtent("Ay").y + 4);
   }
 
   private int[] tableTypeColor(BvTableType tableType) {

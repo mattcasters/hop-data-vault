@@ -28,9 +28,7 @@ import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.businessvault.BvDerivativeRef;
 import org.apache.hop.datavault.metadata.businessvault.BvPitTable;
-import org.apache.hop.datavault.metadata.businessvault.BvScd2Table;
 import org.apache.hop.datavault.metadata.businessvault.BvTableType;
-import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
@@ -64,13 +62,7 @@ public class HopGuiBvTableDialog {
   private Text wName;
   private Text wTableName;
   private Text wDescription;
-  private Text wFunctionalTimestamp;
-  private Text wValidFromField;
-  private Text wValidToField;
   private Text wSnapshotDateField;
-  private Label wlFunctionalTimestamp;
-  private Label wlValidFromField;
-  private Label wlValidToField;
   private Label wlSnapshotDateField;
   private Label wlDerivatives;
   private TableView wDerivatives;
@@ -161,65 +153,13 @@ public class HopGuiBvTableDialog {
     fdDescription.right = new FormAttachment(100, 0);
     wDescription.setLayoutData(fdDescription);
 
-    wlFunctionalTimestamp = new Label(shell, SWT.RIGHT);
-    wlFunctionalTimestamp.setText(
-        BaseMessages.getString(PKG, "HopGuiBvTableDialog.FunctionalTimestamp.Label"));
-    PropsUi.setLook(wlFunctionalTimestamp);
-    FormData fdlFunctionalTimestamp = new FormData();
-    fdlFunctionalTimestamp.left = new FormAttachment(0, 0);
-    fdlFunctionalTimestamp.top = new FormAttachment(wDescription, margin);
-    fdlFunctionalTimestamp.right = new FormAttachment(middle, -margin);
-    wlFunctionalTimestamp.setLayoutData(fdlFunctionalTimestamp);
-
-    wFunctionalTimestamp = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wFunctionalTimestamp);
-    FormData fdFunctionalTimestamp = new FormData();
-    fdFunctionalTimestamp.left = new FormAttachment(middle, 0);
-    fdFunctionalTimestamp.top = new FormAttachment(wDescription, margin);
-    fdFunctionalTimestamp.right = new FormAttachment(100, 0);
-    wFunctionalTimestamp.setLayoutData(fdFunctionalTimestamp);
-
-    wlValidFromField = new Label(shell, SWT.RIGHT);
-    wlValidFromField.setText(BaseMessages.getString(PKG, "HopGuiBvTableDialog.ValidFromField.Label"));
-    PropsUi.setLook(wlValidFromField);
-    FormData fdlValidFromField = new FormData();
-    fdlValidFromField.left = new FormAttachment(0, 0);
-    fdlValidFromField.top = new FormAttachment(wFunctionalTimestamp, margin);
-    fdlValidFromField.right = new FormAttachment(middle, -margin);
-    wlValidFromField.setLayoutData(fdlValidFromField);
-
-    wValidFromField = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wValidFromField);
-    FormData fdValidFromField = new FormData();
-    fdValidFromField.left = new FormAttachment(middle, 0);
-    fdValidFromField.top = new FormAttachment(wFunctionalTimestamp, margin);
-    fdValidFromField.right = new FormAttachment(100, 0);
-    wValidFromField.setLayoutData(fdValidFromField);
-
-    wlValidToField = new Label(shell, SWT.RIGHT);
-    wlValidToField.setText(BaseMessages.getString(PKG, "HopGuiBvTableDialog.ValidToField.Label"));
-    PropsUi.setLook(wlValidToField);
-    FormData fdlValidToField = new FormData();
-    fdlValidToField.left = new FormAttachment(0, 0);
-    fdlValidToField.top = new FormAttachment(wValidFromField, margin);
-    fdlValidToField.right = new FormAttachment(middle, -margin);
-    wlValidToField.setLayoutData(fdlValidToField);
-
-    wValidToField = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wValidToField);
-    FormData fdValidToField = new FormData();
-    fdValidToField.left = new FormAttachment(middle, 0);
-    fdValidToField.top = new FormAttachment(wValidFromField, margin);
-    fdValidToField.right = new FormAttachment(100, 0);
-    wValidToField.setLayoutData(fdValidToField);
-
     wlSnapshotDateField = new Label(shell, SWT.RIGHT);
     wlSnapshotDateField.setText(
         BaseMessages.getString(PKG, "HopGuiBvTableDialog.SnapshotDateField.Label"));
     PropsUi.setLook(wlSnapshotDateField);
     FormData fdlSnapshotDateField = new FormData();
     fdlSnapshotDateField.left = new FormAttachment(0, 0);
-    fdlSnapshotDateField.top = new FormAttachment(wFunctionalTimestamp, margin);
+    fdlSnapshotDateField.top = new FormAttachment(wDescription, margin);
     fdlSnapshotDateField.right = new FormAttachment(middle, -margin);
     wlSnapshotDateField.setLayoutData(fdlSnapshotDateField);
 
@@ -227,27 +167,15 @@ public class HopGuiBvTableDialog {
     PropsUi.setLook(wSnapshotDateField);
     FormData fdSnapshotDateField = new FormData();
     fdSnapshotDateField.left = new FormAttachment(middle, 0);
-    fdSnapshotDateField.top = new FormAttachment(wFunctionalTimestamp, margin);
+    fdSnapshotDateField.top = new FormAttachment(wDescription, margin);
     fdSnapshotDateField.right = new FormAttachment(100, 0);
     wSnapshotDateField.setLayoutData(fdSnapshotDateField);
 
-    boolean scd2 = input.getTableType() == BvTableType.SCD2;
     boolean pit = input.getTableType() == BvTableType.PIT;
-    wlFunctionalTimestamp.setVisible(scd2);
-    wFunctionalTimestamp.setVisible(scd2);
-    wlValidFromField.setVisible(scd2);
-    wValidFromField.setVisible(scd2);
-    wlValidToField.setVisible(scd2);
-    wValidToField.setVisible(scd2);
     wlSnapshotDateField.setVisible(pit);
     wSnapshotDateField.setVisible(pit);
 
-    if (scd2) {
-      applyScd2FieldTooltips();
-    }
-
-    org.eclipse.swt.widgets.Control derivativeTop =
-        pit ? wSnapshotDateField : (scd2 ? wValidToField : wDescription);
+    org.eclipse.swt.widgets.Control derivativeTop = pit ? wSnapshotDateField : wDescription;
 
     wlDerivatives = new Label(shell, SWT.LEFT);
     wlDerivatives.setText(BaseMessages.getString(PKG, "HopGuiBvTableDialog.Derivatives.Label"));
@@ -371,17 +299,6 @@ public class HopGuiBvTableDialog {
     if (!Utils.isEmpty(input.getDescription())) {
       wDescription.setText(input.getDescription());
     }
-    if (input instanceof BvScd2Table scd2) {
-      if (!Utils.isEmpty(scd2.getFunctionalTimestampField())) {
-        wFunctionalTimestamp.setText(scd2.getFunctionalTimestampField());
-      }
-      if (!Utils.isEmpty(scd2.getValidFromField())) {
-        wValidFromField.setText(scd2.getValidFromField());
-      }
-      if (!Utils.isEmpty(scd2.getValidToField())) {
-        wValidToField.setText(scd2.getValidToField());
-      }
-    }
     if (input instanceof BvPitTable pit && !Utils.isEmpty(pit.getSnapshotDateField())) {
       wSnapshotDateField.setText(pit.getSnapshotDateField());
     }
@@ -406,11 +323,6 @@ public class HopGuiBvTableDialog {
     input.setName(wName.getText());
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
-    if (input instanceof BvScd2Table scd2) {
-      scd2.setFunctionalTimestampField(wFunctionalTimestamp.getText());
-      scd2.setValidFromField(wValidFromField.getText());
-      scd2.setValidToField(wValidToField.getText());
-    }
     if (input instanceof BvPitTable pit) {
       pit.setSnapshotDateField(wSnapshotDateField.getText());
     }
@@ -451,28 +363,4 @@ public class HopGuiBvTableDialog {
     shell.dispose();
   }
 
-  private void applyScd2FieldTooltips() {
-    BusinessVaultConfiguration config =
-        businessVaultModel != null
-            ? businessVaultModel.getConfigurationOrDefault()
-            : new BusinessVaultConfiguration();
-    wlFunctionalTimestamp.setToolTipText(
-        BaseMessages.getString(
-            PKG,
-            "HopGuiBvTableDialog.FunctionalTimestamp.Tooltip",
-            Const.NVL(config.getFunctionalTimestampField(), ""),
-            Const.NVL(config.getLoadDateFieldFallback(), "LOAD_DATE")));
-    wlValidFromField.setToolTipText(
-        BaseMessages.getString(
-            PKG,
-            "HopGuiBvTableDialog.ValidFromField.Tooltip",
-            Const.NVL(
-                config.getValidFromField(),
-                BusinessVaultConfiguration.DEFAULT_VALID_FROM_FIELD)));
-    wlValidToField.setToolTipText(
-        BaseMessages.getString(
-            PKG,
-            "HopGuiBvTableDialog.ValidToField.Tooltip",
-            Const.NVL(config.getValidToField(), BusinessVaultConfiguration.DEFAULT_VALID_TO_FIELD)));
-  }
 }

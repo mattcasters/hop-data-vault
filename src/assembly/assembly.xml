@@ -97,6 +97,7 @@
                 <include>org.apache.hop:hop-transform-languagemodelchat:jar</include>
                 <include>org.apache.hop:hop-transform-ifnull:jar</include>
                 <include>org.apache.hop:hop-transform-analyticquery:jar</include>
+                <include>org.apache.hop:hop-transform-repeatfields:jar</include>
             </includes>
             <outputDirectory>plugins/misc/datavault/lib</outputDirectory>
         </dependencySet>

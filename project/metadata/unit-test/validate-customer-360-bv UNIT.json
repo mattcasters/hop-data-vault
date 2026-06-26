@@ -1,0 +1,72 @@
+{
+  "database_replacements": [],
+  "autoOpening": true,
+  "description": "Validate current customer_360_bv rows after multi-satellite BV rebuild",
+  "persist_filename": "",
+  "test_type": "UNIT_TEST",
+  "variableValues": [],
+  "basePath": "${HOP_UNIT_TESTS_FOLDER}",
+  "golden_data_sets": [
+    {
+      "field_mappings": [
+        {
+          "transform_field": "customer_hk",
+          "data_set_field": "customer_hk"
+        },
+        {
+          "transform_field": "cust_segment",
+          "data_set_field": "cust_segment"
+        },
+        {
+          "transform_field": "cust_loyalty_tier",
+          "data_set_field": "cust_loyalty_tier"
+        },
+        {
+          "transform_field": "cust_demo_score",
+          "data_set_field": "cust_demo_score"
+        },
+        {
+          "transform_field": "cust_email",
+          "data_set_field": "cust_email"
+        },
+        {
+          "transform_field": "cust_phone",
+          "data_set_field": "cust_phone"
+        },
+        {
+          "transform_field": "cust_address",
+          "data_set_field": "cust_address"
+        },
+        {
+          "transform_field": "cust_city",
+          "data_set_field": "cust_city"
+        },
+        {
+          "transform_field": "cust_postal_code",
+          "data_set_field": "cust_postal_code"
+        },
+        {
+          "transform_field": "cust_newsletter",
+          "data_set_field": "cust_newsletter"
+        },
+        {
+          "transform_field": "cust_channel",
+          "data_set_field": "cust_channel"
+        },
+        {
+          "transform_field": "cust_language",
+          "data_set_field": "cust_language"
+        }
+      ],
+      "field_order": [
+        "customer_hk"
+      ],
+      "data_set_name": "customer-360-bv-current-golden",
+      "transform_name": "Validate"
+    }
+  ],
+  "input_data_sets": [],
+  "name": "validate-customer-360-bv UNIT",
+  "trans_test_tweaks": [],
+  "pipeline_filename": "./tests/multi-satellite-bv/validate-customer-360-bv.hpl"
+}

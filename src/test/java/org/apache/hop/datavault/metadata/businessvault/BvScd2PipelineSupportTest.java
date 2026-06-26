@@ -34,14 +34,23 @@ import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableType;
+import org.apache.hop.datavault.metadata.SatelliteAttribute;
+import org.apache.hop.datavault.metadata.businessvault.BvScd2PipelineSupport.SatelliteLeg;
 import org.apache.hop.datavault.metadata.businessvault.BvScd2PipelineSupport.Scd2BuildContext;
+import org.apache.hop.datavault.transform.sortedschemamerge.SortedSchemaMergeMeta;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.analyticquery.AnalyticQueryMeta;
 import org.apache.hop.pipeline.transforms.analyticquery.QueryField;
+import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.groupby.GroupByMeta;
 import org.apache.hop.pipeline.transforms.ifnull.IfNullMeta;
+import org.apache.hop.pipeline.transforms.repeatfields.Repeat;
+import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta;
+import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta.RepeatType;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
 import org.junit.jupiter.api.BeforeAll;
@@ -277,6 +286,176 @@ class BvScd2PipelineSupportTest {
   }
 
   @Test
+  void multiSatellitePipelineContainsMergeRepeatAndMappedCollapse() throws Exception {
+    DataVaultModel dvModel = loadVault1ModelWithDemoSatellite();
+    DvSatellite customerSatellite = (DvSatellite) dvModel.findTable("sat_customer");
+    DvSatellite demoSatellite = (DvSatellite) dvModel.findTable("sat_customer_demo");
+    DatabaseMeta databaseMeta = new TestDatabaseMeta("Vault");
+
+    BvScd2Table scd2Table = new BvScd2Table();
+    scd2Table.setName("customer_bv");
+    scd2Table.setTableName("customer_bv");
+    scd2Table.setFunctionalTimestampField("x_load_ts");
+    scd2Table.getDerivatives().add(new BvDerivativeRef("sat_customer", DvTableType.SATELLITE));
+    scd2Table.getDerivatives().add(new BvDerivativeRef("sat_customer_demo", DvTableType.SATELLITE));
+    scd2Table
+        .getFieldMappings()
+        .add(new BvScd2FieldMapping("sat_customer", "name", "customer_name"));
+    scd2Table
+        .getFieldMappings()
+        .add(new BvScd2FieldMapping("sat_customer_demo", "demo_score", "demo_score"));
+    scd2Table.getSatelliteConfigs().add(new BvScd2SatelliteConfig("sat_customer_demo"));
+    scd2Table.getSatelliteConfigs().get(0).setSourceIndicatorValue("DEMO");
+
+    BusinessVaultModel bvModel = new BusinessVaultModel();
+    bvModel.getConfigurationOrDefault().setTargetDatabase("Vault");
+
+    Scd2BuildContext ctx =
+        new Scd2BuildContext(
+            scd2Table,
+            List.of(
+                new SatelliteLeg(
+                    customerSatellite,
+                    "sat_customer",
+                    "sat_customer",
+                    "x_load_ts",
+                    List.of(scd2Table.getFieldMappings().get(0))),
+                new SatelliteLeg(
+                    demoSatellite,
+                    "sat_customer_demo",
+                    "DEMO",
+                    "x_load_ts",
+                    List.of(scd2Table.getFieldMappings().get(1)))),
+            true,
+            List.of("customer_name", "demo_score"),
+            bvModel,
+            dvModel,
+            bvModel.getConfigurationOrDefault(),
+            dvModel.getConfigurationOrDefault(),
+            null,
+            new Variables(),
+            databaseMeta,
+            "Vault",
+            databaseMeta,
+            "Vault",
+            "sat_customer",
+            "customer_bv",
+            "bv-scd2-customer_bv-customer_bv",
+            "customer_hk",
+            null,
+            List.of("customer_name", "demo_score"),
+            "x_load_ts",
+            "valid_from",
+            "valid_to",
+            "x_record_source",
+            BusinessVaultConfiguration.DEFAULT_OPEN_START_SENTINEL,
+            BusinessVaultConfiguration.DEFAULT_OPEN_END_SENTINEL,
+            true);
+
+    String customerSql = BvScd2PipelineSupport.buildLegTableInputSql(ctx, ctx.legs.get(0));
+    assertTrue(customerSql.contains("name"));
+    assertFalse(customerSql.contains("demo_score"));
+    assertTrue(customerSql.contains("ORDER BY"));
+    assertTrue(customerSql.indexOf("ORDER BY") < customerSql.lastIndexOf("x_load_ts"));
+
+    PipelineMeta pipelineMeta = BvScd2PipelineSupport.generatePipeline(ctx);
+    List<TransformMeta> transforms = pipelineMeta.getTransforms();
+
+    assertEquals(13, transforms.size());
+    assertEquals(2, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
+    assertEquals(2, transforms.stream().filter(t -> t.getTransform() instanceof ConstantMeta).count());
+    assertEquals(3, transforms.stream().filter(t -> t.getTransform() instanceof SelectValuesMeta).count());
+
+    TransformMeta mergeTransform =
+        transforms.stream()
+            .filter(t -> t.getTransform() instanceof SortedSchemaMergeMeta)
+            .findFirst()
+            .orElseThrow();
+    SortedSchemaMergeMeta mergeMeta = (SortedSchemaMergeMeta) mergeTransform.getTransform();
+    assertEquals(2, mergeMeta.getInputs().size());
+    assertEquals(2, mergeMeta.getSortKeys().size());
+    assertEquals("customer_hk", mergeMeta.getSortKeys().get(0).getFieldName());
+    assertEquals("x_load_ts", mergeMeta.getSortKeys().get(1).getFieldName());
+
+    TransformMeta repeatTransform =
+        transforms.stream()
+            .filter(t -> t.getTransform() instanceof RepeatFieldsMeta)
+            .findFirst()
+            .orElseThrow();
+    RepeatFieldsMeta repeatMeta = (RepeatFieldsMeta) repeatTransform.getTransform();
+    assertEquals(1, repeatMeta.getGroupFields().size());
+    assertEquals("customer_hk", repeatMeta.getGroupFields().get(0));
+
+    Repeat customerRepeat =
+        repeatMeta.getRepeats().stream()
+            .filter(
+                repeat ->
+                    RepeatType.CurrentWhenIndicated == repeat.getType()
+                        && "customer_name".equals(repeat.getSourceField()))
+            .findFirst()
+            .orElseThrow();
+    assertEquals("_r_customer_name", customerRepeat.getTargetField());
+    assertEquals("sat_customer", customerRepeat.getIndicatorValue());
+
+    Repeat demoRepeat =
+        repeatMeta.getRepeats().stream()
+            .filter(
+                repeat ->
+                    RepeatType.CurrentWhenIndicated == repeat.getType()
+                        && "demo_score".equals(repeat.getSourceField()))
+            .findFirst()
+            .orElseThrow();
+    assertEquals("_r_demo_score", demoRepeat.getTargetField());
+    assertEquals("DEMO", demoRepeat.getIndicatorValue());
+    assertEquals(BvScd2PipelineSupport.SOURCE_INDICATOR_FIELD, demoRepeat.getIndicatorFieldName());
+
+    assertFalse(
+        repeatMeta.getRepeats().stream()
+            .anyMatch(repeat -> RepeatType.PreviousWhenNull == repeat.getType()));
+
+    TransformMeta postRepeatSelectTransform =
+        transforms.stream()
+            .filter(t -> "select_repeated".equals(t.getName()))
+            .findFirst()
+            .orElseThrow();
+    SelectValuesMeta postRepeatSelectMeta =
+        (SelectValuesMeta) postRepeatSelectTransform.getTransform();
+    List<SelectField> postRepeatFields =
+        postRepeatSelectMeta.getSelectOption().getSelectFields();
+    assertEquals("customer_hk", postRepeatFields.get(0).getName());
+    assertEquals("x_load_ts", postRepeatFields.get(1).getName());
+    assertEquals(BvScd2PipelineSupport.SOURCE_INDICATOR_FIELD, postRepeatFields.get(2).getName());
+    assertEquals("x_record_source", postRepeatFields.get(2).getRename());
+    assertEquals("_r_customer_name", postRepeatFields.get(3).getName());
+    assertEquals("customer_name", postRepeatFields.get(3).getRename());
+    assertEquals("_r_demo_score", postRepeatFields.get(4).getName());
+    assertEquals("demo_score", postRepeatFields.get(4).getRename());
+
+    TransformMeta groupByTransform =
+        transforms.stream()
+            .filter(t -> t.getTransform() instanceof GroupByMeta)
+            .findFirst()
+            .orElseThrow();
+    GroupByMeta groupByMeta = (GroupByMeta) groupByTransform.getTransform();
+    assertEquals(3, groupByMeta.getGroupingFields().size());
+    assertEquals("customer_hk", groupByMeta.getGroupingFields().get(0).getName());
+    assertEquals("customer_name", groupByMeta.getGroupingFields().get(1).getName());
+    assertEquals("demo_score", groupByMeta.getGroupingFields().get(2).getName());
+
+    long mergeIncomingHops =
+        pipelineMeta.getPipelineHops().stream()
+            .filter(hop -> hop.getToTransform().equals(mergeTransform))
+            .count();
+    assertEquals(2, mergeIncomingHops);
+    assertTrue(
+        pipelineMeta.getPipelineHops().stream()
+            .anyMatch(
+                hop ->
+                    hop.getFromTransform().getName().startsWith("select_")
+                        && hop.getToTransform().equals(mergeTransform)));
+  }
+
+  @Test
   void targetTableLayoutCanOmitHashKey() throws Exception {
     DataVaultModel dvModel = loadVault1Model();
     DvSatellite satellite = (DvSatellite) dvModel.findTable("sat_customer");
@@ -293,12 +472,26 @@ class BvScd2PipelineSupportTest {
   }
 
   private static DataVaultModel loadVault1Model() throws Exception {
+    return loadVault1ModelWithDemoSatellite();
+  }
+
+  private static DataVaultModel loadVault1ModelWithDemoSatellite() throws Exception {
     Path dvPath = Path.of("project/tests/basic/vault1.hdv").toAbsolutePath().normalize();
-    Document document =
-        XmlHandler.loadXmlFile(dvPath.toFile());
+    Document document = XmlHandler.loadXmlFile(dvPath.toFile());
     Node rootNode = XmlHandler.getSubNode(document, "data-vault-model");
     DataVaultModel model = new DataVaultModel();
     XmlMetadataUtil.deSerializeFromXml(rootNode, DataVaultModel.class, model, null);
+
+    DvSatellite demoSatellite = new DvSatellite();
+    demoSatellite.setName("sat_customer_demo");
+    demoSatellite.setTableName("sat_customer_demo");
+    demoSatellite.setHubName("hub_customer");
+    SatelliteAttribute demoScore = new SatelliteAttribute();
+    demoScore.setName("demo_score");
+    demoScore.setDataType("Integer");
+    demoScore.setLength("9");
+    demoSatellite.getAttributes().add(demoScore);
+    model.getTables().add(demoSatellite);
     return model;
   }
 }

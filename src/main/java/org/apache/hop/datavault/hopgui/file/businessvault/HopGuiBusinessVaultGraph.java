@@ -453,7 +453,13 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       return;
     }
     byte[] beforeChange = captureUndoSnapshot();
-    if (new HopGuiBvTableDialog(getShell(), table, model, dataVaultModel, variables).open()) {
+    boolean accepted =
+        table instanceof BvScd2Table scd2Table
+            ? new HopGuiBvScd2TableDialog(
+                    getShell(), scd2Table, model, dataVaultModel, variables)
+                .open()
+            : new HopGuiBvTableDialog(getShell(), table, model, dataVaultModel, variables).open();
+    if (accepted) {
       commitDialogUndo(beforeChange);
       setChanged();
       redraw();

@@ -1,0 +1,159 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.datavault.metadata.businessvault;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.file.Path;
+import java.util.List;
+import org.apache.hop.core.HopEnvironment;
+import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.database.DatabaseMeta;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.variables.Variables;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
+import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.datavault.hopgui.file.businessvault.HopBusinessVaultFileType;
+import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvTableType;
+import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
+import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.pipeline.transform.TransformMeta;
+import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
+import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
+import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
+import org.apache.hop.datavault.transform.sortedschemamerge.SortedSchemaMergeMeta;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+
+class BvScd2MultiSatelliteFixtureTest {
+
+  private static final Path DV_PATH =
+      Path.of("project/tests/multi-satellite-bv/customer-360.hdv").toAbsolutePath().normalize();
+  private static final Path BV_PATH =
+      Path.of("project/tests/multi-satellite-bv/customer-360.hbv").toAbsolutePath().normalize();
+
+  @BeforeAll
+  static void initHop() throws HopException {
+    HopEnvironment.init();
+  }
+
+  @Test
+  void customer360ModelsValidateAndGenerateFourSatellitePipeline() throws Exception {
+    DataVaultModel dvModel = loadDataVaultModel(DV_PATH);
+    BusinessVaultModel bvModel = loadBusinessVaultModel(BV_PATH);
+    BvScd2Table scd2Table = findCustomer360Table(bvModel);
+
+    List<ICheckResult> remarks = new java.util.ArrayList<>();
+    scd2Table.check(remarks, null, new Variables(), bvModel, dvModel);
+    assertFalse(
+        remarks.stream().anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR),
+        () -> remarks.stream().map(ICheckResult::getText).toList().toString());
+
+    assertEquals(4, scd2Table.getDerivatives().size());
+    assertEquals(11, scd2Table.getFieldMappings().size());
+    assertEquals(4, scd2Table.getSatelliteConfigs().size());
+
+    var layout =
+        BvScd2PipelineSupport.buildTargetTableLayout(
+            scd2Table, bvModel.getConfigurationOrDefault(), dvModel, new Variables());
+    assertEquals(16, layout.size());
+    assertEquals("customer_hk", layout.getValueMeta(0).getName());
+    assertEquals("cust_segment", layout.getValueMeta(1).getName());
+    assertEquals("cust_language", layout.getValueMeta(11).getName());
+    assertEquals("x_record_source", layout.getValueMeta(12).getName());
+    assertEquals("x_load_ts", layout.getValueMeta(13).getName());
+    assertEquals("x_from_ts", layout.getValueMeta(14).getName());
+    assertEquals("x_to_ts", layout.getValueMeta(15).getName());
+
+    IHopMetadataProvider metadataProvider = testMetadataProvider();
+    List<PipelineMeta> pipelines =
+        scd2Table.generateBuildPipelines(metadataProvider, new Variables(), bvModel, dvModel);
+    assertEquals(1, pipelines.size());
+
+    PipelineMeta pipelineMeta = pipelines.get(0);
+    List<TransformMeta> transforms = pipelineMeta.getTransforms();
+    assertEquals(19, transforms.size());
+    assertEquals(4, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
+    assertEquals(4, transforms.stream().filter(t -> t.getTransform() instanceof ConstantMeta).count());
+    assertEquals(5, transforms.stream().filter(t -> t.getTransform() instanceof SelectValuesMeta).count());
+
+    TransformMeta mergeTransform =
+        transforms.stream()
+            .filter(t -> t.getTransform() instanceof SortedSchemaMergeMeta)
+            .findFirst()
+            .orElseThrow();
+    SortedSchemaMergeMeta mergeMeta = (SortedSchemaMergeMeta) mergeTransform.getTransform();
+    assertEquals(4, mergeMeta.getInputs().size());
+    assertEquals("customer_hk", mergeMeta.getSortKeys().get(0).getFieldName());
+    assertEquals("x_load_ts", mergeMeta.getSortKeys().get(1).getFieldName());
+
+    TransformMeta repeatTransform =
+        transforms.stream()
+            .filter(t -> t.getTransform() instanceof RepeatFieldsMeta)
+            .findFirst()
+            .orElseThrow();
+    RepeatFieldsMeta repeatMeta = (RepeatFieldsMeta) repeatTransform.getTransform();
+    assertEquals(11, repeatMeta.getRepeats().size());
+
+    long mergeIncomingHops =
+        pipelineMeta.getPipelineHops().stream()
+            .filter(hop -> hop.getToTransform().equals(mergeTransform))
+            .count();
+    assertEquals(4, mergeIncomingHops);
+  }
+
+  private static BvScd2Table findCustomer360Table(BusinessVaultModel bvModel) {
+    return bvModel.getTables().stream()
+        .filter(BvScd2Table.class::isInstance)
+        .map(BvScd2Table.class::cast)
+        .filter(table -> "customer_360_bv".equals(table.getName()))
+        .findFirst()
+        .orElseThrow();
+  }
+
+  private static DataVaultModel loadDataVaultModel(Path path) throws Exception {
+    Document document = XmlHandler.loadXmlFile(path.toFile());
+    Node rootNode = XmlHandler.getSubNode(document, "data-vault-model");
+    DataVaultModel model = new DataVaultModel();
+    XmlMetadataUtil.deSerializeFromXml(rootNode, DataVaultModel.class, model, null);
+    return model;
+  }
+
+  private static IHopMetadataProvider testMetadataProvider() throws HopException {
+    MemoryMetadataProvider metadataProvider = new MemoryMetadataProvider();
+    metadataProvider.getSerializer(DatabaseMeta.class).save(new TestDatabaseMeta("Vault"));
+    return metadataProvider;
+  }
+
+  private static BusinessVaultModel loadBusinessVaultModel(Path path) throws Exception {
+    Document document = XmlHandler.loadXmlFile(path.toFile());
+    Node rootNode = XmlHandler.getSubNode(document, HopBusinessVaultFileType.XML_TAG);
+    BusinessVaultModel model = new BusinessVaultModel();
+    XmlMetadataUtil.deSerializeFromXml(rootNode, BusinessVaultModel.class, model, null);
+    model.setDataVaultModelPath(DV_PATH.toString());
+    return model;
+  }
+}

@@ -26,7 +26,10 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
+import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.layout.DvPipelineElkLayout;
+import org.apache.hop.datavault.layout.ElkLayout;
+import org.apache.hop.datavault.layout.ElkLayoutAlgorithm;
 import org.apache.hop.pipeline.PipelineMeta;
 
 /** Saves generated Business Vault build pipelines when configured to do so. */
@@ -40,6 +43,21 @@ public final class BvGeneratedPipelineSupport {
 
   public static void applyLayout(List<PipelineMeta> pipelines) throws HopException {
     DvPipelineElkLayout.layout(pipelines);
+  }
+
+  /** Applies ELK layered layout for generated SCD2 pipelines (multi-input graphs). */
+  public static void applyScd2Layout(PipelineMeta pipelineMeta) throws HopException {
+    DvPipelineElkLayout.layout(pipelineMeta, scd2ElkLayout());
+  }
+
+  public static void applyScd2Layout(List<PipelineMeta> pipelines) throws HopException {
+    DvPipelineElkLayout.layout(pipelines, scd2ElkLayout());
+  }
+
+  private static ElkLayout scd2ElkLayout() {
+    ElkLayout layout = new ElkLayout(DataVaultConfigSingleton.getConfig().getElkLayout());
+    layout.setAlgorithm(ElkLayoutAlgorithm.LAYERED);
+    return layout;
   }
 
   public static String saveBeforeExecution(
