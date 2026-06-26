@@ -47,6 +47,8 @@ public class ElkLayoutDialog {
   private boolean ok;
   private boolean saveAsDefault;
 
+  private Combo wAlgorithm;
+  private Text wTargetWidth;
   private Combo wDirection;
   private Text wSpacingWithinLayer;
   private Text wSpacingBetweenLayers;
@@ -121,6 +123,24 @@ public class ElkLayoutDialog {
     scrolled.setContent(content);
 
     Control previous = null;
+
+    previous =
+        addComboField(
+            content,
+            previous,
+            middle,
+            margin,
+            BaseMessages.getString(PKG, "ElkLayoutDialog.Algorithm.Label"),
+            wAlgorithm = createEnumCombo(content, ElkLayoutAlgorithm.class));
+
+    previous =
+        addTextField(
+            content,
+            previous,
+            middle,
+            margin,
+            BaseMessages.getString(PKG, "ElkLayoutDialog.TargetWidth.Label"),
+            wTargetWidth = new Text(content, SWT.SINGLE | SWT.LEFT | SWT.BORDER));
 
     previous =
         addComboField(
@@ -238,7 +258,9 @@ public class ElkLayoutDialog {
         BaseMessages.getString(PKG, "ElkLayoutDialog.NodeHeight.Label"),
         wNodeHeight = new Text(content, SWT.SINGLE | SWT.LEFT | SWT.BORDER));
 
+    wAlgorithm.addListener(SWT.Selection, e -> updateAlgorithmWidgets());
     populateWidgets();
+    updateAlgorithmWidgets();
     content.pack();
     scrolled.setMinSize(content.computeSize(SWT.DEFAULT, SWT.DEFAULT));
 
@@ -256,6 +278,8 @@ public class ElkLayoutDialog {
   }
 
   private void populateWidgets() {
+    ElkLayoutValues.selectEnumCombo(wAlgorithm, initial.getAlgorithm());
+    wTargetWidth.setText(Integer.toString(initial.getTargetWidth()));
     ElkLayoutValues.selectEnumCombo(wDirection, initial.getDirection());
     wSpacingWithinLayer.setText(Integer.toString(initial.getSpacingWithinLayer()));
     wSpacingBetweenLayers.setText(Integer.toString(initial.getSpacingBetweenLayers()));
@@ -287,6 +311,9 @@ public class ElkLayoutDialog {
 
   private ElkLayout readLayout() {
     ElkLayout layout = new ElkLayout();
+    layout.setAlgorithm(ElkLayoutValues.parseEnum(wAlgorithm.getText(), ElkLayoutAlgorithm.class));
+    layout.setTargetWidth(
+        ElkLayoutValues.parsePositiveInt(wTargetWidth.getText(), ElkLayout.DEFAULT_TARGET_WIDTH));
     layout.setDirection(ElkLayoutValues.parseEnum(wDirection.getText(), ElkLayoutDirection.class));
     layout.setSpacingWithinLayer(
         ElkLayoutValues.parseNonNegativeInt(
@@ -381,5 +408,19 @@ public class ElkLayoutDialog {
 
   private static FormAttachment topAttachment(Control previous, int margin) {
     return previous == null ? new FormAttachment(0, margin) : new FormAttachment(previous, margin);
+  }
+
+  private void updateAlgorithmWidgets() {
+    boolean rectPacking =
+        ElkLayoutValues.parseEnum(wAlgorithm.getText(), ElkLayoutAlgorithm.class)
+            == ElkLayoutAlgorithm.RECT_PACKING;
+    wTargetWidth.setEnabled(rectPacking);
+    wDirection.setEnabled(!rectPacking);
+    wSpacingBetweenLayers.setEnabled(!rectPacking);
+    wSpacingEdgeNode.setEnabled(!rectPacking);
+    wCrossingMinimization.setEnabled(!rectPacking);
+    wNodePlacement.setEnabled(!rectPacking);
+    wLayeringStrategy.setEnabled(!rectPacking);
+    wCycleBreaking.setEnabled(!rectPacking);
   }
 }

@@ -22,14 +22,16 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.util.Utils;
 import org.eclipse.elk.alg.layered.options.LayeredOptions;
+import org.eclipse.elk.alg.rectpacking.options.RectPackingOptions;
 import org.eclipse.elk.core.math.ElkPadding;
+import org.eclipse.elk.core.options.ContentAlignment;
 import org.eclipse.elk.core.options.CoreOptions;
 import org.eclipse.elk.graph.ElkNode;
 
 /**
- * Configuration for ELK layered (Sugiyama) graph layout. This class is independent of any specific
- * consumer and can be reused by other Hop plugins or applications that use the Eclipse Layout
- * Kernel.
+ * Configuration for ELK graph layout (layered Sugiyama or rectangle packing). This class is
+ * independent of any specific consumer and can be reused by other Hop plugins or applications that
+ * use the Eclipse Layout Kernel.
  */
 @Getter
 @Setter
@@ -46,8 +48,11 @@ public class ElkLayout {
   public static final int DEFAULT_NODE_HEIGHT = 48;
   public static final double DEFAULT_CHAR_WIDTH = 7.5;
   public static final double DEFAULT_ICON_PADDING = 32;
+  public static final int DEFAULT_TARGET_WIDTH = 1200;
 
   private boolean enabled = DEFAULT_ENABLED;
+  private ElkLayoutAlgorithm algorithm = ElkLayoutAlgorithm.LAYERED;
+  private int targetWidth = DEFAULT_TARGET_WIDTH;
   private ElkLayoutDirection direction = ElkLayoutDirection.RIGHT;
   private int spacingWithinLayer = DEFAULT_SPACING_WITHIN_LAYER;
   private int spacingBetweenLayers = DEFAULT_SPACING_BETWEEN_LAYERS;
@@ -71,6 +76,8 @@ public class ElkLayout {
       return;
     }
     enabled = layout.enabled;
+    algorithm = layout.getAlgorithm();
+    setTargetWidth(layout.targetWidth);
     direction = layout.getDirection();
     setSpacingWithinLayer(layout.spacingWithinLayer);
     setSpacingBetweenLayers(layout.spacingBetweenLayers);
@@ -174,6 +181,18 @@ public class ElkLayout {
     this.iconPadding = iconPadding >= 0 ? iconPadding : DEFAULT_ICON_PADDING;
   }
 
+  public ElkLayoutAlgorithm getAlgorithm() {
+    return algorithm != null ? algorithm : ElkLayoutAlgorithm.LAYERED;
+  }
+
+  public int getTargetWidth() {
+    return targetWidth > 0 ? targetWidth : DEFAULT_TARGET_WIDTH;
+  }
+
+  public void setTargetWidth(int targetWidth) {
+    this.targetWidth = targetWidth > 0 ? targetWidth : DEFAULT_TARGET_WIDTH;
+  }
+
   public ElkLayoutDirection getDirection() {
     return direction != null ? direction : ElkLayoutDirection.RIGHT;
   }
@@ -196,8 +215,16 @@ public class ElkLayout {
     return cycleBreaking != null ? cycleBreaking : ElkCycleBreaking.GREEDY;
   }
 
-  /** Applies layered layout options to the root node of an ELK graph. */
+  /** Applies layout options to the root node of an ELK graph. */
   public void applyTo(ElkNode root) {
+    if (getAlgorithm() == ElkLayoutAlgorithm.RECT_PACKING) {
+      applyRectPackingTo(root);
+    } else {
+      applyLayeredTo(root);
+    }
+  }
+
+  private void applyLayeredTo(ElkNode root) {
     int paddingX = getOriginX();
     int paddingY = getOriginY();
 
@@ -214,6 +241,19 @@ public class ElkLayout {
     root.setProperty(LayeredOptions.NODE_PLACEMENT_STRATEGY, getNodePlacement().toElkStrategy());
     root.setProperty(LayeredOptions.LAYERING_STRATEGY, getLayeringStrategy().toElkStrategy());
     root.setProperty(LayeredOptions.CYCLE_BREAKING_STRATEGY, getCycleBreaking().toElkStrategy());
+  }
+
+  private void applyRectPackingTo(ElkNode root) {
+    int paddingX = getOriginX();
+    int paddingY = getOriginY();
+
+    root.setProperty(CoreOptions.ALGORITHM, RectPackingOptions.ALGORITHM_ID);
+    root.setProperty(CoreOptions.PADDING, new ElkPadding(paddingX, paddingY, paddingX, paddingY));
+    root.setProperty(
+        RectPackingOptions.SPACING_NODE_NODE, (double) getSpacingWithinLayer());
+    root.setProperty(
+        RectPackingOptions.WIDTH_APPROXIMATION_TARGET_WIDTH, (double) getTargetWidth());
+    root.setProperty(RectPackingOptions.CONTENT_ALIGNMENT, ContentAlignment.topLeft());
   }
 
   /** Estimates node width from a label, respecting {@link #getMinNodeWidth()}. */

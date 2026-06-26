@@ -235,6 +235,11 @@
       <artifactId>org.eclipse.elk.alg.layered</artifactId>
       <version>${elk.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.eclipse.elk</groupId>
+      <artifactId>org.eclipse.elk.alg.rectpacking</artifactId>
+      <version>${elk.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>org.junit.jupiter</groupId>

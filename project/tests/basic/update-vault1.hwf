@@ -51,8 +51,8 @@
       <description/>
       <type>SPECIAL</type>
       <attributes/>
-      <xloc>50</xloc>
-      <yloc>50</yloc>
+      <xloc>64</xloc>
+      <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -78,8 +78,8 @@
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>448</xloc>
-      <yloc>48</yloc>
+      <xloc>368</xloc>
+      <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -106,8 +106,8 @@
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>304</xloc>
-      <yloc>48</yloc>
+      <xloc>160</xloc>
+      <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -134,8 +134,8 @@ DROP TABLE IF EXISTS lnk_product_order;
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>176</xloc>
-      <yloc>48</yloc>
+      <xloc>272</xloc>
+      <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -167,8 +167,8 @@ DROP TABLE IF EXISTS lnk_product_order;
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>640</xloc>
-      <yloc>48</yloc>
+      <xloc>576</xloc>
+      <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -195,8 +195,8 @@ DROP TABLE IF EXISTS lnk_product_order;
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>304</xloc>
-      <yloc>192</yloc>
+      <xloc>160</xloc>
+      <yloc>256</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -221,8 +221,8 @@ DROP TABLE IF EXISTS lnk_product_order;
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>448</xloc>
-      <yloc>192</yloc>
+      <xloc>368</xloc>
+      <yloc>256</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -254,8 +254,8 @@ DROP TABLE IF EXISTS lnk_product_order;
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>640</xloc>
-      <yloc>192</yloc>
+      <xloc>576</xloc>
+      <yloc>256</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -278,8 +278,8 @@ DROP TABLE IF EXISTS lnk_product_order;
       <description/>
       <type>BUSINESS_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>448</xloc>
-      <yloc>336</yloc>
+      <xloc>368</xloc>
+      <yloc>352</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -289,8 +289,8 @@ DROP TABLE IF EXISTS lnk_product_order;
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>640</xloc>
-      <yloc>336</yloc>
+      <xloc>576</xloc>
+      <yloc>352</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>

@@ -32,6 +32,7 @@ import org.apache.hop.datavault.layout.ElkCrossingMinimization;
 import org.apache.hop.datavault.layout.ElkCycleBreaking;
 import org.apache.hop.datavault.layout.ElkLayeringStrategy;
 import org.apache.hop.datavault.layout.ElkLayout;
+import org.apache.hop.datavault.layout.ElkLayoutAlgorithm;
 import org.apache.hop.datavault.layout.ElkLayoutDirection;
 import org.apache.hop.datavault.layout.ElkLayoutValues;
 import org.apache.hop.datavault.layout.ElkNodePlacement;
@@ -64,6 +65,8 @@ public class ElkLayoutConfigOptionPlugin
   protected static final Class<?> PKG = ElkLayoutConfigOptionPlugin.class;
 
   private static final String WIDGET_ID_LAYOUT_ENABLED = "10020-layout-enabled";
+  private static final String WIDGET_ID_LAYOUT_ALGORITHM = "10025-layout-algorithm";
+  private static final String WIDGET_ID_LAYOUT_TARGET_WIDTH = "10026-layout-target-width";
   private static final String WIDGET_ID_LAYOUT_DIRECTION = "10030-layout-direction";
   private static final String WIDGET_ID_LAYOUT_SPACING_WITHIN_LAYER =
       "10040-layout-spacing-within-layer";
@@ -90,6 +93,28 @@ public class ElkLayoutConfigOptionPlugin
       names = {"--dv-layout-enabled"},
       description = "Enable or disable ELK layout for generated Data Vault pipelines")
   private Boolean layoutEnabled;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_LAYOUT_ALGORITHM,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.COMBO,
+      variables = false,
+      label = "i18n::ElkLayoutConfigOptionPlugin.LayoutAlgorithm.Message")
+  @CommandLine.Option(
+      names = {"--dv-layout-algorithm"},
+      description = "ELK layout algorithm for generated pipelines (LAYERED, RECT_PACKING)")
+  private ElkLayoutAlgorithm layoutAlgorithm;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_LAYOUT_TARGET_WIDTH,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      variables = false,
+      label = "i18n::ElkLayoutConfigOptionPlugin.LayoutTargetWidth.Message")
+  @CommandLine.Option(
+      names = {"--dv-layout-target-width"},
+      description = "Target row width for rectangle packing layout (pixels)")
+  private String layoutTargetWidth;
 
   @GuiWidgetElement(
       id = WIDGET_ID_LAYOUT_DIRECTION,
@@ -238,6 +263,8 @@ public class ElkLayoutConfigOptionPlugin
     ElkLayoutConfigOptionPlugin instance = new ElkLayoutConfigOptionPlugin();
     ElkLayout layout = DataVaultConfigSingleton.getConfig().getElkLayout();
     instance.layoutEnabled = layout.isEnabled();
+    instance.layoutAlgorithm = layout.getAlgorithm();
+    instance.layoutTargetWidth = Integer.toString(layout.getTargetWidth());
     instance.layoutDirection = layout.getDirection();
     instance.layoutSpacingWithinLayer = Integer.toString(layout.getSpacingWithinLayer());
     instance.layoutSpacingBetweenLayers = Integer.toString(layout.getSpacingBetweenLayers());
@@ -294,6 +321,17 @@ public class ElkLayoutConfigOptionPlugin
         case WIDGET_ID_LAYOUT_ENABLED:
           layoutEnabled = ((Button) control).getSelection();
           elkLayout.setEnabled(layoutEnabled);
+          break;
+        case WIDGET_ID_LAYOUT_ALGORITHM:
+          layoutAlgorithm =
+              ElkLayoutValues.parseEnum(getComboText(control), ElkLayoutAlgorithm.class);
+          elkLayout.setAlgorithm(layoutAlgorithm);
+          break;
+        case WIDGET_ID_LAYOUT_TARGET_WIDTH:
+          layoutTargetWidth = getTextValue(control);
+          elkLayout.setTargetWidth(
+              ElkLayoutValues.parsePositiveInt(
+                  layoutTargetWidth, ElkLayout.DEFAULT_TARGET_WIDTH));
           break;
         case WIDGET_ID_LAYOUT_DIRECTION:
           layoutDirection =
@@ -387,6 +425,17 @@ public class ElkLayoutConfigOptionPlugin
           layoutEnabled
               ? "Enabled ELK layout for generated Data Vault pipelines"
               : "Disabled ELK layout for generated Data Vault pipelines");
+      changed = true;
+    }
+    if (layoutAlgorithm != null) {
+      elkLayout.setAlgorithm(layoutAlgorithm);
+      log.logBasic("Set generated pipeline layout algorithm to " + layoutAlgorithm);
+      changed = true;
+    }
+    if (layoutTargetWidth != null) {
+      elkLayout.setTargetWidth(
+          ElkLayoutValues.parsePositiveInt(layoutTargetWidth, ElkLayout.DEFAULT_TARGET_WIDTH));
+      log.logBasic("Set generated pipeline layout target width to " + elkLayout.getTargetWidth());
       changed = true;
     }
     if (layoutDirection != null) {

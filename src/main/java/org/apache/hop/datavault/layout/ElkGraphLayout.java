@@ -254,11 +254,13 @@ public final class ElkGraphLayout {
         elkNodes.put(node.getId(), elkNode);
       }
 
-      for (ElkLayoutEdge edge : edges) {
-        ElkNode from = elkNodes.get(edge.getFromId());
-        ElkNode to = elkNodes.get(edge.getToId());
-        if (from != null && to != null) {
-          ElkGraphUtil.createSimpleEdge(from, to);
+      if (layout.getAlgorithm() != ElkLayoutAlgorithm.RECT_PACKING) {
+        for (ElkLayoutEdge edge : edges) {
+          ElkNode from = elkNodes.get(edge.getFromId());
+          ElkNode to = elkNodes.get(edge.getToId());
+          if (from != null && to != null) {
+            ElkGraphUtil.createSimpleEdge(from, to);
+          }
         }
       }
 

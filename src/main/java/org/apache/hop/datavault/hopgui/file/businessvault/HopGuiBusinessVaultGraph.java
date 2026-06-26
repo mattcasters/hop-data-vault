@@ -1935,7 +1935,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
 
   @Override
   public void close() {
-    // perspective removes the tab
+    perspective.remove(this);
   }
 
   @Override
