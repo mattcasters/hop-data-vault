@@ -47,6 +47,7 @@ import org.apache.hop.core.logging.LogLevel;
 import org.apache.hop.core.logging.LoggingObjectType;
 import org.apache.hop.core.logging.SimpleLoggingObject;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.row.value.ValueMetaDate;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
@@ -59,6 +60,7 @@ import org.apache.hop.datavault.metadata.DvModelCheckOptions;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvGeneratedPipelineSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
+import org.apache.hop.datavault.metadata.DvLoadDateSupport;
 import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -223,6 +225,16 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
   private boolean failIfDdlNeeded;
 
   @GuiWidgetElement(
+      order = "0050",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::ActionDataVaultUpdate.LoadDate.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.LoadDate.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_SOURCE_TAB_ID)
+  @HopMetadataProperty
+  private String loadDate;
+
+  @GuiWidgetElement(
       order = "0100",
       type = GuiElementType.TEXT,
       variables = true,
@@ -273,6 +285,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     this.ensureSpecialRecords = meta.ensureSpecialRecords;
     this.doNotUpdateTargetDatabase = meta.doNotUpdateTargetDatabase;
     this.recordSourceGroup = meta.recordSourceGroup;
+    this.loadDate = meta.loadDate;
     this.parallelPipelineCopies = meta.parallelPipelineCopies;
     this.pipelineStagingFolder = meta.pipelineStagingFolder;
     this.metricsOutputFolder = meta.metricsOutputFolder;
@@ -343,7 +356,18 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
         return finishExecution(result, true, 0, model);
       }
 
-      Date loadDate = new Date(); // static load date for this batch update
+      Date batchLoadDate = DvLoadDateSupport.resolveLoadDate(loadDate, getVariables());
+      if (DvLoadDateSupport.isConfigured(loadDate, getVariables())) {
+        ValueMetaDate loadDateMeta = new ValueMetaDate("loadDate");
+        loadDateMeta.setConversionMask(DvLoadDateSupport.LOAD_DATE_FORMAT_MASK);
+        logBasic(
+            BaseMessages.getString(
+                PKG,
+                "ActionDataVaultUpdate.Log.UsingLoadDate",
+                loadDateMeta.getString(batchLoadDate)));
+      } else {
+        logBasic(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Log.UsingCurrentLoadDate"));
+      }
       boolean success = true;
       int totalErrors = 0;
       String realRecordSourceGroup = resolve(recordSourceGroup);
@@ -497,7 +521,11 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
             try {
               int inserted =
                   table.ensureSpecialRecords(
-                      getMetadataProvider(), getVariables(), model, loadDate, specialRecordsLoggingObject);
+                      getMetadataProvider(),
+                      getVariables(),
+                      model,
+                      batchLoadDate,
+                      specialRecordsLoggingObject);
               totalInserted += inserted;
               if (inserted > 0) {
                 logBasic(
@@ -547,7 +575,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                 getMetadataProvider(),
                 getVariables(),
                 model,
-                loadDate,
+                batchLoadDate,
                 realRecordSourceGroup);
 
         if (pipelineMetas == null || pipelineMetas.isEmpty()) {

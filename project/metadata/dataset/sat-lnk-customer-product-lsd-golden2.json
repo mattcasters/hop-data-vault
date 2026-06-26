@@ -1,5 +1,6 @@
 {
-  "base_filename": "sat-lnk-customer-product-lsd-golden2.csv",
+  "base_filename": "link-satellite-driving-key/sat-lnk-customer-product-lsd-golden2.csv",
+  "virtualPath": "/link-satellite-driving-key",
   "name": "sat-lnk-customer-product-lsd-golden2",
   "description": "Expected link satellite state after incremental load (line_number driving key with CDC)",
   "dataset_fields": [
@@ -42,6 +43,14 @@
       "field_precision": -1,
       "field_name": "x_record_source",
       "field_format": ""
+    },
+    {
+      "field_comment": "x_load_ts",
+      "field_length": 6,
+      "field_type": 9,
+      "field_precision": -1,
+      "field_name": "x_load_ts",
+      "field_format": "yyyy/MM/dd HH:mm:ss.SSSSSSSSS"
     }
   ],
   "folder_name": ""

@@ -1,5 +1,6 @@
 {
   "base_filename": "customer_product_snapshot_after_updates.csv",
+  "virtualPath": "/other",
   "name": "customer_product_snapshot_after_updates",
   "description": "CRM snapshot after incremental updates for link satellite test case",
   "dataset_fields": [

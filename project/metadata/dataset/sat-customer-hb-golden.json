@@ -1,0 +1,81 @@
+{
+  "base_filename": "basic/sat-customer-hb-golden.csv",
+  "virtualPath": "/business-vault",
+  "name": "sat-customer-hb-golden",
+  "description": "",
+  "dataset_fields": [
+    {
+      "field_comment": "customer_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "customer_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "name",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "name",
+      "field_format": ""
+    },
+    {
+      "field_comment": "email",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "email",
+      "field_format": ""
+    },
+    {
+      "field_comment": "address",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "address",
+      "field_format": ""
+    },
+    {
+      "field_comment": "city",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "city",
+      "field_format": ""
+    },
+    {
+      "field_comment": "x_record_source",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "x_record_source",
+      "field_format": ""
+    },
+    {
+      "field_comment": "x_load_ts",
+      "field_length": 6,
+      "field_type": 9,
+      "field_precision": -1,
+      "field_name": "x_load_ts",
+      "field_format": "yyyy/MM/dd HH:mm:ss.SSSSSSSSS"
+    },
+    {
+      "field_comment": "x_from_ts",
+      "field_length": 6,
+      "field_type": 9,
+      "field_precision": -1,
+      "field_name": "x_from_ts",
+      "field_format": "yyyy/MM/dd HH:mm:ss.SSSSSSSSS"
+    },
+    {
+      "field_comment": "x_to_ts",
+      "field_length": 6,
+      "field_type": 9,
+      "field_precision": -1,
+      "field_name": "x_to_ts",
+      "field_format": "yyyy/MM/dd HH:mm:ss.SSSSSSSSS"
+    }
+  ],
+  "folder_name": ""
+}

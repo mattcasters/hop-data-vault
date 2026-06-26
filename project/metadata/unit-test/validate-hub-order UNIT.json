@@ -16,10 +16,15 @@
         {
           "transform_field": "x_record_source",
           "data_set_field": "x_record_source"
+        },
+        {
+          "transform_field": "x_load_ts",
+          "data_set_field": "x_load_ts"
         }
       ],
       "field_order": [
-        "order_hk"
+        "order_hk",
+        "x_load_ts"
       ],
       "data_set_name": "hub-order-golden",
       "transform_name": "Validate"

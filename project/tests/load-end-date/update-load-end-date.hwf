@@ -8,6 +8,11 @@
   <modified_date>2026/06/18 12:00:00.000</modified_date>
   <parameters>
     <parameter>
+      <name>DV_INITIAL_LOAD_DATE</name>
+      <description>Fixed load date for initial Data Vault Update actions</description>
+      <default_value>2024/01/01 00:00:00.000</default_value>
+    </parameter>
+    <parameter>
       <name>OUTPUT_COPIES</name>
       <description>Valid in the current workflow</description>
       <default_value>1</default_value>
@@ -21,6 +26,11 @@
       <name>METRICS_FOLDER</name>
       <description>Valid in the current workflow</description>
       <default_value>${PROJECT_HOME}/metrics</default_value>
+    </parameter>
+    <parameter>
+      <name>DV_UPDATE_LOAD_DATE</name>
+      <description>Fixed load date for incremental Data Vault Update actions</description>
+      <default_value>2024/02/01 00:00:00.000</default_value>
     </parameter>
   </parameters>
   <actions>
@@ -83,6 +93,7 @@
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/load-end-date-ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
+      <loadDate>${DV_INITIAL_LOAD_DATE}</loadDate>
       <recordSourceGroup/>
       <ensureSpecialRecords>Y</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
@@ -175,6 +186,7 @@ DROP TABLE IF EXISTS sat_customer_led
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
+      <loadDate>${DV_UPDATE_LOAD_DATE}</loadDate>
       <recordSourceGroup/>
       <ensureSpecialRecords>N</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>

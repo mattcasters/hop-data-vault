@@ -28,10 +28,15 @@
         {
           "transform_field": "product_hk",
           "data_set_field": "product_hk"
+        },
+        {
+          "transform_field": "x_load_ts",
+          "data_set_field": "x_load_ts"
         }
       ],
       "field_order": [
-        "lnk_customer_order_hk"
+        "lnk_customer_order_hk",
+        "x_load_ts"
       ],
       "data_set_name": "lnk-customer-order-golden",
       "transform_name": "Validate"

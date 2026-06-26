@@ -1,5 +1,6 @@
 {
   "base_filename": "customer_product_load1.csv",
+  "virtualPath": "/other",
   "name": "customer_product_load1",
   "description": "Source data for initial load of link satellite test case",
   "dataset_fields": [

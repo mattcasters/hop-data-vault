@@ -1,0 +1,118 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.datavault.metadata.businessvault;
+
+import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.hop.core.CheckResult;
+import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultConfiguration;
+import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.datavault.metadata.DvTableType;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.PipelineMeta;
+
+/** Business Vault SCD2 table derived from one or more DV satellites. */
+@Getter
+@Setter
+public class BvScd2Table extends BvTableBase {
+
+  private static final Class<?> PKG = BvScd2Table.class;
+
+  @HopMetadataProperty private String functionalTimestampField;
+
+  @HopMetadataProperty private String validFromField;
+
+  @HopMetadataProperty private String validToField;
+
+  @HopMetadataProperty private boolean includeHashKey = true;
+
+  public BvScd2Table() {
+    super(BvTableType.SCD2);
+  }
+
+  @Override
+  public void check(
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      BusinessVaultModel model,
+      DataVaultModel dataVaultModel) {
+    super.check(remarks, metadataProvider, variables, model, dataVaultModel);
+    boolean hasSatellite =
+        getDerivatives().stream()
+            .anyMatch(ref -> ref != null && ref.getDvTableType() == DvTableType.SATELLITE);
+    if (!hasSatellite) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "BvScd2Table.CheckResult.MissingSatelliteDerivative", getName()),
+              this));
+    }
+    BusinessVaultConfiguration bvConfig =
+        model != null ? model.getConfigurationOrDefault() : new BusinessVaultConfiguration();
+    DataVaultConfiguration dvConfig =
+        dataVaultModel != null ? dataVaultModel.getConfigurationOrDefault() : null;
+    if (Utils.isEmpty(
+        BvScd2PipelineSupport.resolveFunctionalTimestampField(
+            this, bvConfig, dvConfig, variables))) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "BvScd2Table.CheckResult.MissingFunctionalTimestamp", getName()),
+              this));
+    }
+  }
+
+  @Override
+  public List<PipelineMeta> generateBuildPipelines(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      BusinessVaultModel model,
+      DataVaultModel dataVaultModel)
+      throws HopException {
+    return BvScd2PipelineSupport.generateBuildPipelines(
+        metadataProvider, variables, model, dataVaultModel, this);
+  }
+
+  @Override
+  public IRowMeta getTargetTableLayout(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      BusinessVaultModel model,
+      DataVaultModel dataVaultModel)
+      throws HopException {
+    if (dataVaultModel == null) {
+      return null;
+    }
+    DvSatellite satellite = BvScd2PipelineSupport.resolveSourceSatellite(this, dataVaultModel);
+    BusinessVaultConfiguration bvConfig =
+        model != null ? model.getConfigurationOrDefault() : new BusinessVaultConfiguration();
+    return BvScd2PipelineSupport.buildTargetTableLayout(
+        this, bvConfig, dataVaultModel, satellite, variables);
+  }
+}

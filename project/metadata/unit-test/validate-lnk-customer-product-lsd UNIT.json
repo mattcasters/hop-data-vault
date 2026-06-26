@@ -24,11 +24,16 @@
         {
           "transform_field": "x_record_source",
           "data_set_field": "x_record_source"
+        },
+        {
+          "transform_field": "x_load_ts",
+          "data_set_field": "x_load_ts"
         }
       ],
       "field_order": [
         "lnk_customer_product_lsd_hk",
-        "customer_hk"
+        "customer_hk",
+        "x_load_ts"
       ],
       "data_set_name": "lnk-customer-product-lsd-golden1",
       "transform_name": "Validate"

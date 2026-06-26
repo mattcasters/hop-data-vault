@@ -28,10 +28,15 @@
         {
           "transform_field": "x_record_source",
           "data_set_field": "x_record_source"
+        },
+        {
+          "transform_field": "x_load_ts",
+          "data_set_field": "x_load_ts"
         }
       ],
       "field_order": [
-        "lnk_customer_order_hk"
+        "lnk_customer_order_hk",
+        "x_load_ts"
       ],
       "data_set_name": "lnk-customer-order-golden-load2",
       "transform_name": "Validate"

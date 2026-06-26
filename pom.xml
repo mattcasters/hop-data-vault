@@ -150,6 +150,11 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-ifnull</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
       <artifactId>hop-transform-append</artifactId>
       <version>${hop.version}</version>
     </dependency>
@@ -181,6 +186,11 @@
     <dependency>
       <groupId>org.apache.hop</groupId>
       <artifactId>hop-transform-pipelineexecutor</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-analyticquery</artifactId>
       <version>${hop.version}</version>
     </dependency>
     <!-- LangChain4j language model chat (provided; 2.18.1 artifact not published for this module) -->

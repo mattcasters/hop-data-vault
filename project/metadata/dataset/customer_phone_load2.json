@@ -1,5 +1,6 @@
 {
   "base_filename": "customer_phone_load2.csv",
+  "virtualPath": "/other",
   "name": "customer_phone_load2",
   "description": "Source data for incremental update of hub_customer and multi-active sat_customer_phone (load 2)",
   "dataset_fields": [

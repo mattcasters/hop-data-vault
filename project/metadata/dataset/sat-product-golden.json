@@ -1,5 +1,6 @@
 {
-  "base_filename": "sat-product-golden.csv",
+  "base_filename": "basic/sat-product-golden.csv",
+  "virtualPath": "/basic",
   "name": "sat-product-golden",
   "description": "",
   "dataset_fields": [
@@ -38,10 +39,10 @@
     {
       "field_comment": "load_date",
       "field_length": 6,
-      "field_type": 3,
+      "field_type": 9,
       "field_precision": -1,
-      "field_name": "load_date",
-      "field_format": "yyyy-MM-dd"
+      "field_name": "x_load_ts",
+      "field_format": "yyyy/MM/dd HH:mm:ss.SSSSSSSSS"
     },
     {
       "field_comment": "record_source",
@@ -49,14 +50,6 @@
       "field_type": 2,
       "field_precision": -1,
       "field_name": "record_source",
-      "field_format": ""
-    },
-    {
-      "field_comment": "x_record_source",
-      "field_length": 100,
-      "field_type": 2,
-      "field_precision": -1,
-      "field_name": "x_record_source",
       "field_format": ""
     }
   ],

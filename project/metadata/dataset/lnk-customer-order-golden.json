@@ -1,5 +1,6 @@
 {
-  "base_filename": "lnk-customer-order-golden.csv",
+  "base_filename": "basic/lnk-customer-order-golden.csv",
+  "virtualPath": "/basic",
   "name": "lnk-customer-order-golden",
   "description": "Golden dataset for LNK_CUSTOMER_ORDER after load1 (derived from expected_LNK_CUSTOMER_ORDER_after_load1.csv)",
   "dataset_fields": [
@@ -42,6 +43,14 @@
       "field_precision": -1,
       "field_name": "x_record_source",
       "field_format": ""
+    },
+    {
+      "field_comment": "x_load_ts",
+      "field_length": 6,
+      "field_type": 9,
+      "field_precision": -1,
+      "field_name": "x_load_ts",
+      "field_format": "yyyy/MM/dd HH:mm:ss.SSSSSSSSS"
     }
   ],
   "folder_name": ""

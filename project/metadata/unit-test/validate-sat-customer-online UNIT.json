@@ -20,10 +20,15 @@
         {
           "transform_field": "membership_level",
           "data_set_field": "membership_level"
+        },
+        {
+          "transform_field": "x_load_ts",
+          "data_set_field": "x_load_ts"
         }
       ],
       "field_order": [
-        "customer_hk"
+        "customer_hk",
+        "x_load_ts"
       ],
       "data_set_name": "sat-customer-online-golden1",
       "transform_name": "Validate"

@@ -29,6 +29,9 @@ import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.datavault.metadata.businessvault.BvDerivativeRef;
+import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
+import org.apache.hop.datavault.metadata.businessvault.IBvTable;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
@@ -182,6 +185,49 @@ public final class ElkGraphLayout {
           }
           if (!Utils.isEmpty(parentName) && tableByName.containsKey(parentName)) {
             edges.add(new ElkLayoutEdge(parentName, satellite.getName()));
+          }
+        }
+      }
+    }
+
+    return new ElkGraphLayout(name, nodes, edges);
+  }
+
+  public static ElkGraphLayout fromBusinessVaultModel(
+      BusinessVaultModel businessVaultModel, DataVaultModel dataVaultModel) {
+    List<ElkLayoutNode> nodes = new ArrayList<>();
+    List<ElkLayoutEdge> edges = new ArrayList<>();
+    String name = businessVaultModel != null ? businessVaultModel.getName() : null;
+
+    if (businessVaultModel != null && businessVaultModel.getTables() != null) {
+      ElkLayout defaults = ElkLayout.createDefault();
+      Map<String, IDvTable> dvTableByName = new HashMap<>();
+      if (dataVaultModel != null && dataVaultModel.getTables() != null) {
+        for (IDvTable dvTable : dataVaultModel.getTables()) {
+          if (dvTable != null && !Utils.isEmpty(dvTable.getName())) {
+            dvTableByName.put(dvTable.getName(), dvTable);
+          }
+        }
+      }
+
+      for (IBvTable bvTable : businessVaultModel.getTables()) {
+        if (bvTable == null || Utils.isEmpty(bvTable.getName())) {
+          continue;
+        }
+        nodes.add(
+            new ElkLayoutNode(
+                bvTable.getName(),
+                bvTable.getName(),
+                defaults.estimateNodeWidth(bvTable.getName()),
+                VAULT_NODE_HEIGHT,
+                bvTable));
+
+        for (BvDerivativeRef derivative : bvTable.getDerivatives()) {
+          if (derivative == null || Utils.isEmpty(derivative.getDvTableName())) {
+            continue;
+          }
+          if (dvTableByName.containsKey(derivative.getDvTableName())) {
+            edges.add(new ElkLayoutEdge(bvTable.getName(), derivative.getDvTableName()));
           }
         }
       }

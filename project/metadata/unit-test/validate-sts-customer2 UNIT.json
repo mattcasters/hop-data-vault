@@ -20,11 +20,16 @@
         {
           "transform_field": "x_record_source",
           "data_set_field": "x_record_source"
+        },
+        {
+          "transform_field": "x_load_ts",
+          "data_set_field": "x_load_ts"
         }
       ],
       "field_order": [
         "customer_hk",
-        "record_status"
+        "record_status",
+        "x_load_ts"
       ],
       "data_set_name": "sts-customer-golden2",
       "transform_name": "Validate"

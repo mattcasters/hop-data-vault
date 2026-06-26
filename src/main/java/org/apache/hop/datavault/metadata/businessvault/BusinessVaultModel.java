@@ -1,0 +1,424 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.datavault.metadata.businessvault;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.hop.base.AbstractMeta;
+import org.apache.hop.core.CheckResult;
+import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.changed.ChangedFlag;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.file.IHasFilename;
+import org.apache.hop.core.gui.IUndo;
+import org.apache.hop.core.undo.ChangeAction;
+import org.apache.hop.core.gui.Point;
+import org.apache.hop.core.gui.plugin.GuiElementType;
+import org.apache.hop.core.gui.plugin.GuiPlugin;
+import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvNote;
+import org.apache.hop.datavault.metadata.DvTableType;
+import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.HopMetadataBase;
+import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHasName;
+import org.apache.hop.metadata.api.IHopMetadata;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.jspecify.annotations.NonNull;
+
+/** A Business Vault model referencing one Data Vault model and owning BV derivative tables. */
+@GuiPlugin
+@Getter
+@Setter
+public class BusinessVaultModel extends HopMetadataBase
+    implements IHopMetadata, org.apache.hop.core.changed.IChanged, IHasName, IHasFilename, IUndo {
+
+  private static final Class<?> PKG = BusinessVaultModel.class;
+
+  public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "BUSINESS_VAULT_MODEL_DIALOG";
+
+  @HopMetadataProperty private String filename;
+
+  @HopMetadataProperty(key = "name_sync_with_filename")
+  private boolean nameSynchronizedWithFilename = true;
+
+  @GuiWidgetElement(
+      order = "0100",
+      type = GuiElementType.TEXT,
+      label = "i18n::BusinessVaultModel.Description.Label",
+      toolTip = "i18n::BusinessVaultModel.Description.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String description;
+
+  @GuiWidgetElement(
+      order = "0200",
+      type = GuiElementType.FILENAME,
+      label = "i18n::BusinessVaultModel.DataVaultModelPath.Label",
+      toolTip = "i18n::BusinessVaultModel.DataVaultModelPath.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String dataVaultModelPath;
+
+  @HopMetadataProperty(key = "configuration")
+  private BusinessVaultConfiguration configuration = new BusinessVaultConfiguration();
+
+  @HopMetadataProperty(key = "table", groupKey = "tables")
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
+  private List<IBvTable> tables = new ArrayList<>();
+
+  @HopMetadataProperty(key = "note", groupKey = "notes")
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
+  private List<DvNote> notes = new ArrayList<>();
+
+  @HopMetadataProperty(key = "dv_reference", groupKey = "dv_references")
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
+  private List<BvDvTableReference> dvReferences = new ArrayList<>();
+
+  protected final ChangedFlag changedFlag = new ChangedFlag();
+
+  public BusinessVaultModel() {
+    super();
+    ensureLists();
+  }
+
+  public BusinessVaultConfiguration getConfigurationOrDefault() {
+    if (configuration == null) {
+      configuration = new BusinessVaultConfiguration();
+    }
+    return configuration;
+  }
+
+  public @NonNull List<IBvTable> getTables() {
+    if (tables == null) {
+      tables = new ArrayList<>();
+    }
+    return tables;
+  }
+
+  public void setTables(List<IBvTable> tables) {
+    this.tables = tables != null ? tables : new ArrayList<>();
+  }
+
+  public @NonNull List<DvNote> getNotes() {
+    if (notes == null) {
+      notes = new ArrayList<>();
+    }
+    return notes;
+  }
+
+  public void setNotes(List<DvNote> notes) {
+    this.notes = notes != null ? notes : new ArrayList<>();
+  }
+
+  public @NonNull List<BvDvTableReference> getDvReferences() {
+    if (dvReferences == null) {
+      dvReferences = new ArrayList<>();
+    }
+    return dvReferences;
+  }
+
+  public void setDvReferences(List<BvDvTableReference> dvReferences) {
+    this.dvReferences = dvReferences != null ? dvReferences : new ArrayList<>();
+  }
+
+  private void ensureLists() {
+    setTables(tables);
+    setNotes(notes);
+    setDvReferences(dvReferences);
+  }
+
+  @Override
+  public String getName() {
+    return AbstractMeta.extractNameFromFilename(
+        nameSynchronizedWithFilename, name, filename, ".hbv");
+  }
+
+  @Override
+  public boolean hasChanged() {
+    return changedFlag.hasChanged();
+  }
+
+  @Override
+  public void setChanged() {
+    changedFlag.setChanged();
+  }
+
+  @Override
+  public void setChanged(boolean changed) {
+    changedFlag.setChanged(changed);
+  }
+
+  @Override
+  public void clearChanged() {
+    changedFlag.setChanged(false);
+  }
+
+  public Point getMaximum() {
+    int maxx = 0;
+    int maxy = 0;
+    for (IBvTable table : getTables()) {
+      if (table instanceof BvTableBase base) {
+        Point loc = base.getLocation();
+        if (loc == null) {
+          continue;
+        }
+        if (loc.x > maxx) {
+          maxx = loc.x;
+        }
+        if (loc.y > maxy) {
+          maxy = loc.y;
+        }
+      }
+    }
+    for (DvNote note : getNotes()) {
+      Point loc = note.getLocation();
+      if (loc == null) {
+        continue;
+      }
+      int noteMaxX = loc.x + Math.max(0, note.getWidth());
+      int noteMaxY = loc.y + Math.max(0, note.getHeight());
+      if (noteMaxX > maxx) {
+        maxx = noteMaxX;
+      }
+      if (noteMaxY > maxy) {
+        maxy = noteMaxY;
+      }
+    }
+    for (BvDvTableReference reference : getDvReferences()) {
+      if (reference == null) {
+        continue;
+      }
+      Point loc = reference.getLocation();
+      if (loc == null) {
+        continue;
+      }
+      int refMaxX = loc.x + Math.max(140, reference.getDrawnBoxWidth());
+      int refMaxY = loc.y + Math.max(70, reference.getDrawnBoxHeight());
+      if (refMaxX > maxx) {
+        maxx = refMaxX;
+      }
+      if (refMaxY > maxy) {
+        maxy = refMaxY;
+      }
+    }
+    return new Point(maxx + 200, maxy + 200);
+  }
+
+  public IBvTable findTable(String tableName) {
+    if (Utils.isEmpty(tableName)) {
+      return null;
+    }
+    for (IBvTable table : getTables()) {
+      if (table != null && tableName.equals(table.getName())) {
+        return table;
+      }
+    }
+    return null;
+  }
+
+  public BvDvTableReference findDvReference(String dvTableName) {
+    if (Utils.isEmpty(dvTableName)) {
+      return null;
+    }
+    for (BvDvTableReference reference : getDvReferences()) {
+      if (reference != null && dvTableName.equalsIgnoreCase(reference.getDvTableName())) {
+        return reference;
+      }
+    }
+    return null;
+  }
+
+  public List<ICheckResult> check(IHopMetadataProvider metadataProvider, IVariables variables) {
+    List<ICheckResult> remarks = new ArrayList<>();
+    if (Utils.isEmpty(dataVaultModelPath)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "BusinessVaultModel.CheckResult.MissingDataVaultModelPath"),
+              null));
+      return remarks;
+    }
+
+    DataVaultModel dataVaultModel;
+    try {
+      dataVaultModel =
+          BusinessVaultDvModelResolver.loadReferencedModel(
+              dataVaultModelPath, variables, metadataProvider);
+    } catch (HopException e) {
+      remarks.add(
+          new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), null));
+      return remarks;
+    }
+
+    if (getTables().isEmpty()) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_WARNING,
+              BaseMessages.getString(PKG, "BusinessVaultModel.CheckResult.NoTables"),
+              null));
+    }
+
+    Set<String> names = new HashSet<>();
+    Set<String> targetNames = new HashSet<>();
+    for (IBvTable table : getTables()) {
+      if (table == null) {
+        continue;
+      }
+      if (!Utils.isEmpty(table.getName()) && !names.add(table.getName())) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG, "BusinessVaultModel.CheckResult.DuplicateName", table.getName()),
+                table));
+      }
+      if (!Utils.isEmpty(table.getTableName()) && !targetNames.add(table.getTableName())) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG, "BusinessVaultModel.CheckResult.DuplicateTargetTable", table.getTableName()),
+                table));
+      }
+      table.check(remarks, metadataProvider, variables, this, dataVaultModel);
+    }
+
+    for (BvDvTableReference reference : getDvReferences()) {
+      if (reference == null || Utils.isEmpty(reference.getDvTableName())) {
+        continue;
+      }
+      IDvTable dvTable = dataVaultModel.findTable(reference.getDvTableName());
+      if (dvTable == null) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "BusinessVaultModel.CheckResult.UnknownDvReference",
+                    reference.getDvTableName()),
+                null));
+        continue;
+      }
+      if (reference.getDvTableType() != null
+          && dvTable.getTableType() != reference.getDvTableType()) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "BusinessVaultModel.CheckResult.DvReferenceTypeMismatch",
+                    reference.getDvTableName(),
+                    reference.getDvTableType(),
+                    dvTable.getTableType()),
+                null));
+      }
+    }
+
+    boolean hasErrors =
+        remarks.stream().anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR);
+    if (!hasErrors) {
+      remarks.add(
+          0,
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "BusinessVaultModel.CheckResult.Ok"),
+              null));
+    }
+    return remarks;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof BusinessVaultModel that)) {
+      return false;
+    }
+    if (!super.equals(o)) {
+      return false;
+    }
+    return Objects.equals(getName(), that.getName());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(super.hashCode(), getName());
+  }
+
+  // Undo/redo is implemented in HopGuiBusinessVaultGraph with model snapshots.
+
+  @Override
+  public void addUndo(
+      Object[] from,
+      Object[] to,
+      int[] pos,
+      Point[] prev,
+      Point[] curr,
+      int typeOfChange,
+      boolean nextAlso) {
+    // not used
+  }
+
+  @Override
+  public int getMaxUndo() {
+    return 0;
+  }
+
+  @Override
+  public void setMaxUndo(int mu) {
+    // not used
+  }
+
+  @Override
+  public ChangeAction previousUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction viewThisUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction viewPreviousUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction nextUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction viewNextUndo() {
+    return null;
+  }
+}

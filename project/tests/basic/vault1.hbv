@@ -1,0 +1,69 @@
+<business-vault-model>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/project/tests/basic/vault1.hbv</filename>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <description/>
+  <dataVaultModelPath>${PROJECT_HOME}/tests/basic/vault1.hdv</dataVaultModelPath>
+  <configuration>
+    <targetDatabase>Vault</targetDatabase>
+    <generatedPipelineFolder/>
+    <scd2PipelineNamePrefix>bv-scd2-</scd2PipelineNamePrefix>
+    <pitPipelineNamePrefix>bv-pit-</pitPipelineNamePrefix>
+    <businessTablePipelineNamePrefix>bv-biz-</businessTablePipelineNamePrefix>
+    <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
+    <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
+    <scd2DefaultsFolder/>
+    <functionalTimestampField/>
+    <loadDateFieldFallback>x_load_ts</loadDateFieldFallback>
+    <validFromField>x_from_ts</validFromField>
+    <validToField>x_to_ts</validToField>
+    <targetTableBatchSize>1000</targetTableBatchSize>
+    <targetTableParallelCopies>1</targetTableParallelCopies>
+  </configuration>
+  <tables>
+    <table>
+      <functionalTimestampField>x_load_ts</functionalTimestampField>
+      <validFromField/>
+      <validToField/>
+      <includeHashKey>Y</includeHashKey>
+      <tableName>sat_customer_hb</tableName>
+      <description/>
+      <tableType>SCD2</tableType>
+      <derivatives>
+        <derivative>
+          <dvTableName>sat_customer</dvTableName>
+          <dvTableType>SATELLITE</dvTableType>
+        </derivative>
+      </derivatives>
+      <xloc>336</xloc>
+      <yloc>48</yloc>
+      <name>sat_customer_hb</name>
+    </table>
+  </tables>
+  <notes>
+    <note>
+      <text>Check out [Apache Hop!](https://hop.apache.org)!</text>
+      <noteType>GENERAL</noteType>
+      <xloc>80</xloc>
+      <yloc>256</yloc>
+      <width>32</width>
+      <height>32</height>
+    </note>
+    <note>
+      <text>Link to [sat_customer_hb](sat_customer_hb) : click on it!</text>
+      <noteType>GENERAL</noteType>
+      <xloc>304</xloc>
+      <yloc>256</yloc>
+      <width>256</width>
+      <height>32</height>
+    </note>
+  </notes>
+  <dv_references>
+    <dv_reference>
+      <dvTableName>sat_customer</dvTableName>
+      <dvTableType>SATELLITE</dvTableType>
+      <xloc>64</xloc>
+      <yloc>48</yloc>
+    </dv_reference>
+  </dv_references>
+  <name>vault1</name>
+</business-vault-model>

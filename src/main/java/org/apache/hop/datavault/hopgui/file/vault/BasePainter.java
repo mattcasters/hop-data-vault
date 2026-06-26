@@ -19,16 +19,23 @@
 package org.apache.hop.datavault.hopgui.file.vault;
 
 import java.util.List;
+import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.hop.core.Const;
 import org.apache.hop.core.gui.AreaOwner;
+import org.apache.hop.core.gui.AreaOwner.AreaType;
 import org.apache.hop.core.gui.DPoint;
 import org.apache.hop.core.gui.IGc;
+import org.apache.hop.core.gui.IGc.EFont;
 import org.apache.hop.core.gui.IGc.EColor;
 import org.apache.hop.core.gui.IGc.ELineStyle;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.Rectangle;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DvNote;
+import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 @Getter
@@ -40,6 +47,8 @@ public abstract class BasePainter {
 
   public static final int MINI_ICON_MARGIN = 5;
   public static final int CORNER_RADIUS_5 = 10;
+  protected static final int NOTE_ICON_SIZE = 16;
+  protected static final int NOTE_ICON_TEXT_GAP = 4;
 
   protected double zoomFactor;
 
@@ -95,6 +104,15 @@ public abstract class BasePainter {
 
   protected Point real2screen(int x, int y) {
     return new Point((int) (x + offset.x), (int) (y + offset.y));
+  }
+
+  /**
+   * Returns the canvas coordinates used when painting a note. Adds the graph offset manually so
+   * notes align with tables drawn via {@link #real2screen(int, int)} and with {@code screen2real}
+   * from {@link org.apache.hop.ui.hopgui.perspective.execution.DragViewZoomBase}.
+   */
+  protected Point noteDrawLocation(int logicalX, int logicalY) {
+    return real2screen(logicalX, logicalY);
   }
 
   protected Point magnifyPoint(Point p) {
@@ -295,5 +313,197 @@ public abstract class BasePainter {
   protected void drawNavigationViewContent(
       double graphX, double graphY, double scaleX, double scaleY) {
     // Default: nothing. PipelinePainter and WorkflowPainter draw transforms/actions and hops.
+  }
+
+  /** Draw notes behind tables (like pipeline/workflow graphs). */
+  protected void drawNotes(List<DvNote> notes) {
+    if (notes == null || notes.isEmpty()) {
+      return;
+    }
+    for (DvNote note : notes) {
+      drawNote(note);
+    }
+  }
+
+  protected void drawNote(DvNote note) {
+    if (note == null || note.getLocation() == null) {
+      return;
+    }
+
+    DvNoteType noteType = note.getNoteType() != null ? note.getNoteType() : DvNoteType.GENERAL;
+    DvNoteStyle.RgbColor bg = DvNoteStyle.backgroundColor(noteType);
+    DvNoteStyle.RgbColor border = DvNoteStyle.borderColor(noteType);
+    DvNoteStyle.RgbColor textRgb = DvNoteStyle.textColor(noteType);
+
+    Point minimumSize = calculateNoteMinimumSize(note);
+    note.setMinimumWidth(minimumSize.x);
+    note.setMinimumHeight(minimumSize.y);
+
+    Point notePos = noteDrawLocation(note.getLocation().x, note.getLocation().y);
+    int width = note.getWidth();
+    int height = note.getHeight();
+    if (width < minimumSize.x) {
+      width = minimumSize.x;
+    }
+    if (height < minimumSize.y) {
+      height = minimumSize.y;
+    }
+
+    Rectangle noteShape = new Rectangle(notePos.x, notePos.y, width, height);
+    int radius = CORNER_RADIUS_5;
+
+    gc.setBackground(bg.red(), bg.green(), bg.blue());
+    gc.setForeground(border.red(), border.green(), border.blue());
+    gc.setLineWidth(DvNoteStyle.borderWidth(noteType, note.isSelected()));
+    gc.fillRoundRectangle(
+        noteShape.x, noteShape.y, noteShape.width, noteShape.height, radius, radius);
+    gc.drawRoundRectangle(
+        noteShape.x, noteShape.y, noteShape.width, noteShape.height, radius, radius);
+    gc.setLineWidth(1);
+
+    if (areaOwners != null) {
+      areaOwners.add(
+          new AreaOwner(
+              AreaType.NOTE,
+              noteShape.x,
+              noteShape.y,
+              noteShape.width,
+              noteShape.height,
+              offset,
+              subject,
+              note));
+    }
+
+    int contentX = noteShape.x + Const.NOTE_MARGIN;
+    int contentY = noteShape.y + Const.NOTE_MARGIN;
+    int textX = contentX;
+    int textY = contentY;
+
+    IGc.EImage icon = DvNoteStyle.icon(noteType);
+    if (icon != null) {
+      try {
+        gc.drawImage(icon, contentX, contentY, 1.0f);
+      } catch (Exception ignored) {
+        // optional decoration
+      }
+      textX = contentX + NOTE_ICON_SIZE + NOTE_ICON_TEXT_GAP;
+    }
+
+    String text = note.getText();
+    if (!Utils.isEmpty(text)) {
+      gc.setFont(EFont.GRAPH);
+      DvNoteStyle.RgbColor linkRgb = DvNoteStyle.linkColor(noteType);
+      String[] lines = text.split("\n", -1);
+      Point lineExtent = gc.textExtent("Ay");
+      int lineHeight = lineExtent.y;
+      for (int i = 0; i < lines.length; i++) {
+        drawNoteLine(note, lines[i], textX, textY + (i * lineHeight), lineHeight, textRgb, linkRgb);
+      }
+    }
+  }
+
+  private void drawNoteLine(
+      DvNote note,
+      String line,
+      int startX,
+      int startY,
+      int lineHeight,
+      DvNoteStyle.RgbColor textRgb,
+      DvNoteStyle.RgbColor linkRgb) {
+    List<DvNoteTextParser.Segment> segments = DvNoteTextParser.parseLine(line);
+    if (segments.isEmpty()) {
+      gc.setForeground(textRgb.red(), textRgb.green(), textRgb.blue());
+      gc.drawText(line != null ? line : "", startX, startY, true);
+      return;
+    }
+
+    int cursorX = startX;
+    for (DvNoteTextParser.Segment segment : segments) {
+      String display = segment.displayText();
+      if (Utils.isEmpty(display)) {
+        continue;
+      }
+      boolean link = segment.link();
+      DvNoteStyle.RgbColor color = link ? linkRgb : textRgb;
+      gc.setForeground(color.red(), color.green(), color.blue());
+      gc.drawText(display, cursorX, startY, true);
+      Point extent = gc.textExtent(display);
+
+      if (link) {
+        boolean hover = isHoveredNoteLink(note, segment);
+        gc.setLineWidth(hover ? 2 : 1);
+        gc.drawLine(cursorX, startY + lineHeight - 1, cursorX + extent.x, startY + lineHeight - 1);
+        gc.setLineWidth(1);
+        if (areaOwners != null) {
+          DvNoteLinkHit linkHit = new DvNoteLinkHit(note, segment);
+          int pad = 1;
+          areaOwners.add(
+              new AreaOwner(
+                  AreaType.CUSTOM,
+                  cursorX - pad,
+                  startY - pad,
+                  extent.x + 2 * pad,
+                  lineHeight + 2 * pad,
+                  offset,
+                  note,
+                  linkHit));
+        }
+      }
+
+      cursorX += extent.x;
+    }
+  }
+
+  private boolean isHoveredNoteLink(DvNote note, DvNoteTextParser.Segment segment) {
+    if (mouseOverNoteLink == null || note == null || segment == null) {
+      return false;
+    }
+    DvNoteTextParser.Segment hoverLink = mouseOverNoteLink.link();
+    return mouseOverNoteLink.note() == note
+        && hoverLink != null
+        && hoverLink.link() == segment.link()
+        && Objects.equals(hoverLink.label(), segment.label())
+        && Objects.equals(hoverLink.target(), segment.target());
+  }
+
+  /**
+   * Measure note content in model/logical units. Text extents are taken at identity scale so canvas
+   * magnification (incl. native zoom) is not applied twice to minimum width/height.
+   */
+  protected Point calculateNoteMinimumSize(DvNote note) {
+    int margin = Const.NOTE_MARGIN;
+    int iconRowHeight = 0;
+    int textIndent = 0;
+    DvNoteType noteType = note.getNoteType() != null ? note.getNoteType() : DvNoteType.GENERAL;
+    if (DvNoteStyle.icon(noteType) != null) {
+      iconRowHeight = NOTE_ICON_SIZE;
+      textIndent = NOTE_ICON_SIZE + NOTE_ICON_TEXT_GAP;
+    }
+
+    float savedMag = magnification;
+    gc.setTransform(0.0f, 0.0f, 1.0f);
+    try {
+      gc.setFont(EFont.GRAPH);
+      int maxLineWidth = 0;
+      int lineHeight = gc.textExtent("Ay").y;
+      int lineCount = 1;
+      if (!Utils.isEmpty(note.getText())) {
+        String[] lines = note.getText().split("\n", -1);
+        lineCount = lines.length;
+        for (String line : lines) {
+          String display = DvNoteTextParser.displayLine(line);
+          Point extent = gc.textExtent(display != null ? display : "");
+          maxLineWidth = Math.max(maxLineWidth, extent.x);
+        }
+      } else {
+        maxLineWidth = gc.textExtent(" ").x;
+      }
+
+      int contentWidth = textIndent + maxLineWidth;
+      int contentHeight = Math.max(iconRowHeight, lineCount * lineHeight);
+      return new Point(2 * margin + contentWidth, 2 * margin + contentHeight);
+    } finally {
+      gc.setTransform((float) offset.x, (float) offset.y, savedMag);
+    }
   }
 }

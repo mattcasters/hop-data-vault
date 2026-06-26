@@ -44,60 +44,12 @@ ORDER BY customer_id
     <attributes/>
   </transform>
   <transform>
-    <type>FilterRows</type>
-    <name>has load date</name>
-    <compare>
-      <condition>
-        <negated>N</negated>
-        <operator>-</operator>
-        <leftvalue>x_load_ts</leftvalue>
-        <function>IS NOT NULL</function>
-        <conditions/>
-      </condition>
-    </compare>
-    <distribute>Y</distribute>
-    <copies>1</copies>
-    <GUI>
-      <xloc>256</xloc>
-      <yloc>80</yloc>
-    </GUI>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <attributes/>
-  </transform>
-  <transform>
-    <type>FilterRows</type>
-    <name>has record source</name>
-    <compare>
-      <condition>
-        <negated>N</negated>
-        <operator>-</operator>
-        <leftvalue>x_record_source</leftvalue>
-        <function>IS NOT NULL</function>
-        <conditions/>
-      </condition>
-    </compare>
-    <distribute>Y</distribute>
-    <copies>1</copies>
-    <GUI>
-      <xloc>400</xloc>
-      <yloc>80</yloc>
-    </GUI>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <attributes/>
-  </transform>
-  <transform>
     <type>Dummy</type>
-    <name>Dummy (do nothing)</name>
+    <name>Validate</name>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>560</xloc>
+      <xloc>320</xloc>
       <yloc>80</yloc>
     </GUI>
     <partitioning>
@@ -109,17 +61,7 @@ ORDER BY customer_id
   <order>
     <hop>
       <from>hub_customer</from>
-      <to>has load date</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>has load date</from>
-      <to>has record source</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>has record source</from>
-      <to>Dummy (do nothing)</to>
+      <to>Validate</to>
       <enabled>Y</enabled>
     </hop>
   </order>

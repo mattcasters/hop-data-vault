@@ -14,12 +14,21 @@
           "data_set_field": "customer_hk"
         },
         {
+          "transform_field": "customer_id",
+          "data_set_field": "customer_id"
+        },
+        {
           "transform_field": "x_record_source",
           "data_set_field": "x_record_source"
+        },
+        {
+          "transform_field": "x_load_ts",
+          "data_set_field": "x_load_ts"
         }
       ],
       "field_order": [
-        "customer_hk"
+        "customer_hk",
+        "x_load_ts"
       ],
       "data_set_name": "hub-customer-golden",
       "transform_name": "Dummy (do nothing)"

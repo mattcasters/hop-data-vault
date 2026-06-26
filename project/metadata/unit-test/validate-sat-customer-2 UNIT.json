@@ -26,12 +26,21 @@
           "data_set_field": "address"
         },
         {
+          "transform_field": "x_record_source",
+          "data_set_field": "x_record_source"
+        },
+        {
           "transform_field": "city",
           "data_set_field": "city"
+        },
+        {
+          "transform_field": "x_load_ts",
+          "data_set_field": "x_load_ts"
         }
       ],
       "field_order": [
-        "customer_hk"
+        "customer_hk",
+        "x_load_ts"
       ],
       "data_set_name": "sat-customer-golden-load2",
       "transform_name": "Validate"

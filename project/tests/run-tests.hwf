@@ -51,8 +51,11 @@
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
       <set_append_logfile>N</set_append_logfile>
       <create_parent_folder>N</create_parent_folder>
       <wait_until_finished>Y</wait_until_finished>
@@ -60,7 +63,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-vault1-parquet</name>
+      <name>parquet-basic</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
@@ -74,8 +77,11 @@
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
       <set_append_logfile>N</set_append_logfile>
       <create_parent_folder>N</create_parent_folder>
       <wait_until_finished>Y</wait_until_finished>
@@ -83,7 +89,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-vault1-csv</name>
+      <name>csv-basic</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
@@ -97,8 +103,11 @@
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
       <set_append_logfile>N</set_append_logfile>
       <create_parent_folder>N</create_parent_folder>
       <wait_until_finished>Y</wait_until_finished>
@@ -106,7 +115,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-vault1</name>
+      <name>basic</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
@@ -120,8 +129,11 @@
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
       <set_append_logfile>N</set_append_logfile>
       <create_parent_folder>N</create_parent_folder>
       <wait_until_finished>Y</wait_until_finished>
@@ -129,7 +141,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-link-satellite</name>
+      <name>link-satellite</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
@@ -143,8 +155,11 @@
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
       <set_append_logfile>N</set_append_logfile>
       <create_parent_folder>N</create_parent_folder>
       <wait_until_finished>Y</wait_until_finished>
@@ -152,7 +167,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-link-satellite-driving-key</name>
+      <name>link-satellite-driving-key</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
@@ -166,8 +181,11 @@
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
       <set_append_logfile>N</set_append_logfile>
       <create_parent_folder>N</create_parent_folder>
       <wait_until_finished>Y</wait_until_finished>
@@ -175,7 +193,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-multi-source-hub</name>
+      <name>multi-source-hub</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
@@ -189,8 +207,11 @@
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
       <set_append_logfile>N</set_append_logfile>
       <create_parent_folder>N</create_parent_folder>
       <wait_until_finished>Y</wait_until_finished>
@@ -198,7 +219,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-customer-phone</name>
+      <name>satellite-multi-active</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
@@ -212,8 +233,11 @@
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
       <set_append_logfile>N</set_append_logfile>
       <create_parent_folder>N</create_parent_folder>
       <wait_until_finished>Y</wait_until_finished>
@@ -221,7 +245,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>run-hash-key-tests</name>
+      <name>hash-key</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
@@ -235,8 +259,11 @@
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
       <set_append_logfile>N</set_append_logfile>
       <create_parent_folder>N</create_parent_folder>
       <wait_until_finished>Y</wait_until_finished>
@@ -244,7 +271,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-status-tracking</name>
+      <name>status-tracking-satellite</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
@@ -258,8 +285,11 @@
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
       <add_date>N</add_date>
       <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
       <set_append_logfile>N</set_append_logfile>
       <create_parent_folder>N</create_parent_folder>
       <wait_until_finished>Y</wait_until_finished>
@@ -267,7 +297,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-load-end-date</name>
+      <name>load-end-date</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
@@ -339,70 +369,70 @@
   </actions>
   <hops>
     <hop>
-      <from>update-vault1-csv</from>
-      <to>update-vault1-parquet</to>
+      <from>csv-basic</from>
+      <to>parquet-basic</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update-vault1-parquet</from>
-      <to>update-vault1</to>
+      <from>parquet-basic</from>
+      <to>basic</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update-vault1</from>
-      <to>update-customer-phone</to>
+      <from>basic</from>
+      <to>satellite-multi-active</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update-customer-phone</from>
-      <to>update-link-satellite</to>
+      <from>satellite-multi-active</from>
+      <to>link-satellite</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update-link-satellite</from>
-      <to>update-link-satellite-driving-key</to>
+      <from>link-satellite</from>
+      <to>link-satellite-driving-key</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update-link-satellite-driving-key</from>
-      <to>update-load-end-date</to>
+      <from>link-satellite-driving-key</from>
+      <to>load-end-date</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update-load-end-date</from>
-      <to>run-hash-key-tests</to>
+      <from>load-end-date</from>
+      <to>hash-key</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>run-hash-key-tests</from>
-      <to>update-status-tracking</to>
+      <from>hash-key</from>
+      <to>status-tracking-satellite</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update-status-tracking</from>
-      <to>update-multi-source-hub</to>
+      <from>status-tracking-satellite</from>
+      <to>multi-source-hub</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update-multi-source-hub</from>
+      <from>multi-source-hub</from>
       <to>Success</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
@@ -410,7 +440,7 @@
     </hop>
     <hop>
       <from>create-source-tables-from-data-catalog.hpl</from>
-      <to>update-vault1-csv</to>
+      <to>csv-basic</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

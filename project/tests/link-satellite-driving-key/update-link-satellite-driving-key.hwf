@@ -22,6 +22,16 @@
       <description>Valid in the current workflow</description>
       <default_value>${PROJECT_HOME}/metrics</default_value>
     </parameter>
+    <parameter>
+      <name>DV_INITIAL_LOAD_DATE</name>
+      <description>Fixed load date for initial Data Vault Update actions</description>
+      <default_value>2024/01/01 00:00:00.000</default_value>
+    </parameter>
+    <parameter>
+      <name>DV_UPDATE_LOAD_DATE</name>
+      <description>Fixed load date for incremental Data Vault Update actions</description>
+      <default_value>2024/02/01 00:00:00.000</default_value>
+    </parameter>
   </parameters>
   <actions>
     <action>
@@ -111,6 +121,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product_lsd
       <recordSourceGroup/>
       <ensureSpecialRecords>Y</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <loadDate>${DV_INITIAL_LOAD_DATE}</loadDate>
       <name>update link-satellite-driving-key.hdv</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>
@@ -180,6 +191,7 @@ DROP TABLE IF EXISTS sat_lnk_customer_product_lsd
       <recordSourceGroup/>
       <ensureSpecialRecords>N</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <loadDate>${DV_UPDATE_LOAD_DATE}</loadDate>
       <name>update link-satellite-driving-key.hdv 2</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>

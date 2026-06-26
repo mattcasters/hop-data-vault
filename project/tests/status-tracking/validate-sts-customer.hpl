@@ -21,6 +21,7 @@
   customer_hk
 , record_status
 , x_record_source
+, x_load_ts
 FROM sts_customer
 WHERE x_load_ts = (SELECT MAX(x_load_ts) FROM sts_customer)
 ORDER BY customer_hk, record_status

@@ -6,7 +6,18 @@
   <modified_user>-</modified_user>
   <created_date>2026/06/23 21:27:25.094</created_date>
   <modified_date>2026/06/23 21:27:25.094</modified_date>
-  <parameters/>
+  <parameters>
+    <parameter>
+      <name>DV_INITIAL_LOAD_DATE</name>
+      <description>Fixed load date for initial Data Vault Update actions</description>
+      <default_value>2024/01/01 00:00:00.000</default_value>
+    </parameter>
+    <parameter>
+      <name>DV_UPDATE_LOAD_DATE</name>
+      <description>Fixed load date for incremental Data Vault Update actions</description>
+      <default_value>2024/02/01 00:00:00.000</default_value>
+    </parameter>
+  </parameters>
   <actions>
     <action>
       <repeat>N</repeat>
@@ -44,6 +55,7 @@
       <recordSourceGroup/>
       <ensureSpecialRecords>Y</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <loadDate>${DV_INITIAL_LOAD_DATE}</loadDate>
       <name>Data Vault Update</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>
@@ -101,6 +113,7 @@ DROP TABLE IF EXISTS lnk_syn_order
       <recordSourceGroup/>
       <ensureSpecialRecords>Y</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <loadDate>${DV_UPDATE_LOAD_DATE}</loadDate>
       <name>Data Vault Update Retry</name>
       <description/>
       <type>DATA_VAULT_UPDATE</type>

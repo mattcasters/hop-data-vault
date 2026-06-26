@@ -1,5 +1,6 @@
 {
-  "base_filename": "sts-customer-golden2.csv",
+  "base_filename": "status-tracking-satellite/sts-customer-golden2.csv",
+  "virtualPath": "/sts",
   "name": "sts-customer-golden2",
   "description": "",
   "dataset_fields": [
@@ -26,6 +27,14 @@
       "field_precision": -1,
       "field_name": "x_record_source",
       "field_format": ""
+    },
+    {
+      "field_comment": "x_load_ts",
+      "field_length": 6,
+      "field_type": 9,
+      "field_precision": -1,
+      "field_name": "x_load_ts",
+      "field_format": "yyyy/MM/dd HH:mm:ss.SSSSSSSSS"
     }
   ],
   "folder_name": ""

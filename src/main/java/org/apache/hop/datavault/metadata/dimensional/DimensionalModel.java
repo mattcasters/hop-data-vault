@@ -1,0 +1,287 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.datavault.metadata.dimensional;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.hop.base.AbstractMeta;
+import org.apache.hop.core.CheckResult;
+import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.changed.ChangedFlag;
+import org.apache.hop.core.file.IHasFilename;
+import org.apache.hop.core.gui.IUndo;
+import org.apache.hop.core.undo.ChangeAction;
+import org.apache.hop.core.gui.Point;
+import org.apache.hop.core.gui.plugin.GuiElementType;
+import org.apache.hop.core.gui.plugin.GuiPlugin;
+import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DvNote;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.HopMetadataBase;
+import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHasName;
+import org.apache.hop.metadata.api.IHopMetadata;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.jspecify.annotations.NonNull;
+
+/** Kimball dimensional model (star/snowflake scaffold). */
+@GuiPlugin
+@Getter
+@Setter
+public class DimensionalModel extends HopMetadataBase
+    implements IHopMetadata, org.apache.hop.core.changed.IChanged, IHasName, IHasFilename, IUndo {
+
+  private static final Class<?> PKG = DimensionalModel.class;
+
+  public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DIMENSIONAL_MODEL_DIALOG";
+
+  @HopMetadataProperty private String filename;
+
+  @HopMetadataProperty(key = "name_sync_with_filename")
+  private boolean nameSynchronizedWithFilename = true;
+
+  @GuiWidgetElement(
+      order = "0100",
+      type = GuiElementType.TEXT,
+      label = "i18n::DimensionalModel.Description.Label",
+      toolTip = "i18n::DimensionalModel.Description.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String description;
+
+  @HopMetadataProperty(key = "configuration")
+  private DimensionalConfiguration configuration = new DimensionalConfiguration();
+
+  @HopMetadataProperty(key = "table", groupKey = "tables")
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
+  private List<IDmTable> tables = new ArrayList<>();
+
+  @HopMetadataProperty(key = "note", groupKey = "notes")
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
+  private List<DvNote> notes = new ArrayList<>();
+
+  protected final ChangedFlag changedFlag = new ChangedFlag();
+
+  public DimensionalModel() {
+    super();
+    ensureLists();
+  }
+
+  public DimensionalConfiguration getConfigurationOrDefault() {
+    if (configuration == null) {
+      configuration = new DimensionalConfiguration();
+    }
+    return configuration;
+  }
+
+  public @NonNull List<IDmTable> getTables() {
+    if (tables == null) {
+      tables = new ArrayList<>();
+    }
+    return tables;
+  }
+
+  public void setTables(List<IDmTable> tables) {
+    this.tables = tables != null ? tables : new ArrayList<>();
+  }
+
+  public @NonNull List<DvNote> getNotes() {
+    if (notes == null) {
+      notes = new ArrayList<>();
+    }
+    return notes;
+  }
+
+  public void setNotes(List<DvNote> notes) {
+    this.notes = notes != null ? notes : new ArrayList<>();
+  }
+
+  private void ensureLists() {
+    setTables(tables);
+    setNotes(notes);
+  }
+
+  @Override
+  public String getName() {
+    return AbstractMeta.extractNameFromFilename(
+        nameSynchronizedWithFilename, name, filename, ".hdm");
+  }
+
+  @Override
+  public boolean hasChanged() {
+    return changedFlag.hasChanged();
+  }
+
+  @Override
+  public void setChanged() {
+    changedFlag.setChanged();
+  }
+
+  @Override
+  public void setChanged(boolean changed) {
+    changedFlag.setChanged(changed);
+  }
+
+  @Override
+  public void clearChanged() {
+    changedFlag.setChanged(false);
+  }
+
+  public Point getMaximum() {
+    int maxx = 0;
+    int maxy = 0;
+    for (IDmTable table : getTables()) {
+      if (table instanceof DmTableBase base) {
+        Point loc = base.getLocation();
+        if (loc == null) {
+          continue;
+        }
+        int boxW = Math.max(140, base.getDrawnBoxWidth());
+        int boxH = Math.max(70, base.getDrawnBoxHeight());
+        if (loc.x + boxW > maxx) {
+          maxx = loc.x + boxW;
+        }
+        if (loc.y + boxH > maxy) {
+          maxy = loc.y + boxH;
+        }
+      }
+    }
+    for (DvNote note : getNotes()) {
+      Point loc = note.getLocation();
+      if (loc == null) {
+        continue;
+      }
+      int noteMaxX = loc.x + Math.max(0, note.getWidth());
+      int noteMaxY = loc.y + Math.max(0, note.getHeight());
+      if (noteMaxX > maxx) {
+        maxx = noteMaxX;
+      }
+      if (noteMaxY > maxy) {
+        maxy = noteMaxY;
+      }
+    }
+    return new Point(maxx + 200, maxy + 200);
+  }
+
+  public IDmTable findTable(String tableName) {
+    if (Utils.isEmpty(tableName)) {
+      return null;
+    }
+    for (IDmTable table : getTables()) {
+      if (table != null && tableName.equals(table.getName())) {
+        return table;
+      }
+    }
+    return null;
+  }
+
+  public List<ICheckResult> check(IHopMetadataProvider metadataProvider, IVariables variables) {
+    List<ICheckResult> remarks = new ArrayList<>();
+    if (getTables().isEmpty()) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(PKG, "DimensionalModel.CheckResult.NoTables"),
+              null));
+    }
+    Set<String> names = new HashSet<>();
+    for (IDmTable table : getTables()) {
+      if (table == null) {
+        continue;
+      }
+      String name = table.getName();
+      if (!Utils.isEmpty(name)) {
+        if (!names.add(name)) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(PKG, "DimensionalModel.CheckResult.DuplicateName", name),
+                  table));
+        }
+      }
+      table.check(remarks, metadataProvider, variables, this);
+    }
+    if (remarks.stream().noneMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DimensionalModel.CheckResult.Ok"),
+              null));
+    }
+    return remarks;
+  }
+
+  // Undo/redo is implemented in HopGuiDimensionalModelGraph with model snapshots.
+
+  @Override
+  public void addUndo(
+      Object[] from,
+      Object[] to,
+      int[] pos,
+      Point[] prev,
+      Point[] curr,
+      int typeOfChange,
+      boolean nextAlso) {
+    // not used
+  }
+
+  @Override
+  public int getMaxUndo() {
+    return 0;
+  }
+
+  @Override
+  public void setMaxUndo(int mu) {
+    // not used
+  }
+
+  @Override
+  public ChangeAction previousUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction viewThisUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction viewPreviousUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction nextUndo() {
+    return null;
+  }
+
+  @Override
+  public ChangeAction viewNextUndo() {
+    return null;
+  }
+}

@@ -31,6 +31,7 @@
       <failIfDdlNeeded>N</failIfDdlNeeded>
       <ensureSpecialRecords>N</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>Y</doNotUpdateTargetDatabase>
+      <loadDate>${DV_INITIAL_LOAD_DATE}</loadDate>
       <name>publish vault1 catalog</name>
       <description>Upsert DV target table record definitions into vault-catalog.</description>
       <type>DATA_VAULT_UPDATE</type>

@@ -20,12 +20,17 @@
         {
           "transform_field": "x_record_source",
           "data_set_field": "x_record_source"
+        },
+        {
+          "transform_field": "x_load_ts",
+          "data_set_field": "x_load_ts"
         }
       ],
       "field_order": [
         "customer_hk",
         "customer_id",
-        "x_record_source"
+        "x_record_source",
+        "x_load_ts"
       ],
       "data_set_name": "hub-customer-phone-golden1",
       "transform_name": "Validate"

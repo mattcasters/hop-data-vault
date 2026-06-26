@@ -56,60 +56,15 @@ ORDER BY product_hk, x_load_ts
         <type>Number</type>
         <length>11</length>
         <precision>2</precision>
+        <storage_type/>
+        <date_format_lenient>N</date_format_lenient>
+        <lenient_string_to_number>N</lenient_string_to_number>
       </meta>
     </fields>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
-      <xloc>200</xloc>
-      <yloc>112</yloc>
-    </GUI>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <attributes/>
-  </transform>
-  <transform>
-    <type>FilterRows</type>
-    <name>has load date</name>
-    <compare>
-      <condition>
-        <negated>N</negated>
-        <operator>-</operator>
-        <leftvalue>x_load_ts</leftvalue>
-        <function>IS NOT NULL</function>
-        <conditions/>
-      </condition>
-    </compare>
-    <distribute>Y</distribute>
-    <copies>1</copies>
-    <GUI>
       <xloc>272</xloc>
-      <yloc>112</yloc>
-    </GUI>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <attributes/>
-  </transform>
-  <transform>
-    <type>FilterRows</type>
-    <name>has record source</name>
-    <compare>
-      <condition>
-        <negated>N</negated>
-        <operator>-</operator>
-        <leftvalue>x_record_source</leftvalue>
-        <function>IS NOT NULL</function>
-        <conditions/>
-      </condition>
-    </compare>
-    <distribute>Y</distribute>
-    <copies>1</copies>
-    <GUI>
-      <xloc>416</xloc>
       <yloc>112</yloc>
     </GUI>
     <partitioning>
@@ -141,16 +96,6 @@ ORDER BY product_hk, x_load_ts
     </hop>
     <hop>
       <from>normalize decimals</from>
-      <to>has load date</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>has load date</from>
-      <to>has record source</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>has record source</from>
       <to>Validate</to>
       <enabled>Y</enabled>
     </hop>

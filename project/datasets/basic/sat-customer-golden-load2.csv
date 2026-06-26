@@ -1,0 +1,9 @@
+customer_hk,NAME,email,address,city,load_date,record_source,x_record_source
+184-195-126-51-222-253-229-28-249-30-30-3-229-22-87-218,John Smith,john.smith@crm.com,123 Main St,New York,2024/01/01 00:00:00.000,CRM,CRM
+251-169-216-129-100-243-226-217-16-158-231-112-34-50-18-160,Jane Doe,jane.doe@crm.com,456 Oak Ave,Los Angeles,2024/01/01 00:00:00.000,CRM,CRM
+170-104-199-92-74-119-200-127-151-251-104-107-47-6-134-118,Bob Martin,bob.martin@crm.com,789 Pine Rd,Chicago,2024/01/01 00:00:00.000,CRM,CRM
+254-211-51-146-211-164-138-161-73-168-122-56-184-117-186-74,Alice Wong,alice.wong@crm.com,321 Elm St,Houston,2024/01/01 00:00:00.000,CRM,CRM
+35-135-51-123-161-224-176-36-155-169-15-85-178-186-37-33,Carlos Rivera,carlos.rivera@crm.com,654 Maple Dr,Phoenix,2024/01/01 00:00:00.000,CRM,CRM
+184-195-126-51-222-253-229-28-249-30-30-3-229-22-87-218,John Smith,john.smith.new@crm.com,123 Main St,New York,2024/02/01 00:00:00.000,CRM,CRM
+251-169-216-129-100-243-226-217-16-158-231-112-34-50-18-160,Jane Doe,jane.doe@crm.com,999 New Blvd,San Diego,2024/02/01 00:00:00.000,CRM,CRM
+146-70-68-77-148-240-129-227-84-152-3-185-40-38-15-86,Maria Gonzalez,maria.gonzalez@crm.com,111 Cedar Ln,Dallas,2024/02/01 00:00:00.000,CRM,CRM

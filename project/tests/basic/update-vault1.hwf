@@ -11,6 +11,11 @@
   <workflow_version/>
   <parameters>
     <parameter>
+      <name>DV_INITIAL_LOAD_DATE</name>
+      <description>Fixed load date for initial Data Vault Update actions</description>
+      <default_value>2024/01/01 00:00:00.000</default_value>
+    </parameter>
+    <parameter>
       <name>OUTPUT_COPIES</name>
       <description>Valid in the current workflow</description>
       <default_value>1</default_value>
@@ -24,6 +29,11 @@
       <name>METRICS_FOLDER</name>
       <description>Valid in the current workflow</description>
       <default_value>${PROJECT_HOME}/metrics</default_value>
+    </parameter>
+    <parameter>
+      <name>DV_UPDATE_LOAD_DATE</name>
+      <description>Fixed load date for incremental Data Vault Update actions</description>
+      <default_value>2024/02/01 00:00:00.000</default_value>
     </parameter>
   </parameters>
   <actions>
@@ -60,6 +70,7 @@
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/ddl.sql</ddlSqlFilename>
       <failIfDdlNeeded>N</failIfDdlNeeded>
+      <loadDate>${DV_INITIAL_LOAD_DATE}</loadDate>
       <recordSourceGroup/>
       <ensureSpecialRecords>Y</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
@@ -202,6 +213,7 @@ DROP TABLE IF EXISTS lnk_product_order;
       <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
+      <loadDate>${DV_UPDATE_LOAD_DATE}</loadDate>
       <recordSourceGroup/>
       <ensureSpecialRecords>N</ensureSpecialRecords>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
@@ -248,12 +260,37 @@ DROP TABLE IF EXISTS lnk_product_order;
       <attributes_hac/>
     </action>
     <action>
-      <name>Success</name>
+      <businessVaultModelFile>${PROJECT_HOME}/tests/basic/vault1.hbv</businessVaultModelFile>
+      <pipelineRunConfiguration>local</pipelineRunConfiguration>
+      <logModelCheckFailures>Y</logModelCheckFailures>
+      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
+      <parallelPipelineCopies>1</parallelPipelineCopies>
+      <pipelineStagingFolder/>
+      <metricsOutputFolder/>
+      <publishToCatalog>Y</publishToCatalog>
+      <dataCatalogConnection>vault-catalog</dataCatalogConnection>
+      <selectedTableNames/>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
+      <ddlSqlFilename/>
+      <failIfDdlNeeded>N</failIfDdlNeeded>
+      <name>Business Vault Update</name>
       <description/>
-      <type>SUCCESS</type>
+      <type>BUSINESS_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>800</xloc>
-      <yloc>192</yloc>
+      <xloc>448</xloc>
+      <yloc>336</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <test_names/>
+      <name>Run Pipeline Unit Tests</name>
+      <description/>
+      <type>RunPipelineTests</type>
+      <attributes/>
+      <xloc>640</xloc>
+      <yloc>336</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -288,13 +325,6 @@ DROP TABLE IF EXISTS lnk_product_order;
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Test after updates</from>
-      <to>Success</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>Start</from>
       <to>Drop Vault tables</to>
       <evaluation>Y</evaluation>
@@ -311,6 +341,20 @@ DROP TABLE IF EXISTS lnk_product_order;
     <hop>
       <from>load1.hpl</from>
       <to>update vault1.hdv</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Test after updates</from>
+      <to>Business Vault Update</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Business Vault Update</from>
+      <to>Run Pipeline Unit Tests</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
