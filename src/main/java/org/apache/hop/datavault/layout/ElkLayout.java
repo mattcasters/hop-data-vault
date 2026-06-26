@@ -23,6 +23,7 @@ import lombok.Setter;
 import org.apache.hop.core.util.Utils;
 import org.eclipse.elk.alg.layered.options.LayeredOptions;
 import org.eclipse.elk.alg.rectpacking.options.RectPackingOptions;
+import org.eclipse.elk.alg.rectpacking.p1widthapproximation.WidthApproximationStrategy;
 import org.eclipse.elk.core.math.ElkPadding;
 import org.eclipse.elk.core.options.ContentAlignment;
 import org.eclipse.elk.core.options.CoreOptions;
@@ -38,20 +39,21 @@ import org.eclipse.elk.graph.ElkNode;
 public class ElkLayout {
 
   public static final boolean DEFAULT_ENABLED = true;
-  public static final int DEFAULT_SPACING_WITHIN_LAYER = 16;
-  public static final int DEFAULT_SPACING_BETWEEN_LAYERS = 32;
+  public static final ElkLayoutAlgorithm DEFAULT_ALGORITHM = ElkLayoutAlgorithm.RECT_PACKING;
+  public static final int DEFAULT_SPACING_WITHIN_LAYER = 48;
+  public static final int DEFAULT_SPACING_BETWEEN_LAYERS = 16;
   public static final int DEFAULT_SPACING_EDGE_NODE = 16;
-  public static final int DEFAULT_ORIGIN_X = 64;
-  public static final int DEFAULT_ORIGIN_Y = 48;
+  public static final int DEFAULT_ORIGIN_X = 48;
+  public static final int DEFAULT_ORIGIN_Y = 16;
   public static final int DEFAULT_GRID_SIZE = 16;
   public static final int DEFAULT_MIN_NODE_WIDTH = 120;
   public static final int DEFAULT_NODE_HEIGHT = 48;
   public static final double DEFAULT_CHAR_WIDTH = 7.5;
   public static final double DEFAULT_ICON_PADDING = 32;
-  public static final int DEFAULT_TARGET_WIDTH = 1200;
+  public static final int DEFAULT_TARGET_WIDTH = 1000;
 
   private boolean enabled = DEFAULT_ENABLED;
-  private ElkLayoutAlgorithm algorithm = ElkLayoutAlgorithm.LAYERED;
+  private ElkLayoutAlgorithm algorithm = DEFAULT_ALGORITHM;
   private int targetWidth = DEFAULT_TARGET_WIDTH;
   private ElkLayoutDirection direction = ElkLayoutDirection.RIGHT;
   private int spacingWithinLayer = DEFAULT_SPACING_WITHIN_LAYER;
@@ -182,7 +184,7 @@ public class ElkLayout {
   }
 
   public ElkLayoutAlgorithm getAlgorithm() {
-    return algorithm != null ? algorithm : ElkLayoutAlgorithm.LAYERED;
+    return algorithm != null ? algorithm : DEFAULT_ALGORITHM;
   }
 
   public int getTargetWidth() {
@@ -249,8 +251,11 @@ public class ElkLayout {
 
     root.setProperty(CoreOptions.ALGORITHM, RectPackingOptions.ALGORITHM_ID);
     root.setProperty(CoreOptions.PADDING, new ElkPadding(paddingX, paddingY, paddingX, paddingY));
+    root.setProperty(CoreOptions.EXPAND_NODES, false);
+    root.setProperty(RectPackingOptions.NODE_SIZE_FIXED_GRAPH_SIZE, true);
+    root.setProperty(RectPackingOptions.SPACING_NODE_NODE, (double) getSpacingWithinLayer());
     root.setProperty(
-        RectPackingOptions.SPACING_NODE_NODE, (double) getSpacingWithinLayer());
+        RectPackingOptions.WIDTH_APPROXIMATION_STRATEGY, WidthApproximationStrategy.TARGET_WIDTH);
     root.setProperty(
         RectPackingOptions.WIDTH_APPROXIMATION_TARGET_WIDTH, (double) getTargetWidth());
     root.setProperty(RectPackingOptions.CONTENT_ALIGNMENT, ContentAlignment.topLeft());

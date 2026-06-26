@@ -25,10 +25,13 @@ import java.util.Map;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.core.gui.IGuiPosition;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.datavault.metadata.businessvault.BvTableBase;
 import org.apache.hop.datavault.metadata.businessvault.BvDerivativeRef;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
@@ -249,7 +252,7 @@ public final class ElkGraphLayout {
       for (ElkLayoutNode node : nodes) {
         ElkNode elkNode = ElkGraphUtil.createNode(root);
         elkNode.setIdentifier(node.getId());
-        elkNode.setDimensions(node.getWidth(), node.getHeight());
+        elkNode.setDimensions(resolveNodeWidth(node, layout), resolveNodeHeight(node, layout));
         ElkGraphUtil.createLabel(node.getLabel(), elkNode);
         elkNodes.put(node.getId(), elkNode);
       }
@@ -281,5 +284,31 @@ public final class ElkGraphLayout {
       throw new HopException(
           "Error applying ELK layout to graph " + (graphName != null ? graphName : ""), e);
     }
+  }
+
+  private static double resolveNodeWidth(ElkLayoutNode node, ElkLayout layout) {
+    IGuiPosition target = node.getTarget();
+    if (target instanceof DvTableBase dvTable && dvTable.getDrawnBoxWidth() > 0) {
+      return dvTable.getDrawnBoxWidth();
+    }
+    if (target instanceof BvTableBase bvTable && bvTable.getDrawnBoxWidth() > 0) {
+      return bvTable.getDrawnBoxWidth();
+    }
+    return layout.estimateNodeWidth(node.getLabel());
+  }
+
+  private static double resolveNodeHeight(ElkLayoutNode node, ElkLayout layout) {
+    IGuiPosition target = node.getTarget();
+    if (target instanceof DvTableBase dvTable && dvTable.getDrawnBoxHeight() > 0) {
+      return dvTable.getDrawnBoxHeight();
+    }
+    if (target instanceof BvTableBase bvTable && bvTable.getDrawnBoxHeight() > 0) {
+      return bvTable.getDrawnBoxHeight();
+    }
+    if (layout.getAlgorithm() == ElkLayoutAlgorithm.RECT_PACKING
+        && (target instanceof DvTableBase || target instanceof BvTableBase)) {
+      return VAULT_NODE_HEIGHT;
+    }
+    return layout.getNodeHeight();
   }
 }

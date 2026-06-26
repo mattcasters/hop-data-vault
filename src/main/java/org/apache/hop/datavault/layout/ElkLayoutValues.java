@@ -74,4 +74,16 @@ public final class ElkLayoutValues {
     int index = combo.indexOf(value.name());
     combo.select(index >= 0 ? index : 0);
   }
+
+  /** Reads the selected enum constant from a combo, falling back to the first constant. */
+  public static <E extends Enum<E>> E getSelectedEnum(Combo combo, Class<E> enumClass) {
+    if (combo == null || combo.isDisposed()) {
+      return enumClass.getEnumConstants()[0];
+    }
+    int index = combo.getSelectionIndex();
+    if (index >= 0 && index < combo.getItemCount()) {
+      return parseEnum(combo.getItem(index), enumClass);
+    }
+    return parseEnum(combo.getText(), enumClass);
+  }
 }

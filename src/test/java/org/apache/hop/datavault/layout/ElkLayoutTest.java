@@ -19,10 +19,12 @@
 package org.apache.hop.datavault.layout;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.eclipse.elk.alg.layered.options.LayeredOptions;
 import org.eclipse.elk.alg.rectpacking.options.RectPackingOptions;
+import org.eclipse.elk.alg.rectpacking.p1widthapproximation.WidthApproximationStrategy;
 import org.eclipse.elk.core.options.CoreOptions;
 import org.eclipse.elk.graph.ElkNode;
 import org.eclipse.elk.graph.util.ElkGraphUtil;
@@ -53,17 +55,41 @@ class ElkLayoutTest {
 
     assertEquals(RectPackingOptions.ALGORITHM_ID, root.getProperty(CoreOptions.ALGORITHM));
     assertEquals(
+        WidthApproximationStrategy.TARGET_WIDTH,
+        root.getProperty(RectPackingOptions.WIDTH_APPROXIMATION_STRATEGY));
+    assertEquals(
         640.0, root.getProperty(RectPackingOptions.WIDTH_APPROXIMATION_TARGET_WIDTH));
     assertNotNull(root.getProperty(RectPackingOptions.CONTENT_ALIGNMENT));
+    assertFalse(root.getProperty(CoreOptions.EXPAND_NODES));
+    assertTrue(root.getProperty(RectPackingOptions.NODE_SIZE_FIXED_GRAPH_SIZE));
   }
 
   @Test
-  void applyToUsesLayeredAlgorithmByDefault() {
+  void createDefaultMatchesPreferredSettings() {
+    ElkLayout layout = ElkLayout.createDefault();
+
+    assertEquals(ElkLayoutAlgorithm.RECT_PACKING, layout.getAlgorithm());
+    assertEquals(1000, layout.getTargetWidth());
+    assertEquals(ElkLayoutDirection.RIGHT, layout.getDirection());
+    assertEquals(48, layout.getSpacingWithinLayer());
+    assertEquals(16, layout.getSpacingBetweenLayers());
+    assertEquals(16, layout.getSpacingEdgeNode());
+    assertEquals(48, layout.getOriginX());
+    assertEquals(16, layout.getOriginY());
+    assertEquals(16, layout.getGridSize());
+    assertEquals(120, layout.getMinNodeWidth());
+    assertEquals(48, layout.getNodeHeight());
+  }
+
+  @Test
+  void applyToUsesRectPackingAlgorithmByDefault() {
     ElkLayout layout = new ElkLayout();
 
     ElkNode root = ElkGraphUtil.createGraph();
     layout.applyTo(root);
 
-    assertEquals(LayeredOptions.ALGORITHM_ID, root.getProperty(CoreOptions.ALGORITHM));
+    assertEquals(RectPackingOptions.ALGORITHM_ID, root.getProperty(CoreOptions.ALGORITHM));
+    assertEquals(
+        1000.0, root.getProperty(RectPackingOptions.WIDTH_APPROXIMATION_TARGET_WIDTH));
   }
 }

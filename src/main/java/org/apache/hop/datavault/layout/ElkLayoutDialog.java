@@ -311,7 +311,7 @@ public class ElkLayoutDialog {
 
   private ElkLayout readLayout() {
     ElkLayout layout = new ElkLayout();
-    layout.setAlgorithm(ElkLayoutValues.parseEnum(wAlgorithm.getText(), ElkLayoutAlgorithm.class));
+    layout.setAlgorithm(ElkLayoutValues.getSelectedEnum(wAlgorithm, ElkLayoutAlgorithm.class));
     layout.setTargetWidth(
         ElkLayoutValues.parsePositiveInt(wTargetWidth.getText(), ElkLayout.DEFAULT_TARGET_WIDTH));
     layout.setDirection(ElkLayoutValues.parseEnum(wDirection.getText(), ElkLayoutDirection.class));
@@ -412,7 +412,7 @@ public class ElkLayoutDialog {
 
   private void updateAlgorithmWidgets() {
     boolean rectPacking =
-        ElkLayoutValues.parseEnum(wAlgorithm.getText(), ElkLayoutAlgorithm.class)
+        ElkLayoutValues.getSelectedEnum(wAlgorithm, ElkLayoutAlgorithm.class)
             == ElkLayoutAlgorithm.RECT_PACKING;
     wTargetWidth.setEnabled(rectPacking);
     wDirection.setEnabled(!rectPacking);
