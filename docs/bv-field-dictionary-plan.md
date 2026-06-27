@@ -31,7 +31,7 @@ Today BV outbound naming is fragmented:
 
 - Control columns split across [`BusinessVaultConfiguration`](../src/main/java/org/apache/hop/datavault/metadata/businessvault/BusinessVaultConfiguration.java) (`valid_from`/`valid_to`) and DV config (`x_load_ts`, `x_record_source`) with no enforced `_ts`/`_dt` convention
 - Attribute renames live only on each [`BvScd2Table.fieldMappings`](../src/main/java/org/apache/hop/datavault/metadata/businessvault/BvScd2Table.java); single-satellite pipelines pass DV names through unchanged ([`BvScd2PipelineSupport`](../src/main/java/org/apache/hop/datavault/metadata/businessvault/BvScd2PipelineSupport.java))
-- The original plan’s model-level `attributeMappings` ([`business-vault-scd2-plan.md`](business-vault-scd2-plan.md)) was never implemented as a shared dictionary
+- Per-table `BvScd2FieldMapping` replaced the early idea of model-level attribute mappings; see [`business-vault-scd2.adoc`](business-vault-scd2.adoc)
 
 ## Catalog design
 

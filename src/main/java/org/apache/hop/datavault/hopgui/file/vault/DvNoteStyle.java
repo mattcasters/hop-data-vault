@@ -38,20 +38,33 @@ public final class DvNoteStyle {
     return new RgbColor(color.getRed(), color.getGreen(), color.getBlue());
   }
 
-  private static GuiResource resources() {
-    return GuiResource.getInstance();
+  private static GuiResource resourcesOrNull() {
+    try {
+      return GuiResource.getInstance();
+    } catch (Throwable ignored) {
+      // Headless CLI (hop svg) and unit tests have no SWT GuiResource implementation.
+      return null;
+    }
   }
 
   public static RgbColor backgroundColor(DvNoteType type) {
     if (type == null) {
       type = DvNoteType.GENERAL;
     }
-    GuiResource res = resources();
+    GuiResource res = resourcesOrNull();
+    if (res != null) {
+      return switch (type) {
+        case GENERAL -> fromColor(res.getColorDemoGray());
+        case IMPORTANT -> fromColor(res.getColorYellow());
+        case WARNING -> fromColor(res.getColorLightRed());
+        case INFORMATION -> fromColor(res.getColorBlueCustomGrid());
+      };
+    }
     return switch (type) {
-      case GENERAL -> fromColor(res.getColorDemoGray());
-      case IMPORTANT -> fromColor(res.getColorYellow());
-      case WARNING -> fromColor(res.getColorLightRed());
-      case INFORMATION -> fromColor(res.getColorBlueCustomGrid());
+      case GENERAL -> new RgbColor(230, 230, 230);
+      case IMPORTANT -> new RgbColor(255, 220, 100);
+      case WARNING -> new RgbColor(255, 200, 200);
+      case INFORMATION -> new RgbColor(180, 210, 255);
     };
   }
 
@@ -59,11 +72,18 @@ public final class DvNoteStyle {
     if (type == null) {
       type = DvNoteType.GENERAL;
     }
-    GuiResource res = resources();
+    GuiResource res = resourcesOrNull();
+    if (res != null) {
+      return switch (type) {
+        case GENERAL -> fromColor(res.getColorDarkGray());
+        case IMPORTANT, INFORMATION -> fromColor(res.getColorWhite());
+        case WARNING -> fromColor(res.getColorRed());
+      };
+    }
     return switch (type) {
-      case GENERAL -> fromColor(res.getColorDarkGray());
-      case IMPORTANT, INFORMATION -> fromColor(res.getColorWhite());
-      case WARNING -> fromColor(res.getColorRed());
+      case GENERAL -> new RgbColor(80, 80, 80);
+      case IMPORTANT, INFORMATION -> new RgbColor(255, 255, 255);
+      case WARNING -> new RgbColor(200, 0, 0);
     };
   }
 
@@ -71,10 +91,16 @@ public final class DvNoteStyle {
     if (type == null) {
       type = DvNoteType.GENERAL;
     }
-    GuiResource res = resources();
+    GuiResource res = resourcesOrNull();
+    if (res != null) {
+      return switch (type) {
+        case IMPORTANT, INFORMATION -> fromColor(res.getColorWhite());
+        default -> fromColor(res.getColorBlack());
+      };
+    }
     return switch (type) {
-      case IMPORTANT, INFORMATION -> fromColor(res.getColorWhite());
-      default -> fromColor(res.getColorBlack());
+      case IMPORTANT, INFORMATION -> new RgbColor(255, 255, 255);
+      default -> new RgbColor(0, 0, 0);
     };
   }
 
@@ -83,10 +109,16 @@ public final class DvNoteStyle {
     if (type == null) {
       type = DvNoteType.GENERAL;
     }
-    GuiResource res = resources();
+    GuiResource res = resourcesOrNull();
+    if (res != null) {
+      return switch (type) {
+        case IMPORTANT, INFORMATION -> fromColor(res.getColorWhite());
+        default -> fromColor(res.getColorBlack());
+      };
+    }
     return switch (type) {
-      case IMPORTANT, INFORMATION -> fromColor(res.getColorWhite());
-      default -> fromColor(res.getColorBlack());
+      case IMPORTANT, INFORMATION -> new RgbColor(255, 255, 255);
+      default -> new RgbColor(0, 0, 0);
     };
   }
 

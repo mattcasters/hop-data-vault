@@ -18,10 +18,13 @@
 
 package org.apache.hop.datavault.hopgui.file.businessvault;
 
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.Const;
@@ -45,6 +48,9 @@ import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElementType;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
+import org.apache.hop.core.vfs.HopVfs;
+import org.apache.hop.datavault.command.svg.SvgExportService;
+import org.apache.hop.datavault.command.svg.SvgRenderOptions;
 import org.apache.hop.datavault.hopgui.file.businessvault.delegates.HopGuiBusinessVaultClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.businessvault.delegates.HopGuiBusinessVaultSnapshotUndo;
 import org.apache.hop.datavault.hopgui.file.modelgraph.HopGuiModelGraphBase;
@@ -125,6 +131,8 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       "HopGuiBusinessVaultGraph-ToolBar-10050-Edit-Model";
   public static final String TOOLBAR_ITEM_CHECK_MODEL =
       "HopGuiBusinessVaultGraph-ToolBar-10060-Check-Model";
+  public static final String TOOLBAR_ITEM_EXPORT_SVG =
+      "HopGuiBusinessVaultGraph-ToolBar-10065-Export-Svg";
   public static final String TOOLBAR_ITEM_RELOAD_DV =
       "HopGuiBusinessVaultGraph-ToolBar-10070-Reload-Dv";
   public static final String TOOLBAR_ITEM_DEBUG =
@@ -1175,6 +1183,62 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
 
   @GuiToolbarElement(
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_EXPORT_SVG,
+      toolTip = "i18n::HopGuiBusinessVaultGraph.Toolbar.ExportSvg.Tooltip",
+      image = "ui/images/image.svg")
+  public void exportModelToSvg() {
+    if (model == null) {
+      return;
+    }
+    try {
+      SvgRenderOptions options = SvgRenderOptions.defaults();
+      String svgXml =
+          SvgExportService.generateBusinessVaultModelSvg(
+              model, options, variables, hopGui.getMetadataProvider());
+
+      String proposedName = Const.NVL(model.getName(), "business-vault-model") + ".svg";
+      String proposedFilename = variables.getVariable("user.home") + java.io.File.separator + proposedName;
+
+      String filenameFromUser =
+          BaseDialog.presentFileDialog(
+              true,
+              hopGui.getShell(),
+              null,
+              variables,
+              HopVfs.getFileObject(proposedFilename),
+              new String[] {"*.svg"},
+              new String[] {"SVG Files"},
+              true);
+      if (filenameFromUser == null) {
+        return;
+      }
+
+      String realFilename = variables.resolve(filenameFromUser);
+      var file = HopVfs.getFileObject(realFilename);
+      if (file.exists()) {
+        MessageBox box = new MessageBox(hopGui.getShell(), SWT.YES | SWT.NO | SWT.ICON_QUESTION);
+        box.setText(BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.ExportSvg.Exists.Title"));
+        box.setMessage(
+            BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.ExportSvg.Exists.Message"));
+        if ((box.open() & SWT.YES) == 0) {
+          return;
+        }
+      }
+
+      try (OutputStream outputStream = HopVfs.getOutputStream(file, false)) {
+        outputStream.write(svgXml.getBytes(StandardCharsets.UTF_8));
+      }
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.ExportSvg.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.ExportSvg.Error.Message"),
+          e);
+    }
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_RELOAD_DV,
       toolTip = "i18n::HopGuiBusinessVaultGraph.Toolbar.ReloadDv.Tooltip",
       image = "datavault_model.svg")
@@ -1218,15 +1282,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     if (!validateModelForDebug()) {
       return;
     }
-    if (dataVaultModel == null) {
-      new ErrorDialog(
-          hopGui.getShell(),
-          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Debug.Error.Title"),
-          !Utils.isEmpty(dataVaultLoadError)
-              ? dataVaultLoadError
-              : BaseMessages.getString(
-                  PKG, "HopGuiBusinessVaultGraph.Debug.Error.MissingDvModel"),
-          null);
+    if (!ensureDataVaultModelLoaded()) {
       return;
     }
     IVariables debugVariables = getVariables();
@@ -1245,18 +1301,25 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     if (!validateModelForDebug()) {
       return;
     }
-    if (dataVaultModel == null) {
-      new ErrorDialog(
-          hopGui.getShell(),
-          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Debug.Error.Title"),
-          !Utils.isEmpty(dataVaultLoadError)
-              ? dataVaultLoadError
-              : BaseMessages.getString(
-                  PKG, "HopGuiBusinessVaultGraph.Debug.Error.MissingDvModel"),
-          null);
+    if (!ensureDataVaultModelLoaded()) {
       return;
     }
     openBuildPipeline(table, getVariables());
+  }
+
+  private boolean ensureDataVaultModelLoaded() {
+    reloadDataVaultModel();
+    if (dataVaultModel != null) {
+      return true;
+    }
+    new ErrorDialog(
+        hopGui.getShell(),
+        BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Debug.Error.Title"),
+        !Utils.isEmpty(dataVaultLoadError)
+            ? dataVaultLoadError
+            : BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Debug.Error.MissingDvModel"),
+        null);
+    return false;
   }
 
   private void openBuildPipeline(IBvTable table, IVariables debugVariables) {
@@ -1562,6 +1625,23 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       }
     }
     centerOnCanvasLocation(loc, boxW, boxH);
+  }
+
+  private void navigateToReferencedDvTable(BvDvTableReference reference) {
+    if (reference == null || Utils.isEmpty(reference.getDvTableName())) {
+      return;
+    }
+    try {
+      BusinessVaultDvNavigationSupport.navigateToDvTable(
+          hopGui, model, reference.getDvTableName(), getVariables());
+    } catch (HopException e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(
+              PKG, "HopGuiBusinessVaultGraph.NavigateDvReference.Error.Title"),
+          e.getMessage(),
+          e);
+    }
   }
 
   private void centerOnDvReference(BvDvTableReference reference) {
@@ -2045,6 +2125,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       }
 
       if (obj instanceof BvDvTableReference dvRefHit) {
+        if (e.button == 1 && areaType == AreaOwner.AreaType.TRANSFORM_NAME) {
+          avoidContextDialog = true;
+          navigateToReferencedDvTable(dvRefHit);
+          return true;
+        }
         if (areaType == AreaOwner.AreaType.TRANSFORM_ICON
             && (e.button == 2 || (e.button == 1 && shift))) {
           startRelationshipDragFromDvReference(dvRefHit, e.x, e.y);
@@ -2305,6 +2390,22 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       if ((mouseOverDvReferenceName == null && newDvOver != null)
           || (mouseOverDvReferenceName != null && !mouseOverDvReferenceName.equals(newDvOver))) {
         mouseOverDvReferenceName = newDvOver;
+        doRedraw = true;
+      }
+      Cursor hand = getDisplay().getSystemCursor(SWT.CURSOR_HAND);
+      if (newDvOver != null) {
+        if (!Objects.equals(getCanvasCursor(), hand)) {
+          setCanvasCursor(hand);
+          doRedraw = true;
+        }
+        String tip =
+            BaseMessages.getString(
+                PKG, "HopGuiBusinessVaultGraph.NavigateDvReference.Tooltip", newDvOver);
+        if (!Objects.equals(canvas.getToolTipText(), tip)) {
+          canvas.setToolTipText(tip);
+        }
+      } else if (mouseOverBvTableName == null && getCanvasCursor() == hand) {
+        setCanvasCursor(null);
         doRedraw = true;
       }
       return doRedraw;

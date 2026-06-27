@@ -17,9 +17,9 @@ under the License.
 
 # Hop Data Vault 2.0 Plugin
 
-Apache Hop plugin for **Data Vault 2.0** modeling, validation, and model-driven loading. Version **0.0.8-SNAPSHOT** targets **Apache Hop 2.18.1** and **Java 21**.
+Apache Hop plugin for **Data Vault 2.0** and **Business Vault** modeling, validation, and model-driven loading. Version **0.0.11-SNAPSHOT** targets **Apache Hop 2.18.1** and **Java 21**.
 
-The plugin provides Hop metadata types for hubs, links, satellites, and record sources; a visual **`.hdv` model editor** with embedded per-model configuration; a **Data Vault Update** workflow action that generates and runs load pipelines; and a sample Hop project under `project/` for end-to-end testing.
+The plugin provides Hop metadata types for hubs, links, satellites, and record sources; visual **`.hdv`** and **`.hbv`** model editors; **Data Vault Update** and **Business Vault Update** workflow actions; integration modes for hybrid warehouses (Hop-managed, external read-only, custom pipelines); optional **AI Help**; and a sample Hop project under `project/` for end-to-end testing.
 
 ## Features
 
@@ -46,6 +46,11 @@ The plugin provides Hop metadata types for hubs, links, satellites, and record s
 - **Data Vault Model** (`data-vault-model`, `.hdv` files)
   - Groups hubs, links, satellites, and canvas annotation notes for one EDW / subject area
   - Embeds **configuration** inline: target database, hashing, unknown/invalid sentinel rows, standard column names, target loading, and generated-pipeline options
+  - **Integration mode** per table: Hop managed (default), external read-only, or custom pipelines
+
+- **Business Vault Model** (`business-vault-model`, `.hbv` files)
+  - Links to a `.hdv` model; defines SCD2 and PIT consumption tables
+  - Embeds BV configuration: target database, SCD2 defaults, valid from/to sentinels, pipeline prefixes
 
 `DvTableBase` / `IDvTable` let generic code treat hubs, links, and satellites uniformly. `IDvTable` extends Hop's `IGuiPosition`, `IBaseMeta`, and `IHasName` so DV tables are draggable nodes on the visual canvas.
 
@@ -55,7 +60,7 @@ Each `.hdv` file carries its own settings (edited via **Edit model** on the tool
 
 - Target database (one vault database per model)
 - Hash algorithm: MD5 (default), SHA1, SHA256, SHA512
-- Hash key data type: BINARY (recommended), HEX, or STRING
+- Hash key data type: HEX (default), STRING, or BINARY (BINARY needs Hop 2.19.0+ for correct sorting; see [issue 7346](https://github.com/apache/hop/issues/7346))
 - Trimming, casing, delimiter, null placeholder, hash content prefix/suffix
 - Unknown and **invalid** sentinel record generation and values
 - Standard column names (load date, record source, optional load end date)
@@ -104,6 +109,37 @@ The **`DATA_VAULT_UPDATE`** action reads a `.hdv` model and:
 
 ![Data Vault Update action](docs/images/action-data-vault-update.png)
 
+### Business Vault (`.hbv` files)
+
+- Visual **Business Vault model editor** linked to a `.hdv` file
+- **SCD2 tables** — functional timelines from DV satellite history (`valid_from` / `valid_to`)
+- **Multi-satellite merge** — explicit field mappings (e.g. Customer 360 from four satellites)
+- **PIT tables** — point-in-time helpers referencing hubs and satellites
+- Toolbar: Edit model, Check model, Reload DV model, Debug (generate build pipelines)
+- Navigate from BV to referenced DV tables in Hop GUI
+
+![Customer 360 Business Vault model](docs/images/business-vault-model-customer-360.png)
+
+### Business Vault Update workflow action
+
+The **`BUSINESS_VAULT_UPDATE`** action reads a `.hbv` model and:
+
+- Validates the BV model and linked DV model
+- Optionally generates CREATE TABLE DDL on the BV target database
+- Generates and runs SCD2 build pipelines (parallel orchestration, optional catalog publish)
+
+### Integration modes (hybrid warehouses)
+
+Per hub, link, or satellite:
+
+- **Hop managed** — generated DDL and update pipelines (default)
+- **External read-only** — table loaded elsewhere (dbt, SQL); Hop documents for BV; canvas shows `(ext)`
+- **Custom pipelines** — Hop orchestrates your `.hpl` files; canvas shows `(custom)`
+
+### AI Help
+
+**AI Help** on the Data Vault model toolbar provides LLM-assisted source analysis, modeling proposals, and troubleshooting with review-before-apply. See [`docs/ai-advisory.md`](docs/ai-advisory.md).
+
 ### Search
 
 - **`DataVaultModelSearchAnalyser`** indexes Data Vault models for Hop's metadata search (name, description, configuration, tables, and properties).
@@ -119,21 +155,35 @@ Under **Configuration → Data Vault 2.0** (`DataVaultConfigOptionPlugin`):
 
 ## Documentation
 
-AsciiDoc reference material lives under `docs/`:
+Full index: **[docs/README.md](docs/README.md)**
+
+| Audience | Document |
+|----------|----------|
+| Managers / architects | [`docs/presentations/hop-data-vault-overview.md`](docs/presentations/hop-data-vault-overview.md) |
+| Modelers (tutorial) | [`docs/getting-started-modeler.adoc`](docs/getting-started-modeler.adoc) |
+
+**Data Vault reference** (AsciiDoc under `docs/`):
 
 | Document | Topic |
 |----------|--------|
-| [`docs/datavault-plugin.adoc`](docs/datavault-plugin.adoc) | Plugin overview, visual editor, workflow |
-| [`docs/datavault-configuration.adoc`](docs/datavault-configuration.adoc) | Embedded model configuration (all dialog tabs) |
-| [`docs/datavault-source.adoc`](docs/datavault-source.adoc) | Record sources (General tab) |
-| [`docs/datavault-source-database.adoc`](docs/datavault-source-database.adoc) | Database tab (embedded in each source) |
+| [`docs/datavault-plugin.adoc`](docs/datavault-plugin.adoc) | Plugin overview, visual editor, workflows |
+| [`docs/datavault-configuration.adoc`](docs/datavault-configuration.adoc) | Embedded `.hdv` configuration |
+| [`docs/dv-integration-modes.adoc`](docs/dv-integration-modes.adoc) | Hop managed / external / custom pipelines |
 | [`docs/dv-hub.adoc`](docs/dv-hub.adoc) / [`dv-link.adoc`](docs/dv-link.adoc) / [`dv-satellite.adoc`](docs/dv-satellite.adoc) | Table metadata |
-| [`docs/datavault-update-action.adoc`](docs/datavault-update-action.adoc) | Workflow action (Model / DDL / Source tabs) |
-| [`docs/issue-27-source-target-type-validation.md`](docs/issue-27-source-target-type-validation.md) | Source-to-target type validation (design summary) |
+| [`docs/datavault-update-action.adoc`](docs/datavault-update-action.adoc) | Data Vault Update action |
 
-Screenshots for the model dialog tabs, notes, and the update action are in [`docs/images/`](docs/images/).
+**Business Vault reference:**
 
-The sample project guide is **[project/PROJECT.md](project/PROJECT.md)** — models, workflows, unit tests, and screenshots.
+| Document | Topic |
+|----------|--------|
+| [`docs/business-vault-overview.adoc`](docs/business-vault-overview.adoc) | `.hbv` modeler and table types |
+| [`docs/business-vault-scd2.adoc`](docs/business-vault-scd2.adoc) | SCD2 and multi-satellite merge |
+| [`docs/business-vault-configuration.adoc`](docs/business-vault-configuration.adoc) | Embedded `.hbv` configuration |
+| [`docs/business-vault-update-action.adoc`](docs/business-vault-update-action.adoc) | Business Vault Update action |
+
+Also: [`docs/ai-advisory.md`](docs/ai-advisory.md), [`docs/datavault-source.adoc`](docs/datavault-source.adoc), [`docs/datavault-source-database.adoc`](docs/datavault-source-database.adoc).
+
+Screenshots are in [`docs/images/`](docs/images/). The sample project guide is **[project/PROJECT.md](project/PROJECT.md)**.
 
 ## Sample project
 
@@ -147,7 +197,7 @@ The `project/` folder is a self-contained Hop project with metadata, datasets, s
 project/run-tests.sh
 ```
 
-That runs `tests/run-tests.hwf`, which executes four suites: basic vault1, multi-active satellite, link satellite, and load end date. To run one workflow:
+That runs `tests/run-tests.hwf`, which executes the full suite (basic vault1, multi-active satellite, link satellite, load end date, status tracking, multi-source hub, hash key tests, and multi-satellite Business Vault). To run one workflow:
 
 ```bash
 project/run-tests.sh tests/load-end-date/update-load-end-date.hwf
@@ -161,17 +211,17 @@ mvn clean package
 
 Artifacts:
 
-- `target/hop-datavault-0.0.8-SNAPSHOT.jar`
-- `target/hop-datavault-0.0.8-SNAPSHOT.zip` (ready-to-unzip plugin layout)
+- `target/hop-datavault-0.0.11-SNAPSHOT.jar`
+- `target/hop-datavault-0.0.11-SNAPSHOT.zip` (ready-to-unzip plugin layout)
 
 ## Installation (external plugin)
 
 1. Unzip the assembly zip into your Hop installation, or manually copy the jar to:
    ```
-   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.0.8-SNAPSHOT.jar
+   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.0.11-SNAPSHOT.jar
    ```
 2. Restart Hop GUI.
-3. New metadata types appear under **Metadata → Data Vault**. The **Data Vault Update** action is available in workflows. `.hdv` files open in the visual modeler.
+3. New metadata types appear under **Metadata → Data Vault**. **Data Vault Update** and **Business Vault Update** actions are available in workflows. `.hdv` and `.hbv` files open in the visual modelers.
 
 ## Usage
 
@@ -180,6 +230,7 @@ Artifacts:
 3. Click **Edit model** to set the target database, hashing rules, sentinel records, and pipeline options.
 4. Use **Check model**, **Generate DDL**, or **Debug** on the toolbar to validate and inspect before production loads. Use the canvas or table **context menus** (icon actions) to add and edit objects.
 5. Add a **Data Vault Update** action to a workflow, point it at the `.hdv` file, and run.
+6. Optionally create a **Business Vault model** (`.hbv`), link it to the `.hdv`, define SCD2 tables, and run **Business Vault Update**.
 
 For multi-active satellites, set **`drivingKey`** (vault column) and **`drivingKeySourceField`** (source column). For scheduled partial loads, tag sources with **`group`** and set **`recordSourceGroup`** on the update action.
 
@@ -192,7 +243,7 @@ SELECT * FROM sat_customer WHERE x_load_end_ts IS NULL
 ## Common Data Vault 2.0 options included
 
 - Hashing: MD5 / SHA1 / SHA256 / SHA512
-- Binary, HEX, or String hash keys (BINARY recommended)
+- HEX (default), String, or Binary hash keys (Binary needs Hop 2.19.0+; see [issue 7346](https://github.com/apache/hop/issues/7346))
 - Trimming + casing normalization
 - Delimiter + null placeholder
 - Unknown and invalid sentinel record handling
@@ -203,6 +254,8 @@ SELECT * FROM sat_customer WHERE x_load_end_ts IS NULL
 
 ## Roadmap / ideas
 
-- PIT tables, bridges, reference tables
-- Additional source types beyond database tables
+- Dimensional modeler (Kimball-style from DV/BV metadata)
+- Business Vault field dictionary (naming and typing rules)
+- Marquez / OpenLineage lineage export
+- Bridge tables and additional source types
 - Richer list editing in metadata dialogs

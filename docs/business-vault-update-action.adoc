@@ -1,0 +1,90 @@
+= Business Vault Update action
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+== Description
+
+The **Business Vault Update** workflow action (`BUSINESS_VAULT_UPDATE`) rebuilds Business Vault tables from a saved `.hbv` model. It follows the same pattern as the Data Vault Update action: validate, optionally create schema, generate pipelines, stage, and run in parallel.
+
+At runtime the action:
+
+* Loads the `.hbv` model and resolves the linked `.hdv` Data Vault model
+* Optionally validates both models before any work is done
+* Optionally generates CREATE TABLE DDL for Business Vault tables on the BV target database
+* Generates **build pipelines** for each selected SCD2 (and other supported) table
+* Stages pipelines and runs them through a parallel orchestrator
+* Optionally publishes BV target table layouts to the data catalog
+* Aggregates pipeline results into the workflow action result
+
+== Dialog tabs
+
+=== Model tab
+
+[cols="1,3", options="header"]
+|===
+|Option |Description
+
+|Business Vault model file
+|Path to the `.hbv` file. Variables supported (e.g. `${PROJECT_HOME}/tests/multi-satellite-bv/customer-360.hbv`). Required.
+
+|Pipeline run configuration
+|Pipeline Run Configuration used to execute every generated build pipeline. Required when data load runs.
+
+|Log model check failures
+|When enabled (default), runs `BusinessVaultModel.check()` before generating pipelines or DDL.
+
+|Abort on model check failures
+|When enabled (default), stops immediately if any check returns an error.
+
+|Parallel pipeline copies
+|Number of parallel workers for staged pipelines (default `1`).
+
+|Pipeline staging folder
+|Folder where generated pipelines are written before execution. When empty, defaults to `${java.io.tmpdir}/bv/`.
+
+|Metrics output folder
+|Optional folder for per-run metrics JSON (same pattern as Data Vault Update).
+
+|Publish to catalog
+|When enabled, upserts record definitions for BV target tables into the configured data catalog.
+
+|Data catalog connection
+|Catalog connection used when publish is enabled.
+
+|Selected table names
+|Optional comma-separated list of BV table names to process. Empty = all tables.
+
+|Do not update target database
+|When enabled, skips data load pipelines (useful for DDL-only or catalog-only runs).
+|===
+
+=== DDL tab
+
+[cols="1,3", options="header"]
+|===
+|Option |Description
+
+|Update target database structure
+|When enabled (default), generates and executes CREATE TABLE DDL on the Business Vault target database before running build pipelines.
+
+|DDL SQL filename
+|Optional path where generated DDL is written when schema changes are needed.
+
+|Fail if DDL is needed
+|Fails immediately if any DDL would be required — useful in CI/CD when schemas must already exist.
+|===
+
+== Prerequisites
+
+* The `.hbv` **Data Vault model path** must resolve (set `PROJECT_HOME` in the Hop project)
+* **Vault** (or your DV connection) and **BV target database** must exist in project metadata
+* Raw vault satellite tables must contain history to read — load them first with Data Vault Update (unless satellites are external read-only and already populated)
+
+== Related actions
+
+* link:datavault-update-action.adoc[Data Vault Update Action] — loads the raw `.hdv` model first
+* link:business-vault-scd2.adoc[Business Vault SCD2] — what the generated build pipelines do
+
+Sample workflow: `project/tests/multi-satellite-bv/update-customer-360.hwf`

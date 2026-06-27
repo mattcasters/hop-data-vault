@@ -40,6 +40,7 @@ import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.BusinessKey;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvHub;
+import org.apache.hop.datavault.metadata.DvIntegrationSupport;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
@@ -245,7 +246,8 @@ public class DataVaultModelPainter extends BasePainter {
   }
 
   private boolean isEmptyModel() {
-    return model.getTables().isEmpty() && model.getNotes().isEmpty();
+    boolean notesEmpty = !drawNotes || model.getNotes().isEmpty();
+    return model.getTables().isEmpty() && notesEmpty;
   }
 
   private boolean hasCatalogRecordDefinitions() {
@@ -466,7 +468,7 @@ public class DataVaultModelPainter extends BasePainter {
   }
 
   private void drawTableTypeLabel(IDvTable table, int x, int y) {
-    String typeLabel = getTypeLabel(table.getTableType());
+    String typeLabel = getTypeLabel(table);
     gc.setFont(IGc.EFont.SMALL);
     gc.setForeground(IGc.EColor.BLACK);
     gc.drawText(typeLabel, x + MARGIN, y + MARGIN + ICON_SIZE + MARGIN, true);
@@ -474,7 +476,8 @@ public class DataVaultModelPainter extends BasePainter {
 
   private void drawTableBox(IDvTable table, int x, int y, Point box) {
     gc.setBackground(IGc.EColor.WHITE);
-    gc.setForeground(IGc.EColor.BLACK);
+    boolean nonManaged = !DvIntegrationSupport.isHopManaged(table);
+    gc.setForeground(nonManaged ? IGc.EColor.DARKGRAY : IGc.EColor.BLACK);
     gc.fillRoundRectangle(x, y, box.x, box.y, CORNER_RADIUS_5, CORNER_RADIUS_5);
     gc.setLineWidth(table.isSelected() ? 2 : 1);
     gc.drawRoundRectangle(x, y, box.x, box.y, CORNER_RADIUS_5, CORNER_RADIUS_5);
@@ -536,16 +539,22 @@ public class DataVaultModelPainter extends BasePainter {
     };
   }
 
-  private String getTypeLabel(DvTableType type) {
-    if (type == null) {
+  private String getTypeLabel(IDvTable table) {
+    if (table == null || table.getTableType() == null) {
       return "";
     }
-    return switch (type) {
-      case HUB -> "Hub";
-      case SATELLITE -> "Satellite";
-      case LINK -> "Link";
-      default -> type.name();
-    };
+    String base =
+        switch (table.getTableType()) {
+          case HUB -> "Hub";
+          case SATELLITE -> "Satellite";
+          case LINK -> "Link";
+          default -> table.getTableType().name();
+        };
+    String suffix = DvIntegrationSupport.integrationCanvasSuffix(table);
+    if (Utils.isEmpty(suffix)) {
+      return base;
+    }
+    return base + " (" + suffix + ")";
   }
 
   /**
@@ -556,7 +565,7 @@ public class DataVaultModelPainter extends BasePainter {
    */
   private Point calculateTableBoxSize(IDvTable table) {
     String name = table.getName() != null ? table.getName() : "?";
-    String typeLabel = getTypeLabel(table.getTableType());
+    String typeLabel = getTypeLabel(table);
 
     gc.setFont(IGc.EFont.GRAPH);
     Point nameExtent = gc.textExtent(name);

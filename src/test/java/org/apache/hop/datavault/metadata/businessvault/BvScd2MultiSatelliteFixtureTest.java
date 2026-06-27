@@ -54,10 +54,45 @@ class BvScd2MultiSatelliteFixtureTest {
       Path.of("project/tests/multi-satellite-bv/customer-360.hdv").toAbsolutePath().normalize();
   private static final Path BV_PATH =
       Path.of("project/tests/multi-satellite-bv/customer-360.hbv").toAbsolutePath().normalize();
+  private static final Path EXTERNAL_DV_PATH =
+      Path.of("project/tests/multi-satellite-bv/customer-360-external.hdv")
+          .toAbsolutePath()
+          .normalize();
+  private static final Path EXTERNAL_BV_PATH =
+      Path.of("project/tests/multi-satellite-bv/customer-360-external.hbv")
+          .toAbsolutePath()
+          .normalize();
+  private static final Path PROJECT_HOME = Path.of("project").toAbsolutePath().normalize();
 
   @BeforeAll
   static void initHop() throws HopException {
     HopEnvironment.init();
+  }
+
+  @Test
+  void externalCustomer360ModelsValidateAndGeneratePipeline() throws Exception {
+    Variables variables = new Variables();
+    variables.setVariable("PROJECT_HOME", PROJECT_HOME.toString());
+
+    BusinessVaultModel bvModel = loadBusinessVaultModel(EXTERNAL_BV_PATH);
+    DataVaultModel dvModel =
+        BusinessVaultDvModelResolver.loadReferencedModel(
+            bvModel.getDataVaultModelPath(), variables, testMetadataProvider());
+
+    assertEquals("Vault", dvModel.getConfigurationOrDefault().getTargetDatabase());
+    assertEquals("Vault", bvModel.getConfigurationOrDefault().getTargetDatabase());
+
+    BvScd2Table scd2Table = findCustomer360Table(bvModel);
+    List<ICheckResult> remarks = new java.util.ArrayList<>();
+    scd2Table.check(remarks, testMetadataProvider(), variables, bvModel, dvModel);
+    assertFalse(
+        remarks.stream().anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR),
+        () -> remarks.stream().map(ICheckResult::getText).toList().toString());
+
+    List<PipelineMeta> pipelines =
+        scd2Table.generateBuildPipelines(testMetadataProvider(), variables, bvModel, dvModel);
+    assertEquals(1, pipelines.size());
+    assertEquals(19, pipelines.get(0).getTransforms().size());
   }
 
   @Test

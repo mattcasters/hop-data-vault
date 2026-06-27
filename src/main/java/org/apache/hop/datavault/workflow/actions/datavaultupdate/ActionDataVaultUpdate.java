@@ -59,6 +59,7 @@ import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvModelCheckOptions;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvGeneratedPipelineSupport;
+import org.apache.hop.datavault.metadata.DvIntegrationSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvLoadDateSupport;
 import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
@@ -518,6 +519,14 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
             if (table.getTableType() != tableType) {
               continue;
             }
+            if (DvIntegrationSupport.shouldSkipSentinelRows(table)) {
+              logBasic(
+                  BaseMessages.getString(
+                      PKG,
+                      "ActionDataVaultUpdate.Log.SkippingSpecialRecordsExternal",
+                      table.getName()));
+              continue;
+            }
             try {
               int inserted =
                   table.ensureSpecialRecords(
@@ -566,9 +575,26 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       List<PipelineMeta> allPipelineMetas = new ArrayList<>();
 
       for (IDvTable table : tables) {
-        logBasic(
-            BaseMessages.getString(
-                PKG, "ActionDataVaultUpdate.Log.GeneratingForTable", table.getName()));
+        if (DvIntegrationSupport.isExternalRead(table)) {
+          logBasic(
+              BaseMessages.getString(
+                  PKG,
+                  "ActionDataVaultUpdate.Log.SkippingExternalTable",
+                  table.getName()));
+          continue;
+        }
+
+        if (DvIntegrationSupport.isCustomPipelines(table)) {
+          logBasic(
+              BaseMessages.getString(
+                  PKG,
+                  "ActionDataVaultUpdate.Log.LoadingCustomPipelines",
+                  table.getName()));
+        } else {
+          logBasic(
+              BaseMessages.getString(
+                  PKG, "ActionDataVaultUpdate.Log.GeneratingForTable", table.getName()));
+        }
 
         List<PipelineMeta> pipelineMetas =
             table.generateUpdatePipelines(
@@ -588,9 +614,17 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                     realRecordSourceGroup));
             continue;
           }
-          logError(
-              BaseMessages.getString(
-                  PKG, "ActionDataVaultUpdate.Error.GenerateFailed", table.getName()));
+          if (DvIntegrationSupport.isCustomPipelines(table)) {
+            logError(
+                BaseMessages.getString(
+                    PKG,
+                    "ActionDataVaultUpdate.Error.CustomPipelinesMissing",
+                    table.getName()));
+          } else {
+            logError(
+                BaseMessages.getString(
+                    PKG, "ActionDataVaultUpdate.Error.GenerateFailed", table.getName()));
+          }
           totalErrors++;
           success = false;
           continue;

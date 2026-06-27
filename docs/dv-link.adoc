@@ -65,6 +65,9 @@ This mapping capability is one of the most practical features when integrating r
 
 |Has descriptive attributes (link satellite)
 |Check this box as a reminder that you intend to attach a satellite to this link. The flag itself does not change how the link is loaded, but the model check will emit a note when it is set.
+
+|Integration mode (Options tab)
+|Same as hubs and satellites: **Hop managed**, **External read-only**, or **Custom pipelines**. See link:dv-integration-modes.adoc[Data Vault integration modes].
 |===
 
 == Checks related to links

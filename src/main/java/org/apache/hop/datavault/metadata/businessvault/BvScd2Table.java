@@ -111,6 +111,8 @@ public class BvScd2Table extends BvTableBase {
     if (dataVaultModel != null) {
       BvScd2FieldMappingValidationSupport.validate(
           remarks, this, bvConfig, dvConfig, dataVaultModel, variables);
+      BvScd2PipelineSupport.validateTargetDatabases(
+          remarks, metadataProvider, model, dataVaultModel, this);
     }
   }
 

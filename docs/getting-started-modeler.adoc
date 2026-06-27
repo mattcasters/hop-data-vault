@@ -1,0 +1,183 @@
+= Getting started — Data Vault and Business Vault modeling
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+This tutorial takes you from zero to a working **multi-satellite Business Vault SCD2** model, including **external read-only** raw vault tables. Exercises use the sample Hop project in `project/`.
+
+Estimated time: half a day with Hop GUI, or follow along read-only first.
+
+== Prerequisites
+
+. Register `project/` as a Hop project named **`hop-data-vault`**.
+. Configure database connections **`CRM`** and **`Vault`** in project metadata (`metadata/rdbms/CRM.json`, `metadata/rdbms/Vault.json`).
+. Install the **hop-datavault** plugin (**0.0.11-SNAPSHOT**) in Apache Hop **2.18.1**.
+. Open the project in Hop GUI so `${PROJECT_HOME}` resolves.
+
+Full environment details: link:../project/PROJECT.md[Sample Hop Data Vault Project].
+
+== Chapter 1 — Data Vault concepts
+
+Data Vault 2.0 uses three building blocks:
+
+* **Hub** — a core business entity (Customer, Product) identified by business keys
+* **Link** — a relationship between hubs
+* **Satellite** — descriptive history attached to a hub or link; insert-only when attributes change
+
+**Record sources** describe where staging data lives (connection, table, columns, record-source indicator).
+
+The plugin stores all of this in a **Data Vault model** (`.hdv` file) with embedded configuration (hashing, target database, column names).
+
+== Chapter 2 — Explore sources and the basic model
+
+. In Hop GUI, open `project/tests/basic/vault1.hdv`.
+. Click **Edit model** and note the **target database** (`Vault`) and hashing settings.
+. Inspect hubs, links, and satellites on the canvas.
+. Open a hub dialog — review business keys and **Record sources**.
+
+Sources for this model live in the data catalog under `catalog-data/hop/project/sources/` (CRM-customer, CRM-order, etc.).
+
+Optional: run `project/run-tests.sh tests/basic/update-vault1.hwf` from the command line to see a full load without using the GUI.
+
+== Chapter 3 — Validate and inspect pipelines
+
+On the `vault1.hdv` toolbar:
+
+. Click **Check model** — fix any errors before continuing.
+. Click **Generate DDL** — preview CREATE/ALTER for the Vault database.
+. Select `sat_customer`, then **Debug** (or **Show update pipeline**) — inspect the generated insert-only satellite pipeline.
+
+The same generation logic runs in the **Data Vault Update** workflow action.
+
+Reference: link:datavault-plugin.adoc[Plugin overview], link:datavault-update-action.adoc[Data Vault Update action].
+
+== Chapter 4 — Run a raw vault load
+
+. Open workflow `project/tests/basic/update-vault1.hwf`.
+. Run it (or run via `project/run-tests.sh`).
+
+The workflow creates CRM tables, loads CSVs, drops vault tables, runs Data Vault Update twice (initial + incremental), and validates against golden datasets.
+
+You now have raw satellite **history** in the Vault database — the input for Business Vault.
+
+== Chapter 5 — Introduce Business Vault (single satellite)
+
+. Open `project/tests/basic/vault1.hbv`.
+. Note **Data Vault model file** → `${PROJECT_HOME}/tests/basic/vault1.hdv`.
+. Open the SCD2 table `sat_customer_hb` — it references satellite `sat_customer`.
+. Click **Edit model** on the BV toolbar — target database, valid from/to defaults, sentinels.
+. **Check model**, then **Show build pipeline** on the SCD2 table.
+
+This is the simplest BV pattern: one satellite → one functional SCD2 table.
+
+Reference: link:business-vault-overview.adoc[Business Vault overview], link:business-vault-scd2.adoc[Business Vault SCD2].
+
+== Chapter 6 — Multi-satellite Customer 360
+
+. Open `project/tests/multi-satellite-bv/customer-360.hdv` — one hub, four satellites.
+
+image::images/data-vault-model-customer-360.png[Customer 360 Data Vault model — hub and four satellites,align="center"]
+
+. Open `project/tests/multi-satellite-bv/customer-360.hbv`.
+
+image::images/business-vault-model-customer-360.png[Customer 360 Business Vault model — customer_360_bv SCD2 table,align="center"]
+
+. Open SCD2 table `customer_360_bv`:
+** **Derivatives** — four satellites
+** **Field mappings** — rename attributes to `cust_*` columns
+** **Satellite configs** — per-satellite functional timestamp / source indicator
+
+image::images/business-vault-scd2-table-dialog.png[SCD2 table dialog — General tab with derivatives,align="center"]
+
+image::images/business-vault-scd2-table-dialog-field-mappings.png[SCD2 table dialog — Field mappings tab,align="center"]
+
+image::images/business-vault-scd2-table-dialog-satellite-settings.png[SCD2 table dialog — Satellite settings tab,align="center"]
+
+. **Check model** — multi-satellite rules require explicit mappings.
+. **Reload DV model** (toolbar) if you edited the `.hdv` on disk.
+. **Show build pipeline** — expect multiple `TableInput` branches, `SortedSchemaMerge`, `RepeatFields`, analytic validity, `TableOutput`.
+
+Run `project/tests/multi-satellite-bv/update-customer-360.hwf` for end-to-end DV load + BV rebuild + validation.
+
+== Chapter 7 — External read-only raw vault tables
+
+When dbt or another tool loads raw vault tables, Hop can still model them for Business Vault.
+
+. Open `project/tests/multi-satellite-bv/customer-360-external.hdv`.
+. Open each satellite dialog → **Options** tab → **Integration mode** = *External read-only*.
+. Canvas shows `(ext)` on those tables.
+
+image::images/data-vault-model-customer-360-external.png[Customer 360 external Data Vault model — satellites marked ext,align="center"]
+. Open `customer-360-external.hbv` — same BV SCD2 definition as the hop-managed variant.
+. **Check model** and **Show build pipeline** — BV reads satellite history from the Vault database using metadata only; Data Vault Update skips DDL/pipelines for external tables.
+
+Reference: link:dv-integration-modes.adoc[Data Vault integration modes].
+
+== Chapter 8 — Production workflow pattern
+
+Typical batch:
+
+1. **Data Vault Update** on `.hdv` — load raw vault (skip external tables automatically)
+2. **Business Vault Update** on `.hbv` — rebuild SCD2 tables
+
+Configure pipeline run configuration, parallel copies, optional DDL and catalog publish on each action.
+
+Reference: link:business-vault-update-action.adoc[Business Vault Update action].
+
+== Chapter 9 — Troubleshooting
+
+[cols="1,3", options="header"]
+|===
+|Symptom |What to check
+
+|Cannot load linked `.hdv`
+|`${PROJECT_HOME}` set; path on `.hbv` correct; use **Reload DV model**
+
+|SCD2 pipeline: target database required
+|Vault connection in project metadata; **target database** on both `.hdv` and `.hbv`; run **Check model**
+
+|Validation passes but pipeline fails
+|Reload DV model before generate; stale cache was a common cause
+
+|External satellite empty in BV
+|Warehouse table must exist and match modeled attributes; Vault connection must read it
+
+|Type check errors on hub/satellite
+|Run **Check model** with detailed type checking; align source catalog with live CRM schema
+|===
+
+== Chapter 10 — Next steps
+
+[cols="1,2", options="header"]
+|===
+|Topic |Document
+
+|Plugin overview
+|link:datavault-plugin.adoc[datavault-plugin.adoc]
+
+|Model configuration
+|link:datavault-configuration.adoc[datavault-configuration.adoc]
+
+|Hub / Link / Satellite fields
+|link:dv-hub.adoc[dv-hub.adoc], link:dv-link.adoc[dv-link.adoc], link:dv-satellite.adoc[dv-satellite.adoc]
+
+|Business Vault reference
+|link:business-vault-overview.adoc[business-vault-overview.adoc]
+
+|AI Help
+|link:ai-advisory.md[ai-advisory.md]
+
+|Sample project suites
+|link:../project/PROJECT.md[project/PROJECT.md]
+
+|Executive summary
+|link:presentations/hop-data-vault-overview.md[hop-data-vault-overview slides]
+|===
+
+Run the full test orchestrator when ready:
+
+[source,bash]
+----
+cd project && ./run-tests.sh
+----

@@ -446,7 +446,10 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       }
     }
 
-    if (metadataProvider != null && options != null && model != null) {
+    if (!DvIntegrationSupport.relaxesSourceValidation(this)
+        && metadataProvider != null
+        && options != null
+        && model != null) {
       DvFieldMappingValidationSupport.validateLinkHubKeyFields(
           this, model, options, metadataProvider, variables, this, remarks);
     }
@@ -463,6 +466,13 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     try {
       if (metadataProvider == null || model == null) {
         return Collections.emptyList();
+      }
+
+      if (DvIntegrationSupport.isExternalRead(this)) {
+        return Collections.emptyList();
+      }
+      if (DvIntegrationSupport.isCustomPipelines(this)) {
+        return DvIntegrationSupport.loadCustomUpdatePipelines(this, metadataProvider, variables);
       }
 
       List<PipelineMeta> result = new ArrayList<>();
@@ -1046,6 +1056,9 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       Date loadDate,
       ILoggingObject loggingObject)
       throws HopException {
+    if (DvIntegrationSupport.shouldSkipSentinelRows(this)) {
+      return 0;
+    }
     return DvSpecialRecordSupport.ensureLinkSpecialRecords(
         this, metadataProvider, variables, model, loadDate, loggingObject);
   }

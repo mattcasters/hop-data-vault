@@ -66,6 +66,9 @@ If you leave the attributes list empty, the plugin will include all non-key, non
 
 |Driving key source field
 |Source column that supplies the driving key value. Renamed to the driving key column in the update pipeline and stored in the target satellite table.
+
+|Integration mode (Options tab)
+|Controls how Hop loads this satellite. **Hop managed** (default) generates DDL and update pipelines. **External read-only** skips generation — use when dbt or another tool loads the table; Business Vault still reads history from metadata. **Custom pipelines** runs your own `.hpl` paths. See link:dv-integration-modes.adoc[Data Vault integration modes].
 |===
 
 == Checks that involve satellites

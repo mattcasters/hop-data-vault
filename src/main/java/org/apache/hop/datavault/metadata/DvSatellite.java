@@ -313,7 +313,10 @@ public class DvSatellite extends DvTableBase
       }
 
       // Verify that all specified attributes exist in the record source's fields.
-      if (!Utils.isEmpty(recordSource) && metadataProvider != null && !Utils.isEmpty(attributes)) {
+      if (!DvIntegrationSupport.relaxesSourceValidation(this)
+          && !Utils.isEmpty(recordSource)
+          && metadataProvider != null
+          && !Utils.isEmpty(attributes)) {
         try {
           DataVaultSource resolvedSource = resolveRecordSource(variables, metadataProvider, model);
           List<SourceField> sourceFields = resolvedSource.getFields(metadataProvider);
@@ -371,7 +374,7 @@ public class DvSatellite extends DvTableBase
       checkStatusTracking(remarks, metadataProvider, variables, model);
     }
 
-    if (metadataProvider != null) {
+    if (!DvIntegrationSupport.relaxesSourceValidation(this) && metadataProvider != null) {
       DvModelCheckOptions effectiveOptions =
           options != null ? options : DvModelCheckOptions.fastOnly();
       DvFieldMappingValidationSupport.validateSatelliteMappings(
@@ -459,6 +462,13 @@ public class DvSatellite extends DvTableBase
     try {
       if (metadataProvider == null || model == null) {
         return emptyList();
+      }
+
+      if (DvIntegrationSupport.isExternalRead(this)) {
+        return emptyList();
+      }
+      if (DvIntegrationSupport.isCustomPipelines(this)) {
+        return DvIntegrationSupport.loadCustomUpdatePipelines(this, metadataProvider, variables);
       }
 
       DataVaultSource resolvedRecordSource = resolveRecordSource(variables, metadataProvider, model);
@@ -554,6 +564,9 @@ public class DvSatellite extends DvTableBase
   public List<String> generateUpdateDdl(
       IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
       throws HopException {
+    if (DvIntegrationSupport.shouldSkipDdl(this)) {
+      return emptyList();
+    }
     List<String> result = super.generateUpdateDdl(metadataProvider, variables, model);
     if (metadataProvider == null || model == null) {
       return result;
@@ -746,21 +759,54 @@ public class DvSatellite extends DvTableBase
       rowMeta.addValueMeta(hashMeta);
 
       // Determine attributes
+      boolean externalRead = DvIntegrationSupport.isExternalRead(this);
       List<SourceField> sourceFields = null;
       if (!Utils.isEmpty(recordSource)) {
-        sourceFields = resolveRecordSource(variables, metadataProvider, model).getFields(metadataProvider);
-      } else {
+        try {
+          DataVaultSource resolvedSource = resolveRecordSource(variables, metadataProvider, model);
+          if (resolvedSource != null) {
+            sourceFields = resolvedSource.getFields(metadataProvider);
+          }
+        } catch (Exception e) {
+          if (!externalRead) {
+            if (e instanceof HopException hopException) {
+              throw hopException;
+            }
+            throw new HopException(
+                "Error resolving record source for satellite " + getName(), e);
+          }
+        }
+      } else if (!externalRead) {
         throw new HopException("Please specify a record source for Satellite " + getName());
+      }
+
+      List<SatelliteAttribute> satAttrs = getAttributes();
+      if (externalRead && Utils.isEmpty(satAttrs)) {
+        throw new HopException(
+            "External satellite "
+                + getName()
+                + " requires explicit attributes in the model (no catalog source needed).");
       }
 
       if (hasDrivingKey()) {
         String drivingKeyName = variables.resolve(drivingKey);
         IValueMeta drivingKeyMeta = null;
-        for (SourceField sf : sourceFields) {
-          if (drivingKeySourceField.equals(sf.getName())) {
-            drivingKeyMeta = createValueMetaFromSourceField(sf);
-            drivingKeyMeta.setName(drivingKeyName);
-            break;
+        if (sourceFields != null) {
+          for (SourceField sf : sourceFields) {
+            if (drivingKeySourceField.equals(sf.getName())) {
+              drivingKeyMeta = createValueMetaFromSourceField(sf);
+              drivingKeyMeta.setName(drivingKeyName);
+              break;
+            }
+          }
+        }
+        if (drivingKeyMeta == null && externalRead && !Utils.isEmpty(satAttrs)) {
+          for (SatelliteAttribute attr : satAttrs) {
+            if (drivingKeySourceField.equals(attr.getName())) {
+              drivingKeyMeta = createValueMetaFromAttribute(attr);
+              drivingKeyMeta.setName(drivingKeyName);
+              break;
+            }
           }
         }
         if (drivingKeyMeta == null) {
@@ -773,7 +819,6 @@ public class DvSatellite extends DvTableBase
         rowMeta.addValueMeta(drivingKeyMeta);
       }
 
-      List<SatelliteAttribute> satAttrs = getAttributes();
       if (Utils.isEmpty(satAttrs) && sourceFields != null) {
         List<SourceField> autoAttributeFields =
             linkedHub != null

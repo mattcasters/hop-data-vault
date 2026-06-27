@@ -200,6 +200,9 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
         // Validate that the source field (sourceFieldName or fallback to name) of this business
         // key exists in the DataVaultSource referenced by its recordSourceName.
+        if (DvIntegrationSupport.relaxesSourceValidation(this)) {
+          continue;
+        }
         String sourceField = bk.getSourceFieldName();
         if (Utils.isEmpty(sourceField)) {
           sourceField = bk.getName();
@@ -287,7 +290,10 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
               this));
     }
 
-    if (metadataProvider != null && recordSources != null && options != null) {
+    if (!DvIntegrationSupport.relaxesSourceValidation(this)
+        && metadataProvider != null
+        && recordSources != null
+        && options != null) {
       for (String recordSourceRef : recordSources) {
         if (Utils.isEmpty(recordSourceRef)) {
           continue;
@@ -326,6 +332,13 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     try {
       if (metadataProvider == null || model == null) {
         return result;
+      }
+
+      if (DvIntegrationSupport.isExternalRead(this)) {
+        return result;
+      }
+      if (DvIntegrationSupport.isCustomPipelines(this)) {
+        return DvIntegrationSupport.loadCustomUpdatePipelines(this, metadataProvider, variables);
       }
 
       List<DataVaultSource> sources =
@@ -924,6 +937,9 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       Date loadDate,
       ILoggingObject loggingObject)
       throws HopException {
+    if (DvIntegrationSupport.shouldSkipSentinelRows(this)) {
+      return 0;
+    }
     return DvSpecialRecordSupport.ensureHubSpecialRecords(
         this, metadataProvider, variables, model, loadDate, loggingObject);
   }

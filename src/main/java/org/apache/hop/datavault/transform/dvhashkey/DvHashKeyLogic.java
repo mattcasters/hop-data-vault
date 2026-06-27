@@ -180,7 +180,7 @@ public final class DvHashKeyLogic {
     if (digestBytes == null) {
       return null;
     }
-    HashKeyDataType type = dataType != null ? dataType : HashKeyDataType.BINARY;
+    HashKeyDataType type = dataType != null ? dataType : HashKeyDataType.HEX;
     return switch (type) {
       case BINARY -> digestBytes;
       case HEX -> Hex.encodeHexString(digestBytes);
@@ -189,14 +189,14 @@ public final class DvHashKeyLogic {
   }
 
   public static int resultValueMetaType(HashKeyDataType dataType) {
-    HashKeyDataType type = dataType != null ? dataType : HashKeyDataType.BINARY;
+    HashKeyDataType type = dataType != null ? dataType : HashKeyDataType.HEX;
     return type == HashKeyDataType.BINARY ? IValueMeta.TYPE_BINARY : IValueMeta.TYPE_STRING;
   }
 
   public static int resultValueMetaLength(HashAlgorithm algorithm, HashKeyDataType dataType) {
     HashAlgorithm algo = algorithm != null ? algorithm : HashAlgorithm.MD5;
     int digestBytes = algo.getDigestLength();
-    HashKeyDataType type = dataType != null ? dataType : HashKeyDataType.BINARY;
+    HashKeyDataType type = dataType != null ? dataType : HashKeyDataType.HEX;
     return switch (type) {
       case BINARY -> digestBytes;
       case HEX -> digestBytes * 2;

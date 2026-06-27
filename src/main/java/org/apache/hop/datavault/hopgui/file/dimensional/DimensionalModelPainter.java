@@ -76,7 +76,8 @@ public class DimensionalModelPainter extends BasePainter {
 
     gc.setTransform(0.0f, 0.0f, 1.0f);
 
-    if (model.getTables().isEmpty() && model.getNotes().isEmpty()) {
+    boolean notesEmpty = !drawNotes || model.getNotes().isEmpty();
+    if (model.getTables().isEmpty() && notesEmpty) {
       drawEmptyHint();
     }
 

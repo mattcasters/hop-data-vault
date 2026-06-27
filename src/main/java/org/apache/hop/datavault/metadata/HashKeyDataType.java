@@ -26,10 +26,12 @@ package org.apache.hop.datavault.metadata;
  *   <li>STRING: decimal numbers 0-255 separated by "-" (DvHashKey STRING mode).
  *       For MD5: max 63 chars. Larger for SHA*.</li>
  *   <li>HEX: lowercase hexadecimal (DvHashKey HEX mode). MD5=32, SHA256=64, etc.</li>
- *   <li>BINARY: raw bytes (16 for MD5, 32 for SHA256, etc.). Preferred for production.</li>
+ *   <li>BINARY: raw bytes (16 for MD5, 32 for SHA256, etc.). Compact for production once Hop
+ *       sorts binary values correctly (Apache Hop 2.19.0 or later; see
+ *       <a href="https://github.com/apache/hop/issues/7346">issue 7346</a>).</li>
  * </ul>
- * STRING and HEX are easier for debugging and some tools but use more space and may have collation issues.
- * BINARY is strongly recommended for production DV2.0 for storage efficiency and performance.
+ * HEX is the plugin default until Hop 2.19 is widely available. STRING and HEX are easier for
+ * debugging; BINARY uses less storage but requires a Hop version that sorts binary fields correctly.
  */
 public enum HashKeyDataType {
   /** Store using the decimal-dash string format from DvHashKey (e.g. "213-29-140-..."). */

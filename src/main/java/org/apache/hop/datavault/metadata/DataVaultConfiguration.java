@@ -125,7 +125,7 @@ public class DataVaultConfiguration {
       comboValuesMethod = "getHashKeyDataTypeOptions",
       parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
   @HopMetadataProperty
-  private String hashKeyDataType = HashKeyDataType.BINARY.name();
+  private String hashKeyDataType = HashKeyDataType.HEX.name();
 
   // --- Unknown / ghost record handling (common DV pattern) ---
   @GuiWidgetElement(
@@ -609,17 +609,17 @@ public class DataVaultConfiguration {
 
   /** Returns the persisted hash key data type name for GUI combo widgets. */
   public String getHashKeyDataType() {
-    return Utils.isEmpty(hashKeyDataType) ? HashKeyDataType.BINARY.name() : hashKeyDataType;
+    return Utils.isEmpty(hashKeyDataType) ? HashKeyDataType.HEX.name() : hashKeyDataType;
   }
 
   /** Persists a hash key data type name, ignoring blank or unknown values. */
   public void setHashKeyDataType(String value) {
-    hashKeyDataType = parseHashKeyDataType(value, HashKeyDataType.BINARY).name();
+    hashKeyDataType = parseHashKeyDataType(value, HashKeyDataType.HEX).name();
   }
 
   /** Resolves the configured hash key data type for pipeline generation and DDL. */
   public HashKeyDataType resolveHashKeyDataType() {
-    return parseHashKeyDataType(hashKeyDataType, HashKeyDataType.BINARY);
+    return parseHashKeyDataType(hashKeyDataType, HashKeyDataType.HEX);
   }
 
   /** Returns the persisted hash content casing name for GUI combo widgets. */

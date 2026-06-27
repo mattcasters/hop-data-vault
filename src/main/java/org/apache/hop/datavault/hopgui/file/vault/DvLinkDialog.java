@@ -29,6 +29,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
+import org.apache.hop.datavault.metadata.DvIntegrationMode;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableType;
@@ -50,6 +51,7 @@ import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
@@ -80,6 +82,7 @@ public class DvLinkDialog {
   private Text wDescription;
 
   // Options tab
+  private Combo wIntegrationMode;
   private Text wTableName;
   private Text wLinkHashKeyFieldName;
   private Text wRecordSourceFieldName;
@@ -204,13 +207,33 @@ public class DvLinkDialog {
     PropsUi.setLook(wOptionsComp);
     wOptionsComp.setLayout(new FormLayout());
 
+    Label wlIntegrationMode = new Label(wOptionsComp, SWT.RIGHT);
+    wlIntegrationMode.setText(BaseMessages.getString(PKG, "DvLinkDialog.IntegrationMode.Label"));
+    PropsUi.setLook(wlIntegrationMode);
+    FormData fdlIntegrationMode = new FormData();
+    fdlIntegrationMode.left = new FormAttachment(0, 0);
+    fdlIntegrationMode.top = new FormAttachment(0, margin);
+    fdlIntegrationMode.right = new FormAttachment(middle, -margin);
+    wlIntegrationMode.setLayoutData(fdlIntegrationMode);
+
+    wIntegrationMode = new Combo(wOptionsComp, SWT.READ_ONLY | SWT.BORDER);
+    PropsUi.setLook(wIntegrationMode);
+    wIntegrationMode.setItems(DvIntegrationMode.getDescriptions());
+    wIntegrationMode.setToolTipText(
+        BaseMessages.getString(PKG, "DvLinkDialog.IntegrationMode.ToolTip"));
+    FormData fdIntegrationMode = new FormData();
+    fdIntegrationMode.left = new FormAttachment(middle, 0);
+    fdIntegrationMode.top = new FormAttachment(0, margin);
+    fdIntegrationMode.right = new FormAttachment(100, 0);
+    wIntegrationMode.setLayoutData(fdIntegrationMode);
+
     // Table name (physical) inside options like hub dialog
     Label wlTableName = new Label(wOptionsComp, SWT.RIGHT);
     wlTableName.setText(BaseMessages.getString(PKG, "DvLinkDialog.TableName.Label"));
     PropsUi.setLook(wlTableName);
     FormData fdlTableName = new FormData();
     fdlTableName.left = new FormAttachment(0, 0);
-    fdlTableName.top = new FormAttachment(0, 0);
+    fdlTableName.top = new FormAttachment(wIntegrationMode, margin);
     fdlTableName.right = new FormAttachment(middle, -margin);
     wlTableName.setLayoutData(fdlTableName);
 
@@ -218,7 +241,7 @@ public class DvLinkDialog {
     PropsUi.setLook(wTableName);
     FormData fdTableName = new FormData();
     fdTableName.left = new FormAttachment(middle, 0);
-    fdTableName.top = new FormAttachment(0, 0);
+    fdTableName.top = new FormAttachment(wlTableName, 0, SWT.CENTER);
     fdTableName.right = new FormAttachment(100, 0);
     wTableName.setLayoutData(fdTableName);
 
@@ -698,6 +721,11 @@ public class DvLinkDialog {
     wName.setText(Const.NVL(input.getName(), ""));
     wDescription.setText(Const.NVL(input.getDescription(), ""));
     wTableName.setText(Const.NVL(input.getTableName(), ""));
+    DvIntegrationMode integrationMode =
+        input.getIntegrationMode() != null
+            ? input.getIntegrationMode()
+            : DvIntegrationMode.HOP_MANAGED;
+    wIntegrationMode.setText(integrationMode.getDescription());
     wLinkHashKeyFieldName.setText(Const.NVL(input.getLinkHashKeyFieldName(), ""));
     wRecordSourceFieldName.setText(Const.NVL(input.getRecordSourceFieldName(), ""));
     wHasDescriptiveAttributes.setSelection(input.isHasDescriptiveAttributes());
@@ -776,6 +804,7 @@ public class DvLinkDialog {
     input.setName(wName.getText());
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
+    input.setIntegrationMode(DvIntegrationMode.lookupDescription(wIntegrationMode.getText()));
     input.setLinkHashKeyFieldName(wLinkHashKeyFieldName.getText());
     input.setRecordSourceFieldName(wRecordSourceFieldName.getText());
     input.setHasDescriptiveAttributes(wHasDescriptiveAttributes.getSelection());

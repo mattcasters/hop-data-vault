@@ -116,9 +116,10 @@ public class BusinessVaultModelPainter extends BasePainter {
 
     gc.setTransform(0.0f, 0.0f, 1.0f);
 
+    boolean notesEmpty = !drawNotes || model.getNotes().isEmpty();
     if (model.getTables().isEmpty()
         && model.getDvReferences().isEmpty()
-        && model.getNotes().isEmpty()) {
+        && notesEmpty) {
       drawEmptyHint();
     }
 

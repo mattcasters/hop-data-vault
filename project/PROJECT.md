@@ -9,7 +9,7 @@
 > - Testing has been done with **PostgreSQL**, **MySQL**, and **SingleStore** (see [Docker multi-database tests](#docker-multi-database-tests) below).
 > - For Hop GUI use, install the **hop-datavault** plugin (**0.0.11-SNAPSHOT**) in your Hop 2.18.1 environment.
 
-This folder is a sample Hop project demonstrating the Data Vault 2.0 plugin: model-driven DDL, pipeline generation, initial and incremental loads, multi-active satellites, link satellites, load end date satellites, status tracking, multi-source hubs, and golden-dataset unit tests.
+This folder is a sample Hop project demonstrating the Data Vault 2.0 and Business Vault plugin: model-driven DDL, pipeline generation, initial and incremental loads, multi-active satellites, link satellites, load end date satellites, status tracking, multi-source hubs, **multi-satellite Business Vault SCD2**, external read-only DV tables, and golden-dataset unit tests.
 
 ## Project layout
 
@@ -18,6 +18,7 @@ project/
 ├── project-config.json          # Hop project settings (metadata, datasets, unit tests)
 ├── run-tests.sh                 # Run workflows in the Hop Docker image (host DB)
 ├── run-tests-all-databases.sh   # Full suite against Docker PostgreSQL, MySQL, SingleStore
+├── run-svg.sh                   # Export DV/BV/pipeline SVGs via hop svg in Docker
 ├── docker/                      # Docker image, compose files, shared shell helpers
 │   ├── Dockerfile               # Extends apache/hop:2.18.1 with plugin + JDBC drivers
 │   ├── compose.hop.yml          # Hop-only (host network, for run-tests.sh)
@@ -40,6 +41,7 @@ project/
     ├── load-end-date/
     ├── status-tracking/
     ├── multi-source-hub/
+    ├── multi-satellite-bv/
     └── hash-key/
 ```
 
@@ -112,6 +114,7 @@ The orchestrator creates CRM source tables from the data catalog, then runs each
 6. **`tests/hash-key/run-hash-key-tests.hwf`** — hash key generation unit tests
 7. **`tests/status-tracking/update-status-tracking.hwf`** — status tracking satellite
 8. **`tests/multi-source-hub/update-multi-source-hub.hwf`** — multi-source hub
+9. **`tests/multi-satellite-bv/update-customer-360.hwf`** — four DV satellites → Customer 360 BV SCD2
 
 All suites must succeed for a full test run.
 
@@ -131,6 +134,32 @@ The `project/metrics/` tree is gitignored. Override the metrics folder:
 ```bash
 METRICS_FOLDER=/project/metrics/custom ./run-tests-all-databases.sh postgres
 ```
+
+### Regenerating documentation SVG images
+
+Use **`run-svg.sh`** to export canvases via the same Docker image as the test runner (`docker-hop:latest` = `apache/hop` + **hop-datavault** plugin). Host paths are translated to `/workspace/...` inside the container (repository root is mounted).
+
+```bash
+cd project
+
+# Single model → docs image (paths relative to project/ or repo root)
+./run-svg.sh -f tests/multi-satellite-bv/customer-360.hdv \
+             -o ../docs/images/data-vault-model-customer-360.svg --no-notes
+
+./run-svg.sh -f tests/multi-satellite-bv/customer-360.hbv \
+             -o ../docs/images/business-vault-model-customer-360.svg --no-notes
+
+# Or via environment variables (HOP_COMMAND defaults to svg)
+HOP_COMMAND_PARAMETERS="-f tests/multi-satellite-bv/customer-360.hdv \
+  -o ../docs/images/customer-360.svg --no-notes" ./run-svg.sh
+
+# Batch folder
+./run-svg.sh -s tests/multi-satellite-bv -t ../docs/images/generated -r --no-notes
+```
+
+Optional: `HOP_IMAGE_VERSION=2.18.1` when building the image to pin the base `apache/hop` tag.
+
+With a local Hop install and plugin, you can also run `hop svg` directly (see [docs/README.md](../docs/README.md)). Convert `.svg` to `.png` if your docs use PNG screenshots.
 
 ### Docker multi-database tests
 
@@ -331,6 +360,53 @@ Golden datasets: `hub-customer-led-golden1/2`, `sat-customer-led-golden1/2` in `
 
 ---
 
+## Test suite: `tests/basic/` — Business Vault intro (`vault1.hbv`)
+
+After the raw vault load in `update-vault1.hwf`, you can rebuild a simple Business Vault SCD2 table:
+
+- **BV model:** `tests/basic/vault1.hbv` (links to `vault1.hdv`)
+- **SCD2 table:** `sat_customer_hb` — one satellite derivative (`sat_customer`)
+- **Workflow:** `tests/basic/update-bv-vault1.hwf` (optional; not in the main orchestrator)
+
+See [docs/business-vault-scd2.adoc](../docs/business-vault-scd2.adoc) for SCD2 concepts.
+
+---
+
+## Test suite: `tests/multi-satellite-bv/` (Customer 360 Business Vault)
+
+### Sample models
+
+- **DV model:** `tests/multi-satellite-bv/customer-360.hdv` — hub `hub_customer` and four satellites (demo, contact, address, preferences)
+
+![Customer 360 Data Vault model](../docs/images/data-vault-model-customer-360.png)
+
+- **BV model:** `tests/multi-satellite-bv/customer-360.hbv` — SCD2 table `customer_360_bv` with 11 field mappings across four satellites
+
+![Customer 360 Business Vault model](../docs/images/business-vault-model-customer-360.png)
+
+The SCD2 table dialog (General, Field mappings, Satellite settings):
+
+![SCD2 table dialog — General](../docs/images/business-vault-scd2-table-dialog.png)
+
+![SCD2 table dialog — Field mappings](../docs/images/business-vault-scd2-table-dialog-field-mappings.png)
+
+![SCD2 table dialog — Satellite settings](../docs/images/business-vault-scd2-table-dialog-satellite-settings.png)
+
+- **External variant:** `customer-360-external.hdv` / `customer-360-external.hbv` — same BV layout; all satellites use **External read-only** integration mode (Hop skips DV DDL/pipelines; BV reads warehouse history from metadata)
+
+![Customer 360 external Data Vault model](../docs/images/data-vault-model-customer-360-external.png)
+
+### Workflow: `tests/multi-satellite-bv/update-customer-360.hwf`
+
+1. Generate catalog sources and load CSV waves into CRM staging tables
+2. **Data Vault Update** on `customer-360.hdv` (or external variant if vault tables are pre-loaded)
+3. **Business Vault Update** on the matching `.hbv` — rebuild `customer_360_bv`
+4. **validate-customer-360-bv.hpl** — unit test against golden dataset
+
+Tutorial walkthrough: [docs/getting-started-modeler.adoc](../docs/getting-started-modeler.adoc).
+
+---
+
 ## Data Vault Update action
 
 All test workflows use the same **Data Vault Update** workflow action. Point it at an `.hdv` file, choose a pipeline run configuration, and optionally enable DDL generation, special-record insertion, and metrics output (`metricsOutputFolder` → `${METRICS_FOLDER}`).
@@ -362,4 +438,4 @@ In the visual model editor, use **left-click context menus with icon actions** t
 - The Data Vault Update action supports **`recordSourceGroup`** on record sources tagged with **`group`** in metadata — useful for partial scheduled loads (not exercised in these sample workflows; all groups are empty).
 - All connections, run configurations, sources, and unit tests are under `metadata/`.
 - Source CSVs under `files/` are inputs to load pipelines; `datasets/` holds expected outputs for Hop unit tests.
-- Plugin reference documentation (AsciiDoc) is in the repository root under `docs/`. See [`docs/datavault-plugin.adoc`](../docs/datavault-plugin.adoc) for the visual editor, context menus, and **Check model** behaviour.
+- Plugin documentation is under `docs/`. Start with [`docs/README.md`](../docs/README.md) (index), [`docs/getting-started-modeler.adoc`](../docs/getting-started-modeler.adoc) (tutorial), and [`docs/datavault-plugin.adoc`](../docs/datavault-plugin.adoc) (reference).

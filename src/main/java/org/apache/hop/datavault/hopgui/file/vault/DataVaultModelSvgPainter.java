@@ -25,6 +25,8 @@ import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.SvgGc;
 import org.apache.hop.core.svg.HopSvgGraphics2D;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.command.svg.ModelBoundsSupport;
+import org.apache.hop.datavault.command.svg.SvgRenderOptions;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 
 /** Renders a {@link DataVaultModel} to SVG using {@link DataVaultModelPainter}. */
@@ -36,32 +38,33 @@ public final class DataVaultModelSvgPainter {
   private DataVaultModelSvgPainter() {}
 
   public static String generateDataVaultModelSvg(
-      DataVaultModel model, float magnification, IVariables variables, boolean showHashKeyFieldNames)
-      throws HopException {
+      DataVaultModel model, SvgRenderOptions options, IVariables variables) throws HopException {
     if (model == null) {
       throw new HopException("Cannot generate SVG for a null Data Vault model.");
     }
+    SvgRenderOptions renderOptions = options != null ? options : SvgRenderOptions.defaults();
     try {
-      Point maximum = model.getMaximum();
-      maximum.multiply(magnification);
+      Point maximum = ModelBoundsSupport.getMaximum(model, renderOptions.isIncludeNotes());
+      maximum.multiply(renderOptions.getMagnification());
 
       HopSvgGraphics2D graphics2D = HopSvgGraphics2D.newDocument();
-      Point svgSize =
-          new Point(maximum.x + EXTRA_MARGIN, maximum.y + EXTRA_MARGIN);
+      Point svgSize = new Point(maximum.x + EXTRA_MARGIN, maximum.y + EXTRA_MARGIN);
 
       SvgGc gc = new SvgGc(graphics2D, svgSize, ICON_SIZE, 0, 0);
       DataVaultModelPainter painter =
           new DataVaultModelPainter(model, gc, variables, svgSize.x, svgSize.y);
-      painter.setMagnification(magnification);
+      painter.setMagnification(renderOptions.getMagnification());
       painter.setAreaOwners(new ArrayList<>());
       painter.setZoomFactor(1.0f);
       painter.setOffset(new DPoint(0, 0));
       painter.setIconSize(ICON_SIZE);
       painter.setGridSize(1);
       painter.setShowingNavigationView(false);
-      painter.setShowHashKeyFieldNames(showHashKeyFieldNames);
+      painter.setDrawNotes(renderOptions.isIncludeNotes());
+      painter.setShowHashKeyFieldNames(renderOptions.isShowHashKeyFieldNames());
       painter.setShowEmptyModelHint(false);
-      painter.setMaximum(model.getMaximum());
+      painter.setMaximum(
+          ModelBoundsSupport.getMaximum(model, renderOptions.isIncludeNotes()));
       painter.drawDataVaultModel();
 
       return graphics2D.toXml();

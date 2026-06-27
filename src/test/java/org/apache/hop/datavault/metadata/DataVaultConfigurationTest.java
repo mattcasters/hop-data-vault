@@ -42,11 +42,18 @@ class DataVaultConfigurationTest {
   }
 
   @Test
-  void blankHashKeyDataTypeFallsBackToBinary() {
+  void blankHashKeyDataTypeFallsBackToHex() {
     DataVaultConfiguration configuration = new DataVaultConfiguration();
     configuration.setHashKeyDataType("   ");
-    assertEquals(HashKeyDataType.BINARY.name(), configuration.getHashKeyDataType());
-    assertEquals(HashKeyDataType.BINARY, configuration.resolveHashKeyDataType());
+    assertEquals(HashKeyDataType.HEX.name(), configuration.getHashKeyDataType());
+    assertEquals(HashKeyDataType.HEX, configuration.resolveHashKeyDataType());
+  }
+
+  @Test
+  void newConfigurationDefaultsHashKeyDataTypeToHex() {
+    DataVaultConfiguration configuration = new DataVaultConfiguration();
+    assertEquals(HashKeyDataType.HEX.name(), configuration.getHashKeyDataType());
+    assertEquals(HashKeyDataType.HEX, configuration.resolveHashKeyDataType());
   }
 
   @Test

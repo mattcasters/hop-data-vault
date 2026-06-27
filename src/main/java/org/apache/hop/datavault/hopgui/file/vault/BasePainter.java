@@ -90,6 +90,9 @@ public abstract class BasePainter {
    */
   protected boolean showOriginBoundary;
 
+  /** When false, notes are omitted from the canvas (e.g. {@code hop svg --no-notes}). */
+  protected boolean drawNotes = true;
+
   /** In case we want to use metadata objects to help with drawing on the pipeline or workflow */
   protected IHopMetadataProvider metadataProvider;
 
@@ -317,7 +320,7 @@ public abstract class BasePainter {
 
   /** Draw notes behind tables (like pipeline/workflow graphs). */
   protected void drawNotes(List<DvNote> notes) {
-    if (notes == null || notes.isEmpty()) {
+    if (!drawNotes || notes == null || notes.isEmpty()) {
       return;
     }
     for (DvNote note : notes) {

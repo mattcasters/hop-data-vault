@@ -360,7 +360,7 @@ DROP TABLE IF EXISTS customer_360_bv;
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>Business Vault Update</name>
+      <name>customer-360.hbv</name>
       <description/>
       <type>BUSINESS_VAULT_UPDATE</type>
       <attributes/>
@@ -389,8 +389,47 @@ DROP TABLE IF EXISTS customer_360_bv;
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>64</xloc>
-      <yloc>448</yloc>
+      <xloc>1056</xloc>
+      <yloc>464</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <businessVaultModelFile>${PROJECT_HOME}/tests/multi-satellite-bv/customer-360-external.hbv</businessVaultModelFile>
+      <pipelineRunConfiguration>local</pipelineRunConfiguration>
+      <logModelCheckFailures>Y</logModelCheckFailures>
+      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
+      <parallelPipelineCopies>1</parallelPipelineCopies>
+      <pipelineStagingFolder/>
+      <metricsOutputFolder/>
+      <publishToCatalog>N</publishToCatalog>
+      <dataCatalogConnection>vault-catalog</dataCatalogConnection>
+      <selectedTableNames/>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
+      <ddlSqlFilename/>
+      <failIfDdlNeeded>N</failIfDdlNeeded>
+      <name>customer-360-external.hbv</name>
+      <description/>
+      <type>BUSINESS_VAULT_UPDATE</type>
+      <attributes/>
+      <xloc>608</xloc>
+      <yloc>464</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <test_names>
+        <test_name>
+          <name>validate-customer-360-bv UNIT</name>
+        </test_name>
+      </test_names>
+      <name>Validate customer 360 BV </name>
+      <description/>
+      <type>RunPipelineTests</type>
+      <attributes/>
+      <xloc>848</xloc>
+      <yloc>464</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -475,20 +514,34 @@ DROP TABLE IF EXISTS customer_360_bv;
     </hop>
     <hop>
       <from>update customer-360 update4</from>
-      <to>Business Vault Update</to>
+      <to>customer-360.hbv</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Business Vault Update</from>
+      <from>customer-360.hbv</from>
       <to>Validate customer 360 BV</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
+      <from>customer-360-external.hbv</from>
+      <to>Validate customer 360 BV </to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
       <from>Validate customer 360 BV</from>
+      <to>customer-360-external.hbv</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Validate customer 360 BV </from>
       <to>Success</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>

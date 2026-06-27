@@ -332,7 +332,7 @@ public class DvHashKeyDialog extends BaseTransformDialog {
     wHashKeyDataType.setText(
         input.getHashKeyDataType() != null
             ? input.getHashKeyDataType().name()
-            : HashKeyDataType.BINARY.name());
+            : HashKeyDataType.HEX.name());
     wHashContentCasing.setText(
         input.getHashContentCasing() != null
             ? input.getHashContentCasing().name()

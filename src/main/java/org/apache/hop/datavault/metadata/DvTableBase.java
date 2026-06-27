@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.metadata;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -90,6 +91,20 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
    * The type of this Data Vault table. Persisted for easy identification when serializing models.
    */
   @HopMetadataProperty protected DvTableType tableType;
+
+  /**
+   * Controls whether Hop generates DDL/update pipelines for this table or treats it as external /
+   * custom-integrated. Defaults to {@link DvIntegrationMode#HOP_MANAGED}.
+   */
+  @HopMetadataProperty(storeWithCode = true)
+  private DvIntegrationMode integrationMode = DvIntegrationMode.HOP_MANAGED;
+
+  /**
+   * When {@link DvIntegrationMode#CUSTOM_PIPELINES} is selected, these Hop pipeline files (`.hpl`)
+   * are loaded and orchestrated instead of generated update pipelines.
+   */
+  @HopMetadataProperty(key = "customUpdatePipeline", groupKey = "customUpdatePipelinePaths")
+  private List<String> customUpdatePipelinePaths = new ArrayList<>();
 
   protected final ChangedFlag changedFlag = new ChangedFlag();
 
@@ -184,6 +199,31 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
       setChanged();
     }
     this.tableType = tableType;
+  }
+
+  public DvIntegrationMode getIntegrationMode() {
+    return integrationMode;
+  }
+
+  public void setIntegrationMode(DvIntegrationMode integrationMode) {
+    if (!Objects.equals(this.integrationMode, integrationMode)) {
+      setChanged();
+    }
+    this.integrationMode = integrationMode;
+  }
+
+  public List<String> getCustomUpdatePipelinePaths() {
+    if (customUpdatePipelinePaths == null) {
+      customUpdatePipelinePaths = new ArrayList<>();
+    }
+    return customUpdatePipelinePaths;
+  }
+
+  public void setCustomUpdatePipelinePaths(List<String> customUpdatePipelinePaths) {
+    if (!Objects.equals(this.customUpdatePipelinePaths, customUpdatePipelinePaths)) {
+      setChanged();
+    }
+    this.customUpdatePipelinePaths = customUpdatePipelinePaths;
   }
 
   /**
@@ -291,6 +331,9 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
               BaseMessages.getString(PKG, "DvTableBase.CheckResult.NoTableName"),
               this));
     }
+
+    DvIntegrationSupport.checkIntegrationMode(
+        this, remarks, metadataProvider, variables, model);
   }
 
   @Override
@@ -317,6 +360,9 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
   public List<String> generateUpdateDdl(
       IHopMetadataProvider metadataProvider, IVariables variables, DataVaultModel model)
       throws HopException {
+    if (DvIntegrationSupport.shouldSkipDdl(this)) {
+      return Collections.emptyList();
+    }
     List<String> result = new ArrayList<>();
     if (metadataProvider == null || model == null) {
       return result;

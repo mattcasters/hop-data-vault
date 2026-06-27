@@ -31,6 +31,7 @@ import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
+import org.apache.hop.datavault.metadata.DvIntegrationMode;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.SatelliteAttribute;
 import org.apache.hop.datavault.metadata.SourceField;
@@ -77,6 +78,7 @@ public class DvSatelliteDialog {
   // Widgets
   private Text wName;
   private Text wDescription;
+  private Combo wIntegrationMode;
   private Text wTableName;
   private DvCatalogSourceSelectionLine wRecordSource;
   private Text wHubName;
@@ -198,16 +200,35 @@ public class DvSatelliteDialog {
     comp.setLayout(new FormLayout());
     tab.setControl(comp);
 
+    Label wlIntegrationMode = new Label(comp, SWT.RIGHT);
+    wlIntegrationMode.setText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.IntegrationMode.Label"));
+    PropsUi.setLook(wlIntegrationMode);
+    wlIntegrationMode.setLayoutData(
+        new FormDataBuilder().left().top(0, margin).right(middle, -margin).result());
+
+    wIntegrationMode = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
+    PropsUi.setLook(wIntegrationMode);
+    wIntegrationMode.setItems(DvIntegrationMode.getDescriptions());
+    wIntegrationMode.setToolTipText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.IntegrationMode.ToolTip"));
+    wIntegrationMode.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(0, margin).right().result());
+
     Label wlTableName = new Label(comp, SWT.RIGHT);
     wlTableName.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.TableName.Label"));
     PropsUi.setLook(wlTableName);
     wlTableName.setLayoutData(
-        new FormDataBuilder().left().top(0, margin).right(middle, -margin).result());
+        new FormDataBuilder()
+            .left()
+            .top(wIntegrationMode, margin)
+            .right(middle, -margin)
+            .result());
 
     wTableName = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
     PropsUi.setLook(wTableName);
     wTableName.setLayoutData(
-        new FormDataBuilder().left(middle, 0).top(0, margin).right().result());
+        new FormDataBuilder().left(middle, 0).top(wIntegrationMode, margin).right().result());
 
     wRecordSource =
         new DvCatalogSourceSelectionLine(
@@ -464,6 +485,11 @@ public class DvSatelliteDialog {
   private void getData() {
     wName.setText(Const.NVL(input.getName(), ""));
     wTableName.setText(Const.NVL(input.getTableName(), ""));
+    DvIntegrationMode integrationMode =
+        input.getIntegrationMode() != null
+            ? input.getIntegrationMode()
+            : DvIntegrationMode.HOP_MANAGED;
+    wIntegrationMode.setText(integrationMode.getDescription());
     wDescription.setText(Const.NVL(input.getDescription(), ""));
     try {
       wRecordSource.fillItems();
@@ -506,6 +532,7 @@ public class DvSatelliteDialog {
     input.setName(wName.getText());
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
+    input.setIntegrationMode(DvIntegrationMode.lookupDescription(wIntegrationMode.getText()));
     String rsName = wRecordSource.getText();
 
     input.setRecordSourceName(rsName);

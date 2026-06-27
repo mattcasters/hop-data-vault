@@ -157,7 +157,7 @@ See link:datavault-update-action.adoc[Data Vault Update Action] for all options 
 Each Data Vault Model embeds a **configuration** object that controls:
 
 * Which database the Data Vault lives in (one target database per model).
-* Hash algorithm (MD5, SHA-256, etc.) and how hash keys are stored (BINARY is usually best for production; HEX and STRING are easier when you need to read values directly).
+* Hash algorithm (MD5, SHA-256, etc.) and how hash keys are stored (HEX by default; BINARY is compact but requires Hop 2.19.0+ — see https://github.com/apache/hop/issues/7346[issue 7346]).
 * Names for standard columns such as LOAD_DATE and RECORD_SOURCE.
 * Whether business keys should be trimmed and upper-cased before hashing.
 * A placeholder to use for NULL values during hashing.
@@ -198,15 +198,56 @@ image::images/hopgui-configuration-perspecive-data-vault-options.png[Data Vault 
 * **Draw hash keys in model** – When enabled, hash key column names are shown on table cards in the visual editor.
 * **Maximum undo/redo operations kept in memory** – Size of the snapshot undo stack for `.hdv` files (default 200).
 
+== Business Vault
+
+Business Vault models (`.hbv` files) build consumption-layer tables from raw Data Vault satellite history. The primary table type today is **functional SCD Type 2**: attribute timelines with `valid_from` / `valid_to` (or your column names) derived from a configurable functional timestamp, not only the technical load date.
+
+* Link each `.hbv` file to a `.hdv` Data Vault model.
+* Define SCD2 tables with one or more satellite derivatives.
+* For multi-satellite merges (e.g. Customer 360), provide explicit field mappings and per-satellite configs.
+* Use **Debug** / **Show build pipeline** to inspect generated pipelines; use the **Business Vault Update** workflow action for production rebuilds.
+
+See link:business-vault-overview.adoc[Business Vault overview], link:business-vault-scd2.adoc[Business Vault SCD2], and link:business-vault-update-action.adoc[Business Vault Update action].
+
+image::images/data-vault-model-customer-360.png[Customer 360 Data Vault model,align="center"]
+
+image::images/business-vault-model-customer-360.png[Customer 360 Business Vault model,align="center"]
+
+PIT tables are also modeled in `.hbv` files; pipeline generation uses the PIT prefix from Business Vault configuration.
+
+== Integration modes
+
+Hubs, links, and satellites can be **Hop managed** (default), **External read-only**, or **Custom pipelines**. External tables participate in Business Vault and catalog publish without Hop-generated DDL or update pipelines.
+
+See link:dv-integration-modes.adoc[Data Vault integration modes].
+
+image::images/data-vault-model-customer-360-external.png[External read-only satellites on the Data Vault canvas,align="center"]
+
+== AI advisory
+
+The **AI Help** toolbar button opens an LLM-assisted advisor for source analysis, modeling suggestions, layout proposals, and troubleshooting. Proposals can be reviewed and applied selectively.
+
+See link:ai-advisory.md[Data Vault AI Help and advisory].
+
+== Getting started
+
+New modelers should follow link:getting-started-modeler.adoc[Getting started — Data Vault and Business Vault modeling] for a hands-on path through the sample `project/`.
+
+Executives and architects can review link:presentations/hop-data-vault-overview.md[Hop Data Vault overview slides].
+
 == Current capabilities
 
-Today the plugin fully supports modeling and incremental loading of Hubs, Links, and Satellites, including:
+Today the plugin supports:
+
+*Raw Data Vault*
 
 * Composite business keys and multi-active satellites.
 * Role-playing hubs in links via driving keys.
 * Explicit source-to-hub key mappings for links.
 * Static or column-based record source indicators and record source groups for partial loads.
 * Unknown and invalid sentinel rows in hubs and links.
+* Load end date and status tracking satellite patterns.
+* Integration modes: Hop managed, external read-only, custom pipelines.
 * Choice of hash algorithm and hash key storage format.
 * Automatic creation or alteration of target tables (DDL) before loading.
 * Model validation that catches structural problems and source-to-target type mismatches before you run a load.
@@ -214,6 +255,19 @@ Today the plugin fully supports modeling and incremental loading of Hubs, Links,
 * Visual debugging, DDL preview, clipboard editing, undo/redo, and production execution via workflow actions.
 * Canvas annotation notes with typed styling and in-model navigation links.
 
-The plugin is designed to grow. Future additions may include more source types, point-in-time (PIT) tables, bridge tables, and more declarative DDL options.
+*Business Vault*
+
+* `.hbv` visual modeler linked to `.hdv` models.
+* SCD2 build pipeline generation (single- and multi-satellite).
+* PIT table type and Business Vault Update workflow action.
+* Navigate from BV to DV tables in Hop GUI.
+
+*Tooling*
+
+* Data catalog integration and optional publish after DV/BV updates.
+* AI advisory with review-before-apply proposals.
+* Metadata search across Data Vault models.
+
+Future work includes dimensional modeling from DV/BV metadata, a Business Vault field dictionary, additional source types, bridge tables, and lineage export (Marquez / OpenLineage).
 
 If you are new to Data Vault 2.0, the plugin encourages good practices by making the key decisions (hashing, naming, source tracking, change detection) explicit and reusable through the model configuration and source metadata objects.

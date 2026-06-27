@@ -25,7 +25,10 @@
 DOCKER_DIR="${SCRIPT_DIR}/docker"
 HOP_IMAGE_NAME="docker-hop:latest"
 HOP_COMPOSE_FILE="${DOCKER_DIR}/compose.hop.yml"
+HOP_SVG_COMPOSE_FILE="${DOCKER_DIR}/compose.svg.yml"
 METRICS_COMPOSE_FILE="${HOP_COMPOSE_FILE}"
+REPO_ROOT="$(CDPATH= cd -- "${SCRIPT_DIR}/.." && pwd)"
+WORKSPACE_PREFIX="/workspace"
 METRICS_OVERVIEW_CSV="${SCRIPT_DIR}/metrics/metrics-overview.csv"
 COLLECT_METRICS_PIPELINE="/project/tests/shared/collect-metrics-results.hpl"
 
@@ -50,7 +53,143 @@ ensure_hop_image() {
     return 0
   fi
   echo "Building Hop docker image (${HOP_IMAGE_NAME})..."
-  docker compose -f "${compose_file}" build hop
+  if [ -n "${HOP_IMAGE_VERSION:-}" ]; then
+    docker compose -f "${compose_file}" build --build-arg "HOP_IMAGE_VERSION=${HOP_IMAGE_VERSION}" hop
+  else
+    docker compose -f "${compose_file}" build hop
+  fi
+}
+
+# Map a host path (absolute, repo-relative, or project-relative) to /workspace/... in the SVG container.
+host_to_workspace_path() {
+  host_path="${1:?path required}"
+
+  case "${host_path}" in
+    "${WORKSPACE_PREFIX}"/*|"${WORKSPACE_PREFIX}")
+      printf '%s\n' "${host_path}"
+      return 0
+      ;;
+    /project/*)
+      printf '%s/project%s\n' "${WORKSPACE_PREFIX}" "${host_path#/project}"
+      return 0
+      ;;
+  esac
+
+  if [ "${host_path#/}" = "${host_path}" ]; then
+    host_abs="$(CDPATH= cd -- "$(dirname -- "${host_path}")" && pwd)/$(basename -- "${host_path}")"
+  else
+    host_abs="${host_path}"
+  fi
+
+  case "${host_abs}" in
+    "${REPO_ROOT}"/*)
+      rel="${host_abs#"${REPO_ROOT}"/}"
+      printf '%s/%s\n' "${WORKSPACE_PREFIX}" "${rel}"
+      return 0
+      ;;
+    "${REPO_ROOT}")
+      printf '%s\n' "${WORKSPACE_PREFIX}"
+      return 0
+      ;;
+    *)
+      echo "Path is outside repository (${host_abs}); cannot map into container." >&2
+      return 1
+      ;;
+  esac
+}
+
+# Collect -o/--output and -t/--target-folder values from hop svg arguments (host paths).
+collect_svg_output_paths() {
+  paths=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -o|--output|-t|--target-folder)
+        if [ "$#" -lt 2 ]; then
+          return 1
+        fi
+        paths="${paths}${paths:+ }$2"
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+  printf '%s' "${paths}"
+}
+
+# Rewrite hop svg path options from host paths to container /workspace paths.
+translate_svg_command_parameters() {
+  translated=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -f|--file|-o|--output|-s|--source-folder|-t|--target-folder|--project-home)
+        if [ "$#" -lt 2 ]; then
+          echo "Missing value for ${1}" >&2
+          return 1
+        fi
+        opt="$1"
+        val="$2"
+        shift 2
+        container_val="$(host_to_workspace_path "${val}")" || return 1
+        translated="${translated} ${opt} ${container_val}"
+        ;;
+      --magnification)
+        if [ "$#" -lt 2 ]; then
+          echo "Missing value for --magnification" >&2
+          return 1
+        fi
+        translated="${translated} $1 $2"
+        shift 2
+        ;;
+      --no-notes|--recursive|--show-hash-keys)
+        translated="${translated} $1"
+        shift
+        ;;
+      *)
+        translated="${translated} $1"
+        shift
+        ;;
+    esac
+  done
+  printf '%s\n' "${translated# }"
+}
+
+reclaim_path_ownership() {
+  target_path="${1:-}"
+  if [ -z "${target_path}" ] || [ ! -e "${target_path}" ]; then
+    return 0
+  fi
+  if [ -f "${HOP_SVG_COMPOSE_FILE:-}" ]; then
+    container_path="$(host_to_workspace_path "${target_path}" 2>/dev/null)" || container_path=""
+    if [ -n "${container_path}" ]; then
+      docker compose -f "${HOP_SVG_COMPOSE_FILE}" run --rm --no-deps --entrypoint chown hop \
+        -R "${HOST_UID}:${HOST_GID}" "${container_path}" >/dev/null 2>&1 || true
+    fi
+  fi
+  chown -R "${HOST_UID}:${HOST_GID}" "${target_path}" 2>/dev/null \
+    || sudo chown -R "${HOST_UID}:${HOST_GID}" "${target_path}" 2>/dev/null \
+    || true
+}
+
+run_hop_docker_command() {
+  compose_file="${1:?compose file required}"
+  hop_command="${2:?hop command required}"
+  hop_command_parameters="${3:-}"
+
+  ensure_hop_image "${compose_file}"
+
+  set +e
+  docker compose -f "${compose_file}" run --rm --no-deps \
+    -e HOP_FILE_PATH= \
+    -e HOP_COMMAND="${hop_command}" \
+    -e HOP_COMMAND_PARAMETERS="${hop_command_parameters}" \
+    -e HOP_RUN_PARAMETERS= \
+    -e HOP_CUSTOM_ENTRYPOINT_EXTENSION_SHELL_FILE_PATH= \
+    hop
+  run_exit=$?
+  set -e
+  return "${run_exit}"
 }
 
 reclaim_rdbms_connection_ownership() {

@@ -33,6 +33,7 @@ import org.apache.hop.datavault.metadata.BusinessKey;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
+import org.apache.hop.datavault.metadata.DvIntegrationMode;
 import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.FormDataBuilder;
@@ -52,6 +53,7 @@ import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.MessageBox;
@@ -77,6 +79,7 @@ public class DvHubDialog {
   private Text wTableName;
   private Text wDescription;
 
+  private Combo wIntegrationMode;
   private Text wHashKeyFieldName;
   private Text wRecordSourceFieldName;
   private TableView wBusinessKeys;
@@ -190,13 +193,33 @@ public class DvHubDialog {
     PropsUi.setLook(wOptionsComp);
     wOptionsComp.setLayout(new FormLayout());
 
+    Label wlIntegrationMode = new Label(wOptionsComp, SWT.RIGHT);
+    wlIntegrationMode.setText(BaseMessages.getString(PKG, "DvHubDialog.IntegrationMode.Label"));
+    PropsUi.setLook(wlIntegrationMode);
+    FormData fdlIntegrationMode = new FormData();
+    fdlIntegrationMode.left = new FormAttachment(0, 0);
+    fdlIntegrationMode.top = new FormAttachment(0, margin);
+    fdlIntegrationMode.right = new FormAttachment(middle, -margin);
+    wlIntegrationMode.setLayoutData(fdlIntegrationMode);
+
+    wIntegrationMode = new Combo(wOptionsComp, SWT.READ_ONLY | SWT.BORDER);
+    PropsUi.setLook(wIntegrationMode);
+    wIntegrationMode.setItems(DvIntegrationMode.getDescriptions());
+    wIntegrationMode.setToolTipText(
+        BaseMessages.getString(PKG, "DvHubDialog.IntegrationMode.ToolTip"));
+    FormData fdIntegrationMode = new FormData();
+    fdIntegrationMode.left = new FormAttachment(middle, 0);
+    fdIntegrationMode.top = new FormAttachment(0, margin);
+    fdIntegrationMode.right = new FormAttachment(100, 0);
+    wIntegrationMode.setLayoutData(fdIntegrationMode);
+
     // Table name (physical)
     Label wlTableName = new Label(wOptionsComp, SWT.RIGHT);
     wlTableName.setText(BaseMessages.getString(PKG, "DvHubDialog.TableName.Label"));
     PropsUi.setLook(wlTableName);
     FormData fdlTableName = new FormData();
     fdlTableName.left = new FormAttachment(0, 0);
-    fdlTableName.top = new FormAttachment(wDescription, margin);
+    fdlTableName.top = new FormAttachment(wIntegrationMode, margin);
     fdlTableName.right = new FormAttachment(middle, -margin);
     wlTableName.setLayoutData(fdlTableName);
 
@@ -373,6 +396,11 @@ public class DvHubDialog {
     wName.setText(Const.NVL(input.getName(), ""));
     wDescription.setText(Const.NVL(input.getDescription(), ""));
     wTableName.setText(Const.NVL(input.getTableName(), ""));
+    DvIntegrationMode integrationMode =
+        input.getIntegrationMode() != null
+            ? input.getIntegrationMode()
+            : DvIntegrationMode.HOP_MANAGED;
+    wIntegrationMode.setText(integrationMode.getDescription());
     wHashKeyFieldName.setText(Const.NVL(input.getHashKeyFieldName(), ""));
     wRecordSourceFieldName.setText(Const.NVL(input.getRecordSourceFieldName(), ""));
 
@@ -402,6 +430,7 @@ public class DvHubDialog {
     input.setName(wName.getText());
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
+    input.setIntegrationMode(DvIntegrationMode.lookupDescription(wIntegrationMode.getText()));
     input.setHashKeyFieldName(wHashKeyFieldName.getText());
     input.setRecordSourceFieldName(wRecordSourceFieldName.getText());
 

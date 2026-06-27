@@ -1,0 +1,79 @@
+= Business Vault configuration
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+Each `.hbv` file embeds a **configuration** object edited via **Edit model** on the Business Vault toolbar.
+
+== General settings
+
+[cols="1,3", options="header"]
+|===
+|Setting |Description
+
+|Target database
+|Database connection (`DatabaseMeta`) where Business Vault tables are created and loaded. Required for DDL, Debug, and Business Vault Update.
+
+|Generated pipeline folder
+|Optional folder where generated build pipelines are saved when debugging or updating. Variables supported.
+
+|SCD2 pipeline name prefix
+|Prefix for generated SCD2 build pipeline names (default `bv-scd2-`).
+
+|PIT pipeline name prefix
+|Prefix for generated PIT build pipelines (default `bv-pit-`).
+
+|Business table pipeline name prefix
+|Prefix for future business table pipelines (default `bv-biz-`).
+|===
+
+== SCD2 defaults
+
+These values apply when an SCD2 table does not override them.
+
+[cols="1,3", options="header"]
+|===
+|Setting |Description
+
+|Functional timestamp field
+|Default satellite column for the functional timeline. Leave empty to use the load-date fallback.
+
+|Load date fallback field
+|Used when no functional timestamp is set on the model or table (default follows Data Vault `loadDateField`, often `x_load_ts`).
+
+|Valid from field
+|Output column name for interval start (default `valid_from`; sample project uses `x_from_ts`).
+
+|Valid to field
+|Output column name for interval end (default `valid_to`; sample project uses `x_to_ts`).
+
+|Open start sentinel
+|Substituted when `valid_from` is null (default `1900-01-01 00:00:00`).
+
+|Open end sentinel
+|Substituted when `valid_to` is null (default `9999-12-31 23:59:59`).
+|===
+
+== Target loading
+
+[cols="1,3", options="header"]
+|===
+|Setting |Description
+
+|Target table batch size
+|Commit size for generated `TableOutput` transforms (default 1000).
+
+|Target table parallel copies
+|Parallel copies hint for table output (default 1).
+|===
+
+== Data Vault model path
+
+Configured on the Business Vault model itself (not inside the configuration block):
+
+* **Data Vault model file** — path to the linked `.hdv` file
+* Use `${PROJECT_HOME}` when the model lives inside a Hop project
+* **Reload DV model** refreshes the linked model from disk after external edits
+
+The linked `.hdv` must have its own **target database** configured — Business Vault reads satellite history from that connection.

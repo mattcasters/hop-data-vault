@@ -64,12 +64,15 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.datavault.command.svg.SvgExportService;
+import org.apache.hop.datavault.command.svg.SvgRenderOptions;
 import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.hopgui.ai.DvAiAdvisorDialog;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultSnapshotUndo;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvHub;
+import org.apache.hop.datavault.metadata.DvIntegrationSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvModelCheckOptions;
@@ -564,6 +567,11 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
 
   @Override
   protected void navigateToNoteLinkTable(String tableName) {
+    navigateToTable(tableName);
+  }
+
+  /** Selects and centers a table on this graph canvas. */
+  public void navigateToTable(String tableName) {
     if (model == null || Utils.isEmpty(tableName)) {
       return;
     }
@@ -998,10 +1006,28 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       // target)
       Timestamp loadDate = Timestamp.from(Instant.now());
 
+      if (DvIntegrationSupport.isExternalRead(table)) {
+        MessageBox box = new MessageBox(hopGui.getShell(), SWT.OK | SWT.ICON_INFORMATION);
+        box.setText(BaseMessages.getString(PKG, "HopGuiVaultGraph.DebugPipeline.Title"));
+        box.setMessage(
+            BaseMessages.getString(
+                PKG, "HopGuiVaultGraph.DebugPipeline.ExternalTable", tableName));
+        box.open();
+        return;
+      }
+
       List<PipelineMeta> pipelineMetas =
           table.generateUpdatePipelines(
               hopGui.getMetadataProvider(), debugVariables, model, loadDate, null);
       if (pipelineMetas == null || pipelineMetas.isEmpty()) {
+        if (DvIntegrationSupport.isCustomPipelines(table)) {
+          MessageBox box = new MessageBox(hopGui.getShell(), SWT.OK | SWT.ICON_WARNING);
+          box.setText(BaseMessages.getString(PKG, "HopGuiVaultGraph.DebugPipeline.Title"));
+          box.setMessage(
+              BaseMessages.getString(
+                  PKG, "HopGuiVaultGraph.DebugPipeline.CustomPipelinesMissing", tableName));
+          box.open();
+        }
         return;
       }
 
@@ -1872,6 +1898,12 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       vaultGraph.exportModelToSvg();
       return;
     }
+    if (active
+        instanceof org.apache.hop.datavault.hopgui.file.businessvault.HopGuiBusinessVaultGraph
+            businessVaultGraph) {
+      businessVaultGraph.exportModelToSvg();
+      return;
+    }
     HopGui.getInstance().fileDelegate.exportToSvg();
   }
 
@@ -1880,11 +1912,10 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       return;
     }
     try {
-      boolean showHashKeyFieldNames =
-          DataVaultConfigSingleton.getConfig().isDrawingHashKeysInModel();
-      String svgXml =
-          DataVaultModelSvgPainter.generateDataVaultModelSvg(
-              model, 1.0f, variables, showHashKeyFieldNames);
+      SvgRenderOptions options = SvgRenderOptions.defaults();
+      options.setShowHashKeyFieldNames(
+          DataVaultConfigSingleton.getConfig().isDrawingHashKeysInModel());
+      String svgXml = SvgExportService.generateDataVaultModelSvg(model, options, variables);
 
       String proposedName = Const.NVL(model.getName(), "data-vault-model") + ".svg";
       String proposedFilename = variables.getVariable("user.home") + File.separator + proposedName;

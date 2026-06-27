@@ -23,8 +23,10 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.DbCache;
+import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.Point;
@@ -48,6 +50,7 @@ import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.SatelliteAttribute;
+import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.datavault.transform.sortedschemamerge.SortedSchemaMergeMeta;
 import org.apache.hop.datavault.transform.sortedschemamerge.SortedSchemaMergeMetaFactory;
 import org.apache.hop.datavault.transform.sortedschemamerge.SortedSchemaMergeSortKey;
@@ -80,6 +83,8 @@ import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
  */
 public final class BvScd2PipelineSupport {
 
+  private static final Class<?> PKG = BvScd2PipelineSupport.class;
+
   private static final Point LOCATION_START = new Point(160, 160);
   private static final int SPACING_WIDTH = 160;
   private static final int LEG_SPACING_HEIGHT = 96;
@@ -87,6 +92,54 @@ public final class BvScd2PipelineSupport {
   private static final String REPEAT_FIELD_PREFIX = "_r_";
 
   private BvScd2PipelineSupport() {}
+
+  /** Validates that DV and BV target database connections are configured and resolvable. */
+  public static void validateTargetDatabases(
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      BusinessVaultModel bvModel,
+      DataVaultModel dvModel,
+      BvScd2Table scd2Table) {
+    if (remarks == null || scd2Table == null) {
+      return;
+    }
+    BusinessVaultConfiguration bvConfig =
+        bvModel != null ? bvModel.getConfigurationOrDefault() : new BusinessVaultConfiguration();
+    DataVaultConfiguration dvConfig =
+        dvModel != null ? dvModel.getConfigurationOrDefault() : new DataVaultConfiguration();
+
+    if (Utils.isEmpty(dvConfig.getTargetDatabase())) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG, "BvScd2PipelineSupport.CheckResult.MissingDvTargetDatabase", scd2Table.getName()),
+              scd2Table));
+    } else if (metadataProvider != null) {
+      try {
+        DvSpecialRecordSupport.loadTargetDatabase(metadataProvider, dvConfig);
+      } catch (HopException e) {
+        remarks.add(
+            new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), scd2Table));
+      }
+    }
+
+    if (Utils.isEmpty(bvConfig.getTargetDatabase())) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG, "BvScd2PipelineSupport.CheckResult.MissingBvTargetDatabase", scd2Table.getName()),
+              scd2Table));
+    } else if (metadataProvider != null) {
+      try {
+        BvTargetDatabaseSupport.loadTargetDatabase(metadataProvider, bvConfig);
+      } catch (HopException e) {
+        remarks.add(
+            new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), scd2Table));
+      }
+    }
+  }
 
   public static PipelineMeta generatePipeline(Scd2BuildContext ctx) throws HopException {
     if (ctx.isMultiSatellite()) {
@@ -296,22 +349,34 @@ public final class BvScd2PipelineSupport {
     BusinessVaultConfiguration bvConfig = bvModel.getConfigurationOrDefault();
     DataVaultConfiguration dvConfig = dvModel.getConfigurationOrDefault();
 
+    String sourceDbName = dvConfig.getTargetDatabase();
+    if (Utils.isEmpty(sourceDbName)) {
+      throw new HopException(
+          BaseMessages.getString(
+              PKG,
+              "BvScd2PipelineSupport.Error.MissingDvTargetDatabase",
+              scd2Table.getName()));
+    }
+    if (metadataProvider == null) {
+      throw new HopException(
+          BaseMessages.getString(
+              PKG,
+              "BvScd2PipelineSupport.Error.MissingMetadataProvider",
+              scd2Table.getName()));
+    }
     DatabaseMeta sourceDatabaseMeta =
         DvSpecialRecordSupport.loadTargetDatabase(metadataProvider, dvConfig);
-    String sourceDbName = dvConfig.getTargetDatabase();
-    if (sourceDatabaseMeta == null) {
-      throw new HopException(
-          "Data Vault target database is required to read satellite history for SCD2 table "
-              + scd2Table.getName());
-    }
 
+    String targetDbName = bvConfig.getTargetDatabase();
+    if (Utils.isEmpty(targetDbName)) {
+      throw new HopException(
+          BaseMessages.getString(
+              PKG,
+              "BvScd2PipelineSupport.Error.MissingBvTargetDatabase",
+              scd2Table.getName()));
+    }
     DatabaseMeta targetDatabaseMeta =
         BvTargetDatabaseSupport.loadTargetDatabase(metadataProvider, bvConfig);
-    String targetDbName = bvConfig.getTargetDatabase();
-    if (targetDatabaseMeta == null) {
-      throw new HopException(
-          "Business Vault target database is required to load SCD2 table " + scd2Table.getName());
-    }
 
     String bvTargetTableName =
         !Utils.isEmpty(scd2Table.getTableName()) ? scd2Table.getTableName() : scd2Table.getName();

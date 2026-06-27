@@ -1,5 +1,5 @@
 <data-vault-model>
-  <filename>${PROJECT_HOME}/tests/multi-satellite-bv/customer-360.hdv</filename>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/project/tests/multi-satellite-bv/customer-360.hdv</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description>Customer 360 integration model: one hub and four descriptive satellites fed from CSV catalog sources</description>
   <configuration>
@@ -30,7 +30,10 @@
     <useLoadEndDate>N</useLoadEndDate>
     <targetTableBatchSize>1000</targetTableBatchSize>
     <targetTableParallelCopies>${OUTPUT_COPIES}</targetTableParallelCopies>
+    <sortRowsSize>1000000</sortRowsSize>
     <execution_log_level>Minimal</execution_log_level>
+    <singleStoreShardKeyOnHashKey>N</singleStoreShardKeyOnHashKey>
+    <singleStoreShardKeyIncludeDrivingKeys>N</singleStoreShardKeyIncludeDrivingKeys>
     <generatedPipelineFolder/>
     <hubPipelineNamePrefix>hub-</hubPipelineNamePrefix>
     <linkPipelineNamePrefix>link-</linkPipelineNamePrefix>
@@ -55,8 +58,10 @@
       <tableName>hub_customer</tableName>
       <description>Customer hub loaded from CRM-c360-hub CSV snapshots</description>
       <tableType>HUB</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>48</xloc>
-      <yloc>48</yloc>
+      <yloc>128</yloc>
       <name>hub_customer</name>
       <virtualPath/>
     </table>
@@ -96,6 +101,8 @@
       <tableName>sat_customer_demo</tableName>
       <description>Customer demographics satellite</description>
       <tableType>SATELLITE</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>288</xloc>
       <yloc>32</yloc>
       <name>sat_customer_demo</name>
@@ -129,6 +136,8 @@
       <tableName>sat_customer_contact</tableName>
       <description>Customer contact satellite</description>
       <tableType>SATELLITE</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>288</xloc>
       <yloc>128</yloc>
       <name>sat_customer_contact</name>
@@ -170,6 +179,8 @@
       <tableName>sat_customer_address</tableName>
       <description>Customer address satellite</description>
       <tableType>SATELLITE</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>288</xloc>
       <yloc>224</yloc>
       <name>sat_customer_address</name>
@@ -211,11 +222,14 @@
       <tableName>sat_customer_prefs</tableName>
       <description>Customer preference satellite</description>
       <tableType>SATELLITE</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>288</xloc>
       <yloc>320</yloc>
       <name>sat_customer_prefs</name>
       <virtualPath/>
     </table>
   </tables>
+  <notes/>
   <name>customer-360</name>
 </data-vault-model>

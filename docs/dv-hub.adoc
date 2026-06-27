@@ -66,6 +66,16 @@ Use the **Get Keys** button (available when you are on the Keys tab) to populate
 You can attach as many sources as you need. The generated load process will handle each source (typically producing one pipeline per source) but all of them write into the same physical hub table. This is the recommended way to handle a single business concept that receives data from multiple upstream systems (for example a Customer hub that is populated from both a CRM system and an ERP system).
 |===
 
+== Integration mode
+
+On the **Options** tab, **Integration mode** controls how Hop loads this hub:
+
+* **Hop managed** (default) — Hop generates DDL, sentinel rows, and update pipelines.
+* **External read-only** — the hub table exists elsewhere; Hop documents it for Business Vault and catalog only. Canvas shows `(ext)`.
+* **Custom pipelines** — Hop runs `.hpl` files from `customUpdatePipelinePaths` instead of generating pipelines. Canvas shows `(custom)`.
+
+See link:dv-integration-modes.adoc[Data Vault integration modes] for Data Vault Update behavior and validation differences.
+
 == Using the Check model feature with hubs
 
 When you click **Check model** on the model editor toolbar, the plugin validates every hub. Common issues it will report include:
@@ -85,7 +95,7 @@ These checks run before any pipelines are generated, so you catch problems early
 
 The plugin builds a target table layout that typically contains (in this order):
 
-1. The hash key column (its type and length depend on the hash algorithm and hash key data type chosen in the configuration: BINARY is compact and recommended for production; HEX and STRING are easier when people need to read the values directly).
+1. The hash key column (its type and length depend on the hash algorithm and hash key data type chosen in the configuration: HEX is the default; STRING is human-readable; BINARY is the most compact but needs Apache Hop 2.19.0+ for correct sorting — see https://github.com/apache/hop/issues/7346[Hop issue 7346]).
 2. The business key columns, in the order you defined them. Length and precision are taken from the source definition when available, so you get sensible column types (VARCHAR(50), DECIMAL(15,2), etc.) instead of generic large types.
 3. The record source column (name and length come from the configuration or the per-hub override; variables are supported).
 4. The load date column (usually a timestamp, named LOAD_DATE or whatever you configured).

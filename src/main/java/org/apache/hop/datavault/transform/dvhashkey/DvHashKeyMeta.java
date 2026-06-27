@@ -77,7 +77,7 @@ public class DvHashKeyMeta extends BaseTransformMeta<DvHashKey, DvHashKeyData> {
       key = "hashKeyDataType",
       injectionKey = "HASH_KEY_DATA_TYPE",
       injectionKeyDescription = "DvHashKey.Injection.HASH_KEY_DATA_TYPE")
-  private HashKeyDataType hashKeyDataType = HashKeyDataType.BINARY;
+  private HashKeyDataType hashKeyDataType = HashKeyDataType.HEX;
 
   @HopMetadataProperty(
       key = "hashContentCasing",
