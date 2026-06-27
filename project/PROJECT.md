@@ -7,7 +7,7 @@
 > - **Docker** with Compose v2 — used by `run-tests.sh` and `run-tests-all-databases.sh` to run workflows in a short-lived Hop container (`docker-hop:latest`). No local Hop installation is required for command-line testing.
 > - **Python 3** — used by the test scripts to print the metrics overview table at the end of a run (stdlib only; no extra packages).
 > - Testing has been done with **PostgreSQL**, **MySQL**, and **SingleStore** (see [Docker multi-database tests](#docker-multi-database-tests) below).
-> - For Hop GUI use, install the **hop-datavault** plugin (**0.0.11-SNAPSHOT**) in your Hop 2.18.1 environment.
+> - For Hop GUI use, install the **hop-datavault** plugin (**0.0.14-SNAPSHOT**) in your Hop 2.18.1 environment.
 
 This folder is a sample Hop project demonstrating the Data Vault 2.0 and Business Vault plugin: model-driven DDL, pipeline generation, initial and incremental loads, multi-active satellites, link satellites, load end date satellites, status tracking, multi-source hubs, **multi-satellite Business Vault SCD2**, external read-only DV tables, and golden-dataset unit tests.
 
