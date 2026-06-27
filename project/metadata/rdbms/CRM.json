@@ -4,15 +4,15 @@
     "POSTGRESQL": {
       "sshTunnelPort": "22",
       "sshTunnelUsePrivateKey": false,
-      "databaseName": "test",
+      "databaseName": "${DB_NAME}",
       "pluginId": "POSTGRESQL",
       "sshTunnelEnabled": false,
       "accessType": 0,
       "sshTunnelUsername": "",
-      "hostname": "db",
-      "password": "Encrypted 2be98afc86aa7f2e4cb79ce10df90acde",
+      "hostname": "${DB_HOST}",
+      "password": "${DB_PASSWORD}",
       "pluginName": "PostgreSQL",
-      "port": "5432",
+      "port": "${DB_PORT}",
       "sshTunnelHost": "",
       "attributes": {
         "SUPPORTS_TIMESTAMP_DATA_TYPE": "Y",
@@ -28,7 +28,7 @@
       "sshTunnelPassphrase": "Encrypted ",
       "sshTunnelPassword": "Encrypted ",
       "sshTunnelPrivateKeyFile": "",
-      "username": "matt"
+      "username": "${DB_USER}"
     }
   },
   "name": "CRM"

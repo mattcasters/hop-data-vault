@@ -108,7 +108,8 @@ DROP TABLE IF EXISTS customer_360_bv;
       <exec_per_row>N</exec_per_row>
       <set_append_logfile>N</set_append_logfile>
       <insertScript>Y</insertScript>
-      <script>python3 ${PROJECT_HOME}/tests/multi-satellite-bv/activate-source-wave.py load1</script>
+      <script>#!/bin/sh
+exec python3 "${PROJECT_HOME}/tests/multi-satellite-bv/activate-source-wave.py" load1</script>
       <name>activate load1 sources</name>
       <description/>
       <type>SHELL</type>
@@ -159,7 +160,8 @@ DROP TABLE IF EXISTS customer_360_bv;
       <exec_per_row>N</exec_per_row>
       <set_append_logfile>N</set_append_logfile>
       <insertScript>Y</insertScript>
-      <script>python3 ${PROJECT_HOME}/tests/multi-satellite-bv/activate-source-wave.py update1</script>
+      <script>#!/bin/sh
+exec python3 "${PROJECT_HOME}/tests/multi-satellite-bv/activate-source-wave.py" update1</script>
       <name>activate update1 sources</name>
       <description/>
       <type>SHELL</type>
@@ -209,7 +211,8 @@ DROP TABLE IF EXISTS customer_360_bv;
       <exec_per_row>N</exec_per_row>
       <set_append_logfile>N</set_append_logfile>
       <insertScript>Y</insertScript>
-      <script>python3 ${PROJECT_HOME}/tests/multi-satellite-bv/activate-source-wave.py update2</script>
+      <script>#!/bin/sh
+exec python3 "${PROJECT_HOME}/tests/multi-satellite-bv/activate-source-wave.py" update2</script>
       <name>activate update2 sources</name>
       <description/>
       <type>SHELL</type>
@@ -259,7 +262,8 @@ DROP TABLE IF EXISTS customer_360_bv;
       <exec_per_row>N</exec_per_row>
       <set_append_logfile>N</set_append_logfile>
       <insertScript>Y</insertScript>
-      <script>python3 ${PROJECT_HOME}/tests/multi-satellite-bv/activate-source-wave.py update3</script>
+      <script>#!/bin/sh
+exec python3 "${PROJECT_HOME}/tests/multi-satellite-bv/activate-source-wave.py" update3</script>
       <name>activate update3 sources</name>
       <description/>
       <type>SHELL</type>
@@ -309,7 +313,8 @@ DROP TABLE IF EXISTS customer_360_bv;
       <exec_per_row>N</exec_per_row>
       <set_append_logfile>N</set_append_logfile>
       <insertScript>Y</insertScript>
-      <script>python3 ${PROJECT_HOME}/tests/multi-satellite-bv/activate-source-wave.py update4</script>
+      <script>#!/bin/sh
+exec python3 "${PROJECT_HOME}/tests/multi-satellite-bv/activate-source-wave.py" update4</script>
       <name>activate update4 sources</name>
       <description/>
       <type>SHELL</type>

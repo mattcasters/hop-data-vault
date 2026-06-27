@@ -2,22 +2,22 @@
   "variables": [
     {
       "name": "DB_HOST",
-      "value": "db",
-      "description": "Docker compose database service hostname"
+      "value": "localhost",
+      "description": "PostgreSQL server"
     },
     {
       "name": "DB_PORT",
-      "value": "54321",
-      "description": "PostgreSQL port (non-default to avoid collision with host PostgreSQL on 5432)"
+      "value": "5432",
+      "description": "PostgreSQL port"
     },
     {
       "name": "DB_USER",
-      "value": "test",
+      "value": "matt",
       "description": "PostgreSQL username"
     },
     {
       "name": "DB_PASSWORD",
-      "value": "test",
+      "value": "abcd",
       "description": "PostgreSQL password"
     },
     {

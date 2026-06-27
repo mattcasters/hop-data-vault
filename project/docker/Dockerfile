@@ -41,6 +41,9 @@ FROM apache/hop:${HOP_IMAGE_VERSION}
 
 USER root
 
+# Customer-360 and other test workflows run small Python helpers via Shell actions.
+RUN apk add --no-cache python3
+
 COPY --from=build /jdbc/*.jar /opt/hop/lib/jdbc/
 COPY --from=build /src/target/hop-datavault-*.zip /tmp/hop-datavault.zip
 

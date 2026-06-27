@@ -1,12 +1,15 @@
 services:
   db:
     image: postgres:16
+    command: ["postgres", "-c", "port=54321"]
+    ports:
+      - "54321:54321"
     environment:
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
-      POSTGRES_DB: test
+      POSTGRES_USER: ${DB_USER:-test}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-test}
+      POSTGRES_DB: ${DB_NAME:-test}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test -d test"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -p 54321"]
       interval: 5s
       timeout: 5s
       retries: 12
