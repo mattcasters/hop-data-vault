@@ -10,5 +10,6 @@ project/vault-catalog
 project/files/large/syn*.csv
 
 **/*-test.*
+**/__pycache__/**
 
 
