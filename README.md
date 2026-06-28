@@ -17,7 +17,7 @@ under the License.
 
 # Hop Data Vault 2.0 Plugin
 
-Apache Hop plugin for **Data Vault 2.0** and **Business Vault** modeling, validation, and model-driven loading. Version **0.0.14-SNAPSHOT** targets **Apache Hop 2.18.1** and **Java 21**.
+Apache Hop plugin for **Data Vault 2.0** and **Business Vault** modeling, validation, and model-driven loading. Version **0.0.15-SNAPSHOT** targets **Apache Hop 2.18.1** and **Java 21**.
 
 The plugin provides Hop metadata types for hubs, links, satellites, and record sources; visual **`.hdv`** and **`.hbv`** model editors; **Data Vault Update** and **Business Vault Update** workflow actions; integration modes for hybrid warehouses (Hop-managed, external read-only, custom pipelines); optional **AI Help**; and a sample Hop project under `project/` for end-to-end testing.
 
@@ -211,14 +211,14 @@ mvn clean package
 
 Artifacts:
 
-- `target/hop-datavault-0.0.14-SNAPSHOT.jar`
-- `target/hop-datavault-0.0.14-SNAPSHOT.zip` (ready-to-unzip plugin layout)
+- `target/hop-datavault-0.0.15-SNAPSHOT.jar`
+- `target/hop-datavault-0.0.15-SNAPSHOT.zip` (ready-to-unzip plugin layout)
 
 ## Installation (external plugin)
 
 1. Unzip the assembly zip into your Hop installation, or manually copy the jar to:
    ```
-   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.0.14-SNAPSHOT.jar
+   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.0.15-SNAPSHOT.jar
    ```
 2. Restart Hop GUI.
 3. New metadata types appear under **Metadata → Data Vault**. **Data Vault Update** and **Business Vault Update** actions are available in workflows. `.hdv` and `.hbv` files open in the visual modelers.

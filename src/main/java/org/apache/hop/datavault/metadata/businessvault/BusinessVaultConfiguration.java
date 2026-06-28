@@ -156,6 +156,11 @@ public class BusinessVaultConfiguration {
         variables, scd2PipelineNamePrefix, DEFAULT_SCD2_PIPELINE_NAME_PREFIX, targetTableName, sourceName);
   }
 
+  public String buildPitPipelineName(IVariables variables, String targetTableName) {
+    return buildPipelineName(
+        variables, pitPipelineNamePrefix, DEFAULT_PIT_PIPELINE_NAME_PREFIX, targetTableName, null);
+  }
+
   private static String buildPipelineName(
       IVariables variables,
       String configuredPrefix,

@@ -1,0 +1,306 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.datavault.metadata.businessvault;
+
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.hop.core.database.DatabaseMeta;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DataVaultConfiguration;
+import org.apache.hop.datavault.metadata.DvHub;
+import org.apache.hop.datavault.metadata.DvSatellite;
+
+/** Snapshot spine date math and Postgres SQL fragments for Business Vault PIT tables. */
+public final class BvPitSnapshotSpineSupport {
+
+  public static final String DEFAULT_INCREMENTAL_SENTINEL = "1900-01-01 00:00:00";
+  public static final LocalTime END_OF_DAY = LocalTime.of(23, 59, 59);
+
+  private static final DateTimeFormatter SQL_DATE =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+  private BvPitSnapshotSpineSupport() {}
+
+  /** Inclusive calendar bounds for snapshot spine generation. */
+  public record SpineBounds(LocalDate startDate, LocalDate endDate) {
+
+    public boolean isValid() {
+      return startDate != null && endDate != null && !startDate.isAfter(endDate);
+    }
+  }
+
+  public static String resolveLoadDateField(
+      DataVaultConfiguration dvConfig, IVariables variables) {
+    String field = dvConfig != null ? dvConfig.getLoadDateField() : null;
+    if (variables != null) {
+      field = variables.resolve(field);
+    }
+    if (Utils.isEmpty(field)) {
+      return "LOAD_DATE";
+    }
+    return field;
+  }
+
+  public static SpineBounds resolveBounds(
+      BvPitSnapshotSchedule schedule,
+      IVariables variables,
+      LocalDate referenceDate,
+      LocalDate earliestParticipatingSatelliteLoad,
+      LocalDate earliestHubLoad)
+      throws HopException {
+    if (schedule == null) {
+      throw new HopException("PIT snapshot schedule is required");
+    }
+    if (referenceDate == null) {
+      throw new HopException("Reference date is required to resolve PIT snapshot bounds");
+    }
+
+    LocalDate endDate = resolveEndDate(schedule, variables, referenceDate);
+    LocalDate startDate =
+        resolveStartDate(
+            schedule, variables, earliestParticipatingSatelliteLoad, earliestHubLoad);
+    return new SpineBounds(startDate, endDate);
+  }
+
+  public static List<LocalDateTime> generateSnapshotSpine(
+      SpineBounds bounds, BvPitSnapshotSchedule schedule) throws HopException {
+    if (bounds == null || !bounds.isValid() || schedule == null) {
+      return List.of();
+    }
+    if (schedule.getCadence() != BvPitCadence.DAILY) {
+      throw new HopException(
+          "PIT snapshot cadence "
+              + schedule.getCadence()
+              + " is not implemented; only DAILY is supported in the MVP");
+    }
+
+    BvPitSnapshotAnchor anchor =
+        schedule.getSnapshotAnchor() != null
+            ? schedule.getSnapshotAnchor()
+            : BvPitSnapshotAnchor.END_OF_PERIOD;
+
+    List<LocalDateTime> spine = new ArrayList<>();
+    for (LocalDate day = bounds.startDate();
+        !day.isAfter(bounds.endDate());
+        day = day.plusDays(1)) {
+      spine.add(anchorSnapshot(day, anchor));
+    }
+    return spine;
+  }
+
+  public static List<LocalDateTime> filterIncrementalSpine(
+      List<LocalDateTime> spine, LocalDateTime incrementalAfter) {
+    if (spine == null || spine.isEmpty() || incrementalAfter == null) {
+      return spine != null ? spine : List.of();
+    }
+    return spine.stream().filter(snapshot -> snapshot.isAfter(incrementalAfter)).toList();
+  }
+
+  public static LocalDate toLocalDate(Timestamp timestamp) {
+    if (timestamp == null) {
+      return null;
+    }
+    return timestamp.toLocalDateTime().toLocalDate();
+  }
+
+  public static String buildEarliestParticipatingSatelliteLoadSql(
+      DatabaseMeta databaseMeta,
+      IVariables variables,
+      List<DvSatellite> satellites,
+      String loadDateField) {
+    if (databaseMeta == null || satellites == null || satellites.isEmpty()) {
+      return "SELECT CAST(NULL AS timestamp) AS earliest_load";
+    }
+    String quotedLoadDate = databaseMeta.quoteField(loadDateField);
+    List<String> branches = new ArrayList<>();
+    for (DvSatellite satellite : satellites) {
+      if (satellite == null) {
+        continue;
+      }
+      String tableName = BvPitLayoutSupport.resolveSatellitePhysicalName(satellite);
+      String quotedTable =
+          databaseMeta.getQuotedSchemaTableCombination(variables, null, tableName);
+      branches.add("SELECT MIN(" + quotedLoadDate + ") AS min_load FROM " + quotedTable);
+    }
+    if (branches.isEmpty()) {
+      return "SELECT CAST(NULL AS timestamp) AS earliest_load";
+    }
+    if (branches.size() == 1) {
+      return branches.get(0).replace("min_load", "earliest_load");
+    }
+    StringBuilder sql = new StringBuilder("SELECT MIN(min_load) AS earliest_load FROM (");
+    sql.append(String.join(" UNION ALL ", branches));
+    sql.append(") participating_satellites");
+    return sql.toString();
+  }
+
+  public static String buildEarliestHubLoadSql(
+      DatabaseMeta databaseMeta,
+      IVariables variables,
+      DvHub hub,
+      String loadDateField) {
+    if (databaseMeta == null || hub == null) {
+      return "SELECT CAST(NULL AS timestamp) AS earliest_load";
+    }
+    String tableName =
+        !Utils.isEmpty(hub.getTableName()) ? hub.getTableName() : hub.getName();
+    String quotedTable = databaseMeta.getQuotedSchemaTableCombination(variables, null, tableName);
+    String quotedLoadDate = databaseMeta.quoteField(loadDateField);
+    return "SELECT MIN(" + quotedLoadDate + ") AS earliest_load FROM " + quotedTable;
+  }
+
+  public static String buildPostgresDynamicSnapshotSpineCte(
+      String cteName,
+      String snapshotColumnAlias,
+      String boundsCteName,
+      BvPitSnapshotAnchor anchor) {
+    String snapshotExpression = postgresSnapshotExpression(anchor);
+    return cteName
+        + " AS ("
+        + "SELECT "
+        + snapshotExpression
+        + " AS "
+        + snapshotColumnAlias
+        + " FROM "
+        + boundsCteName
+        + " b "
+        + "CROSS JOIN LATERAL generate_series(b.start_date, b.end_date, INTERVAL '1 day') AS spine_day "
+        + "WHERE b.start_date IS NOT NULL AND b.end_date IS NOT NULL AND b.start_date <= b.end_date"
+        + ")";
+  }
+
+  public static String buildPostgresSnapshotSpineCte(
+      String cteName,
+      String snapshotColumnAlias,
+      SpineBounds bounds,
+      BvPitSnapshotAnchor anchor) {
+    if (bounds == null || !bounds.isValid()) {
+      return cteName + " AS (SELECT CAST(NULL AS timestamp) AS " + snapshotColumnAlias + " WHERE 1 = 0)";
+    }
+    String startLiteral = "DATE '" + bounds.startDate().format(SQL_DATE) + "'";
+    String endLiteral = "DATE '" + bounds.endDate().format(SQL_DATE) + "'";
+    String snapshotExpression = postgresSnapshotExpression(anchor);
+
+    return cteName
+        + " AS ("
+        + "SELECT "
+        + snapshotExpression
+        + " AS "
+        + snapshotColumnAlias
+        + " FROM generate_series("
+        + startLiteral
+        + ", "
+        + endLiteral
+        + ", INTERVAL '1 day') AS spine_day"
+        + ")";
+  }
+
+  public static String buildIncrementalSnapshotFilterSql(
+      DatabaseMeta bvDatabaseMeta,
+      IVariables variables,
+      String pitTableName,
+      String snapshotDateField,
+      String snapshotColumnRef) {
+    String quotedTable =
+        bvDatabaseMeta.getQuotedSchemaTableCombination(variables, null, pitTableName);
+    String quotedSnapshotField = bvDatabaseMeta.quoteField(snapshotDateField);
+    return snapshotColumnRef
+        + " > COALESCE((SELECT MAX("
+        + quotedSnapshotField
+        + ") FROM "
+        + quotedTable
+        + "), TIMESTAMP '"
+        + DEFAULT_INCREMENTAL_SENTINEL
+        + "')";
+  }
+
+  static LocalDateTime anchorSnapshot(LocalDate day, BvPitSnapshotAnchor anchor) {
+    if (anchor == BvPitSnapshotAnchor.START_OF_PERIOD) {
+      return day.atStartOfDay();
+    }
+    return LocalDateTime.of(day, END_OF_DAY);
+  }
+
+  static String postgresSnapshotExpression(BvPitSnapshotAnchor anchor) {
+    if (anchor == BvPitSnapshotAnchor.START_OF_PERIOD) {
+      return "spine_day::timestamp";
+    }
+    return "(spine_day::timestamp + INTERVAL '23 hours 59 minutes 59 seconds')";
+  }
+
+  private static LocalDate resolveEndDate(
+      BvPitSnapshotSchedule schedule, IVariables variables, LocalDate referenceDate)
+      throws HopException {
+    BvPitRangeEnd rangeEnd =
+        schedule.getRangeEnd() != null ? schedule.getRangeEnd() : BvPitRangeEnd.NOW_MINUS_HORIZON;
+    return switch (rangeEnd) {
+      case NOW -> referenceDate;
+      case NOW_MINUS_HORIZON -> referenceDate.minusDays(Math.max(0, schedule.getHorizonDays()));
+      case FIXED_DATE -> parseFixedDate(resolve(variables, schedule.getRangeEndFixed()), "range end");
+    };
+  }
+
+  private static LocalDate resolveStartDate(
+      BvPitSnapshotSchedule schedule,
+      IVariables variables,
+      LocalDate earliestParticipatingSatelliteLoad,
+      LocalDate earliestHubLoad)
+      throws HopException {
+    BvPitRangeStart rangeStart =
+        schedule.getRangeStart() != null
+            ? schedule.getRangeStart()
+            : BvPitRangeStart.EARLIEST_PARTICIPATING_SATELLITE_LOAD;
+    return switch (rangeStart) {
+      case FIXED_DATE -> parseFixedDate(resolve(variables, schedule.getRangeStartFixed()), "range start");
+      case EARLIEST_PARTICIPATING_SATELLITE_LOAD -> earliestParticipatingSatelliteLoad;
+      case EARLIEST_HUB_LOAD -> earliestHubLoad;
+    };
+  }
+
+  private static LocalDate parseFixedDate(String value, String label) throws HopException {
+    if (Utils.isEmpty(value)) {
+      throw new HopException("PIT snapshot " + label + " fixed date is required");
+    }
+    String trimmed = value.trim();
+    try {
+      if (trimmed.length() >= 10) {
+        return LocalDate.parse(trimmed.substring(0, 10), SQL_DATE);
+      }
+      return LocalDate.parse(trimmed, SQL_DATE);
+    } catch (DateTimeParseException e) {
+      throw new HopException(
+          "PIT snapshot " + label + " fixed date '" + value + "' is not a valid date", e);
+    }
+  }
+
+  private static String resolve(IVariables variables, String value) {
+    if (variables != null) {
+      return variables.resolve(value);
+    }
+    return value;
+  }
+}

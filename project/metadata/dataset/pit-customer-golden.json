@@ -1,0 +1,33 @@
+{
+  "base_filename": "basic/pit-customer-golden.csv",
+  "virtualPath": "/business-vault",
+  "name": "pit-customer-golden",
+  "description": "",
+  "dataset_fields": [
+    {
+      "field_comment": "customer_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "customer_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "snapshot_date",
+      "field_length": 6,
+      "field_type": 9,
+      "field_precision": -1,
+      "field_name": "snapshot_date",
+      "field_format": "yyyy/MM/dd HH:mm:ss.SSSSSSSSS"
+    },
+    {
+      "field_comment": "sat_customer_ldts",
+      "field_length": 6,
+      "field_type": 9,
+      "field_precision": -1,
+      "field_name": "sat_customer_ldts",
+      "field_format": "yyyy/MM/dd HH:mm:ss.SSSSSSSSS"
+    }
+  ],
+  "folder_name": ""
+}

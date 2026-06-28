@@ -1142,7 +1142,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   public void showBuildPipelineAction(HopGuiBusinessVaultTableContext context) {
     IBvTable table = context.getTable();
     HopGuiBusinessVaultGraph graph = context.getBusinessVaultGraph();
-    if (table instanceof BvScd2Table && graph != null) {
+    if ((table instanceof BvScd2Table || table instanceof BvPitTable) && graph != null) {
       graph.openBuildPipeline(table);
     }
   }
@@ -1287,7 +1287,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     }
     IVariables debugVariables = getVariables();
     for (IBvTable table : model.getTables()) {
-      if (table == null || !(table instanceof BvScd2Table)) {
+      if (table == null || !(table instanceof BvScd2Table || table instanceof BvPitTable)) {
         continue;
       }
       if (!table.isSelected() && nrSelectedBvTables() > 0) {
@@ -1323,7 +1323,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   }
 
   private void openBuildPipeline(IBvTable table, IVariables debugVariables) {
-    if (!(table instanceof BvScd2Table)) {
+    if (!(table instanceof BvScd2Table || table instanceof BvPitTable)) {
       return;
     }
     String tableName =

@@ -30,7 +30,10 @@
     <useLoadEndDate>N</useLoadEndDate>
     <targetTableBatchSize>1000</targetTableBatchSize>
     <targetTableParallelCopies>${OUTPUT_COPIES}</targetTableParallelCopies>
+    <sortRowsSize>1000000</sortRowsSize>
     <execution_log_level>Minimal</execution_log_level>
+    <singleStoreShardKeyOnHashKey>N</singleStoreShardKeyOnHashKey>
+    <singleStoreShardKeyIncludeDrivingKeys>N</singleStoreShardKeyIncludeDrivingKeys>
     <generatedPipelineFolder/>
     <hubPipelineNamePrefix>hub-</hubPipelineNamePrefix>
     <linkPipelineNamePrefix>link-</linkPipelineNamePrefix>
@@ -55,6 +58,8 @@
       <tableName>hub_customer</tableName>
       <description/>
       <tableType>HUB</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>32</xloc>
       <yloc>32</yloc>
       <name>hub_customer</name>
@@ -104,6 +109,8 @@
       <tableName>sat_customer</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>272</xloc>
       <yloc>32</yloc>
       <name>sat_customer</name>
@@ -126,6 +133,8 @@
       <tableName>hub_product</tableName>
       <description/>
       <tableType>HUB</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>112</xloc>
       <yloc>304</yloc>
       <name>hub_product</name>
@@ -175,6 +184,8 @@
       <tableName>sat_product</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>400</xloc>
       <yloc>304</yloc>
       <name>sat_product</name>
@@ -197,6 +208,8 @@
       <tableName>hub_order</tableName>
       <description/>
       <tableType>HUB</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>336</xloc>
       <yloc>160</yloc>
       <name>hub_order</name>
@@ -262,6 +275,8 @@
       <tableName>sat_order</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>544</xloc>
       <yloc>160</yloc>
       <name>sat_order</name>
@@ -316,6 +331,8 @@
       <tableName>lnk_customer_order</tableName>
       <description/>
       <tableType>LINK</tableType>
+      <integrationMode>HOP_MANAGED</integrationMode>
+      <customUpdatePipelinePaths/>
       <xloc>48</xloc>
       <yloc>160</yloc>
       <name>lnk_customer_order</name>

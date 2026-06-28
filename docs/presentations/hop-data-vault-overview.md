@@ -236,7 +236,7 @@ Choose per table — mixed models are supported.
 | **Implementers** | [README.md](../../README.md) and [project/PROJECT.md](../../project/PROJECT.md) |
 | **Reference** | [docs/README.md](../README.md) — full doc index |
 
-Open the `project/` folder as Hop project **`hop-data-vault`**, configure **CRM** and **Vault** connections, install plugin **0.0.14-SNAPSHOT**, and run `tests/run-tests.hwf`.
+Open the `project/` folder as Hop project **`hop-data-vault`**, configure **CRM** and **Vault** connections, install plugin **0.0.15-SNAPSHOT**, and run `tests/run-tests.hwf`.
 
 ---
 

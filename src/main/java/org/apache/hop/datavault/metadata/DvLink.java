@@ -827,7 +827,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     sql.append(" ORDER BY ");
     sql.append(quotedLinkHash);
 
-    targetTableInputMeta.setSql(sql.toString());
+    DvSqlSupport.assignDisplaySql(targetTableInputMeta, sql.toString());
 
     String transformName = "target " + ctx.targetDatabaseMeta.getName() + "." + ctx.targetTableName;
 

@@ -1314,7 +1314,7 @@ public class DvSatellite extends DvTableBase
     sql.append(", ");
     sql.append(quotedLoadDate);
 
-    targetTableInputMeta.setSql(sql.toString());
+    DvSqlSupport.assignDisplaySql(targetTableInputMeta, sql.toString());
 
     TransformMeta tm =
         new TransformMeta("TableInput", ctx.targetTransformName, targetTableInputMeta);
@@ -1915,7 +1915,7 @@ public class DvSatellite extends DvTableBase
 
     TableInputMeta targetTableInputMeta = new TableInputMeta();
     targetTableInputMeta.setConnection(ctx.targetDbName);
-    targetTableInputMeta.setSql(sql.toString());
+    DvSqlSupport.assignDisplaySql(targetTableInputMeta, sql.toString());
 
     TransformMeta tm =
         new TransformMeta("TableInput", "sts_target_" + stsTableName, targetTableInputMeta);

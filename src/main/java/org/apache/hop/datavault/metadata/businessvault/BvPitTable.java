@@ -21,26 +21,34 @@ package org.apache.hop.datavault.metadata.businessvault;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
-import org.apache.hop.datavault.metadata.DvTableType;
-import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.PipelineMeta;
 
 /** Point-in-time table combining a DV hub grain with satellite snapshots. */
 @Getter
 @Setter
 public class BvPitTable extends BvTableBase {
 
-  private static final Class<?> PKG = BvPitTable.class;
-
   @HopMetadataProperty private String snapshotDateField = "snapshot_date";
+
+  @HopMetadataProperty(inline = true)
+  private BvPitSnapshotSchedule snapshotSchedule;
 
   public BvPitTable() {
     super(BvTableType.PIT);
+  }
+
+  public BvPitSnapshotSchedule getSnapshotScheduleOrDefault() {
+    if (snapshotSchedule == null) {
+      snapshotSchedule = new BvPitSnapshotSchedule();
+    }
+    return snapshotSchedule;
   }
 
   @Override
@@ -51,25 +59,31 @@ public class BvPitTable extends BvTableBase {
       BusinessVaultModel model,
       DataVaultModel dataVaultModel) {
     super.check(remarks, metadataProvider, variables, model, dataVaultModel);
-    boolean hasHub =
-        getDerivatives().stream()
-            .anyMatch(ref -> ref != null && ref.getDvTableType() == DvTableType.HUB);
-    boolean hasSatellite =
-        getDerivatives().stream()
-            .anyMatch(ref -> ref != null && ref.getDvTableType() == DvTableType.SATELLITE);
-    if (!hasHub) {
-      remarks.add(
-          new CheckResult(
-              ICheckResult.TYPE_RESULT_ERROR,
-              BaseMessages.getString(PKG, "BvPitTable.CheckResult.MissingHubDerivative", getName()),
-              this));
+    BvPitValidationSupport.validate(
+        remarks, this, model, dataVaultModel, metadataProvider, variables);
+  }
+
+  @Override
+  public List<PipelineMeta> generateBuildPipelines(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      BusinessVaultModel model,
+      DataVaultModel dataVaultModel)
+      throws HopException {
+    return BvPitPipelineSupport.generateBuildPipelines(
+        metadataProvider, variables, model, dataVaultModel, this);
+  }
+
+  @Override
+  public IRowMeta getTargetTableLayout(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      BusinessVaultModel model,
+      DataVaultModel dataVaultModel)
+      throws HopException {
+    if (dataVaultModel == null) {
+      return null;
     }
-    if (!hasSatellite) {
-      remarks.add(
-          new CheckResult(
-              ICheckResult.TYPE_RESULT_ERROR,
-              BaseMessages.getString(PKG, "BvPitTable.CheckResult.MissingSatelliteDerivative", getName()),
-              this));
-    }
+    return BvPitLayoutSupport.buildTargetTableLayout(this, dataVaultModel, variables);
   }
 }

@@ -51,6 +51,7 @@ Documentation by audience.
 |----------|-------------|
 | [business-vault-overview.adoc](business-vault-overview.adoc) | `.hbv` modeler and table types |
 | [business-vault-scd2.adoc](business-vault-scd2.adoc) | SCD2 generation, multi-satellite mappings |
+| [business-vault-pit.adoc](business-vault-pit.adoc) | PIT snapshot schedule, layout, pipelines, as-of consumption |
 | [business-vault-configuration.adoc](business-vault-configuration.adoc) | Embedded `.hbv` configuration |
 | [business-vault-update-action.adoc](business-vault-update-action.adoc) | Business Vault Update workflow action |
 
@@ -98,7 +99,8 @@ Internal planning documents for features not yet fully productized:
 
 | Document | Topic |
 |----------|-------|
-| [bv-field-dictionary-plan.md](bv-field-dictionary-plan.md) | BV field dictionary |
+| [bv-naming-rules-engine-plan.md](bv-naming-rules-engine-plan.md) | BV naming rules engine (ROI-first; health check, acknowledgements, review reports) |
+| [bv-field-dictionary-plan.md](bv-field-dictionary-plan.md) | BV field dictionary (deferred; superseded by naming rules engine plan) |
 | [dimensional-modeler-plan.md](dimensional-modeler-plan.md) | Dimensional modeler |
 | [marquez-lineage-plan.md](marquez-lineage-plan.md) | Lineage export |
 

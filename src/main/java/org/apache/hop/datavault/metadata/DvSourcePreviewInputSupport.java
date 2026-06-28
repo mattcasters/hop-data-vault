@@ -154,7 +154,7 @@ public final class DvSourcePreviewInputSupport {
 
     TableInputMeta tableInputMeta = new TableInputMeta();
     tableInputMeta.setConnection(databaseMeta.getName());
-    tableInputMeta.setSql(previewSql);
+    DvSqlSupport.assignDisplaySql(tableInputMeta, previewSql);
     if (rowLimit > 0) {
       tableInputMeta.setRowLimit(Integer.toString(rowLimit));
     }

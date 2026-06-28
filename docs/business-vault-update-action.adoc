@@ -13,7 +13,7 @@ At runtime the action:
 * Loads the `.hbv` model and resolves the linked `.hdv` Data Vault model
 * Optionally validates both models before any work is done
 * Optionally generates CREATE TABLE DDL for Business Vault tables on the BV target database
-* Generates **build pipelines** for each selected SCD2 (and other supported) table
+* Generates **build pipelines** for each selected SCD2 and PIT table (and other supported types when implemented)
 * Stages pipelines and runs them through a parallel orchestrator
 * Optionally publishes BV target table layouts to the data catalog
 * Aggregates pipeline results into the workflow action result
@@ -80,11 +80,26 @@ At runtime the action:
 
 * The `.hbv` **Data Vault model path** must resolve (set `PROJECT_HOME` in the Hop project)
 * **Vault** (or your DV connection) and **BV target database** must exist in project metadata
-* Raw vault satellite tables must contain history to read — load them first with Data Vault Update (unless satellites are external read-only and already populated)
+* Raw vault hub and satellite tables must contain history to read — load them first with Data Vault Update (unless satellites are external read-only and already populated)
+
+== Execution order
+
+Within a single Business Vault Update run, the action processes tables in this order:
+
+1. **SCD2** tables — functional timeline merges from satellite history
+2. **PIT** tables — snapshot spine and satellite load-timestamp pointers from raw hub/satellite history
+
+SCD2 and PIT read independent data paths (PIT does not consume SCD2 output). Ordering keeps logs predictable and matches the typical load sequence: collapse functional history, then refresh as-of helpers.
+
+`BUSINESS_TABLE` types are skipped with a log message until pipeline generation is implemented.
 
 == Related actions
 
 * link:datavault-update-action.adoc[Data Vault Update Action] — loads the raw `.hdv` model first
-* link:business-vault-scd2.adoc[Business Vault SCD2] — what the generated build pipelines do
+* link:business-vault-scd2.adoc[Business Vault SCD2] — SCD2 build pipelines
+* link:business-vault-pit.adoc[Business Vault PIT] — PIT build pipelines
 
-Sample workflow: `project/tests/multi-satellite-bv/update-customer-360.hwf`
+Sample workflows:
+
+* `project/tests/multi-satellite-bv/update-customer-360.hwf` — multi-satellite SCD2
+* `project/tests/basic/update-vault1.hwf` — SCD2 + PIT on the introductory vault1 model

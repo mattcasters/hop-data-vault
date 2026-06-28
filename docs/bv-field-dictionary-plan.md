@@ -1,5 +1,7 @@
 # BV Field Dictionary (Phase 1: Naming & Typing Rules)
 
+> **Deferred.** Superseded by [bv-naming-rules-engine-plan.md](bv-naming-rules-engine-plan.md), which reframes naming as a rules engine with assistive features, acknowledgements, health checks, and code-review reports — without catalog-first overhead.
+
 Introduce a catalog-backed Business Vault field dictionary with naming and typing rules (`_ts`, `_dt`, control columns), and wire it into SCD2 pipeline generation and mapping suggestions. Phase 1 stops at rules; the mapping registry UI comes later on the same catalog foundation.
 
 ## Goal

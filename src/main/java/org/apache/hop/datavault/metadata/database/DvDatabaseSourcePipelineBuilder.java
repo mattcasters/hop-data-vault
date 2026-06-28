@@ -33,6 +33,7 @@ import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.datavault.metadata.DvSqlSupport;
 import org.apache.hop.datavault.metadata.DvSourcePipelineBuilder;
 import org.apache.hop.datavault.metadata.IDvSource;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -239,7 +240,7 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
       String sourceTransformName, DatabaseMeta sourceDbMeta, String querySql, Point location) {
     TableInputMeta tableInputMeta = new TableInputMeta();
     tableInputMeta.setConnection(sourceDbMeta.getName());
-    tableInputMeta.setSql(querySql);
+    DvSqlSupport.assignDisplaySql(tableInputMeta, querySql);
 
     TransformMeta transformMeta =
         new TransformMeta("TableInput", sourceTransformName, tableInputMeta);

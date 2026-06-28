@@ -480,7 +480,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     sql.append(" ORDER BY ");
     sql.append(StringUtils.join(bkQuotedBkFields, ","));
 
-    targetTableInputMeta.setSql(sql.toString());
+    DvSqlSupport.assignDisplaySql(targetTableInputMeta, sql.toString());
 
     TransformMeta tm =
         new TransformMeta("TableInput", ctx.targetTransformName, targetTableInputMeta);

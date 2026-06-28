@@ -22,6 +22,7 @@ import org.apache.hop.core.Const;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 
 /** SQL helpers for generated Data Vault update pipelines. */
 public final class DvSqlSupport {
@@ -42,6 +43,19 @@ public final class DvSqlSupport {
       lengthString = variables.resolve(lengthString);
     }
     return typedNullString(databaseMeta, Const.toInt(lengthString, 100));
+  }
+
+  /** Pretty-print generated SQL for display in Hop pipeline transforms. */
+  public static String formatForDisplay(String sql) {
+    return DvSqlFormattingSupport.formatForDisplay(sql);
+  }
+
+  /** Assign SQL to a Table Input transform using {@link #formatForDisplay(String)}. */
+  public static void assignDisplaySql(TableInputMeta tableInputMeta, String sql) {
+    if (tableInputMeta == null) {
+      return;
+    }
+    tableInputMeta.setSql(formatForDisplay(sql));
   }
 
   public static String typedNullString(DatabaseMeta databaseMeta, int length) {

@@ -120,6 +120,8 @@ DROP TABLE IF EXISTS hub_order;
 DROP TABLE IF EXISTS sat_order;
 DROP TABLE IF EXISTS lnk_customer_order;
 DROP TABLE IF EXISTS lnk_product_order;
+DROP TABLE IF EXISTS sat_customer_hb;
+DROP TABLE IF EXISTS pit_customer;
 
 
 
@@ -284,7 +286,14 @@ DROP TABLE IF EXISTS lnk_product_order;
       <attributes_hac/>
     </action>
     <action>
-      <test_names/>
+      <test_names>
+        <test_name>
+          <name>validate-sat-customer-hb UNIT</name>
+        </test_name>
+        <test_name>
+          <name>validate-pit-customer UNIT</name>
+        </test_name>
+      </test_names>
       <name>Run Pipeline Unit Tests</name>
       <description/>
       <type>RunPipelineTests</type>

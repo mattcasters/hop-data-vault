@@ -1,0 +1,257 @@
+= Business Vault PIT
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+Point-in-time (PIT) tables accelerate **as-of** queries against raw Data Vault hub and satellite history. For each snapshot timestamp and hub grain key, the plugin stores the load timestamp of the satellite row that was effective at that moment.
+
+PIT tables live in the **Business Vault** (`.hbv`) model alongside SCD2 tables. They read **raw** hub and satellite tables on the Data Vault target database and write the PIT table to the Business Vault target database.
+
+== What PIT solves
+
+Reporting and marts often need attribute values **as they were known at time T** (technical as-of). Without a PIT table, every query repeats effective-dating logic: for each hub key, find the latest satellite load timestamp `≤ T`, then join back to the satellite.
+
+A PIT table materializes that lookup once:
+
+* One row per `(hub_hash_key, snapshot_date)`
+* One **pointer column** per participating satellite (default suffix `_ldts`) holding the load timestamp to join on
+
+Consumers resolve attributes with a simple equi-join:
+
+[source,sql]
+----
+SELECT pit.snapshot_date, sat.*
+FROM pit_customer pit
+JOIN sat_customer sat
+  ON sat.customer_hk = pit.customer_hk
+ AND sat.x_load_ts = pit.sat_customer_ldts
+WHERE pit.snapshot_date = :as_of_timestamp
+----
+
+PIT complements SCD2: SCD2 collapses history into functional `valid_from` / `valid_to` intervals; PIT preserves **technical** as-of against raw satellite load timestamps.
+
+== Relationship to raw vault and SCD2
+
+```mermaid
+flowchart LR
+  subgraph dv [Raw vault DB]
+    Hub[hub_customer]
+    Sat[sat_customer]
+  end
+  subgraph bv [BV target DB]
+    Scd2[sat_customer_hb SCD2]
+    Pit[pit_customer PIT]
+  end
+  Hdv["vault1.hdv"] --> Hub
+  Hdv --> Sat
+  Hbv["vault1.hbv"] --> Scd2
+  Hbv --> Pit
+  Hub --> Pit
+  Sat --> Pit
+  Sat --> Scd2
+```
+
+* PIT reads **raw** hub/satellite history — not SCD2 output
+* SCD2 and PIT are independent siblings in the same Business Vault Update run (SCD2 tables run first, then PIT)
+
+== Target table layout
+
+For each PIT table the plugin creates:
+
+[cols="1,3", options="header"]
+|===
+|Column |Source
+
+|Hub hash key
+|From the hub derivative (e.g. `customer_hk`)
+
+|`snapshot_date` (configurable)
+|Snapshot timestamp on the spine (default column name `snapshot_date`)
+
+|`{satellite_table}_ldts` per satellite
+|Load timestamp pointer for that satellite at the snapshot (suffix configurable, default `_ldts`)
+|===
+
+Example: `pit_customer` with hub `hub_customer` and satellite `sat_customer` → `customer_hk`, `snapshot_date`, `sat_customer_ldts`.
+
+== Snapshot schedule
+
+Schedule settings are stored inline on `BvPitTable` (nested `BvPitSnapshotSchedule` in the `.hbv` XML).
+
+=== Cadence and anchor
+
+[cols="1,3", options="header"]
+|===
+|Setting |Description
+
+|Cadence
+|`DAILY`, `WEEKLY`, or `MONTHLY`. **MVP:** only `DAILY` is implemented in pipeline generation; other cadences validate but emit a warning and fail at generation time.
+
+|Snapshot anchor
+|`END_OF_PERIOD` (e.g. daily at `23:59:59`) or `START_OF_PERIOD` (midnight). Default `END_OF_PERIOD`.
+|===
+
+=== Horizon
+
+|Horizon days|Skips the most recent N calendar days when resolving the spine end date (late-arriving data buffer). Default `1`.
+
+When range end is `NOW_MINUS_HORIZON`, the effective end date is `today − horizonDays`.
+
+=== Range start and end
+
+[cols="1,3", options="header"]
+|===
+|Range start |Resolves the first snapshot date on the spine
+
+|`FIXED_DATE`
+|Use `rangeStartFixed` (ISO date, e.g. `2024-01-31`)
+
+|`EARLIEST_PARTICIPATING_SATELLITE_LOAD` (default)
+|Minimum load date across listed satellite derivatives
+
+|`EARLIEST_HUB_LOAD`
+|Minimum load date on the hub table
+|===
+
+[cols="1,3", options="header"]
+|===
+|Range end |Resolves the last snapshot date on the spine
+
+|`NOW`
+|Current date (subject to anchor time-of-day)
+
+|`FIXED_DATE`
+|Use `rangeEndFixed` (ISO date)
+
+|`NOW_MINUS_HORIZON` (default)
+|Current date minus `horizonDays`
+|===
+
+=== Incremental loads
+
+When the PIT target table already exists, the build pipeline appends only rows where `snapshot_date` is greater than `MAX(snapshot_date)` in the target table. Re-runs are idempotent for dates already loaded.
+
+== What gets generated
+
+For each PIT table the plugin builds a Hop pipeline that:
+
+1. Resolves snapshot spine bounds from the schedule (and optional MIN load queries on DV tables)
+2. Generates daily snapshot timestamps via Postgres `generate_series` (end-of-day or start-of-day per anchor)
+3. Cross-joins hub distinct hash keys with the snapshot spine
+4. For each `(hash_key, snapshot_date)`, selects the latest satellite load timestamp `≤ snapshot_date` (insert-only satellites)
+5. Filters to snapshot dates not yet present in the PIT table (incremental append)
+6. Loads the Business Vault target table with `TableOutput` (append mode)
+
+The pipeline is a single `TableInput` (SQL on the **Data Vault** connection) → `TableOutput` (on the **Business Vault** connection).
+
+Use **Debug** or **Show build pipeline** on a PIT table in the `.hbv` editor to inspect the generated SQL before running a workflow.
+
+== PIT table dialog (key fields)
+
+[cols="1,3", options="header"]
+|===
+|Field |Description
+
+|Name
+|Logical name of the PIT table in the `.hbv` model.
+
+|Physical table name
+|Target table in the Business Vault database.
+
+|Derivatives
+|Exactly one **hub** and one or more **satellite** references. MVP pipeline generation supports **one satellite** only.
+
+|Snapshot date field
+|Output column name for snapshot timestamps (default `snapshot_date`).
+
+|Cadence / anchor / horizon
+|Snapshot spine calendar settings (see above).
+
+|Range start / range end
+|How the spine bounds are resolved, with optional fixed dates.
+
+|Satellite pointer suffix
+|Suffix appended to each satellite table name for pointer columns (default `_ldts`).
+|===
+
+== Validation
+
+**Check model** on the `.hbv` file validates PIT tables:
+
+* Snapshot date field is non-empty
+* Exactly one hub derivative; at least one satellite derivative
+* Each satellite's parent hub matches the PIT hub derivative
+* Data Vault and Business Vault target database connections resolve
+* Non-daily cadence → warning (not yet implemented in pipelines)
+* Optional INFO when the hub has satellites not listed on the PIT table
+
+Multi-satellite PIT tables (more than one satellite derivative) fail at **pipeline generation** in MVP.
+
+== Target databases
+
+PIT pipeline generation requires:
+
+* **Data Vault target database** — on the linked `.hdv` configuration (read hub and satellite history)
+* **Business Vault target database** — on the `.hbv` configuration (write PIT table)
+
+Both connection names must resolve in Hop project metadata. Generated SQL targets **PostgreSQL** first (`generate_series`, dynamic bounds CTEs).
+
+If you change the linked `.hdv` file on disk, use **Reload DV model** on the Business Vault toolbar before generating pipelines.
+
+== Single-satellite example (vault1)
+
+`project/tests/basic/vault1.hbv` defines:
+
+* `sat_customer_hb` — SCD2 from `sat_customer`
+* `pit_customer` — PIT from `hub_customer` + `sat_customer`
+
+The PIT table uses a **fixed date range** (`2024-01-31` → `2024-02-01`) for deterministic golden tests in CI. Production models typically use `EARLIEST_PARTICIPATING_SATELLITE_LOAD` and `NOW_MINUS_HORIZON`.
+
+Workflow: `project/tests/basic/update-vault1.hwf` loads the raw vault, runs Business Vault Update (SCD2 then PIT), and validates with `validate-pit-customer.hpl` against `project/datasets/basic/pit-customer-golden.csv`.
+
+== Running loads
+
+* **Debug** — generate and open the PIT build pipeline in Hop GUI
+* **Business Vault Update** — model check, optional DDL, generate, stage, and execute build pipelines
+
+PIT tables run **after** all SCD2 tables in the same Business Vault Update action. See link:business-vault-update-action.adoc[Business Vault Update Action].
+
+== MVP limits and roadmap
+
+Current MVP scope:
+
+* Hub PIT with **one satellite** derivative
+* **Daily** cadence only in generated pipelines
+* Insert-only satellites (latest load `≤ snapshot_date`; no load-end-date satellites)
+* Incremental append by `MAX(snapshot_date)`
+* Pointer columns: `{satellite_table_name}{suffix}` (default `_ldts`)
+* Postgres-oriented SQL in `TableInput`
+
+Planned follow-on phases:
+
+* **PIT-2** — weekly/monthly cadence, multi-satellite PIT (one pointer column per sat)
+* **PIT-3** — load-end-date satellites, link PIT
+* **PIT-4** — range start `EARLIEST_SCD2_TABLE_LOAD`, dedicated PIT schedule dialog
+
+Out of scope: raw-vault `DvPit` in `.hdv`, bridge tables, auto-PIT for every hub.
+
+== GitHub issue #26
+
+https://github.com/mattcasters/hop-data-vault/issues/26[Issue #26] originally proposed `DvPit` metadata in the raw Data Vault model (`.hdv`) and execution via Data Vault Update.
+
+**Resolution:** PIT is implemented in the **Business Vault** layer as `BvPitTable` in `.hbv` files, with build pipelines and Business Vault Update execution. Raw `.hdv` models stay focused on ingest; PIT accelerates consumption-layer as-of queries alongside SCD2.
+
+Suggested issue comment when closing or rewriting #26:
+
+[quote]
+____
+Implemented as Business Vault PIT (`BvPitTable` in `.hbv`), not raw-vault `DvPit`.
+
+* Documentation: link:business-vault-pit.adoc[business-vault-pit.adoc] (and link:business-vault-overview.adoc[business-vault-overview.adoc])
+* MVP: hub + one satellite, daily EOD snapshots, incremental append, Postgres SQL
+* Sample: `project/tests/basic/vault1.hbv` → `pit_customer`, validated by `update-vault1.hwf`
+* Execution: Business Vault Update runs SCD2 tables first, then PIT tables
+
+Raw-vault PIT is superseded by this BV approach. Remaining work (weekly/monthly, multi-satellite, link PIT) is tracked in the doc roadmap section.
+____

@@ -59,8 +59,8 @@ import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvModelResolver;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
+import org.apache.hop.datavault.metadata.businessvault.BusinessVaultUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.businessvault.BvGeneratedPipelineSupport;
-import org.apache.hop.datavault.metadata.businessvault.BvTableType;
 import org.apache.hop.datavault.metadata.businessvault.BvTargetDatabaseSupport;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
 import org.apache.hop.i18n.BaseMessages;
@@ -461,19 +461,27 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
       List<PipelineMeta> allPipelineMetas = new ArrayList<>();
 
       for (IBvTable table : tables) {
-        if (table.getTableType() != BvTableType.SCD2) {
-          logBasic(
-              BaseMessages.getString(
-                  PKG,
-                  "ActionBusinessVaultUpdate.Log.SkippingUnsupportedTableType",
-                  table.getName(),
-                  table.getTableType()));
+        if (table == null
+            || BusinessVaultUpdateExecutionSupport.isPipelineExecutableTableType(
+                table.getTableType())) {
           continue;
         }
-
         logBasic(
             BaseMessages.getString(
-                PKG, "ActionBusinessVaultUpdate.Log.GeneratingForTable", table.getName()));
+                PKG,
+                "ActionBusinessVaultUpdate.Log.SkippingUnsupportedTableType",
+                table.getName(),
+                table.getTableType()));
+      }
+
+      for (IBvTable table :
+          BusinessVaultUpdateExecutionSupport.orderTablesForPipelineExecution(tables)) {
+        logBasic(
+            BaseMessages.getString(
+                PKG,
+                "ActionBusinessVaultUpdate.Log.GeneratingForTable",
+                table.getName(),
+                table.getTableType()));
 
         List<PipelineMeta> pipelineMetas =
             table.generateBuildPipelines(

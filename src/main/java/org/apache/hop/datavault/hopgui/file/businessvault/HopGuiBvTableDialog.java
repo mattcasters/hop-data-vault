@@ -27,6 +27,11 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.businessvault.BvDerivativeRef;
+import org.apache.hop.datavault.metadata.businessvault.BvPitCadence;
+import org.apache.hop.datavault.metadata.businessvault.BvPitRangeEnd;
+import org.apache.hop.datavault.metadata.businessvault.BvPitRangeStart;
+import org.apache.hop.datavault.metadata.businessvault.BvPitSnapshotAnchor;
+import org.apache.hop.datavault.metadata.businessvault.BvPitSnapshotSchedule;
 import org.apache.hop.datavault.metadata.businessvault.BvPitTable;
 import org.apache.hop.datavault.metadata.businessvault.BvTableType;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
@@ -43,6 +48,7 @@ import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
@@ -64,12 +70,29 @@ public class HopGuiBvTableDialog {
   private Text wDescription;
   private Text wSnapshotDateField;
   private Label wlSnapshotDateField;
+  private Combo wCadence;
+  private Label wlCadence;
+  private Combo wSnapshotAnchor;
+  private Label wlSnapshotAnchor;
+  private Text wHorizonDays;
+  private Label wlHorizonDays;
+  private Combo wRangeStart;
+  private Label wlRangeStart;
+  private Text wRangeStartFixed;
+  private Label wlRangeStartFixed;
+  private Combo wRangeEnd;
+  private Label wlRangeEnd;
+  private Text wRangeEndFixed;
+  private Label wlRangeEndFixed;
+  private Text wPointerSuffix;
+  private Label wlPointerSuffix;
   private Label wlDerivatives;
   private TableView wDerivatives;
   private Button wAddDerivative;
   private Button wDeleteDerivative;
 
   private boolean ok;
+  private boolean pit;
 
   public HopGuiBvTableDialog(
       Shell parent,
@@ -82,6 +105,7 @@ public class HopGuiBvTableDialog {
     this.businessVaultModel = businessVaultModel;
     this.dataVaultModel = dataVaultModel;
     this.variables = variables;
+    this.pit = table.getTableType() == BvTableType.PIT;
   }
 
   public boolean open() {
@@ -92,7 +116,7 @@ public class HopGuiBvTableDialog {
             PKG,
             "HopGuiBvTableDialog.Title",
             Const.NVL(input.getName(), input.getTableType().name())));
-    shell.setSize(560, 520);
+    shell.setSize(560, pit ? 720 : 520);
 
     FormLayout formLayout = new FormLayout();
     formLayout.marginWidth = PropsUi.getFormMargin();
@@ -171,11 +195,40 @@ public class HopGuiBvTableDialog {
     fdSnapshotDateField.right = new FormAttachment(100, 0);
     wSnapshotDateField.setLayoutData(fdSnapshotDateField);
 
-    boolean pit = input.getTableType() == BvTableType.PIT;
+    org.eclipse.swt.widgets.Control derivativeTop = wDescription;
+
+    if (pit) {
+      wlCadence = addLabel(shell, "HopGuiBvTableDialog.Cadence.Label", wSnapshotDateField, middle, margin);
+      wCadence = addEnumCombo(shell, BvPitCadence.class, wlCadence, middle);
+      wlSnapshotAnchor =
+          addLabel(shell, "HopGuiBvTableDialog.SnapshotAnchor.Label", wCadence, middle, margin);
+      wSnapshotAnchor = addEnumCombo(shell, BvPitSnapshotAnchor.class, wlSnapshotAnchor, middle);
+      wlHorizonDays =
+          addLabel(shell, "HopGuiBvTableDialog.HorizonDays.Label", wSnapshotAnchor, middle, margin);
+      wHorizonDays = addText(shell, wlHorizonDays, middle);
+      wlRangeStart =
+          addLabel(shell, "HopGuiBvTableDialog.RangeStart.Label", wHorizonDays, middle, margin);
+      wRangeStart = addEnumCombo(shell, BvPitRangeStart.class, wlRangeStart, middle);
+      wlRangeStartFixed =
+          addLabel(shell, "HopGuiBvTableDialog.RangeStartFixed.Label", wRangeStart, middle, margin);
+      wRangeStartFixed = addText(shell, wlRangeStartFixed, middle);
+      wlRangeEnd =
+          addLabel(shell, "HopGuiBvTableDialog.RangeEnd.Label", wRangeStartFixed, middle, margin);
+      wRangeEnd = addEnumCombo(shell, BvPitRangeEnd.class, wlRangeEnd, middle);
+      wlRangeEndFixed =
+          addLabel(shell, "HopGuiBvTableDialog.RangeEndFixed.Label", wRangeEnd, middle, margin);
+      wRangeEndFixed = addText(shell, wlRangeEndFixed, middle);
+      wlPointerSuffix =
+          addLabel(shell, "HopGuiBvTableDialog.PointerSuffix.Label", wRangeEndFixed, middle, margin);
+      wPointerSuffix = addText(shell, wlPointerSuffix, middle);
+
+      wRangeStart.addListener(SWT.Selection, e -> refreshFixedDateVisibility());
+      wRangeEnd.addListener(SWT.Selection, e -> refreshFixedDateVisibility());
+      derivativeTop = wPointerSuffix;
+    }
+
     wlSnapshotDateField.setVisible(pit);
     wSnapshotDateField.setVisible(pit);
-
-    org.eclipse.swt.widgets.Control derivativeTop = pit ? wSnapshotDateField : wDescription;
 
     wlDerivatives = new Label(shell, SWT.LEFT);
     wlDerivatives.setText(BaseMessages.getString(PKG, "HopGuiBvTableDialog.Derivatives.Label"));
@@ -251,8 +304,59 @@ public class HopGuiBvTableDialog {
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
 
     getData();
+    if (pit) {
+      refreshFixedDateVisibility();
+    }
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
     return ok;
+  }
+
+  private Label addLabel(
+      Shell parentShell, String messageKey, org.eclipse.swt.widgets.Control top, int middle, int margin) {
+    Label label = new Label(parentShell, SWT.RIGHT);
+    label.setText(BaseMessages.getString(PKG, messageKey));
+    PropsUi.setLook(label);
+    FormData fd = new FormData();
+    fd.left = new FormAttachment(0, 0);
+    fd.top = new FormAttachment(top, margin);
+    fd.right = new FormAttachment(middle, -margin);
+    label.setLayoutData(fd);
+    return label;
+  }
+
+  private Text addText(Shell parentShell, Label label, int middle) {
+    Text text = new Text(parentShell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(text);
+    FormData fd = new FormData();
+    fd.left = new FormAttachment(middle, 0);
+    fd.top = new FormAttachment(label, 0, SWT.TOP);
+    fd.right = new FormAttachment(100, 0);
+    text.setLayoutData(fd);
+    return text;
+  }
+
+  private Combo addEnumCombo(
+      Shell parentShell, Class<? extends Enum<?>> enumType, Label label, int middle) {
+    Combo combo = new Combo(parentShell, SWT.BORDER | SWT.READ_ONLY);
+    PropsUi.setLook(combo);
+    for (Enum<?> value : enumType.getEnumConstants()) {
+      combo.add(value.name());
+    }
+    FormData fd = new FormData();
+    fd.left = new FormAttachment(middle, 0);
+    fd.top = new FormAttachment(label, 0, SWT.TOP);
+    fd.right = new FormAttachment(100, 0);
+    combo.setLayoutData(fd);
+    return combo;
+  }
+
+  private void refreshFixedDateVisibility() {
+    boolean showStartFixed = BvPitRangeStart.FIXED_DATE.name().equals(wRangeStart.getText());
+    boolean showEndFixed = BvPitRangeEnd.FIXED_DATE.name().equals(wRangeEnd.getText());
+    wlRangeStartFixed.setVisible(showStartFixed);
+    wRangeStartFixed.setVisible(showStartFixed);
+    wlRangeEndFixed.setVisible(showEndFixed);
+    wRangeEndFixed.setVisible(showEndFixed);
   }
 
   private String[] getEligibleDvTableNames() {
@@ -299,8 +403,25 @@ public class HopGuiBvTableDialog {
     if (!Utils.isEmpty(input.getDescription())) {
       wDescription.setText(input.getDescription());
     }
-    if (input instanceof BvPitTable pit && !Utils.isEmpty(pit.getSnapshotDateField())) {
-      wSnapshotDateField.setText(pit.getSnapshotDateField());
+    if (input instanceof BvPitTable pit) {
+      if (!Utils.isEmpty(pit.getSnapshotDateField())) {
+        wSnapshotDateField.setText(pit.getSnapshotDateField());
+      }
+      BvPitSnapshotSchedule schedule = pit.getSnapshotScheduleOrDefault();
+      selectEnum(wCadence, schedule.getCadence());
+      selectEnum(wSnapshotAnchor, schedule.getSnapshotAnchor());
+      wHorizonDays.setText(Integer.toString(schedule.getHorizonDays()));
+      selectEnum(wRangeStart, schedule.getRangeStart());
+      if (!Utils.isEmpty(schedule.getRangeStartFixed())) {
+        wRangeStartFixed.setText(schedule.getRangeStartFixed());
+      }
+      selectEnum(wRangeEnd, schedule.getRangeEnd());
+      if (!Utils.isEmpty(schedule.getRangeEndFixed())) {
+        wRangeEndFixed.setText(schedule.getRangeEndFixed());
+      }
+      if (!Utils.isEmpty(schedule.getSatellitePointerSuffix())) {
+        wPointerSuffix.setText(schedule.getSatellitePointerSuffix());
+      }
     }
 
     wDerivatives.clearAll();
@@ -319,12 +440,40 @@ public class HopGuiBvTableDialog {
     wDerivatives.optWidth(true);
   }
 
+  private static void selectEnum(Combo combo, Enum<?> value) {
+    if (combo == null || value == null) {
+      return;
+    }
+    int index = combo.indexOf(value.name());
+    if (index >= 0) {
+      combo.select(index);
+    }
+  }
+
   private void ok() {
     input.setName(wName.getText());
     input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
     if (input instanceof BvPitTable pit) {
       pit.setSnapshotDateField(wSnapshotDateField.getText());
+      BvPitSnapshotSchedule schedule = pit.getSnapshotScheduleOrDefault();
+      schedule.setCadence(parseEnum(wCadence.getText(), BvPitCadence.class, BvPitCadence.DAILY));
+      schedule.setSnapshotAnchor(
+          parseEnum(
+              wSnapshotAnchor.getText(),
+              BvPitSnapshotAnchor.class,
+              BvPitSnapshotAnchor.END_OF_PERIOD));
+      schedule.setHorizonDays(parseHorizonDays(wHorizonDays.getText()));
+      schedule.setRangeStart(
+          parseEnum(
+              wRangeStart.getText(),
+              BvPitRangeStart.class,
+              BvPitRangeStart.EARLIEST_PARTICIPATING_SATELLITE_LOAD));
+      schedule.setRangeStartFixed(wRangeStartFixed.getText());
+      schedule.setRangeEnd(
+          parseEnum(wRangeEnd.getText(), BvPitRangeEnd.class, BvPitRangeEnd.NOW_MINUS_HORIZON));
+      schedule.setRangeEndFixed(wRangeEndFixed.getText());
+      schedule.setSatellitePointerSuffix(wPointerSuffix.getText());
     }
 
     input.getDerivatives().clear();
@@ -358,9 +507,30 @@ public class HopGuiBvTableDialog {
     shell.dispose();
   }
 
+  private static int parseHorizonDays(String text) {
+    if (Utils.isEmpty(text)) {
+      return BvPitSnapshotSchedule.DEFAULT_HORIZON_DAYS;
+    }
+    try {
+      return Integer.parseInt(text.trim());
+    } catch (NumberFormatException e) {
+      return BvPitSnapshotSchedule.DEFAULT_HORIZON_DAYS;
+    }
+  }
+
+  private static <E extends Enum<E>> E parseEnum(String text, Class<E> enumType, E defaultValue) {
+    if (Utils.isEmpty(text)) {
+      return defaultValue;
+    }
+    try {
+      return Enum.valueOf(enumType, text);
+    } catch (IllegalArgumentException e) {
+      return defaultValue;
+    }
+  }
+
   private void cancel() {
     ok = false;
     shell.dispose();
   }
-
 }

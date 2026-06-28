@@ -42,6 +42,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvHub;
+import org.apache.hop.datavault.metadata.DvSqlSupport;
 import org.apache.hop.datavault.metadata.HashAlgorithm;
 import org.apache.hop.datavault.metadata.HashKeyDataType;
 import org.apache.hop.datavault.metadata.DvLink;
@@ -834,7 +835,7 @@ public final class BvScd2PipelineSupport {
     return names;
   }
 
-  private static IValueMeta resolveHashKeyValueMeta(String hashKeyName, DataVaultModel dvModel) {
+  static IValueMeta resolveHashKeyValueMeta(String hashKeyName, DataVaultModel dvModel) {
     DataVaultConfiguration config = dvModel.getConfigurationOrDefault();
     HashKeyDataType hdt = config.resolveHashKeyDataType();
     HashAlgorithm algo = config.resolveHashAlgorithm();
@@ -918,7 +919,7 @@ public final class BvScd2PipelineSupport {
       Scd2BuildContext ctx, SatelliteLeg leg, PipelineMeta pipelineMeta, Point location) {
     TableInputMeta tableInputMeta = new TableInputMeta();
     tableInputMeta.setConnection(ctx.sourceDbName);
-    tableInputMeta.setSql(buildLegTableInputSql(ctx, leg));
+    DvSqlSupport.assignDisplaySql(tableInputMeta, buildLegTableInputSql(ctx, leg));
 
     TransformMeta tm =
         new TransformMeta("TableInput", "read_" + leg.satelliteTableName, tableInputMeta);

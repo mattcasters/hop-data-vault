@@ -1,0 +1,38 @@
+{
+  "database_replacements": [],
+  "autoOpening": true,
+  "description": "",
+  "persist_filename": "",
+  "test_type": "UNIT_TEST",
+  "variableValues": [],
+  "basePath": "${HOP_UNIT_TESTS_FOLDER}",
+  "golden_data_sets": [
+    {
+      "field_mappings": [
+        {
+          "transform_field": "customer_hk",
+          "data_set_field": "customer_hk"
+        },
+        {
+          "transform_field": "snapshot_date",
+          "data_set_field": "snapshot_date"
+        },
+        {
+          "transform_field": "sat_customer_ldts",
+          "data_set_field": "sat_customer_ldts"
+        }
+      ],
+      "field_order": [
+        "customer_hk",
+        "snapshot_date",
+        "sat_customer_ldts"
+      ],
+      "data_set_name": "pit-customer-golden",
+      "transform_name": "Validate"
+    }
+  ],
+  "input_data_sets": [],
+  "name": "validate-pit-customer UNIT",
+  "trans_test_tweaks": [],
+  "pipeline_filename": "./tests/basic/validate-pit-customer.hpl"
+}

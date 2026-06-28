@@ -24,6 +24,7 @@ import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.plugin.action.GuiAction;
 import org.apache.hop.core.gui.plugin.action.GuiActionLambdaBuilder;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
+import org.apache.hop.datavault.metadata.businessvault.BvPitTable;
 import org.apache.hop.datavault.metadata.businessvault.BvScd2Table;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
 import org.apache.hop.ui.hopgui.context.BaseGuiContextHandler;
@@ -65,7 +66,7 @@ public class HopGuiBusinessVaultTableContext extends BaseGuiContextHandler
     if (pluginActions != null) {
       for (GuiAction pluginAction : pluginActions) {
         if ("bv-graph-show-build-pipeline".equals(pluginAction.getId())
-            && !(table instanceof BvScd2Table)) {
+            && !(table instanceof BvScd2Table || table instanceof BvPitTable)) {
           continue;
         }
         actions.add(lambdaBuilder.createLambda(pluginAction, this, businessVaultGraph));
