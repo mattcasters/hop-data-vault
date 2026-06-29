@@ -84,7 +84,7 @@ public class RecordDefinitionOutputMeta
   @HopMetadataProperty(key = "fail_if_no_fields")
   private boolean failIfNoFields = true;
 
-  @HopMetadataProperty(key = "source_type")
+  @HopMetadataProperty(key = "source_type", storeWithCode = true)
   private DvSourceType sourceType = DvSourceType.CSV;
 
   @HopMetadataProperty(key = "database_connection")
@@ -192,7 +192,7 @@ public class RecordDefinitionOutputMeta
   @HopMetadataProperty(key = "group")
   private String group;
 
-  @HopMetadataProperty(key = "delivery_type")
+  @HopMetadataProperty(key = "delivery_type", storeWithCode = true)
   private DvSourceDeliveryType deliveryType = DvSourceDeliveryType.CHANGES_ONLY;
 
   @HopMetadataProperty(key = "field_count_field")

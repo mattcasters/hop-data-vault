@@ -18,12 +18,38 @@
 
 package org.apache.hop.datavault.metadata;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /**
  * Enumeration of the core Data Vault 2.0 table types.
  * Used to identify whether a table definition is a Hub, Link or Satellite.
  */
-public enum DvTableType {
-  HUB,
-  SATELLITE,
-  LINK
+@Getter
+public enum DvTableType implements IEnumHasCodeAndDescription {
+  HUB("HUB", BaseMessages.getString(DvTableType.class, "DvTableType.Hub")),
+  SATELLITE("SATELLITE", BaseMessages.getString(DvTableType.class, "DvTableType.Satellite")),
+  LINK("LINK", BaseMessages.getString(DvTableType.class, "DvTableType.Link"));
+
+  private final String code;
+  private final String description;
+
+  DvTableType(String code, String description) {
+    this.code = code;
+    this.description = description;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(DvTableType.class);
+  }
+
+  public static DvTableType lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(DvTableType.class, description, HUB);
+  }
+
+  public static DvTableType lookupCode(String code) {
+    return IEnumHasCode.lookupCode(DvTableType.class, code, HUB);
+  }
 }

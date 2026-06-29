@@ -350,7 +350,8 @@ public class ElkLayoutDialog {
     return PropsUi.getInstance().getMiddlePct();
   }
 
-  private static <E extends Enum<E>> Combo createEnumCombo(Composite parent, Class<E> enumClass) {
+  private static <E extends Enum<E> & org.apache.hop.metadata.api.IEnumHasCodeAndDescription>
+      Combo createEnumCombo(Composite parent, Class<E> enumClass) {
     Combo combo = new Combo(parent, SWT.READ_ONLY | SWT.BORDER);
     PropsUi.setLook(combo);
     ElkLayoutValues.populateEnumCombo(combo, enumClass);

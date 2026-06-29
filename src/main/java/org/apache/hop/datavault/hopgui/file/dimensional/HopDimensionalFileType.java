@@ -96,6 +96,10 @@ public class HopDimensionalFileType extends HopFileTypeBase {
     caps.setProperty(IHopFileType.CAPABILITY_SAVE_AS, "true");
     caps.setProperty(IHopFileType.CAPABILITY_CLOSE, "true");
     caps.setProperty(IHopFileType.CAPABILITY_SELECT, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_COPY, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_PASTE, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_CUT, "true");
+    caps.setProperty(IHopFileType.CAPABILITY_DELETE, "true");
     return caps;
   }
 

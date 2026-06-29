@@ -18,6 +18,11 @@
 
 package org.apache.hop.datavault.metadata;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /**
  * The physical data type used to store hash keys in the Data Vault tables.
  *
@@ -33,13 +38,29 @@ package org.apache.hop.datavault.metadata;
  * HEX is the plugin default until Hop 2.19 is widely available. STRING and HEX are easier for
  * debugging; BINARY uses less storage but requires a Hop version that sorts binary fields correctly.
  */
-public enum HashKeyDataType {
-  /** Store using the decimal-dash string format from DvHashKey (e.g. "213-29-140-..."). */
-  STRING,
+@Getter
+public enum HashKeyDataType implements IEnumHasCodeAndDescription {
+  STRING("STRING", BaseMessages.getString(HashKeyDataType.class, "HashKeyDataType.String")),
+  HEX("HEX", BaseMessages.getString(HashKeyDataType.class, "HashKeyDataType.Hex")),
+  BINARY("BINARY", BaseMessages.getString(HashKeyDataType.class, "HashKeyDataType.Binary"));
 
-  /** Store as hexadecimal string (e.g. "d41d8cd98f00b204e9800998ecf8427e" for MD5). */
-  HEX,
+  private final String code;
+  private final String description;
 
-  /** Store as raw binary bytes. */
-  BINARY
+  HashKeyDataType(String code, String description) {
+    this.code = code;
+    this.description = description;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(HashKeyDataType.class);
+  }
+
+  public static HashKeyDataType lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(HashKeyDataType.class, description, HEX);
+  }
+
+  public static HashKeyDataType lookupCode(String code) {
+    return IEnumHasCode.lookupCode(HashKeyDataType.class, code, HEX);
+  }
 }

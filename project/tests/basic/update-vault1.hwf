@@ -78,7 +78,7 @@
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>240</xloc>
+      <xloc>656</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -136,7 +136,7 @@ DROP TABLE IF EXISTS pit_customer;
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>608</xloc>
+      <xloc>240</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -169,7 +169,7 @@ DROP TABLE IF EXISTS pit_customer;
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>816</xloc>
+      <xloc>864</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -197,7 +197,7 @@ DROP TABLE IF EXISTS pit_customer;
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>64</xloc>
+      <xloc>448</xloc>
       <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -223,7 +223,7 @@ DROP TABLE IF EXISTS pit_customer;
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>240</xloc>
+      <xloc>656</xloc>
       <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -256,7 +256,7 @@ DROP TABLE IF EXISTS pit_customer;
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>448</xloc>
+      <xloc>864</xloc>
       <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -281,7 +281,7 @@ DROP TABLE IF EXISTS pit_customer;
       <type>BUSINESS_VAULT_UPDATE</type>
       <attributes/>
       <xloc>656</xloc>
-      <yloc>160</yloc>
+      <yloc>272</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -298,8 +298,8 @@ DROP TABLE IF EXISTS pit_customer;
       <description/>
       <type>RunPipelineTests</type>
       <attributes/>
-      <xloc>64</xloc>
-      <yloc>256</yloc>
+      <xloc>864</xloc>
+      <yloc>272</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>

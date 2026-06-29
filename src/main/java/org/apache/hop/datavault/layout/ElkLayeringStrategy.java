@@ -18,27 +18,76 @@
 
 package org.apache.hop.datavault.layout;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 import org.eclipse.elk.alg.layered.options.LayeringStrategy;
 
 /** Layer assignment strategy for ELK layered layout. */
-public enum ElkLayeringStrategy {
-  NETWORK_SIMPLEX(LayeringStrategy.NETWORK_SIMPLEX),
-  LONGEST_PATH(LayeringStrategy.LONGEST_PATH),
-  LONGEST_PATH_SOURCE(LayeringStrategy.LONGEST_PATH_SOURCE),
-  COFFMAN_GRAHAM(LayeringStrategy.COFFMAN_GRAHAM),
-  INTERACTIVE(LayeringStrategy.INTERACTIVE),
-  STRETCH_WIDTH(LayeringStrategy.STRETCH_WIDTH),
-  MIN_WIDTH(LayeringStrategy.MIN_WIDTH),
-  BF_MODEL_ORDER(LayeringStrategy.BF_MODEL_ORDER),
-  DF_MODEL_ORDER(LayeringStrategy.DF_MODEL_ORDER);
+@Getter
+public enum ElkLayeringStrategy implements IEnumHasCodeAndDescription {
+  NETWORK_SIMPLEX(
+      "NETWORK_SIMPLEX",
+      BaseMessages.getString(ElkLayeringStrategy.class, "ElkLayeringStrategy.NetworkSimplex"),
+      LayeringStrategy.NETWORK_SIMPLEX),
+  LONGEST_PATH(
+      "LONGEST_PATH",
+      BaseMessages.getString(ElkLayeringStrategy.class, "ElkLayeringStrategy.LongestPath"),
+      LayeringStrategy.LONGEST_PATH),
+  LONGEST_PATH_SOURCE(
+      "LONGEST_PATH_SOURCE",
+      BaseMessages.getString(ElkLayeringStrategy.class, "ElkLayeringStrategy.LongestPathSource"),
+      LayeringStrategy.LONGEST_PATH_SOURCE),
+  COFFMAN_GRAHAM(
+      "COFFMAN_GRAHAM",
+      BaseMessages.getString(ElkLayeringStrategy.class, "ElkLayeringStrategy.CoffmanGraham"),
+      LayeringStrategy.COFFMAN_GRAHAM),
+  INTERACTIVE(
+      "INTERACTIVE",
+      BaseMessages.getString(ElkLayeringStrategy.class, "ElkLayeringStrategy.Interactive"),
+      LayeringStrategy.INTERACTIVE),
+  STRETCH_WIDTH(
+      "STRETCH_WIDTH",
+      BaseMessages.getString(ElkLayeringStrategy.class, "ElkLayeringStrategy.StretchWidth"),
+      LayeringStrategy.STRETCH_WIDTH),
+  MIN_WIDTH(
+      "MIN_WIDTH",
+      BaseMessages.getString(ElkLayeringStrategy.class, "ElkLayeringStrategy.MinWidth"),
+      LayeringStrategy.MIN_WIDTH),
+  BF_MODEL_ORDER(
+      "BF_MODEL_ORDER",
+      BaseMessages.getString(ElkLayeringStrategy.class, "ElkLayeringStrategy.BfModelOrder"),
+      LayeringStrategy.BF_MODEL_ORDER),
+  DF_MODEL_ORDER(
+      "DF_MODEL_ORDER",
+      BaseMessages.getString(ElkLayeringStrategy.class, "ElkLayeringStrategy.DfModelOrder"),
+      LayeringStrategy.DF_MODEL_ORDER);
 
+  private final String code;
+  private final String description;
   private final LayeringStrategy elkStrategy;
 
-  ElkLayeringStrategy(LayeringStrategy elkStrategy) {
+  ElkLayeringStrategy(String code, String description, LayeringStrategy elkStrategy) {
+    this.code = code;
+    this.description = description;
     this.elkStrategy = elkStrategy;
   }
 
   public LayeringStrategy toElkStrategy() {
     return elkStrategy;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(ElkLayeringStrategy.class);
+  }
+
+  public static ElkLayeringStrategy lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        ElkLayeringStrategy.class, description, NETWORK_SIMPLEX);
+  }
+
+  public static ElkLayeringStrategy lookupCode(String code) {
+    return IEnumHasCode.lookupCode(ElkLayeringStrategy.class, code, NETWORK_SIMPLEX);
   }
 }

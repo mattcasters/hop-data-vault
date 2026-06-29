@@ -18,6 +18,7 @@
 
 package org.apache.hop.datavault.metadata.dimensional;
 
+import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,7 +26,13 @@ import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.changed.ChangedFlag;
+import org.apache.hop.core.database.Database;
+import org.apache.hop.core.database.DatabaseMeta;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.Point;
+import org.apache.hop.core.logging.LoggingObjectType;
+import org.apache.hop.core.logging.SimpleLoggingObject;
+import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
@@ -48,6 +55,9 @@ public abstract class DmTableBase extends HopMetadataBase implements IHopMetadat
   @HopMetadataProperty protected DmTableType tableType;
 
   @HopMetadataProperty(inline = true)
+  private DmSourceConfiguration source = new DmSourceConfiguration();
+
+  @HopMetadataProperty(inline = true)
   private Point location = new Point(0, 0);
 
   private boolean selected;
@@ -58,6 +68,49 @@ public abstract class DmTableBase extends HopMetadataBase implements IHopMetadat
 
   protected DmTableBase(DmTableType tableType) {
     this.tableType = tableType;
+  }
+
+  public DmSourceConfiguration getSourceOrDefault() {
+    if (source == null) {
+      source = new DmSourceConfiguration();
+    }
+    return source;
+  }
+
+  @Override
+  public List<String> generateBuildDdl(
+      IHopMetadataProvider metadataProvider, IVariables variables, DimensionalModel model)
+      throws HopException {
+    List<String> result = new ArrayList<>();
+    if (metadataProvider == null || model == null) {
+      return result;
+    }
+
+    DimensionalConfiguration config = model.getConfigurationOrDefault();
+    DatabaseMeta targetDatabaseMeta =
+        DmTargetDatabaseSupport.loadTargetDatabase(metadataProvider, config);
+    if (targetDatabaseMeta == null) {
+      return result;
+    }
+
+    String targetTableName = !Utils.isEmpty(getTableName()) ? getTableName() : getName();
+    IRowMeta targetFields = getTargetTableLayout(metadataProvider, variables, model);
+    if (targetFields == null || targetFields.isEmpty()) {
+      return result;
+    }
+
+    var loggingObject =
+        new SimpleLoggingObject(getClass().getSimpleName() + ".generateBuildDdl", LoggingObjectType.GENERAL, null);
+    try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
+      db.connect();
+      String ddl = db.getDDL(targetTableName, targetFields);
+      if (!Utils.isEmpty(ddl)) {
+        result.add(ddl);
+      }
+    } catch (Exception e) {
+      throw new HopException("Error getting DDL for dimensional table: " + targetTableName, e);
+    }
+    return result;
   }
 
   @Override

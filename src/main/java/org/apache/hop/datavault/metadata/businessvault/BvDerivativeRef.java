@@ -32,7 +32,8 @@ public class BvDerivativeRef {
 
   @HopMetadataProperty private String dvTableName;
 
-  @HopMetadataProperty private DvTableType dvTableType;
+  @HopMetadataProperty(storeWithCode = true)
+  private DvTableType dvTableType;
 
   public BvDerivativeRef(String dvTableName, DvTableType dvTableType) {
     this.dvTableName = dvTableName;

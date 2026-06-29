@@ -18,9 +18,35 @@
 
 package org.apache.hop.datavault.metadata.businessvault;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /** Calendar cadence for PIT snapshot spine generation. */
-public enum BvPitCadence {
-  DAILY,
-  WEEKLY,
-  MONTHLY
+@Getter
+public enum BvPitCadence implements IEnumHasCodeAndDescription {
+  DAILY("DAILY", BaseMessages.getString(BvPitCadence.class, "BvPitCadence.Daily")),
+  WEEKLY("WEEKLY", BaseMessages.getString(BvPitCadence.class, "BvPitCadence.Weekly")),
+  MONTHLY("MONTHLY", BaseMessages.getString(BvPitCadence.class, "BvPitCadence.Monthly"));
+
+  private final String code;
+  private final String description;
+
+  BvPitCadence(String code, String description) {
+    this.code = code;
+    this.description = description;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(BvPitCadence.class);
+  }
+
+  public static BvPitCadence lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(BvPitCadence.class, description, DAILY);
+  }
+
+  public static BvPitCadence lookupCode(String code) {
+    return IEnumHasCode.lookupCode(BvPitCadence.class, code, DAILY);
+  }
 }

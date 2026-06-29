@@ -25,6 +25,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.hopgui.EnumDialogSupport;
 import org.apache.hop.datavault.metadata.HashAlgorithm;
 import org.apache.hop.datavault.metadata.HashContentCasing;
 import org.apache.hop.datavault.metadata.HashKeyDataType;
@@ -91,7 +92,7 @@ public class DvHashKeyDialog extends BaseTransformDialog {
     fdlHashAlgorithm.top = new FormAttachment(wSpacer, margin);
     wlHashAlgorithm.setLayoutData(fdlHashAlgorithm);
     wHashAlgorithm = new CCombo(shell, SWT.SINGLE | SWT.READ_ONLY | SWT.BORDER);
-    wHashAlgorithm.setItems(enumNames(HashAlgorithm.values()));
+    wHashAlgorithm.setItems(HashAlgorithm.getDescriptions());
     PropsUi.setLook(wHashAlgorithm);
     FormData fdHashAlgorithm = new FormData();
     fdHashAlgorithm.left = new FormAttachment(middle, 0);
@@ -108,7 +109,7 @@ public class DvHashKeyDialog extends BaseTransformDialog {
     fdlHashKeyDataType.top = new FormAttachment(wHashAlgorithm, margin);
     wlHashKeyDataType.setLayoutData(fdlHashKeyDataType);
     wHashKeyDataType = new CCombo(shell, SWT.SINGLE | SWT.READ_ONLY | SWT.BORDER);
-    wHashKeyDataType.setItems(enumNames(HashKeyDataType.values()));
+    wHashKeyDataType.setItems(HashKeyDataType.getDescriptions());
     PropsUi.setLook(wHashKeyDataType);
     FormData fdHashKeyDataType = new FormData();
     fdHashKeyDataType.left = new FormAttachment(middle, 0);
@@ -126,7 +127,7 @@ public class DvHashKeyDialog extends BaseTransformDialog {
     fdlHashContentCasing.top = new FormAttachment(wHashKeyDataType, margin);
     wlHashContentCasing.setLayoutData(fdlHashContentCasing);
     wHashContentCasing = new CCombo(shell, SWT.SINGLE | SWT.READ_ONLY | SWT.BORDER);
-    wHashContentCasing.setItems(enumNames(HashContentCasing.values()));
+    wHashContentCasing.setItems(HashContentCasing.getDescriptions());
     PropsUi.setLook(wHashContentCasing);
     FormData fdHashContentCasing = new FormData();
     fdHashContentCasing.left = new FormAttachment(middle, 0);
@@ -292,12 +293,11 @@ public class DvHashKeyDialog extends BaseTransformDialog {
     return transformName;
   }
 
-  private static String[] enumNames(Enum<?>[] values) {
-    String[] names = new String[values.length];
-    for (int i = 0; i < values.length; i++) {
-      names[i] = values[i].name();
+  private static void selectCCombo(CCombo combo, org.apache.hop.metadata.api.IEnumHasCodeAndDescription value) {
+    if (combo == null || value == null) {
+      return;
     }
-    return names;
+    combo.setText(value.getDescription());
   }
 
   protected void setComboBoxes() {
@@ -327,16 +327,17 @@ public class DvHashKeyDialog extends BaseTransformDialog {
   }
 
   public void getData() {
-    wHashAlgorithm.setText(
-        input.getHashAlgorithm() != null ? input.getHashAlgorithm().name() : HashAlgorithm.MD5.name());
-    wHashKeyDataType.setText(
-        input.getHashKeyDataType() != null
-            ? input.getHashKeyDataType().name()
-            : HashKeyDataType.HEX.name());
-    wHashContentCasing.setText(
+    selectCCombo(
+        wHashAlgorithm,
+        input.getHashAlgorithm() != null ? input.getHashAlgorithm() : HashAlgorithm.MD5);
+    selectCCombo(
+        wHashKeyDataType,
+        input.getHashKeyDataType() != null ? input.getHashKeyDataType() : HashKeyDataType.HEX);
+    selectCCombo(
+        wHashContentCasing,
         input.getHashContentCasing() != null
-            ? input.getHashContentCasing().name()
-            : HashContentCasing.UPPER.name());
+            ? input.getHashContentCasing()
+            : HashContentCasing.UPPER);
     wBusinessKeyDelimiter.setText(Const.NVL(input.getBusinessKeyDelimiter(), ""));
     wNullPlaceholder.setText(Const.NVL(input.getNullPlaceholder(), ""));
     wHashContentPrefix.setText(Const.NVL(input.getHashContentPrefix(), ""));
@@ -370,9 +371,15 @@ public class DvHashKeyDialog extends BaseTransformDialog {
     }
     transformName = wTransformName.getText();
 
-    input.setHashAlgorithm(HashAlgorithm.valueOf(wHashAlgorithm.getText()));
-    input.setHashKeyDataType(HashKeyDataType.valueOf(wHashKeyDataType.getText()));
-    input.setHashContentCasing(HashContentCasing.valueOf(wHashContentCasing.getText()));
+    input.setHashAlgorithm(
+        EnumDialogSupport.lookupText(
+            wHashAlgorithm.getText(), HashAlgorithm.class, HashAlgorithm.MD5));
+    input.setHashKeyDataType(
+        EnumDialogSupport.lookupText(
+            wHashKeyDataType.getText(), HashKeyDataType.class, HashKeyDataType.HEX));
+    input.setHashContentCasing(
+        EnumDialogSupport.lookupText(
+            wHashContentCasing.getText(), HashContentCasing.class, HashContentCasing.UPPER));
     input.setBusinessKeyDelimiter(wBusinessKeyDelimiter.getText());
     input.setNullPlaceholder(wNullPlaceholder.getText());
     input.setHashContentPrefix(wHashContentPrefix.getText());

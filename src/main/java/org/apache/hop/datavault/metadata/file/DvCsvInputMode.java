@@ -18,10 +18,37 @@
 
 package org.apache.hop.datavault.metadata.file;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /** How a CSV Data Vault source is read in generated pipelines. */
-public enum DvCsvInputMode {
-  /** Folder and file masks via Text File Input. */
-  TEXT_FILE_INPUT,
-  /** Single explicit file via CSV Input. */
-  CSV_INPUT
+@Getter
+public enum DvCsvInputMode implements IEnumHasCodeAndDescription {
+  TEXT_FILE_INPUT(
+      "TEXT_FILE_INPUT",
+      BaseMessages.getString(DvCsvInputMode.class, "DvCsvInputMode.TextFileInput")),
+  CSV_INPUT("CSV_INPUT", BaseMessages.getString(DvCsvInputMode.class, "DvCsvInputMode.CsvInput"));
+
+  private final String code;
+  private final String description;
+
+  DvCsvInputMode(String code, String description) {
+    this.code = code;
+    this.description = description;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(DvCsvInputMode.class);
+  }
+
+  public static DvCsvInputMode lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        DvCsvInputMode.class, description, TEXT_FILE_INPUT);
+  }
+
+  public static DvCsvInputMode lookupCode(String code) {
+    return IEnumHasCode.lookupCode(DvCsvInputMode.class, code, TEXT_FILE_INPUT);
+  }
 }

@@ -35,6 +35,13 @@ import org.apache.hop.datavault.metadata.businessvault.BvTableBase;
 import org.apache.hop.datavault.metadata.businessvault.BvDerivativeRef;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
+import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
+import org.apache.hop.datavault.metadata.dimensional.DmFact;
+import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
+import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
+import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
@@ -239,6 +246,59 @@ public final class ElkGraphLayout {
     return new ElkGraphLayout(name, nodes, edges);
   }
 
+  public static ElkGraphLayout fromDimensionalModel(DimensionalModel dimensionalModel) {
+    List<ElkLayoutNode> nodes = new ArrayList<>();
+    List<ElkLayoutEdge> edges = new ArrayList<>();
+    String name = dimensionalModel != null ? dimensionalModel.getName() : null;
+
+    if (dimensionalModel != null && dimensionalModel.getTables() != null) {
+      ElkLayout defaults = ElkLayout.createDefault();
+      Map<String, IDmTable> tableByName = new HashMap<>();
+
+      for (IDmTable table : dimensionalModel.getTables()) {
+        if (table == null || Utils.isEmpty(table.getName())) {
+          continue;
+        }
+        tableByName.put(table.getName(), table);
+        nodes.add(
+            new ElkLayoutNode(
+                table.getName(),
+                table.getName(),
+                defaults.estimateNodeWidth(table.getName()),
+                VAULT_NODE_HEIGHT,
+                table));
+      }
+
+      for (IDmTable table : dimensionalModel.getTables()) {
+        if (table == null) {
+          continue;
+        }
+        if (table instanceof DmFact fact) {
+          for (DmFactDimensionRole role : fact.getDimensionRolesOrEmpty()) {
+            if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
+              continue;
+            }
+            if (tableByName.containsKey(role.getDimensionTableName())) {
+              edges.add(new ElkLayoutEdge(fact.getName(), role.getDimensionTableName()));
+            }
+          }
+        }
+        if (table instanceof DmDimension dimension) {
+          for (DmDimensionOutriggerRef outrigger : dimension.getOutriggersOrEmpty()) {
+            if (outrigger == null || Utils.isEmpty(outrigger.getDimensionTableName())) {
+              continue;
+            }
+            if (tableByName.containsKey(outrigger.getDimensionTableName())) {
+              edges.add(new ElkLayoutEdge(dimension.getName(), outrigger.getDimensionTableName()));
+            }
+          }
+        }
+      }
+    }
+
+    return new ElkGraphLayout(name, nodes, edges);
+  }
+
   public void layout(ElkLayout layout) throws HopException {
     if (layout == null || !layout.isEnabled() || nodes.isEmpty()) {
       return;
@@ -294,6 +354,9 @@ public final class ElkGraphLayout {
     if (target instanceof BvTableBase bvTable && bvTable.getDrawnBoxWidth() > 0) {
       return bvTable.getDrawnBoxWidth();
     }
+    if (target instanceof DmTableBase dmTable && dmTable.getDrawnBoxWidth() > 0) {
+      return dmTable.getDrawnBoxWidth();
+    }
     return layout.estimateNodeWidth(node.getLabel());
   }
 
@@ -305,8 +368,13 @@ public final class ElkGraphLayout {
     if (target instanceof BvTableBase bvTable && bvTable.getDrawnBoxHeight() > 0) {
       return bvTable.getDrawnBoxHeight();
     }
+    if (target instanceof DmTableBase dmTable && dmTable.getDrawnBoxHeight() > 0) {
+      return dmTable.getDrawnBoxHeight();
+    }
     if (layout.getAlgorithm() == ElkLayoutAlgorithm.RECT_PACKING
-        && (target instanceof DvTableBase || target instanceof BvTableBase)) {
+        && (target instanceof DvTableBase
+            || target instanceof BvTableBase
+            || target instanceof DmTableBase)) {
       return VAULT_NODE_HEIGHT;
     }
     return layout.getNodeHeight();

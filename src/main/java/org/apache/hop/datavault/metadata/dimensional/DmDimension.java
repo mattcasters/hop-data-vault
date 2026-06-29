@@ -18,10 +18,114 @@
 
 package org.apache.hop.datavault.metadata.dimensional;
 
-/** Kimball dimension table (scaffold). */
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.dimensional.pipeline.DmDimensionLookupBuilder;
+import org.apache.hop.datavault.metadata.dimensional.pipeline.DmInsertUpdateBuilder;
+import org.apache.hop.datavault.metadata.dimensional.pipeline.DmScd2DimensionBuilder;
+import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.PipelineMeta;
+
+/** Kimball dimension table. */
+@Getter
+@Setter
 public class DmDimension extends DmTableBase {
+
+  @HopMetadataProperty(storeWithCode = true)
+  private DmDimensionScdType scdType = DmDimensionScdType.TYPE1;
+
+  @HopMetadataProperty(key = "natural_key", groupKey = "natural_keys")
+  private List<DmNaturalKeyField> naturalKeys = new ArrayList<>();
+
+  @HopMetadataProperty(key = "attribute", groupKey = "attributes")
+  private List<DmDimensionAttribute> attributes = new ArrayList<>();
+
+  @HopMetadataProperty(key = "outrigger", groupKey = "outriggers")
+  private List<DmDimensionOutriggerRef> outriggers = new ArrayList<>();
 
   public DmDimension() {
     super(DmTableType.DIMENSION);
+  }
+
+  public DmDimensionScdType getScdTypeOrDefault() {
+    return scdType != null ? scdType : DmDimensionScdType.TYPE1;
+  }
+
+  public List<DmNaturalKeyField> getNaturalKeysOrEmpty() {
+    return naturalKeys != null ? naturalKeys : List.of();
+  }
+
+  public List<DmDimensionAttribute> getAttributesOrEmpty() {
+    return attributes != null ? attributes : List.of();
+  }
+
+  public List<DmDimensionOutriggerRef> getOutriggersOrEmpty() {
+    return outriggers != null ? outriggers : List.of();
+  }
+
+  public boolean usesHybridDimensionLookup() {
+    if (getScdTypeOrDefault() == DmDimensionScdType.TYPE3) {
+      return true;
+    }
+    for (DmDimensionAttribute attribute : getAttributesOrEmpty()) {
+      if (attribute == null || attribute.getScdUpdatePolicy() == null) {
+        continue;
+      }
+      if (attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_CURRENT
+          || attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_PREVIOUS) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Override
+  public void check(
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DimensionalModel model) {
+    super.check(remarks, metadataProvider, variables, model);
+    DmValidationSupport.validateDimension(remarks, this, model, metadataProvider, variables);
+  }
+
+  @Override
+  public IRowMeta getTargetTableLayout(
+      IHopMetadataProvider metadataProvider, IVariables variables, DimensionalModel model)
+      throws HopException {
+    DimensionalConfiguration config =
+        model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
+    return DmLayoutSupport.buildDimensionTargetTableLayout(this, config, variables);
+  }
+
+  @Override
+  public List<PipelineMeta> generateUpdatePipelines(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DimensionalModel model,
+      Date loadTimestamp)
+      throws HopException {
+    PipelineMeta pipelineMeta;
+    if (getScdTypeOrDefault() == DmDimensionScdType.TYPE2) {
+      pipelineMeta =
+          DmScd2DimensionBuilder.generatePipeline(
+              metadataProvider, variables, model, this, loadTimestamp);
+    } else if (usesHybridDimensionLookup()) {
+      pipelineMeta =
+          DmDimensionLookupBuilder.generateHybridDimensionPipeline(
+              metadataProvider, variables, model, this);
+    } else {
+      pipelineMeta =
+          DmInsertUpdateBuilder.generatePipeline(metadataProvider, variables, model, this);
+    }
+    return List.of(pipelineMeta);
   }
 }

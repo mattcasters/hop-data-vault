@@ -18,23 +18,30 @@
 
 package org.apache.hop.datavault.metadata;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /**
  * Supported hashing algorithms for Data Vault 2.0 hash keys.
  * These are the most commonly used in DV2.0 implementations for generating
  * deterministic surrogate hash keys from business keys.
  */
-public enum HashAlgorithm {
-  /** 128-bit hash, widely available, fast. Common default. 16 bytes binary or 32 hex chars. */
-  MD5,
+@Getter
+public enum HashAlgorithm implements IEnumHasCodeAndDescription {
+  MD5("MD5", BaseMessages.getString(HashAlgorithm.class, "HashAlgorithm.Md5")),
+  SHA1("SHA1", BaseMessages.getString(HashAlgorithm.class, "HashAlgorithm.Sha1")),
+  SHA256("SHA256", BaseMessages.getString(HashAlgorithm.class, "HashAlgorithm.Sha256")),
+  SHA512("SHA512", BaseMessages.getString(HashAlgorithm.class, "HashAlgorithm.Sha512"));
 
-  /** 160-bit. Recommended by some Data Vault Alliance materials for balance. */
-  SHA1,
+  private final String code;
+  private final String description;
 
-  /** 256-bit. Lower collision probability for very large datasets. 32 bytes / 64 hex. */
-  SHA256,
-
-  /** 512-bit. Maximum strength, larger storage. */
-  SHA512;
+  HashAlgorithm(String code, String description) {
+    this.code = code;
+    this.description = description;
+  }
 
   /**
    * Returns the length in bytes of the raw digest produced by this algorithm.
@@ -46,5 +53,17 @@ public enum HashAlgorithm {
       case SHA256 -> 32;
       case SHA512 -> 64;
     };
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(HashAlgorithm.class);
+  }
+
+  public static HashAlgorithm lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(HashAlgorithm.class, description, MD5);
+  }
+
+  public static HashAlgorithm lookupCode(String code) {
+    return IEnumHasCode.lookupCode(HashAlgorithm.class, code, MD5);
   }
 }

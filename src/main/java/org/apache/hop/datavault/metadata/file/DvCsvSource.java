@@ -140,7 +140,8 @@ public class DvCsvSource extends DvSourceBase implements IDvFileBasedSource {
   @HopMetadataProperty
   private int headerLines = 1;
 
-  @HopMetadataProperty private DvCsvInputMode inputMode = DvCsvInputMode.TEXT_FILE_INPUT;
+  @HopMetadataProperty(storeWithCode = true)
+  private DvCsvInputMode inputMode = DvCsvInputMode.TEXT_FILE_INPUT;
 
   public DvCsvSource() {
     this.sourceType = DvSourceType.CSV;

@@ -18,23 +18,60 @@
 
 package org.apache.hop.datavault.layout;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 import org.eclipse.elk.alg.layered.options.CycleBreakingStrategy;
 
 /** Cycle breaking strategy for ELK layered layout. */
-public enum ElkCycleBreaking {
-  GREEDY(CycleBreakingStrategy.GREEDY),
-  DEPTH_FIRST(CycleBreakingStrategy.DEPTH_FIRST),
-  INTERACTIVE(CycleBreakingStrategy.INTERACTIVE),
-  MODEL_ORDER(CycleBreakingStrategy.MODEL_ORDER),
-  GREEDY_MODEL_ORDER(CycleBreakingStrategy.GREEDY_MODEL_ORDER);
+@Getter
+public enum ElkCycleBreaking implements IEnumHasCodeAndDescription {
+  GREEDY(
+      "GREEDY",
+      BaseMessages.getString(ElkCycleBreaking.class, "ElkCycleBreaking.Greedy"),
+      CycleBreakingStrategy.GREEDY),
+  DEPTH_FIRST(
+      "DEPTH_FIRST",
+      BaseMessages.getString(ElkCycleBreaking.class, "ElkCycleBreaking.DepthFirst"),
+      CycleBreakingStrategy.DEPTH_FIRST),
+  INTERACTIVE(
+      "INTERACTIVE",
+      BaseMessages.getString(ElkCycleBreaking.class, "ElkCycleBreaking.Interactive"),
+      CycleBreakingStrategy.INTERACTIVE),
+  MODEL_ORDER(
+      "MODEL_ORDER",
+      BaseMessages.getString(ElkCycleBreaking.class, "ElkCycleBreaking.ModelOrder"),
+      CycleBreakingStrategy.MODEL_ORDER),
+  GREEDY_MODEL_ORDER(
+      "GREEDY_MODEL_ORDER",
+      BaseMessages.getString(ElkCycleBreaking.class, "ElkCycleBreaking.GreedyModelOrder"),
+      CycleBreakingStrategy.GREEDY_MODEL_ORDER);
 
+  private final String code;
+  private final String description;
   private final CycleBreakingStrategy elkStrategy;
 
-  ElkCycleBreaking(CycleBreakingStrategy elkStrategy) {
+  ElkCycleBreaking(String code, String description, CycleBreakingStrategy elkStrategy) {
+    this.code = code;
+    this.description = description;
     this.elkStrategy = elkStrategy;
   }
 
   public CycleBreakingStrategy toElkStrategy() {
     return elkStrategy;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(ElkCycleBreaking.class);
+  }
+
+  public static ElkCycleBreaking lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        ElkCycleBreaking.class, description, GREEDY);
+  }
+
+  public static ElkCycleBreaking lookupCode(String code) {
+    return IEnumHasCode.lookupCode(ElkCycleBreaking.class, code, GREEDY);
   }
 }

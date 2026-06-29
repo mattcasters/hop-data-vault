@@ -18,22 +18,49 @@
 
 package org.apache.hop.datavault.layout;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 import org.eclipse.elk.core.options.Direction;
 
 /** Primary layout direction for ELK layered layout. */
-public enum ElkLayoutDirection {
-  RIGHT(Direction.RIGHT),
-  LEFT(Direction.LEFT),
-  DOWN(Direction.DOWN),
-  UP(Direction.UP);
+@Getter
+public enum ElkLayoutDirection implements IEnumHasCodeAndDescription {
+  RIGHT(
+      "RIGHT",
+      BaseMessages.getString(ElkLayoutDirection.class, "ElkLayoutDirection.Right"),
+      Direction.RIGHT),
+  LEFT(
+      "LEFT", BaseMessages.getString(ElkLayoutDirection.class, "ElkLayoutDirection.Left"), Direction.LEFT),
+  DOWN(
+      "DOWN", BaseMessages.getString(ElkLayoutDirection.class, "ElkLayoutDirection.Down"), Direction.DOWN),
+  UP("UP", BaseMessages.getString(ElkLayoutDirection.class, "ElkLayoutDirection.Up"), Direction.UP);
 
+  private final String code;
+  private final String description;
   private final Direction elkDirection;
 
-  ElkLayoutDirection(Direction elkDirection) {
+  ElkLayoutDirection(String code, String description, Direction elkDirection) {
+    this.code = code;
+    this.description = description;
     this.elkDirection = elkDirection;
   }
 
   public Direction toElkDirection() {
     return elkDirection;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(ElkLayoutDirection.class);
+  }
+
+  public static ElkLayoutDirection lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        ElkLayoutDirection.class, description, RIGHT);
+  }
+
+  public static ElkLayoutDirection lookupCode(String code) {
+    return IEnumHasCode.lookupCode(ElkLayoutDirection.class, code, RIGHT);
   }
 }

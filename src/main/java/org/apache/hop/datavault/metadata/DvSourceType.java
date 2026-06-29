@@ -18,6 +18,11 @@
 
 package org.apache.hop.datavault.metadata;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /**
  * Enumeration of supported source system types for a Data Vault model.
  *
@@ -26,20 +31,30 @@ package org.apache.hop.datavault.metadata;
  * fields) live in the base; type-specific connection details live in the concrete
  * implementations (DvDatabaseSource, ...).
  */
-public enum DvSourceType {
-  DATABASE("Database (RDBMS)"),
-  CSV("CSV / delimited text file"),
-  PARQUET("Parquet file"),
-  ICEBERG("Iceberg table"),
-  ;
+@Getter
+public enum DvSourceType implements IEnumHasCodeAndDescription {
+  DATABASE("DATABASE", BaseMessages.getString(DvSourceType.class, "DvSourceType.Database")),
+  CSV("CSV", BaseMessages.getString(DvSourceType.class, "DvSourceType.Csv")),
+  PARQUET("PARQUET", BaseMessages.getString(DvSourceType.class, "DvSourceType.Parquet")),
+  ICEBERG("ICEBERG", BaseMessages.getString(DvSourceType.class, "DvSourceType.Iceberg"));
 
+  private final String code;
   private final String description;
 
-  DvSourceType(String description) {
+  DvSourceType(String code, String description) {
+    this.code = code;
     this.description = description;
   }
 
-  public String getDescription() {
-    return description;
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(DvSourceType.class);
+  }
+
+  public static DvSourceType lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(DvSourceType.class, description, DATABASE);
+  }
+
+  public static DvSourceType lookupCode(String code) {
+    return IEnumHasCode.lookupCode(DvSourceType.class, code, DATABASE);
   }
 }

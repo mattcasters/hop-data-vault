@@ -36,7 +36,8 @@ public class BvDvTableReference {
 
   @HopMetadataProperty private String dvTableName;
 
-  @HopMetadataProperty private DvTableType dvTableType;
+  @HopMetadataProperty(storeWithCode = true)
+  private DvTableType dvTableType;
 
   @HopMetadataProperty(inline = true)
   private Point location = new Point(0, 0);

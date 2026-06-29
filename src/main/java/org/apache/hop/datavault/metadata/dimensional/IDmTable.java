@@ -18,6 +18,7 @@
 
 package org.apache.hop.datavault.metadata.dimensional;
 
+import java.util.Date;
 import java.util.List;
 import org.apache.hop.base.IBaseMeta;
 import org.apache.hop.core.ICheckResult;
@@ -25,13 +26,15 @@ import org.apache.hop.core.ICheckResultSource;
 import org.apache.hop.core.changed.IChanged;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.IGuiPosition;
+import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.HopMetadataObject;
 import org.apache.hop.metadata.api.IHasName;
 import org.apache.hop.metadata.api.IHopMetadataObjectFactory;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.PipelineMeta;
 
-/** Common interface for dimension and fact tables on a {@link DimensionalModel} canvas. */
+/** Common interface for Kimball tables on a {@link DimensionalModel} canvas. */
 @HopMetadataObject(xmlKey = "tableType", objectFactory = IDmTable.DmTableFactory.class)
 public interface IDmTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, ICheckResultSource {
 
@@ -55,17 +58,38 @@ public interface IDmTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
       IVariables variables,
       DimensionalModel model);
 
+  IRowMeta getTargetTableLayout(
+      IHopMetadataProvider metadataProvider, IVariables variables, DimensionalModel model)
+      throws HopException;
+
+  List<PipelineMeta> generateUpdatePipelines(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DimensionalModel model,
+      Date loadTimestamp)
+      throws HopException;
+
+  List<String> generateBuildDdl(
+      IHopMetadataProvider metadataProvider, IVariables variables, DimensionalModel model)
+      throws HopException;
+
+  DmSourceConfiguration getSourceOrDefault();
+
   final class DmTableFactory implements IHopMetadataObjectFactory {
 
     @Override
     public Object createObject(String id, Object parentObject) throws HopException {
-      if (DmTableType.DIMENSION.name().equals(id)) {
-        return new DmDimension();
-      }
-      if (DmTableType.FACT.name().equals(id)) {
-        return new DmFact();
-      }
-      throw new HopException("Unable to recognize dimensional table type with ID '" + id + "'");
+      DmTableType tableType = DmTableType.valueOf(id);
+      return switch (tableType) {
+        case DIMENSION -> new DmDimension();
+        case JUNK_DIMENSION -> new DmJunkDimension();
+        case FACT -> new DmFact();
+        case FACTLESS_FACT -> new DmFactlessFact();
+        case PERIODIC_SNAPSHOT_FACT -> new DmPeriodicSnapshotFact();
+        case ACCUMULATING_SNAPSHOT_FACT -> new DmAccumulatingSnapshotFact();
+        case BRIDGE -> new DmBridge();
+        case AGGREGATE_FACT -> new DmAggregateFact();
+      };
     }
 
     @Override

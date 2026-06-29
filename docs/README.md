@@ -101,7 +101,8 @@ Internal planning documents for features not yet fully productized:
 |----------|-------|
 | [bv-naming-rules-engine-plan.md](bv-naming-rules-engine-plan.md) | BV naming rules engine (ROI-first; health check, acknowledgements, review reports) |
 | [bv-field-dictionary-plan.md](bv-field-dictionary-plan.md) | BV field dictionary (deferred; superseded by naming rules engine plan) |
-| [dimensional-modeler-plan.md](dimensional-modeler-plan.md) | Dimensional modeler |
+| [dimensional-modeler-plan.md](dimensional-modeler-plan.md) | Dimensional modeler plan |
+| [dimensional-modeler-overview.adoc](dimensional-modeler-overview.adoc) | Dimensional modeler overview |
 | [marquez-lineage-plan.md](marquez-lineage-plan.md) | Lineage export |
 
 Screenshots: [images/](images/) — includes Customer 360 DV/BV canvases and SCD2 table dialog tabs

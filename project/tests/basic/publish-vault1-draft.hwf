@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workflow>
+  <name>publish-vault1-draft</name>
+  <name_sync_with_filename>N</name_sync_with_filename>
+  <description>Publish vault1.hdv to a draft dimensional model for review.</description>
+  <extended_description/>
+  <created_user>-</created_user>
+  <modified_user>-</modified_user>
+  <created_date>2026/06/28 00:00:00.000</created_date>
+  <modified_date>2026/06/28 00:00:00.000</modified_date>
+  <workflow_version/>
+  <parameters/>
+  <actions>
+    <action>
+      <dataVaultModelFile>${PROJECT_HOME}/tests/basic/vault1.hdv</dataVaultModelFile>
+      <outputDimensionalModelFile>${PROJECT_HOME}/tests/basic/vault1-draft.hdm</outputDimensionalModelFile>
+      <failIfOutputExists>N</failIfOutputExists>
+      <logWarnings>Y</logWarnings>
+      <bridgeForTwoHubLinks>Y</bridgeForTwoHubLinks>
+      <name>publish vault1 draft hdm</name>
+      <description/>
+      <type>DIMENSIONAL_PUBLISH</type>
+      <attributes/>
+      <xloc>256</xloc>
+      <yloc>128</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <repeat>N</repeat>
+      <schedulerType>0</schedulerType>
+      <intervalSeconds>0</intervalSeconds>
+      <intervalMinutes>60</intervalMinutes>
+      <DayOfMonth>1</DayOfMonth>
+      <weekDay>1</weekDay>
+      <minutes>0</minutes>
+      <hour>12</hour>
+      <doNotWaitOnFirstExecution>N</doNotWaitOnFirstExecution>
+      <name>Start</name>
+      <description/>
+      <type>SPECIAL</type>
+      <attributes/>
+      <xloc>80</xloc>
+      <yloc>128</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+  </actions>
+  <hops>
+    <hop>
+      <from>Start</from>
+      <to>publish vault1 draft hdm</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+  </hops>
+  <notepads/>
+  <attributes/>
+</workflow>

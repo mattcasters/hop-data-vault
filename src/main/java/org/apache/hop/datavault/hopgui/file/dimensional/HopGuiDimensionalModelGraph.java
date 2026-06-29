@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.hopgui.file.dimensional;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import lombok.Getter;
@@ -43,25 +44,42 @@ import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElementType;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
+import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.datavault.hopgui.file.dimensional.delegates.HopGuiDimensionalClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.dimensional.delegates.HopGuiDimensionalSnapshotUndo;
 import org.apache.hop.datavault.hopgui.file.modelgraph.HopGuiModelGraphBase;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphHit;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphMouseInteractions;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphSnapshotUndo;
+import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
+import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
+import org.apache.hop.datavault.metadata.dimensional.DmBridge;
+import org.apache.hop.datavault.metadata.dimensional.DmBridgeDimensionRef;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
 import org.apache.hop.datavault.metadata.dimensional.DmFact;
+import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
+import org.apache.hop.datavault.metadata.dimensional.DmFactlessFact;
+import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
+import org.apache.hop.datavault.metadata.dimensional.DmPeriodicSnapshotFact;
+import org.apache.hop.datavault.metadata.dimensional.DmAccumulatingSnapshotFact;
+import org.apache.hop.datavault.metadata.dimensional.DmAggregateFact;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.dimensional.IDmFactLikeTable;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.CheckResultDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.dialog.MessageBox;
+import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.core.gui.GuiToolbarWidgets;
 import org.apache.hop.ui.core.gui.IToolbarContainer;
 import org.apache.hop.ui.hopgui.CanvasFacade;
@@ -86,6 +104,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
 import org.jspecify.annotations.Nullable;
+import org.w3c.dom.Node;
 
 /** Hop GUI editor for Kimball dimensional models (dimensions, facts, and notes). */
 @GuiPlugin(
@@ -113,14 +132,21 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       "HopGuiDimensionalModelGraph-ToolBar-10050-Edit-Model";
   public static final String TOOLBAR_ITEM_CHECK_MODEL =
       "HopGuiDimensionalModelGraph-ToolBar-10060-Check-Model";
+  public static final String TOOLBAR_ITEM_DEBUG =
+      "HopGuiDimensionalModelGraph-ToolBar-10070-Debug";
   public static final String TOOLBAR_ITEM_SELECT_ALL =
       "HopGuiDimensionalModelGraph-ToolBar-20010-Select-All";
   public static final String TOOLBAR_ITEM_UNSELECT_ALL =
       "HopGuiDimensionalModelGraph-ToolBar-20020-Unselect-All";
+  public static final String TOOLBAR_ITEM_COPY = "HopGuiDimensionalModelGraph-ToolBar-20030-Copy";
+  public static final String TOOLBAR_ITEM_CUT = "HopGuiDimensionalModelGraph-ToolBar-20040-Cut";
+  public static final String TOOLBAR_ITEM_PASTE = "HopGuiDimensionalModelGraph-ToolBar-20050-Paste";
+  public static final String TOOLBAR_ITEM_DELETE = "HopGuiDimensionalModelGraph-ToolBar-20060-Delete";
   public static final String TOOLBAR_ITEM_UNDO = "HopGuiDimensionalModelGraph-ToolBar-20070-Undo";
   public static final String TOOLBAR_ITEM_REDO = "HopGuiDimensionalModelGraph-ToolBar-20080-Redo";
 
   private final HopDimensionalFileType fileType;
+  private final HopGuiDimensionalClipboardDelegate clipboardDelegate;
   private final HopGuiDimensionalSnapshotUndo snapshotUndo = new HopGuiDimensionalSnapshotUndo();
   private DimensionalModel model;
   private Control toolBar;
@@ -131,6 +157,9 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   private final List<AreaOwner> areaOwners = new ArrayList<>();
   private String mouseOverTableName;
   private IDmTable currentTable;
+  private IDmTable startRelationshipTable;
+  private Point relationshipDragEndLocation;
+  private IDmTable candidateRelationshipTarget;
 
   public HopGuiDimensionalModelGraph(
       Composite parent,
@@ -141,6 +170,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     super(hopGui, parent, perspective);
     this.model = model;
     this.fileType = fileType;
+    this.clipboardDelegate = new HopGuiDimensionalClipboardDelegate(hopGui, this);
 
     this.variables = new Variables();
     this.variables.copyFrom(hopGui.getVariables());
@@ -237,6 +267,8 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       painter.setMouseOverNoteLink(mouseOverNoteLink);
       painter.setSelectionRegion(selectionRegion);
       painter.setShowingNavigationView(!propsUi.isHideViewportEnabled());
+      painter.setRelationshipDragInfo(
+          startRelationshipTable, relationshipDragEndLocation, candidateRelationshipTarget);
       painter.drawDimensionalModel(hopGui.getMetadataProvider());
 
       captureNavigationViewGeometry(painter);
@@ -263,6 +295,35 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       }
     }
     return null;
+  }
+
+  public void runUndoableModelChange(DmModelChange change) throws HopException {
+    byte[] beforeChange = captureUndoSnapshot();
+    change.run();
+    commitDialogUndo(beforeChange);
+    setChanged();
+    redraw();
+  }
+
+  @FunctionalInterface
+  public interface DmModelChange {
+    void run() throws HopException;
+  }
+
+  private void editDmTable(IDmTable table) {
+    if (table == null) {
+      return;
+    }
+    byte[] beforeChange = captureUndoSnapshot();
+    boolean accepted =
+        new HopGuiDmTableDialog(
+                getShell(), table, model, variables, hopGui.getMetadataProvider())
+            .open();
+    if (accepted) {
+      commitDialogUndo(beforeChange);
+      setChanged();
+      redraw();
+    }
   }
 
   @Override
@@ -352,6 +413,168 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     clearSelectionRegion();
   }
 
+  private IDmTable findTableAtScreen(int screenX, int screenY) {
+    Point real = screen2real(screenX, screenY);
+    AreaOwner areaOwner = getVisibleAreaOwner(real.x, real.y);
+    if (areaOwner == null || areaOwner.getAreaType() != AreaOwner.AreaType.TRANSFORM_ICON) {
+      return null;
+    }
+    return getAreaOwnerTable(areaOwner);
+  }
+
+  private void cancelRelationshipDrag() {
+    startRelationshipTable = null;
+    relationshipDragEndLocation = null;
+    candidateRelationshipTarget = null;
+  }
+
+  private static boolean isDimensionLike(IDmTable table) {
+    return table instanceof DmDimension || table instanceof DmJunkDimension;
+  }
+
+  private static boolean isFactLikeTable(IDmTable table) {
+    return table instanceof IDmFactLikeTable;
+  }
+
+  private static boolean isBridgeTable(IDmTable table) {
+    return table instanceof DmBridge;
+  }
+
+  private boolean isValidRelationshipPair(IDmTable a, IDmTable b) {
+    if (a == null || b == null || a == b) {
+      return false;
+    }
+    if (isFactLikeTable(a) && isDimensionLike(b)) {
+      return true;
+    }
+    if (isFactLikeTable(b) && isDimensionLike(a)) {
+      return true;
+    }
+    if (isBridgeTable(a) && isDimensionLike(b)) {
+      return true;
+    }
+    if (isBridgeTable(b) && isDimensionLike(a)) {
+      return true;
+    }
+    return a instanceof DmDimension && b instanceof DmDimension;
+  }
+
+  private void createRelationship(IDmTable from, IDmTable to) {
+    if (from == null || to == null || from == to || !isValidRelationshipPair(from, to)) {
+      return;
+    }
+
+    byte[] beforeChange = captureUndoSnapshot();
+    boolean modelChanged = false;
+
+    if (isFactLikeTable(from) && isDimensionLike(to)) {
+      modelChanged = addFactDimensionRole((IDmFactLikeTable) from, to);
+    } else if (isFactLikeTable(to) && isDimensionLike(from)) {
+      modelChanged = addFactDimensionRole((IDmFactLikeTable) to, from);
+    } else if (isBridgeTable(from) && isDimensionLike(to)) {
+      modelChanged = addBridgeDimensionRef((DmBridge) from, to);
+    } else if (isBridgeTable(to) && isDimensionLike(from)) {
+      modelChanged = addBridgeDimensionRef((DmBridge) to, from);
+    } else if (from instanceof DmDimension parent && to instanceof DmDimension outrigger) {
+      modelChanged = addOutriggerRef(parent, outrigger);
+    }
+
+    if (modelChanged) {
+      commitDialogUndo(beforeChange);
+      setChanged();
+    }
+  }
+
+  private boolean addFactDimensionRole(IDmFactLikeTable fact, IDmTable dimension) {
+    if (fact == null || dimension == null || Utils.isEmpty(dimension.getName())) {
+      return false;
+    }
+    if (hasExistingFactRole(fact, dimension.getName())) {
+      return false;
+    }
+    String fkColumn = defaultForeignKeyForDimension(dimension);
+    DmFactDimensionRole role = new DmFactDimensionRole(dimension.getName(), null, fkColumn);
+    return appendFactDimensionRole(fact, role);
+  }
+
+  private boolean hasExistingFactRole(IDmFactLikeTable fact, String dimensionName) {
+    for (DmFactDimensionRole role : fact.getDimensionRolesOrEmpty()) {
+      if (role != null && dimensionName.equals(role.getDimensionTableName())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean appendFactDimensionRole(IDmFactLikeTable fact, DmFactDimensionRole role) {
+    if (fact instanceof DmFact dmFact) {
+      dmFact.getDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmFactlessFact factlessFact) {
+      factlessFact.getDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmPeriodicSnapshotFact periodicFact) {
+      periodicFact.getDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmAccumulatingSnapshotFact accumulatingFact) {
+      accumulatingFact.getDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmAggregateFact aggregateFact) {
+      aggregateFact.getDimensionRoles().add(role);
+      return true;
+    }
+    return false;
+  }
+
+  private boolean addBridgeDimensionRef(DmBridge bridge, IDmTable dimension) {
+    if (bridge == null || dimension == null || Utils.isEmpty(dimension.getName())) {
+      return false;
+    }
+    for (DmBridgeDimensionRef ref : bridge.getDimensionRefsOrEmpty()) {
+      if (ref != null && dimension.getName().equals(ref.getDimensionTableName())) {
+        return false;
+      }
+    }
+    bridge.getDimensionRefs().add(new DmBridgeDimensionRef(dimension.getName(), defaultForeignKeyForDimension(dimension)));
+    return true;
+  }
+
+  private boolean addOutriggerRef(DmDimension parent, DmDimension outrigger) {
+    if (parent == null || outrigger == null || Utils.isEmpty(outrigger.getName())) {
+      return false;
+    }
+    for (DmDimensionOutriggerRef ref : parent.getOutriggersOrEmpty()) {
+      if (ref != null && outrigger.getName().equals(ref.getDimensionTableName())) {
+        return false;
+      }
+    }
+    parent
+        .getOutriggers()
+        .add(new DmDimensionOutriggerRef(outrigger.getName(), defaultForeignKeyForDimension(outrigger)));
+    return true;
+  }
+
+  private String defaultForeignKeyForDimension(IDmTable dimension) {
+    if (dimension == null || Utils.isEmpty(dimension.getName())) {
+      return null;
+    }
+    DimensionalConfiguration config =
+        model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
+    if (dimension instanceof DmDimension dmDimension) {
+      DmFactDimensionRole tempRole = new DmFactDimensionRole(dimension.getName(), null, null);
+      return DmLayoutSupport.defaultFactForeignKeyColumn(dmDimension, tempRole, config, variables);
+    }
+    String base = dimension.getName();
+    if (base.startsWith("dim_")) {
+      base = base.substring(4);
+    }
+    return base + "_key";
+  }
+
   @Override
   protected AreaOwner getVisibleAreaOwner(int x, int y) {
     for (int i = areaOwners.size() - 1; i >= 0; i--) {
@@ -426,8 +649,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     table.setTableName(name.toLowerCase().replace(' ', '_'));
     PropsUi.setLocation(table, click != null ? click.x : 50, click != null ? click.y : 50);
     model.getTables().add(table);
-    setChanged();
-    redraw();
+    editDmTable(table);
   }
 
   private void showDimensionalContextDialog(Event e, Point real) {
@@ -477,6 +699,31 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = "dm-graph-import-database-tables",
+      parentId = HopGuiDimensionalContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.ImportDatabaseTables.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.ImportDatabaseTables.Tooltip",
+      image = "ui/images/database.svg",
+      category = "Import",
+      categoryOrder = "1")
+  public void importDatabaseTables(HopGuiDimensionalContext context) {
+    DimensionalModel dmModel = context.getModel();
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (dmModel == null || graph == null) {
+      return;
+    }
+    graph.markUndoPoint();
+    HopGuiDmDatabaseImportSupport.importDatabaseTables(
+        hopGui,
+        dmModel,
+        () -> {
+          graph.setChanged();
+          graph.redraw();
+        });
+  }
+
+  @GuiContextAction(
       id = "dm-graph-add-dimension",
       parentId = HopGuiDimensionalContext.CONTEXT_ID,
       type = GuiActionType.Create,
@@ -510,6 +757,60 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     }
     graph.markUndoPoint();
     graph.addTableAtClick(new DmFact(), context.getClick());
+  }
+
+  @GuiContextAction(
+      id = "dm-graph-add-junk-dimension",
+      parentId = HopGuiDimensionalContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.AddJunkDimension.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddJunkDimension.Tooltip",
+      image = "dimensional_model.svg",
+      category = "Dimensional",
+      categoryOrder = "3")
+  public void addJunkDimension(HopGuiDimensionalContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph == null || context.getModel() == null) {
+      return;
+    }
+    graph.markUndoPoint();
+    graph.addTableAtClick(new DmJunkDimension(), context.getClick());
+  }
+
+  @GuiContextAction(
+      id = "dm-graph-add-factless-fact",
+      parentId = HopGuiDimensionalContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.AddFactlessFact.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddFactlessFact.Tooltip",
+      image = "dimensional_model.svg",
+      category = "Dimensional",
+      categoryOrder = "4")
+  public void addFactlessFact(HopGuiDimensionalContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph == null || context.getModel() == null) {
+      return;
+    }
+    graph.markUndoPoint();
+    graph.addTableAtClick(new DmFactlessFact(), context.getClick());
+  }
+
+  @GuiContextAction(
+      id = "dm-graph-add-bridge",
+      parentId = HopGuiDimensionalContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.AddBridge.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddBridge.Tooltip",
+      image = "dimensional_model.svg",
+      category = "Dimensional",
+      categoryOrder = "5")
+  public void addBridge(HopGuiDimensionalContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph == null || context.getModel() == null) {
+      return;
+    }
+    graph.markUndoPoint();
+    graph.addTableAtClick(new DmBridge(), context.getClick());
   }
 
   @GuiContextAction(
@@ -579,6 +880,22 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = "dm-graph-edit-table",
+      parentId = HopGuiDimensionalTableContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.EditTable.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.EditTable.Tooltip",
+      image = "ui/images/edit.svg",
+      category = "Dimensional",
+      categoryOrder = "1")
+  public void editTableAction(HopGuiDimensionalTableContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph != null) {
+      graph.editDmTable(context.getTable());
+    }
+  }
+
+  @GuiContextAction(
       id = "dm-graph-delete-table",
       parentId = HopGuiDimensionalTableContext.CONTEXT_ID,
       type = GuiActionType.Delete,
@@ -586,7 +903,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.DeleteTable.Tooltip",
       image = "ui/images/delete.svg",
       category = "Dimensional",
-      categoryOrder = "1")
+      categoryOrder = "2")
   public void deleteTable(HopGuiDimensionalTableContext context) {
     IDmTable table = context.getTable();
     HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
@@ -598,6 +915,23 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     dmModel.getTables().removeIf(t -> t != null && table.getName().equals(t.getName()));
     graph.setChanged();
     graph.redraw();
+  }
+
+  @GuiContextAction(
+      id = "dm-graph-show-update-pipeline",
+      parentId = HopGuiDimensionalTableContext.CONTEXT_ID,
+      type = GuiActionType.Info,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.ShowUpdatePipeline.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.ShowUpdatePipeline.Tooltip",
+      image = "ui/images/debug.svg",
+      category = "Dimensional",
+      categoryOrder = "3")
+  public void showUpdatePipelineAction(HopGuiDimensionalTableContext context) {
+    IDmTable table = context.getTable();
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (table != null && graph != null) {
+      graph.openUpdatePipeline(table);
+    }
   }
 
   @GuiToolbarElement(
@@ -631,6 +965,115 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       return;
     }
     showCheckResultsDialog(model.check(hopGui.getMetadataProvider(), getVariables()));
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_DEBUG,
+      toolTip = "i18n::HopGuiDimensionalModelGraph.Toolbar.Debug.Tooltip",
+      image = "ui/images/debug.svg")
+  public void debugPipelines() {
+    if (model == null) {
+      return;
+    }
+    if (!validateModelForDebug()) {
+      return;
+    }
+    IVariables debugVariables = getVariables();
+    for (IDmTable table : model.getTables()) {
+      if (table == null) {
+        continue;
+      }
+      if (!table.isSelected() && nrSelectedTables() > 0) {
+        continue;
+      }
+      openUpdatePipeline(table, debugVariables);
+    }
+  }
+
+  public void openUpdatePipeline(IDmTable table) {
+    if (!validateModelForDebug()) {
+      return;
+    }
+    openUpdatePipeline(table, getVariables());
+  }
+
+  private static boolean hasCheckErrors(List<ICheckResult> remarks) {
+    return remarks.stream().anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR);
+  }
+
+  private boolean validateModelForDebug() {
+    if (model == null) {
+      return false;
+    }
+    List<ICheckResult> remarks = model.check(hopGui.getMetadataProvider(), getVariables());
+    if (!hasCheckErrors(remarks)) {
+      return true;
+    }
+    showCheckResultsDialog(remarks);
+    return false;
+  }
+
+  private int nrSelectedTables() {
+    if (model == null) {
+      return 0;
+    }
+    int count = 0;
+    for (IDmTable table : model.getTables()) {
+      if (table != null && table.isSelected()) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  private void openUpdatePipeline(IDmTable table, IVariables debugVariables) {
+    if (table == null || model == null) {
+      return;
+    }
+    String tableName =
+        !Utils.isEmpty(table.getTableName()) ? table.getTableName() : table.getName();
+    try {
+      DimensionalConfiguration config = model.getConfigurationOrDefault();
+      DvIntegerSettingValidationSupport.requirePositiveInteger(
+          config.getTargetTableBatchSize(),
+          debugVariables,
+          DimensionalConfiguration.DEFAULT_TARGET_TABLE_BATCH_SIZE,
+          BaseMessages.getString(
+              DvIntegerSettingValidationSupport.class,
+              "DvIntegerSettingValidation.Label.TargetTableBatchSize"));
+      DvIntegerSettingValidationSupport.requirePositiveInteger(
+          config.getTargetTableParallelCopies(),
+          debugVariables,
+          DimensionalConfiguration.DEFAULT_TARGET_TABLE_PARALLEL_COPIES,
+          BaseMessages.getString(
+              DvIntegerSettingValidationSupport.class,
+              "DvIntegerSettingValidation.Label.TargetTableParallelCopies"));
+
+      List<PipelineMeta> pipelineMetas =
+          table.generateUpdatePipelines(
+              hopGui.getMetadataProvider(), debugVariables, model, new Date());
+      if (pipelineMetas == null || pipelineMetas.isEmpty()) {
+        return;
+      }
+
+      for (PipelineMeta pipelineMeta : pipelineMetas) {
+        if (pipelineMeta == null) {
+          continue;
+        }
+        String xml = pipelineMeta.getXml(debugVariables);
+        Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
+        PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
+        HopGui.getExplorerPerspective().addPipeline(reloaded);
+      }
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.Debug.Error.Title"),
+          BaseMessages.getString(
+              PKG, "HopGuiDimensionalModelGraph.Debug.Error.Pipeline", tableName),
+          e);
+    }
   }
 
   private void showCheckResultsDialog(List<ICheckResult> remarks) {
@@ -992,27 +1435,128 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
 
   @Override
   public void debug() {
-    // not applicable
+    debugPipelines();
   }
 
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_COPY,
+      toolTip = "i18n::HopGuiDimensionalModelGraph.Toolbar.Copy.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/copy.svg",
+      alignRight = true)
+  @GuiKeyboardShortcut(control = true, key = 'c')
+  @GuiOsxKeyboardShortcut(command = true, key = 'c')
   @Override
   public void copySelectedToClipboard() {
-    // clipboard not implemented in PR4 scaffold
+    if (clipboardDelegate == null || model == null) {
+      return;
+    }
+    clipboardDelegate.copySelected(getSelectedTables(), getSelectedNotes());
   }
 
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_CUT,
+      toolTip = "i18n::HopGuiDimensionalModelGraph.Toolbar.Cut.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/cut.svg")
+  @GuiKeyboardShortcut(control = true, key = 'x')
+  @GuiOsxKeyboardShortcut(command = true, key = 'x')
   @Override
   public void cutSelectedToClipboard() {
-    // clipboard not implemented in PR4 scaffold
+    if (clipboardDelegate == null || model == null) {
+      return;
+    }
+    clipboardDelegate.copySelected(getSelectedTables(), getSelectedNotes());
+    deleteSelected();
   }
 
+  public void pasteFromClipboard(Point location) {
+    if (clipboardDelegate == null || model == null) {
+      return;
+    }
+    markUndoPoint();
+    clipboardDelegate.pasteXml(model, clipboardDelegate.fromClipboard(), location);
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_PASTE,
+      toolTip = "i18n::HopGuiDimensionalModelGraph.Toolbar.Paste.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/paste.svg")
+  @GuiKeyboardShortcut(control = true, key = 'v')
+  @GuiOsxKeyboardShortcut(command = true, key = 'v')
   @Override
   public void pasteFromClipboard() {
-    // clipboard not implemented in PR4 scaffold
+    Point location = lastClick != null ? new Point(lastClick.x, lastClick.y) : null;
+    pasteFromClipboard(location);
   }
 
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_DELETE,
+      toolTip = "i18n::HopGuiDimensionalModelGraph.Toolbar.Delete.Tooltip",
+      type = GuiToolbarElementType.BUTTON,
+      image = "ui/images/delete.svg")
+  @GuiKeyboardShortcut(key = SWT.DEL)
+  @GuiOsxKeyboardShortcut(key = SWT.DEL)
   @Override
   public void deleteSelected() {
-    // delete via context menu only in PR4 scaffold
+    if (model == null) {
+      return;
+    }
+    List<IDmTable> tablesToDelete = getSelectedTables();
+    List<DvNote> notesToDelete = getSelectedNotes();
+    if (tablesToDelete.isEmpty() && notesToDelete.isEmpty()) {
+      return;
+    }
+    markUndoPoint();
+    boolean modelChanged = false;
+    if (model.getTables().removeAll(tablesToDelete)) {
+      modelChanged = true;
+    }
+    if (model.getNotes().removeAll(notesToDelete)) {
+      modelChanged = true;
+    }
+    if (modelChanged) {
+      setChanged();
+      redraw();
+    }
+  }
+
+  public void applyPasteResult(List<IDmTable> tables, List<DvNote> notes) {
+    if (model == null) {
+      return;
+    }
+    boolean modelChanged = false;
+    mouseInteractions().unselectAllOnCanvas();
+
+    if (tables != null) {
+      for (IDmTable table : tables) {
+        if (table == null) {
+          continue;
+        }
+        model.getTables().add(table);
+        table.setSelected(true);
+        modelChanged = true;
+      }
+    }
+    if (notes != null) {
+      for (DvNote note : notes) {
+        if (note == null) {
+          continue;
+        }
+        model.getNotes().add(note);
+        note.setSelected(true);
+        modelChanged = true;
+      }
+    }
+    if (modelChanged) {
+      setChanged();
+      redraw();
+    }
   }
 
   @Override
@@ -1022,7 +1566,37 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       perspective.updateTabItem(this);
       perspective.updateTreeItem(this);
     }
+    enableClipboardToolbarItems();
     enableUndoToolbarItems();
+  }
+
+  private void enableClipboardToolbarItems() {
+    if (toolBarWidgets == null) {
+      return;
+    }
+    boolean hasSelection = hasCanvasSelection();
+    boolean hasClipboard = hasClipboardContent();
+
+    toolBarWidgets.enableToolbarItem(
+        fileType, this, TOOLBAR_ITEM_COPY, IHopFileType.CAPABILITY_COPY, hasSelection);
+    toolBarWidgets.enableToolbarItem(
+        fileType, this, TOOLBAR_ITEM_CUT, IHopFileType.CAPABILITY_CUT, hasSelection);
+    toolBarWidgets.enableToolbarItem(
+        fileType, this, TOOLBAR_ITEM_DELETE, IHopFileType.CAPABILITY_DELETE, hasSelection);
+    toolBarWidgets.enableToolbarItem(
+        fileType, this, TOOLBAR_ITEM_PASTE, IHopFileType.CAPABILITY_PASTE, hasClipboard);
+  }
+
+  private boolean hasCanvasSelection() {
+    return !getSelectedTables().isEmpty() || !getSelectedNotes().isEmpty();
+  }
+
+  private boolean hasClipboardContent() {
+    try {
+      return !Utils.isEmpty(GuiResource.getInstance().fromClipboard());
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   @Override
@@ -1162,8 +1736,22 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       }
       AreaOwner.AreaType areaType = hit.areaType();
 
+      if (areaType == AreaOwner.AreaType.TRANSFORM_ICON
+          && (e.button == 2 || (e.button == 1 && shift))) {
+        startRelationshipTable = tableHit;
+        relationshipDragEndLocation = new Point(e.x, e.y);
+        candidateRelationshipTarget = tableHit;
+        mouseOverTableName = null;
+        clearTableDragState();
+        clearSelectionRegion();
+        avoidContextDialog = true;
+        redraw();
+        return true;
+      }
+
       if (e.button == 1 && areaType == AreaOwner.AreaType.TRANSFORM_NAME) {
         avoidContextDialog = true;
+        editDmTable(tableHit);
         clearTableDragState();
         return true;
       }
@@ -1187,22 +1775,37 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
 
     @Override
     public boolean isRelationshipDragActive() {
-      return false;
+      return startRelationshipTable != null;
     }
 
     @Override
     public void handleRelationshipMouseMove(Event e) {
-      // no relationship drag in dimensional model scaffold
+      relationshipDragEndLocation = new Point(e.x, e.y);
+      candidateRelationshipTarget = findTableAtScreen(e.x, e.y);
+      if (candidateRelationshipTarget == startRelationshipTable) {
+        candidateRelationshipTarget = null;
+      }
     }
 
     @Override
     public boolean handleRelationshipMouseUp(Event e, Point real) {
-      return false;
+      IDmTable target = findTableAtScreen(e.x, e.y);
+      if (target != null && target != startRelationshipTable) {
+        createRelationship(startRelationshipTable, target);
+      }
+      cancelRelationshipDrag();
+      clearTableDragState();
+      avoidContextDialog = true;
+      redraw();
+      return true;
     }
 
     @Override
     public boolean handleObjectMouseMove(Point real, boolean leftButtonDown) {
-      if (!leftButtonDown || currentTable == null || resize != null) {
+      if (!leftButtonDown
+          || currentTable == null
+          || startRelationshipTable != null
+          || resize != null) {
         return false;
       }
       currentTable.setSelected(true);
@@ -1246,7 +1849,8 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
 
     @Override
     public boolean hasCancellableDragState() {
-      return currentTable != null
+      return startRelationshipTable != null
+          || currentTable != null
           || iconDragStart != null
           || currentNote != null
           || noteDragStart != null
@@ -1255,6 +1859,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
 
     @Override
     public void cancelActiveDragsOnBackgroundClick() {
+      cancelRelationshipDrag();
       clearTableDragState();
     }
 
@@ -1377,6 +1982,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       String newOver = null;
       if (areaOwner != null
           && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_NAME
+          && startRelationshipTable == null
           && !dragSelection
           && selectionRegion == null) {
         if (areaOwner.getParent() instanceof IDmTable dmTable && dmTable.getName() != null) {
@@ -1399,26 +2005,31 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
 
     @Override
     public boolean isNoteMouseDownAllowed() {
-      return true;
+      return startRelationshipTable == null;
     }
 
     @Override
     public boolean isLassoMoveAllowed() {
-      return true;
+      return startRelationshipTable == null;
     }
 
     @Override
     public boolean allowEmptyLassoClearOnMouseUp() {
-      return true;
+      return startRelationshipTable == null;
     }
 
     @Override
     public boolean isNoteResizeHoverBlocked() {
-      return dragSelection || selectionRegion != null || noteWasMoved || iconDragCommitted;
+      return startRelationshipTable != null
+          || dragSelection
+          || selectionRegion != null
+          || noteWasMoved
+          || iconDragCommitted;
     }
 
     @Override
     public void prepareNavigationViewportDrag() {
+      cancelRelationshipDrag();
       clearTableDragState();
       clearNoteDragState();
       clearSelectionRegion();

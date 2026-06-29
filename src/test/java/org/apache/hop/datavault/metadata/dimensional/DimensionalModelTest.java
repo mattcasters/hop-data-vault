@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.exception.HopException;
@@ -44,6 +46,7 @@ class DimensionalModelTest {
   @Test
   void checkReportsNoTables() {
     DimensionalModel model = new DimensionalModel();
+    model.getConfigurationOrDefault().setTargetDatabase("Vault");
     var remarks = model.check(null, new Variables());
     assertTrue(
         remarks.stream().anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR));
@@ -52,18 +55,22 @@ class DimensionalModelTest {
   }
 
   @Test
-  void checkReportsOkWhenTablesAreValid() {
+  void checkReportsOkForBasicStarFixture() throws Exception {
+    Path fixture =
+        Path.of("project/tests/basic/basic-star.hdm").toAbsolutePath().normalize();
+    String xml = Files.readString(fixture);
+    Document document = XmlHandler.loadXmlString(xml);
+    Node rootNode = XmlHandler.getSubNode(document, HopDimensionalFileType.XML_TAG);
+
     DimensionalModel model = new DimensionalModel();
-    DmDimension dimension = new DmDimension();
-    dimension.setName("dim_customer");
-    dimension.setTableName("d_customer");
-    model.getTables().add(dimension);
+    XmlMetadataUtil.deSerializeFromXml(rootNode, DimensionalModel.class, model, null);
 
     var remarks = model.check(null, new Variables());
     assertTrue(
         remarks.stream().anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_OK));
     assertFalse(
         remarks.stream().anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR));
+    assertEquals(3, model.getTables().size());
   }
 
   @Test
@@ -75,10 +82,14 @@ class DimensionalModelTest {
     DmFact fact = new DmFact();
     fact.setName("fact_sales");
     fact.setTableName("f_sales");
+    fact.getDimensionRoles()
+        .add(new DmFactDimensionRole("dim_product", "Product", "product_key"));
+    fact.getMeasures().add(new DmFactMeasure("amount", true));
     original.getTables().add(fact);
     DmDimension dimension = new DmDimension();
     dimension.setName("dim_product");
     dimension.setTableName("d_product");
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("product_id"));
     original.getTables().add(dimension);
 
     String xml =
@@ -100,5 +111,8 @@ class DimensionalModelTest {
     assertEquals("fact_sales", restored.getTables().get(0).getName());
     assertEquals(DmTableType.DIMENSION, restored.getTables().get(1).getTableType());
     assertEquals("dim_product", restored.getTables().get(1).getName());
+    assertEquals(
+        1, ((DmFact) restored.getTables().get(0)).getDimensionRolesOrEmpty().size());
+    assertEquals(1, ((DmDimension) restored.getTables().get(1)).getNaturalKeysOrEmpty().size());
   }
 }

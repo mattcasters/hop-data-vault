@@ -18,23 +18,60 @@
 
 package org.apache.hop.datavault.layout;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 import org.eclipse.elk.alg.layered.options.NodePlacementStrategy;
 
 /** Node placement strategy for ELK layered layout. */
-public enum ElkNodePlacement {
-  SIMPLE(NodePlacementStrategy.SIMPLE),
-  INTERACTIVE(NodePlacementStrategy.INTERACTIVE),
-  LINEAR_SEGMENTS(NodePlacementStrategy.LINEAR_SEGMENTS),
-  BRANDES_KOEPF(NodePlacementStrategy.BRANDES_KOEPF),
-  NETWORK_SIMPLEX(NodePlacementStrategy.NETWORK_SIMPLEX);
+@Getter
+public enum ElkNodePlacement implements IEnumHasCodeAndDescription {
+  SIMPLE(
+      "SIMPLE",
+      BaseMessages.getString(ElkNodePlacement.class, "ElkNodePlacement.Simple"),
+      NodePlacementStrategy.SIMPLE),
+  INTERACTIVE(
+      "INTERACTIVE",
+      BaseMessages.getString(ElkNodePlacement.class, "ElkNodePlacement.Interactive"),
+      NodePlacementStrategy.INTERACTIVE),
+  LINEAR_SEGMENTS(
+      "LINEAR_SEGMENTS",
+      BaseMessages.getString(ElkNodePlacement.class, "ElkNodePlacement.LinearSegments"),
+      NodePlacementStrategy.LINEAR_SEGMENTS),
+  BRANDES_KOEPF(
+      "BRANDES_KOEPF",
+      BaseMessages.getString(ElkNodePlacement.class, "ElkNodePlacement.BrandesKoepf"),
+      NodePlacementStrategy.BRANDES_KOEPF),
+  NETWORK_SIMPLEX(
+      "NETWORK_SIMPLEX",
+      BaseMessages.getString(ElkNodePlacement.class, "ElkNodePlacement.NetworkSimplex"),
+      NodePlacementStrategy.NETWORK_SIMPLEX);
 
+  private final String code;
+  private final String description;
   private final NodePlacementStrategy elkStrategy;
 
-  ElkNodePlacement(NodePlacementStrategy elkStrategy) {
+  ElkNodePlacement(String code, String description, NodePlacementStrategy elkStrategy) {
+    this.code = code;
+    this.description = description;
     this.elkStrategy = elkStrategy;
   }
 
   public NodePlacementStrategy toElkStrategy() {
     return elkStrategy;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(ElkNodePlacement.class);
+  }
+
+  public static ElkNodePlacement lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        ElkNodePlacement.class, description, BRANDES_KOEPF);
+  }
+
+  public static ElkNodePlacement lookupCode(String code) {
+    return IEnumHasCode.lookupCode(ElkNodePlacement.class, code, BRANDES_KOEPF);
   }
 }

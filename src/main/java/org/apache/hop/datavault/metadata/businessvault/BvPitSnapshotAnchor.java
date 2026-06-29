@@ -18,10 +18,39 @@
 
 package org.apache.hop.datavault.metadata.businessvault;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /** Where inside each cadence period the snapshot timestamp is placed. */
-public enum BvPitSnapshotAnchor {
-  /** End of period (e.g. end of day 23:59:59, last day of month). */
-  END_OF_PERIOD,
-  /** Start of period (e.g. midnight, first day of month). */
-  START_OF_PERIOD
+@Getter
+public enum BvPitSnapshotAnchor implements IEnumHasCodeAndDescription {
+  END_OF_PERIOD(
+      "END_OF_PERIOD",
+      BaseMessages.getString(BvPitSnapshotAnchor.class, "BvPitSnapshotAnchor.EndOfPeriod")),
+  START_OF_PERIOD(
+      "START_OF_PERIOD",
+      BaseMessages.getString(BvPitSnapshotAnchor.class, "BvPitSnapshotAnchor.StartOfPeriod"));
+
+  private final String code;
+  private final String description;
+
+  BvPitSnapshotAnchor(String code, String description) {
+    this.code = code;
+    this.description = description;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(BvPitSnapshotAnchor.class);
+  }
+
+  public static BvPitSnapshotAnchor lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        BvPitSnapshotAnchor.class, description, END_OF_PERIOD);
+  }
+
+  public static BvPitSnapshotAnchor lookupCode(String code) {
+    return IEnumHasCode.lookupCode(BvPitSnapshotAnchor.class, code, END_OF_PERIOD);
+  }
 }

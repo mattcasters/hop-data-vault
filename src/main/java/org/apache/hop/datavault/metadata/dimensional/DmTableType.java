@@ -18,8 +18,14 @@
 
 package org.apache.hop.datavault.metadata.dimensional;
 
-/** Kimball table kinds on a dimensional model canvas (scaffold; more types in future phases). */
+/** Kimball table kinds on a dimensional model canvas. */
 public enum DmTableType {
   DIMENSION,
-  FACT
+  JUNK_DIMENSION,
+  FACT,
+  FACTLESS_FACT,
+  PERIODIC_SNAPSHOT_FACT,
+  ACCUMULATING_SNAPSHOT_FACT,
+  BRIDGE,
+  AGGREGATE_FACT
 }

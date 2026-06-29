@@ -649,8 +649,8 @@ public class RecordDefinitionDetailsPanel {
             wDvSourceGroup,
             dvSourceSectionControls);
     wDvDeliveryType = (Combo) lastControl;
-    for (DvSourceDeliveryType deliveryType : DvSourceDeliveryType.values()) {
-      wDvDeliveryType.add(deliveryType.name());
+    for (String description : DvSourceDeliveryType.getDescriptions()) {
+      wDvDeliveryType.add(description);
     }
 
     lastControl =
@@ -1245,8 +1245,7 @@ public class RecordDefinitionDetailsPanel {
           dvSource, wDvSourceIndicator.getText(), wDvSourceIndicatorField.getText());
       dvSource.setGroup(wDvSourceGroup.getText().trim());
       dvSource.setDeliveryType(
-          RecordSourceIndicatorSupport.deliveryTypeLabel(
-              RecordSourceIndicatorSupport.parseDeliveryType(wDvDeliveryType.getText())));
+          RecordSourceIndicatorSupport.parseDeliveryType(wDvDeliveryType.getText()).getCode());
       persistDefinition();
     } catch (Exception e) {
       showUpdateError(e);
@@ -1401,7 +1400,7 @@ public class RecordDefinitionDetailsPanel {
     wDvSourceIndicator.setText("");
     wDvSourceIndicatorField.setText("");
     wDvSourceGroup.setText("");
-    wDvDeliveryType.setText(DvSourceDeliveryType.CHANGES_ONLY.name());
+    wDvDeliveryType.setText(DvSourceDeliveryType.CHANGES_ONLY.getDescription());
   }
 
   private void clearOriginFields() {

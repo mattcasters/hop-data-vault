@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.hopgui.EnumDialogSupport;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -38,6 +39,7 @@ import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSu
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
 import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.widget.ColumnInfo;
@@ -335,13 +337,11 @@ public class HopGuiBvTableDialog {
     return text;
   }
 
-  private Combo addEnumCombo(
-      Shell parentShell, Class<? extends Enum<?>> enumType, Label label, int middle) {
+  private <E extends Enum<E> & IEnumHasCodeAndDescription> Combo addEnumCombo(
+      Shell parentShell, Class<E> enumType, Label label, int middle) {
     Combo combo = new Combo(parentShell, SWT.BORDER | SWT.READ_ONLY);
     PropsUi.setLook(combo);
-    for (Enum<?> value : enumType.getEnumConstants()) {
-      combo.add(value.name());
-    }
+    EnumDialogSupport.populateCombo(combo, enumType);
     FormData fd = new FormData();
     fd.left = new FormAttachment(middle, 0);
     fd.top = new FormAttachment(label, 0, SWT.TOP);
@@ -351,8 +351,12 @@ public class HopGuiBvTableDialog {
   }
 
   private void refreshFixedDateVisibility() {
-    boolean showStartFixed = BvPitRangeStart.FIXED_DATE.name().equals(wRangeStart.getText());
-    boolean showEndFixed = BvPitRangeEnd.FIXED_DATE.name().equals(wRangeEnd.getText());
+    BvPitRangeStart rangeStart =
+        EnumDialogSupport.lookupText(wRangeStart.getText(), BvPitRangeStart.class, null);
+    BvPitRangeEnd rangeEnd =
+        EnumDialogSupport.lookupText(wRangeEnd.getText(), BvPitRangeEnd.class, null);
+    boolean showStartFixed = rangeStart == BvPitRangeStart.FIXED_DATE;
+    boolean showEndFixed = rangeEnd == BvPitRangeEnd.FIXED_DATE;
     wlRangeStartFixed.setVisible(showStartFixed);
     wRangeStartFixed.setVisible(showStartFixed);
     wlRangeEndFixed.setVisible(showEndFixed);
@@ -408,14 +412,14 @@ public class HopGuiBvTableDialog {
         wSnapshotDateField.setText(pit.getSnapshotDateField());
       }
       BvPitSnapshotSchedule schedule = pit.getSnapshotScheduleOrDefault();
-      selectEnum(wCadence, schedule.getCadence());
-      selectEnum(wSnapshotAnchor, schedule.getSnapshotAnchor());
+      EnumDialogSupport.selectCombo(wCadence, schedule.getCadence());
+      EnumDialogSupport.selectCombo(wSnapshotAnchor, schedule.getSnapshotAnchor());
       wHorizonDays.setText(Integer.toString(schedule.getHorizonDays()));
-      selectEnum(wRangeStart, schedule.getRangeStart());
+      EnumDialogSupport.selectCombo(wRangeStart, schedule.getRangeStart());
       if (!Utils.isEmpty(schedule.getRangeStartFixed())) {
         wRangeStartFixed.setText(schedule.getRangeStartFixed());
       }
-      selectEnum(wRangeEnd, schedule.getRangeEnd());
+      EnumDialogSupport.selectCombo(wRangeEnd, schedule.getRangeEnd());
       if (!Utils.isEmpty(schedule.getRangeEndFixed())) {
         wRangeEndFixed.setText(schedule.getRangeEndFixed());
       }
@@ -432,22 +436,12 @@ public class HopGuiBvTableDialog {
       TableItem item = new TableItem(wDerivatives.table, SWT.NONE);
       item.setText(1, derivative.getDvTableName());
       if (derivative.getDvTableType() != null) {
-        item.setText(2, derivative.getDvTableType().name());
+        item.setText(2, derivative.getDvTableType().getDescription());
       }
     }
     wDerivatives.removeEmptyRows();
     wDerivatives.setRowNums();
     wDerivatives.optWidth(true);
-  }
-
-  private static void selectEnum(Combo combo, Enum<?> value) {
-    if (combo == null || value == null) {
-      return;
-    }
-    int index = combo.indexOf(value.name());
-    if (index >= 0) {
-      combo.select(index);
-    }
   }
 
   private void ok() {
@@ -457,21 +451,21 @@ public class HopGuiBvTableDialog {
     if (input instanceof BvPitTable pit) {
       pit.setSnapshotDateField(wSnapshotDateField.getText());
       BvPitSnapshotSchedule schedule = pit.getSnapshotScheduleOrDefault();
-      schedule.setCadence(parseEnum(wCadence.getText(), BvPitCadence.class, BvPitCadence.DAILY));
+      schedule.setCadence(
+          EnumDialogSupport.readCombo(wCadence, BvPitCadence.class, BvPitCadence.DAILY));
       schedule.setSnapshotAnchor(
-          parseEnum(
-              wSnapshotAnchor.getText(),
-              BvPitSnapshotAnchor.class,
-              BvPitSnapshotAnchor.END_OF_PERIOD));
+          EnumDialogSupport.readCombo(
+              wSnapshotAnchor, BvPitSnapshotAnchor.class, BvPitSnapshotAnchor.END_OF_PERIOD));
       schedule.setHorizonDays(parseHorizonDays(wHorizonDays.getText()));
       schedule.setRangeStart(
-          parseEnum(
-              wRangeStart.getText(),
+          EnumDialogSupport.readCombo(
+              wRangeStart,
               BvPitRangeStart.class,
               BvPitRangeStart.EARLIEST_PARTICIPATING_SATELLITE_LOAD));
       schedule.setRangeStartFixed(wRangeStartFixed.getText());
       schedule.setRangeEnd(
-          parseEnum(wRangeEnd.getText(), BvPitRangeEnd.class, BvPitRangeEnd.NOW_MINUS_HORIZON));
+          EnumDialogSupport.readCombo(
+              wRangeEnd, BvPitRangeEnd.class, BvPitRangeEnd.NOW_MINUS_HORIZON));
       schedule.setRangeEndFixed(wRangeEndFixed.getText());
       schedule.setSatellitePointerSuffix(wPointerSuffix.getText());
     }
@@ -490,10 +484,9 @@ public class HopGuiBvTableDialog {
         }
       }
       if (dvType == null && !Utils.isEmpty(item.getText(2))) {
-        try {
-          dvType = DvTableType.valueOf(item.getText(2));
-        } catch (IllegalArgumentException ignored) {
-          // keep null
+        dvType = DvTableType.lookupDescription(item.getText(2));
+        if (dvType == null) {
+          dvType = DvTableType.lookupCode(item.getText(2));
         }
       }
       if (dvType != null
@@ -515,17 +508,6 @@ public class HopGuiBvTableDialog {
       return Integer.parseInt(text.trim());
     } catch (NumberFormatException e) {
       return BvPitSnapshotSchedule.DEFAULT_HORIZON_DAYS;
-    }
-  }
-
-  private static <E extends Enum<E>> E parseEnum(String text, Class<E> enumType, E defaultValue) {
-    if (Utils.isEmpty(text)) {
-      return defaultValue;
-    }
-    try {
-      return Enum.valueOf(enumType, text);
-    } catch (IllegalArgumentException e) {
-      return defaultValue;
     }
   }
 

@@ -30,17 +30,21 @@ public class BvPitSnapshotSchedule {
   public static final String DEFAULT_SATELLITE_POINTER_SUFFIX = "_ldts";
   public static final int DEFAULT_HORIZON_DAYS = 1;
 
-  @HopMetadataProperty private BvPitCadence cadence = BvPitCadence.DAILY;
+  @HopMetadataProperty(storeWithCode = true)
+  private BvPitCadence cadence = BvPitCadence.DAILY;
 
-  @HopMetadataProperty private BvPitSnapshotAnchor snapshotAnchor = BvPitSnapshotAnchor.END_OF_PERIOD;
+  @HopMetadataProperty(storeWithCode = true)
+  private BvPitSnapshotAnchor snapshotAnchor = BvPitSnapshotAnchor.END_OF_PERIOD;
 
   @HopMetadataProperty private int horizonDays = DEFAULT_HORIZON_DAYS;
 
-  @HopMetadataProperty private BvPitRangeStart rangeStart = BvPitRangeStart.EARLIEST_PARTICIPATING_SATELLITE_LOAD;
+  @HopMetadataProperty(storeWithCode = true)
+  private BvPitRangeStart rangeStart = BvPitRangeStart.EARLIEST_PARTICIPATING_SATELLITE_LOAD;
 
   @HopMetadataProperty private String rangeStartFixed;
 
-  @HopMetadataProperty private BvPitRangeEnd rangeEnd = BvPitRangeEnd.NOW_MINUS_HORIZON;
+  @HopMetadataProperty(storeWithCode = true)
+  private BvPitRangeEnd rangeEnd = BvPitRangeEnd.NOW_MINUS_HORIZON;
 
   @HopMetadataProperty private String rangeEndFixed;
 

@@ -1,0 +1,69 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.datavault.hopgui;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+
+import org.apache.hop.datavault.catalog.RecordSourceIndicatorSupport;
+import org.apache.hop.datavault.metadata.DvIntegrationMode;
+import org.apache.hop.datavault.metadata.DvSourceDeliveryType;
+import org.apache.hop.datavault.metadata.HashAlgorithm;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionScdType;
+import org.junit.jupiter.api.Test;
+
+class EnumDialogSupportTest {
+
+  @Test
+  void lookupTextResolvesDescriptionAndLegacyCode() {
+    DmDimensionScdType byDescription =
+        EnumDialogSupport.lookupText(
+            DmDimensionScdType.TYPE2.getDescription(), DmDimensionScdType.class, null);
+    assertSame(DmDimensionScdType.TYPE2, byDescription);
+
+    DmDimensionScdType byCode =
+        EnumDialogSupport.lookupText("TYPE2", DmDimensionScdType.class, null);
+    assertSame(DmDimensionScdType.TYPE2, byCode);
+  }
+
+  @Test
+  void getCodeMatchesEnumNameForBackwardCompatibility() {
+    for (HashAlgorithm algorithm : HashAlgorithm.values()) {
+      assertEquals(algorithm.name(), algorithm.getCode());
+    }
+    for (DvIntegrationMode mode : DvIntegrationMode.values()) {
+      assertEquals(mode.name(), mode.getCode());
+    }
+  }
+
+  @Test
+  void deliveryTypeParsesDescriptionOrStoredCode() {
+    DvSourceDeliveryType fromDescription =
+        RecordSourceIndicatorSupport.parseDeliveryType(
+            DvSourceDeliveryType.FULL_SNAPSHOT.getDescription());
+    assertSame(DvSourceDeliveryType.FULL_SNAPSHOT, fromDescription);
+    assertEquals(
+        DvSourceDeliveryType.FULL_SNAPSHOT.getDescription(),
+        RecordSourceIndicatorSupport.deliveryTypeLabel(fromDescription));
+
+    DvSourceDeliveryType fromCode =
+        RecordSourceIndicatorSupport.parseDeliveryType("CHANGES_ONLY");
+    assertSame(DvSourceDeliveryType.CHANGES_ONLY, fromCode);
+  }
+}

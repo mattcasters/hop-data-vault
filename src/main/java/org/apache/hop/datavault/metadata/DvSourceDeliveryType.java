@@ -18,6 +18,11 @@
 
 package org.apache.hop.datavault.metadata;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /**
  * Describes what each load from a {@link DataVaultSource} represents.
  *
@@ -25,13 +30,33 @@ package org.apache.hop.datavault.metadata;
  * detection is only valid when the feed is a complete image of the active source population, not a
  * delta of changes since the last run.
  */
-public enum DvSourceDeliveryType {
-  /** Delta feed: only new or changed rows since the previous extract. Default for most loads. */
-  CHANGES_ONLY,
+@Getter
+public enum DvSourceDeliveryType implements IEnumHasCodeAndDescription {
+  CHANGES_ONLY(
+      "CHANGES_ONLY",
+      BaseMessages.getString(DvSourceDeliveryType.class, "DvSourceDeliveryType.ChangesOnly")),
+  FULL_SNAPSHOT(
+      "FULL_SNAPSHOT",
+      BaseMessages.getString(DvSourceDeliveryType.class, "DvSourceDeliveryType.FullSnapshot"));
 
-  /**
-   * Full snapshot: the complete current-state record set for the modeled keys. Absence of a key in
-   * a batch may indicate deletion (for STS tombstone processing).
-   */
-  FULL_SNAPSHOT
+  private final String code;
+  private final String description;
+
+  DvSourceDeliveryType(String code, String description) {
+    this.code = code;
+    this.description = description;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(DvSourceDeliveryType.class);
+  }
+
+  public static DvSourceDeliveryType lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        DvSourceDeliveryType.class, description, CHANGES_ONLY);
+  }
+
+  public static DvSourceDeliveryType lookupCode(String code) {
+    return IEnumHasCode.lookupCode(DvSourceDeliveryType.class, code, CHANGES_ONLY);
+  }
 }

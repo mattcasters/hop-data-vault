@@ -69,18 +69,21 @@ public class DvHashKeyMeta extends BaseTransformMeta<DvHashKey, DvHashKeyData> {
 
   @HopMetadataProperty(
       key = "hashAlgorithm",
+      storeWithCode = true,
       injectionKey = "HASH_ALGORITHM",
       injectionKeyDescription = "DvHashKey.Injection.HASH_ALGORITHM")
   private HashAlgorithm hashAlgorithm = HashAlgorithm.MD5;
 
   @HopMetadataProperty(
       key = "hashKeyDataType",
+      storeWithCode = true,
       injectionKey = "HASH_KEY_DATA_TYPE",
       injectionKeyDescription = "DvHashKey.Injection.HASH_KEY_DATA_TYPE")
   private HashKeyDataType hashKeyDataType = HashKeyDataType.HEX;
 
   @HopMetadataProperty(
       key = "hashContentCasing",
+      storeWithCode = true,
       injectionKey = "HASH_CONTENT_CASING",
       injectionKeyDescription = "DvHashKey.Injection.HASH_CONTENT_CASING")
   private HashContentCasing hashContentCasing = HashContentCasing.UPPER;

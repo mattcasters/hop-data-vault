@@ -28,8 +28,10 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.hopgui.EnumDialogSupport;
 import org.apache.hop.datavault.metadata.DvSourceDeliveryType;
 import org.apache.hop.datavault.metadata.DvSourceType;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataSerializer;
 import org.apache.hop.pipeline.PipelineMeta;
@@ -243,13 +245,13 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     Control last = null;
     last =
         wSourceType =
-            addEnumCombo(
+            addI18nEnumCombo(
                 comp,
                 "RecordDefinitionOutputDialog.SourceType.Label",
                 last,
                 middle,
                 margin,
-                DvSourceType.values());
+                DvSourceType.class);
     wSourceType.addModifyListener((ModifyListener) e -> updateSourcePanels());
 
     wDatabaseComp = new Composite(comp, SWT.NONE);
@@ -331,7 +333,15 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     last = wSourceIndicator = addTextField(comp, "RecordDefinitionOutputDialog.SourceIndicator.Label", last, middle, margin);
     last = wSourceIndicatorFieldName = addTextField(comp, "RecordDefinitionOutputDialog.SourceIndicatorField.Label", last, middle, margin);
     last = wGroup = addTextField(comp, "RecordDefinitionOutputDialog.Group.Label", last, middle, margin);
-    last = wDeliveryType = addEnumCombo(comp, "RecordDefinitionOutputDialog.DeliveryType.Label", last, middle, margin, DvSourceDeliveryType.values());
+    last =
+        wDeliveryType =
+            addI18nEnumCombo(
+                comp,
+                "RecordDefinitionOutputDialog.DeliveryType.Label",
+                last,
+                middle,
+                margin,
+                DvSourceDeliveryType.class);
   }
 
   private void buildOutputTab(CTabFolder tabFolder) {
@@ -388,6 +398,33 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
   private org.eclipse.swt.custom.CCombo addFieldCombo(
       Composite composite, String labelKey, Control previous, int middle, int margin) {
     return addCombo(composite, labelKey, previous, middle, margin, new String[0]);
+  }
+
+  private <E extends Enum<E> & IEnumHasCodeAndDescription> Combo addI18nEnumCombo(
+      Composite composite,
+      String labelKey,
+      Control previous,
+      int middle,
+      int margin,
+      Class<E> enumClass) {
+    Label label = new Label(composite, SWT.RIGHT);
+    label.setText(BaseMessages.getString(PKG, labelKey));
+    PropsUi.setLook(label);
+    FormData fdl = new FormData();
+    fdl.left = new FormAttachment(0, 0);
+    fdl.right = new FormAttachment(middle, -margin);
+    fdl.top = previous == null ? new FormAttachment(0, margin) : new FormAttachment(previous, margin);
+    label.setLayoutData(fdl);
+
+    Combo combo = new Combo(composite, SWT.READ_ONLY);
+    PropsUi.setLook(combo);
+    EnumDialogSupport.populateCombo(combo, enumClass);
+    FormData fd = new FormData();
+    fd.left = new FormAttachment(middle, 0);
+    fd.right = new FormAttachment(100, 0);
+    fd.top = fdl.top;
+    combo.setLayoutData(fd);
+    return combo;
   }
 
   private Combo addEnumCombo(
@@ -522,7 +559,8 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
   }
 
   private void updateSourcePanels() {
-    DvSourceType type = parseEnum(wSourceType.getText(), DvSourceType.class, DvSourceType.CSV);
+    DvSourceType type =
+        EnumDialogSupport.readCombo(wSourceType, DvSourceType.class, DvSourceType.CSV);
     boolean database = type == DvSourceType.DATABASE;
     boolean iceberg = type == DvSourceType.ICEBERG;
     boolean file = !database && !iceberg;
@@ -592,7 +630,7 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     wNamespaceValue.setText(Const.NVL(input.getNamespaceValue(), ""));
     wNameValue.setText(Const.NVL(input.getNameValue(), ""));
     wDescriptionValue.setText(Const.NVL(input.getDescriptionValue(), ""));
-    selectEnum(wSourceType, input.getSourceType());
+    EnumDialogSupport.selectCombo(wSourceType, input.getSourceType());
     wDatabaseConnection.setText(Const.NVL(input.getDatabaseConnectionName(), ""));
     wSchemaName.setText(Const.NVL(input.getSchemaName(), ""));
     wTableName.setText(Const.NVL(input.getTableName(), ""));
@@ -628,7 +666,7 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     wSourceIndicator.setText(Const.NVL(input.getSourceIndicator(), ""));
     wSourceIndicatorFieldName.setText(Const.NVL(input.getSourceIndicatorField(), ""));
     wGroup.setText(Const.NVL(input.getGroup(), ""));
-    selectEnum(wDeliveryType, input.getDeliveryType());
+    EnumDialogSupport.selectCombo(wDeliveryType, input.getDeliveryType());
     wFieldCountField.setText(Const.NVL(input.getFieldCountField(), ""));
     wWrittenToCatalogField.setText(Const.NVL(input.getWrittenToCatalogField(), ""));
     wCatalogNamespaceField.setText(Const.NVL(input.getCatalogNamespaceField(), ""));
@@ -656,7 +694,8 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     input.setNamespaceValue(wNamespaceValue.getText());
     input.setNameValue(wNameValue.getText());
     input.setDescriptionValue(wDescriptionValue.getText());
-    input.setSourceType(parseEnum(wSourceType.getText(), DvSourceType.class, DvSourceType.CSV));
+    input.setSourceType(
+        EnumDialogSupport.readCombo(wSourceType, DvSourceType.class, DvSourceType.CSV));
     input.setDatabaseConnectionName(wDatabaseConnection.getText());
     input.setSchemaName(wSchemaName.getText());
     input.setTableName(wTableName.getText());
@@ -692,7 +731,9 @@ public class RecordDefinitionOutputDialog extends BaseTransformDialog {
     input.setSourceIndicator(wSourceIndicator.getText());
     input.setSourceIndicatorField(wSourceIndicatorFieldName.getText());
     input.setGroup(wGroup.getText());
-    input.setDeliveryType(parseEnum(wDeliveryType.getText(), DvSourceDeliveryType.class, DvSourceDeliveryType.CHANGES_ONLY));
+    input.setDeliveryType(
+        EnumDialogSupport.readCombo(
+            wDeliveryType, DvSourceDeliveryType.class, DvSourceDeliveryType.CHANGES_ONLY));
     input.setFieldCountField(wFieldCountField.getText());
     input.setWrittenToCatalogField(wWrittenToCatalogField.getText());
     input.setCatalogNamespaceField(wCatalogNamespaceField.getText());

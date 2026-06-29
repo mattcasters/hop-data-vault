@@ -18,6 +18,7 @@
 
 package org.apache.hop.datavault.hopgui.file.vault;
 
+import org.apache.hop.datavault.hopgui.EnumDialogSupport;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.i18n.BaseMessages;
@@ -84,9 +85,7 @@ public class DvNoteDialog {
 
     wType = new Combo(shell, SWT.READ_ONLY | SWT.BORDER);
     PropsUi.setLook(wType);
-    for (DvNoteType type : DvNoteType.values()) {
-      wType.add(BaseMessages.getString(PKG, "DvNoteDialog.Type." + type.name()));
-    }
+    EnumDialogSupport.populateCombo(wType, DvNoteType.class);
     FormData fdType = new FormData();
     fdType.left = new FormAttachment(middle, margin);
     fdType.top = new FormAttachment(0, margin);
@@ -129,12 +128,13 @@ public class DvNoteDialog {
 
   private void getData() {
     DvNoteType type = input.getNoteType() != null ? input.getNoteType() : DvNoteType.GENERAL;
-    wType.select(type.ordinal());
+    EnumDialogSupport.selectCombo(wType, type);
     wText.setText(input.getText() != null ? input.getText() : "");
   }
 
   private void ok() {
-    input.setNoteType(DvNoteType.values()[wType.getSelectionIndex()]);
+    input.setNoteType(
+        EnumDialogSupport.readCombo(wType, DvNoteType.class, DvNoteType.GENERAL));
     input.setText(wText.getText());
     ok = true;
     dispose();

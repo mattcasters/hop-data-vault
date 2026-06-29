@@ -37,7 +37,8 @@ public abstract class DvSourceBase implements IDvSource {
   @HopMetadataProperty(key = "field", groupKey = "fields")
   protected List<SourceField> fields = new ArrayList<>();
 
-  @HopMetadataProperty protected DvSourceType sourceType;
+  @HopMetadataProperty(storeWithCode = true)
+  protected DvSourceType sourceType;
 
   protected final ChangedFlag changedFlag = new ChangedFlag();
 

@@ -18,10 +18,70 @@
 
 package org.apache.hop.datavault.metadata.dimensional;
 
-/** Kimball fact table (scaffold). */
-public class DmFact extends DmTableBase {
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.dimensional.pipeline.DmFactLikeLoadBuilder;
+import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.PipelineMeta;
+
+/** Kimball fact table. */
+@Getter
+@Setter
+public class DmFact extends DmTableBase implements IDmFactLikeTable {
+
+  @HopMetadataProperty(key = "dimension_role", groupKey = "dimension_roles")
+  private List<DmFactDimensionRole> dimensionRoles = new ArrayList<>();
+
+  @HopMetadataProperty(key = "measure", groupKey = "measures")
+  private List<DmFactMeasure> measures = new ArrayList<>();
 
   public DmFact() {
     super(DmTableType.FACT);
+  }
+
+  public List<DmFactDimensionRole> getDimensionRolesOrEmpty() {
+    return dimensionRoles != null ? dimensionRoles : List.of();
+  }
+
+  public List<DmFactMeasure> getMeasuresOrEmpty() {
+    return measures != null ? measures : List.of();
+  }
+
+  @Override
+  public void check(
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DimensionalModel model) {
+    super.check(remarks, metadataProvider, variables, model);
+    DmValidationSupport.validateFact(remarks, this, model, metadataProvider, variables);
+  }
+
+  @Override
+  public IRowMeta getTargetTableLayout(
+      IHopMetadataProvider metadataProvider, IVariables variables, DimensionalModel model)
+      throws HopException {
+    DimensionalConfiguration config =
+        model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
+    return DmLayoutSupport.buildFactTargetTableLayout(this, model, config, variables);
+  }
+
+  @Override
+  public List<PipelineMeta> generateUpdatePipelines(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DimensionalModel model,
+      Date loadTimestamp)
+      throws HopException {
+    return List.of(
+        DmFactLikeLoadBuilder.generatePipeline(metadataProvider, variables, model, this));
   }
 }

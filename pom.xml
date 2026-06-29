@@ -111,6 +111,21 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-insertupdate</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-dimensionlookup</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-combinationlookup</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
       <artifactId>hop-transform-mergerows</artifactId>
       <version>${hop.version}</version>
     </dependency>

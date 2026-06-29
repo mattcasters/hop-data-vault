@@ -18,10 +18,37 @@
 
 package org.apache.hop.datavault.layout;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /** ELK layout algorithm selection for {@link ElkLayout}. */
-public enum ElkLayoutAlgorithm {
-  /** Sugiyama layered layout for directed graphs with edges. */
-  LAYERED,
-  /** Left-to-right rectangle packing for unconnected boxes (edges are ignored). */
-  RECT_PACKING
+@Getter
+public enum ElkLayoutAlgorithm implements IEnumHasCodeAndDescription {
+  LAYERED("LAYERED", BaseMessages.getString(ElkLayoutAlgorithm.class, "ElkLayoutAlgorithm.Layered")),
+  RECT_PACKING(
+      "RECT_PACKING",
+      BaseMessages.getString(ElkLayoutAlgorithm.class, "ElkLayoutAlgorithm.RectPacking"));
+
+  private final String code;
+  private final String description;
+
+  ElkLayoutAlgorithm(String code, String description) {
+    this.code = code;
+    this.description = description;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(ElkLayoutAlgorithm.class);
+  }
+
+  public static ElkLayoutAlgorithm lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        ElkLayoutAlgorithm.class, description, LAYERED);
+  }
+
+  public static ElkLayoutAlgorithm lookupCode(String code) {
+    return IEnumHasCode.lookupCode(ElkLayoutAlgorithm.class, code, LAYERED);
+  }
 }

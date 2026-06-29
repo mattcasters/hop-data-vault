@@ -18,6 +18,8 @@
 
 package org.apache.hop.datavault.hopgui.file.dimensional;
 
+import java.util.HashMap;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.Const;
@@ -26,9 +28,18 @@ import org.apache.hop.core.gui.AreaOwner.AreaType;
 import org.apache.hop.core.gui.IGc;
 import org.apache.hop.core.gui.IGc.EFont;
 import org.apache.hop.core.gui.IGc.EColor;
+import org.apache.hop.core.gui.IGc.ELineStyle;
 import org.apache.hop.core.gui.Point;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.hopgui.file.vault.BasePainter;
+import org.apache.hop.datavault.metadata.dimensional.DmBridge;
+import org.apache.hop.datavault.metadata.dimensional.DmBridgeDimensionRef;
+import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
+import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
+import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
+import org.apache.hop.datavault.metadata.dimensional.IDmFactLikeTable;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.DmTableType;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
@@ -36,7 +47,7 @@ import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
-/** Paints a dimensional model canvas with dimension/fact tables and notes (scaffold). */
+/** Paints a dimensional model canvas with dimension/fact tables, relationships, and notes. */
 @Getter
 @Setter
 public class DimensionalModelPainter extends BasePainter {
@@ -45,11 +56,24 @@ public class DimensionalModelPainter extends BasePainter {
 
   private final DimensionalModel model;
   private String mouseOverTableName;
+  private Map<String, IDmTable> tableByName = new HashMap<>();
+  private IDmTable startRelationshipTable;
+  private Point relationshipDragEndLocation;
+  private IDmTable candidateRelationshipTarget;
 
   public DimensionalModelPainter(
       DimensionalModel model, IGc gc, IVariables variables, int width, int height) {
     super(gc, variables, model, new Point(width, height));
     this.model = model;
+  }
+
+  public void setRelationshipDragInfo(
+      IDmTable startRelationshipTable,
+      Point relationshipDragEndLocation,
+      IDmTable candidateRelationshipTarget) {
+    this.startRelationshipTable = startRelationshipTable;
+    this.relationshipDragEndLocation = relationshipDragEndLocation;
+    this.candidateRelationshipTarget = candidateRelationshipTarget;
   }
 
   public void drawDimensionalModel(IHopMetadataProvider metadataProvider) {
@@ -59,6 +83,7 @@ public class DimensionalModelPainter extends BasePainter {
     if (areaOwners != null) {
       areaOwners.clear();
     }
+    buildTableIndex();
 
     gc.setTransform(0.0f, 0.0f, 1.0f);
     gc.setBackground(EColor.BACKGROUND);
@@ -70,6 +95,8 @@ public class DimensionalModelPainter extends BasePainter {
       drawGrid();
     }
 
+    drawRelationshipLines();
+    drawRelationshipCandidateLine();
     drawNotes(model.getNotes());
     drawTables();
     drawRect(selectionRegion);
@@ -82,6 +109,171 @@ public class DimensionalModelPainter extends BasePainter {
     }
 
     drawNavigationView();
+  }
+
+  private void buildTableIndex() {
+    tableByName = new HashMap<>();
+    if (model == null) {
+      return;
+    }
+    for (IDmTable table : model.getTables()) {
+      if (table != null && !Utils.isEmpty(table.getName())) {
+        tableByName.put(table.getName(), table);
+      }
+    }
+  }
+
+  private void drawRelationshipLines() {
+    gc.setForeground(EColor.BLACK);
+    gc.setLineWidth(1);
+    for (IDmTable table : model.getTables()) {
+      if (table instanceof IDmFactLikeTable factLike) {
+        drawFactDimensionConnections(factLike);
+      }
+      if (table instanceof DmBridge bridge) {
+        drawBridgeDimensionConnections(bridge);
+      }
+      if (table instanceof DmDimension dimension) {
+        drawOutriggerConnections(dimension);
+      }
+    }
+  }
+
+  private void drawFactDimensionConnections(IDmFactLikeTable fact) {
+    Point factLocation = fact.getLocation();
+    if (factLocation == null) {
+      return;
+    }
+    Point factCenter = boxCenter(fact, factLocation);
+    for (DmFactDimensionRole role : fact.getDimensionRolesOrEmpty()) {
+      if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
+        continue;
+      }
+      IDmTable dimension = tableByName.get(role.getDimensionTableName());
+      if (dimension == null || dimension.getLocation() == null) {
+        continue;
+      }
+      Point dimensionCenter = boxCenter(dimension, dimension.getLocation());
+      gc.drawLine(dimensionCenter.x, dimensionCenter.y, factCenter.x, factCenter.y);
+    }
+  }
+
+  private void drawBridgeDimensionConnections(DmBridge bridge) {
+    Point bridgeLocation = bridge.getLocation();
+    if (bridgeLocation == null) {
+      return;
+    }
+    Point bridgeCenter = boxCenter(bridge, bridgeLocation);
+    for (DmBridgeDimensionRef ref : bridge.getDimensionRefsOrEmpty()) {
+      if (ref == null || Utils.isEmpty(ref.getDimensionTableName())) {
+        continue;
+      }
+      IDmTable dimension = tableByName.get(ref.getDimensionTableName());
+      if (dimension == null || dimension.getLocation() == null) {
+        continue;
+      }
+      Point dimensionCenter = boxCenter(dimension, dimension.getLocation());
+      gc.drawLine(dimensionCenter.x, dimensionCenter.y, bridgeCenter.x, bridgeCenter.y);
+    }
+  }
+
+  private void drawOutriggerConnections(DmDimension dimension) {
+    Point dimensionLocation = dimension.getLocation();
+    if (dimensionLocation == null) {
+      return;
+    }
+    Point dimensionCenter = boxCenter(dimension, dimensionLocation);
+    for (DmDimensionOutriggerRef outrigger : dimension.getOutriggersOrEmpty()) {
+      if (outrigger == null || Utils.isEmpty(outrigger.getDimensionTableName())) {
+        continue;
+      }
+      IDmTable outriggerTable = tableByName.get(outrigger.getDimensionTableName());
+      if (outriggerTable == null || outriggerTable.getLocation() == null) {
+        continue;
+      }
+      Point outriggerCenter = boxCenter(outriggerTable, outriggerTable.getLocation());
+      gc.drawLine(dimensionCenter.x, dimensionCenter.y, outriggerCenter.x, outriggerCenter.y);
+    }
+  }
+
+  private void drawRelationshipCandidateLine() {
+    if (startRelationshipTable == null || relationshipDragEndLocation == null) {
+      return;
+    }
+    Point startCenter = boxCenter(startRelationshipTable, startRelationshipTable.getLocation());
+    if (startCenter == null) {
+      return;
+    }
+    Point logEnd = screenDragEndToLogical(relationshipDragEndLocation);
+    boolean validTarget = isValidRelationshipPair(startRelationshipTable, candidateRelationshipTarget);
+    try {
+      gc.setForeground(validTarget ? EColor.BLUE : EColor.DARKGRAY);
+      gc.setLineWidth(2);
+      gc.setLineStyle(ELineStyle.DASH);
+      gc.drawLine(startCenter.x, startCenter.y, logEnd.x, logEnd.y);
+      gc.setLineStyle(ELineStyle.SOLID);
+      int marker = 4;
+      gc.fillRoundRectangle(logEnd.x - marker, logEnd.y - marker, marker * 2, marker * 2, marker * 2, marker * 2);
+    } finally {
+      gc.setLineWidth(1);
+      gc.setLineStyle(ELineStyle.SOLID);
+      gc.setForeground(EColor.BLACK);
+    }
+  }
+
+  private Point screenDragEndToLogical(Point screenEnd) {
+    if (magnification <= 0) {
+      return new Point(
+          (int) (screenEnd.x - offset.x), (int) (screenEnd.y - offset.y));
+    }
+    return new Point(
+        (int) ((screenEnd.x - offset.x) / magnification),
+        (int) ((screenEnd.y - offset.y) / magnification));
+  }
+
+  private static boolean isDimensionLike(IDmTable table) {
+    return table instanceof DmDimension || table instanceof DmJunkDimension;
+  }
+
+  private static boolean isFactLikeTable(IDmTable table) {
+    return table instanceof IDmFactLikeTable;
+  }
+
+  private static boolean isBridgeTable(IDmTable table) {
+    return table instanceof DmBridge;
+  }
+
+  private static boolean isValidRelationshipPair(IDmTable a, IDmTable b) {
+    if (a == null || b == null || a == b) {
+      return false;
+    }
+    if (isFactLikeTable(a) && isDimensionLike(b)) {
+      return true;
+    }
+    if (isFactLikeTable(b) && isDimensionLike(a)) {
+      return true;
+    }
+    if (isBridgeTable(a) && isDimensionLike(b)) {
+      return true;
+    }
+    if (isBridgeTable(b) && isDimensionLike(a)) {
+      return true;
+    }
+    return a instanceof DmDimension && b instanceof DmDimension;
+  }
+
+  private Point boxCenter(IDmTable table, Point location) {
+    if (location == null) {
+      return null;
+    }
+    int boxWidth = 140;
+    int boxHeight = 70;
+    if (table instanceof DmTableBase base) {
+      boxWidth = Math.max(140, base.getDrawnBoxWidth());
+      boxHeight = Math.max(70, base.getDrawnBoxHeight());
+    }
+    Point screenLoc = real2screen(location.x, location.y);
+    return new Point(screenLoc.x + boxWidth / 2, screenLoc.y + boxHeight / 2);
   }
 
   @Override
@@ -174,10 +366,14 @@ public class DimensionalModelPainter extends BasePainter {
   }
 
   private static int[] tableTypeColor(DmTableType tableType) {
-    if (tableType == DmTableType.FACT) {
-      return new int[] {180, 100, 40};
-    }
-    return new int[] {60, 120, 180};
+    return switch (tableType) {
+      case FACT, PERIODIC_SNAPSHOT_FACT, ACCUMULATING_SNAPSHOT_FACT, AGGREGATE_FACT ->
+          new int[] {180, 100, 40};
+      case FACTLESS_FACT -> new int[] {200, 130, 60};
+      case JUNK_DIMENSION -> new int[] {120, 90, 160};
+      case BRIDGE -> new int[] {90, 150, 90};
+      case DIMENSION -> new int[] {60, 120, 180};
+    };
   }
 
   private void drawEmptyHint() {

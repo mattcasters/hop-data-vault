@@ -18,6 +18,9 @@
 
 package org.apache.hop.datavault.layout;
 
+import org.apache.hop.datavault.hopgui.EnumDialogSupport;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 import org.eclipse.swt.widgets.Combo;
 
 /** Shared parsing and enum helpers for {@link ElkLayout} editors. */
@@ -49,41 +52,37 @@ public final class ElkLayoutValues {
     }
   }
 
-  public static <E extends Enum<E>> E parseEnum(String value, Class<E> enumClass) {
+  public static <E extends Enum<E> & IEnumHasCodeAndDescription> E parseEnum(
+      String value, Class<E> enumClass) {
+    E defaultValue = enumClass.getEnumConstants()[0];
     if (value == null || value.isBlank()) {
-      return enumClass.getEnumConstants()[0];
+      return defaultValue;
     }
-    try {
-      return Enum.valueOf(enumClass, value.trim());
-    } catch (IllegalArgumentException e) {
-      return enumClass.getEnumConstants()[0];
+    E byDescription =
+        IEnumHasCodeAndDescription.lookupDescription(enumClass, value.trim(), null);
+    if (byDescription != null) {
+      return byDescription;
     }
+    return IEnumHasCode.lookupCode(enumClass, value.trim(), defaultValue);
   }
 
-  public static <E extends Enum<E>> void populateEnumCombo(Combo combo, Class<E> enumClass) {
-    for (E constant : enumClass.getEnumConstants()) {
-      combo.add(constant.name());
-    }
+  public static <E extends Enum<E> & IEnumHasCodeAndDescription> void populateEnumCombo(
+      Combo combo, Class<E> enumClass) {
+    EnumDialogSupport.populateCombo(combo, enumClass);
   }
 
-  public static void selectEnumCombo(Combo combo, Enum<?> value) {
+  public static <E extends Enum<E> & IEnumHasCodeAndDescription> void selectEnumCombo(
+      Combo combo, E value) {
     if (value == null) {
       combo.select(0);
       return;
     }
-    int index = combo.indexOf(value.name());
-    combo.select(index >= 0 ? index : 0);
+    EnumDialogSupport.selectCombo(combo, value);
   }
 
   /** Reads the selected enum constant from a combo, falling back to the first constant. */
-  public static <E extends Enum<E>> E getSelectedEnum(Combo combo, Class<E> enumClass) {
-    if (combo == null || combo.isDisposed()) {
-      return enumClass.getEnumConstants()[0];
-    }
-    int index = combo.getSelectionIndex();
-    if (index >= 0 && index < combo.getItemCount()) {
-      return parseEnum(combo.getItem(index), enumClass);
-    }
-    return parseEnum(combo.getText(), enumClass);
+  public static <E extends Enum<E> & IEnumHasCodeAndDescription> E getSelectedEnum(
+      Combo combo, Class<E> enumClass) {
+    return EnumDialogSupport.readCombo(combo, enumClass, enumClass.getEnumConstants()[0]);
   }
 }

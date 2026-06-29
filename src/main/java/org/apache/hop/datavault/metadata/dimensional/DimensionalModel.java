@@ -80,6 +80,11 @@ public class DimensionalModel extends HopMetadataBase
   @Setter(AccessLevel.NONE)
   private List<IDmTable> tables = new ArrayList<>();
 
+  @HopMetadataProperty(key = "conformed_dimension", groupKey = "conformed_dimensions")
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
+  private List<DmConformedDimensionRef> conformedDimensions = new ArrayList<>();
+
   @HopMetadataProperty(key = "note", groupKey = "notes")
   @Getter(AccessLevel.NONE)
   @Setter(AccessLevel.NONE)
@@ -121,8 +126,40 @@ public class DimensionalModel extends HopMetadataBase
     this.notes = notes != null ? notes : new ArrayList<>();
   }
 
+  public @NonNull List<DmConformedDimensionRef> getConformedDimensions() {
+    if (conformedDimensions == null) {
+      conformedDimensions = new ArrayList<>();
+    }
+    return conformedDimensions;
+  }
+
+  public void setConformedDimensions(List<DmConformedDimensionRef> conformedDimensions) {
+    this.conformedDimensions = conformedDimensions != null ? conformedDimensions : new ArrayList<>();
+  }
+
+  public @NonNull List<DmConformedDimensionRef> getConformedDimensionsOrEmpty() {
+    return getConformedDimensions();
+  }
+
+  public DmDimension findConformedDimension(String logicalName) {
+    if (Utils.isEmpty(logicalName)) {
+      return null;
+    }
+    for (DmConformedDimensionRef ref : getConformedDimensionsOrEmpty()) {
+      if (ref == null || !logicalName.equals(ref.getLogicalName())) {
+        continue;
+      }
+      IDmTable table = findTable(ref.getDimensionTableName());
+      if (table instanceof DmDimension dimension) {
+        return dimension;
+      }
+    }
+    return null;
+  }
+
   private void ensureLists() {
     setTables(tables);
+    setConformedDimensions(conformedDimensions);
     setNotes(notes);
   }
 
@@ -202,6 +239,7 @@ public class DimensionalModel extends HopMetadataBase
 
   public List<ICheckResult> check(IHopMetadataProvider metadataProvider, IVariables variables) {
     List<ICheckResult> remarks = new ArrayList<>();
+    DmValidationSupport.validateConfiguration(remarks, this, metadataProvider, variables);
     if (getTables().isEmpty()) {
       remarks.add(
           new CheckResult(

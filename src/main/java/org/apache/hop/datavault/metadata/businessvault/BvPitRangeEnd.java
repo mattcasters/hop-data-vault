@@ -18,9 +18,39 @@
 
 package org.apache.hop.datavault.metadata.businessvault;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /** How the PIT snapshot spine end date is resolved. */
-public enum BvPitRangeEnd {
-  NOW,
-  FIXED_DATE,
-  NOW_MINUS_HORIZON
+@Getter
+public enum BvPitRangeEnd implements IEnumHasCodeAndDescription {
+  NOW("NOW", BaseMessages.getString(BvPitRangeEnd.class, "BvPitRangeEnd.Now")),
+  FIXED_DATE(
+      "FIXED_DATE", BaseMessages.getString(BvPitRangeEnd.class, "BvPitRangeEnd.FixedDate")),
+  NOW_MINUS_HORIZON(
+      "NOW_MINUS_HORIZON",
+      BaseMessages.getString(BvPitRangeEnd.class, "BvPitRangeEnd.NowMinusHorizon"));
+
+  private final String code;
+  private final String description;
+
+  BvPitRangeEnd(String code, String description) {
+    this.code = code;
+    this.description = description;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(BvPitRangeEnd.class);
+  }
+
+  public static BvPitRangeEnd lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        BvPitRangeEnd.class, description, NOW_MINUS_HORIZON);
+  }
+
+  public static BvPitRangeEnd lookupCode(String code) {
+    return IEnumHasCode.lookupCode(BvPitRangeEnd.class, code, NOW_MINUS_HORIZON);
+  }
 }

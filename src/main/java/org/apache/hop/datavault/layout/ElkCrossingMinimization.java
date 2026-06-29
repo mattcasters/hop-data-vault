@@ -18,21 +18,53 @@
 
 package org.apache.hop.datavault.layout;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 import org.eclipse.elk.alg.layered.options.CrossingMinimizationStrategy;
 
 /** Crossing minimization strategy for ELK layered layout. */
-public enum ElkCrossingMinimization {
-  LAYER_SWEEP(CrossingMinimizationStrategy.LAYER_SWEEP),
-  INTERACTIVE(CrossingMinimizationStrategy.INTERACTIVE),
-  NONE(CrossingMinimizationStrategy.NONE);
+@Getter
+public enum ElkCrossingMinimization implements IEnumHasCodeAndDescription {
+  LAYER_SWEEP(
+      "LAYER_SWEEP",
+      BaseMessages.getString(ElkCrossingMinimization.class, "ElkCrossingMinimization.LayerSweep"),
+      CrossingMinimizationStrategy.LAYER_SWEEP),
+  INTERACTIVE(
+      "INTERACTIVE",
+      BaseMessages.getString(ElkCrossingMinimization.class, "ElkCrossingMinimization.Interactive"),
+      CrossingMinimizationStrategy.INTERACTIVE),
+  NONE(
+      "NONE",
+      BaseMessages.getString(ElkCrossingMinimization.class, "ElkCrossingMinimization.None"),
+      CrossingMinimizationStrategy.NONE);
 
+  private final String code;
+  private final String description;
   private final CrossingMinimizationStrategy elkStrategy;
 
-  ElkCrossingMinimization(CrossingMinimizationStrategy elkStrategy) {
+  ElkCrossingMinimization(
+      String code, String description, CrossingMinimizationStrategy elkStrategy) {
+    this.code = code;
+    this.description = description;
     this.elkStrategy = elkStrategy;
   }
 
   public CrossingMinimizationStrategy toElkStrategy() {
     return elkStrategy;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(ElkCrossingMinimization.class);
+  }
+
+  public static ElkCrossingMinimization lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        ElkCrossingMinimization.class, description, LAYER_SWEEP);
+  }
+
+  public static ElkCrossingMinimization lookupCode(String code) {
+    return IEnumHasCode.lookupCode(ElkCrossingMinimization.class, code, LAYER_SWEEP);
   }
 }

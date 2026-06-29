@@ -1,0 +1,199 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.hop.datavault.metadata.dimensional.pipeline;
+
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
+import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionAttribute;
+import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
+import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
+import org.apache.hop.datavault.metadata.dimensional.DmScdUpdatePolicy;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.PipelineHopMeta;
+import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.pipeline.transform.TransformMeta;
+import org.apache.hop.pipeline.transforms.dimensionlookup.DimensionLookupMeta;
+
+/** Builds Dimension Lookup transforms for fact FK resolution and SCD3/hybrid dimensions. */
+public final class DmDimensionLookupBuilder {
+
+  private DmDimensionLookupBuilder() {}
+
+  public static PipelineMeta generateHybridDimensionPipeline(
+      IHopMetadataProvider metadataProvider,
+      org.apache.hop.core.variables.IVariables variables,
+      DimensionalModel model,
+      DmDimension dimension)
+      throws HopException {
+    DmPipelineBuilderSupport.BuildContext ctx =
+        DmPipelineBuilderSupport.BuildContext.create(metadataProvider, variables, model, dimension);
+    if (ctx == null) {
+      throw new HopException(
+          "Unable to create build context for hybrid dimension " + dimension.getName());
+    }
+
+    PipelineMeta pipelineMeta = new PipelineMeta();
+    pipelineMeta.setName(ctx.pipelineName);
+
+    TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceTableInput(ctx, pipelineMeta);
+    addHybridDimensionLookup(ctx, pipelineMeta, sourceTransform, dimension);
+
+    DmGeneratedPipelineSupport.applyLayout(pipelineMeta);
+    return pipelineMeta;
+  }
+
+  public static TransformMeta addFactDimensionLookup(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      DmDimension dimension,
+      DmFactDimensionRole role) {
+    if (predecessor == null || dimension == null || role == null) {
+      return null;
+    }
+
+    DimensionLookupMeta lookupMeta = new DimensionLookupMeta();
+    lookupMeta.setConnection(ctx.targetDbName);
+    lookupMeta.setTableName(
+        !Utils.isEmpty(dimension.getTableName()) ? dimension.getTableName() : dimension.getName());
+    lookupMeta.setUpdate(false);
+    lookupMeta.setFields(buildLookupOnlyFields(ctx, dimension, role));
+
+    String transformName =
+        "lookup_"
+            + (!Utils.isEmpty(role.getRoleName()) ? role.getRoleName() : dimension.getName());
+    TransformMeta tm = new TransformMeta("DimensionLookup", transformName, lookupMeta);
+    tm.setLocation(
+        predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
+        predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private static TransformMeta addHybridDimensionLookup(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      DmDimension dimension) {
+    DimensionLookupMeta lookupMeta = new DimensionLookupMeta();
+    lookupMeta.setConnection(ctx.targetDbName);
+    lookupMeta.setTableName(ctx.targetTableName);
+    lookupMeta.setUpdate(true);
+    lookupMeta.setFields(buildHybridFields(ctx, dimension));
+    lookupMeta.setCommitSize(
+        Integer.parseInt(ctx.config.resolveTargetTableCommitSize(ctx.variables)));
+
+    TransformMeta tm =
+        new TransformMeta("DimensionLookup", "dim_update_" + ctx.targetTableName, lookupMeta);
+    tm.setLocation(
+        predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
+        predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private static DimensionLookupMeta.DLFields buildLookupOnlyFields(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      DmDimension dimension,
+      DmFactDimensionRole role) {
+    DimensionLookupMeta.DLFields dlFields = new DimensionLookupMeta.DLFields();
+    dlFields.setKeys(buildNaturalKeys(dimension, ctx));
+
+    DimensionalConfiguration config = ctx.config;
+    String dimKeyField = config.resolveDimKeyField(ctx.variables);
+    String fkColumn =
+        DmLayoutSupport.defaultFactForeignKeyColumn(dimension, role, config, ctx.variables);
+
+    DimensionLookupMeta.DLReturn returns = new DimensionLookupMeta.DLReturn();
+    returns.setKeyField(dimKeyField);
+    returns.setKeyRename(fkColumn);
+    returns.setCreationMethod(DimensionLookupMeta.TechnicalKeyCreationMethod.AUTO_INCREMENT);
+    dlFields.setReturns(returns);
+    return dlFields;
+  }
+
+  private static DimensionLookupMeta.DLFields buildHybridFields(
+      DmPipelineBuilderSupport.BuildContext ctx, DmDimension dimension) {
+    DimensionLookupMeta.DLFields dlFields = new DimensionLookupMeta.DLFields();
+    dlFields.setKeys(buildNaturalKeys(dimension, ctx));
+
+    DimensionalConfiguration config = ctx.config;
+    DimensionLookupMeta.DLDate date = new DimensionLookupMeta.DLDate();
+    date.setName(config.resolveLoadDateField(ctx.variables));
+    date.setFrom(config.resolveDateFromField(ctx.variables));
+    date.setTo(config.resolveDateToField(ctx.variables));
+    dlFields.setDate(date);
+
+    DimensionLookupMeta.DLReturn returns = new DimensionLookupMeta.DLReturn();
+    returns.setKeyField(config.resolveDimKeyField(ctx.variables));
+    returns.setVersionField(config.resolveVersionField(ctx.variables));
+    returns.setCreationMethod(DimensionLookupMeta.TechnicalKeyCreationMethod.AUTO_INCREMENT);
+    dlFields.setReturns(returns);
+
+    List<DimensionLookupMeta.DLField> attributeFields = new ArrayList<>();
+    for (DmDimensionAttribute attribute : dimension.getAttributesOrEmpty()) {
+      if (attribute == null || Utils.isEmpty(attribute.getFieldName())) {
+        continue;
+      }
+      String fieldName = attribute.getFieldName();
+      if (ctx.variables != null) {
+        fieldName = ctx.variables.resolve(fieldName);
+      }
+      DimensionLookupMeta.DLField dlField = new DimensionLookupMeta.DLField();
+      dlField.setName(fieldName);
+      dlField.setLookup(fieldName);
+      dlField.setUpdateType(resolveUpdateType(attribute));
+      if (attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_PREVIOUS) {
+        dlField.setUpdate(DmLayoutSupport.resolvePreviousFieldName(attribute, ctx.variables));
+      }
+      attributeFields.add(dlField);
+    }
+    dlFields.setFields(attributeFields);
+    return dlFields;
+  }
+
+  private static List<DimensionLookupMeta.DLKey> buildNaturalKeys(
+      DmDimension dimension, DmPipelineBuilderSupport.BuildContext ctx) {
+    List<DimensionLookupMeta.DLKey> keys = new ArrayList<>();
+    for (String naturalKey : DmPipelineBuilderSupport.naturalKeyFieldNames(dimension, ctx.variables)) {
+      DimensionLookupMeta.DLKey key = new DimensionLookupMeta.DLKey();
+      key.setName(naturalKey);
+      key.setLookup(naturalKey);
+      keys.add(key);
+    }
+    return keys;
+  }
+
+  private static DimensionLookupMeta.DimensionUpdateType resolveUpdateType(
+      DmDimensionAttribute attribute) {
+    DmScdUpdatePolicy policy =
+        attribute.getScdUpdatePolicy() != null ? attribute.getScdUpdatePolicy() : DmScdUpdatePolicy.TYPE1;
+    return switch (policy) {
+      case TYPE3_CURRENT, TYPE1 -> DimensionLookupMeta.DimensionUpdateType.UPDATE;
+      case TYPE3_PREVIOUS -> DimensionLookupMeta.DimensionUpdateType.LAST_VERSION;
+      case TYPE2 -> DimensionLookupMeta.DimensionUpdateType.INSERT;
+    };
+  }
+}

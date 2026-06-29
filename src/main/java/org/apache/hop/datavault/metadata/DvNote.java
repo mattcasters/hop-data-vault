@@ -35,7 +35,8 @@ public class DvNote implements IGuiPosition, IGuiSize, Cloneable {
 
   @HopMetadataProperty private String text;
 
-  @HopMetadataProperty private DvNoteType noteType = DvNoteType.GENERAL;
+  @HopMetadataProperty(storeWithCode = true)
+  private DvNoteType noteType = DvNoteType.GENERAL;
 
   @HopMetadataProperty(inline = true)
   private Point location = new Point(50, 50);

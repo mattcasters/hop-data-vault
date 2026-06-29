@@ -150,7 +150,7 @@ public final class RecordSourceIndicatorSupport {
     if (deliveryType == null) {
       return "";
     }
-    return deliveryType.name();
+    return deliveryType.getDescription();
   }
 
   public static org.apache.hop.datavault.metadata.DvSourceDeliveryType parseDeliveryType(
@@ -158,12 +158,13 @@ public final class RecordSourceIndicatorSupport {
     if (Utils.isEmpty(value)) {
       return org.apache.hop.datavault.metadata.DvSourceDeliveryType.CHANGES_ONLY;
     }
-    try {
-      return org.apache.hop.datavault.metadata.DvSourceDeliveryType.valueOf(
-          value.trim().toUpperCase(Locale.ROOT));
-    } catch (IllegalArgumentException ignored) {
-      return org.apache.hop.datavault.metadata.DvSourceDeliveryType.CHANGES_ONLY;
+    org.apache.hop.datavault.metadata.DvSourceDeliveryType byDescription =
+        org.apache.hop.datavault.metadata.DvSourceDeliveryType.lookupDescription(value.trim());
+    if (byDescription != null) {
+      return byDescription;
     }
+    return org.apache.hop.datavault.metadata.DvSourceDeliveryType.lookupCode(
+        value.trim().toUpperCase(Locale.ROOT));
   }
 
   private static void applyResolved(

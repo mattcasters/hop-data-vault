@@ -637,7 +637,7 @@ public class HopGuiBvScd2TableDialog {
       TableItem item = new TableItem(wDerivatives.table, SWT.NONE);
       item.setText(1, derivative.getDvTableName());
       if (derivative.getDvTableType() != null) {
-        item.setText(2, derivative.getDvTableType().name());
+        item.setText(2, derivative.getDvTableType().getDescription());
       }
     }
     wDerivatives.removeEmptyRows();
@@ -697,10 +697,9 @@ public class HopGuiBvScd2TableDialog {
         }
       }
       if (dvType == null && !Utils.isEmpty(item.getText(2))) {
-        try {
-          dvType = DvTableType.valueOf(item.getText(2));
-        } catch (IllegalArgumentException ignored) {
-          // keep null
+        dvType = DvTableType.lookupDescription(item.getText(2));
+        if (dvType == null) {
+          dvType = DvTableType.lookupCode(item.getText(2));
         }
       }
       if (dvType != null

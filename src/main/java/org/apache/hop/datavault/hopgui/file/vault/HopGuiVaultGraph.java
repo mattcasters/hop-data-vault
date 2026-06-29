@@ -1305,6 +1305,22 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = "vault-graph-publish-dimensional-draft",
+      parentId = HopGuiVaultContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiVaultGraph.PublishDimensional.Name",
+      tooltip = "i18n::HopGuiVaultGraph.PublishDimensional.Tooltip",
+      image = "dimensional_model.svg",
+      category = "Export",
+      categoryOrder = "2")
+  public void publishDimensionalDraft(HopGuiVaultContext context) {
+    DataVaultModel realModel = context.getModel();
+    if (realModel != null) {
+      HopGuiDvDimensionalPublishSupport.publishDraftDimensionalModel(hopGui, realModel);
+    }
+  }
+
+  @GuiContextAction(
       id = "vault-graph-import-record-definitions",
       parentId = HopGuiVaultContext.CONTEXT_ID,
       type = GuiActionType.Create,

@@ -18,17 +18,38 @@
 
 package org.apache.hop.datavault.metadata;
 
+import lombok.Getter;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /**
  * How to normalize (case) the business key content before hashing.
  * This ensures consistent hash keys regardless of source case variations.
  */
-public enum HashContentCasing {
-  /** Convert to upper case before hashing (most common recommendation). */
-  UPPER,
+@Getter
+public enum HashContentCasing implements IEnumHasCodeAndDescription {
+  UPPER("UPPER", BaseMessages.getString(HashContentCasing.class, "HashContentCasing.Upper")),
+  LOWER("LOWER", BaseMessages.getString(HashContentCasing.class, "HashContentCasing.Lower")),
+  NONE("NONE", BaseMessages.getString(HashContentCasing.class, "HashContentCasing.None"));
 
-  /** Convert to lower case before hashing. */
-  LOWER,
+  private final String code;
+  private final String description;
 
-  /** Do not change case, hash the values as provided (use only if case is significant). */
-  NONE
+  HashContentCasing(String code, String description) {
+    this.code = code;
+    this.description = description;
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(HashContentCasing.class);
+  }
+
+  public static HashContentCasing lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(HashContentCasing.class, description, UPPER);
+  }
+
+  public static HashContentCasing lookupCode(String code) {
+    return IEnumHasCode.lookupCode(HashContentCasing.class, code, UPPER);
+  }
 }
