@@ -13,6 +13,8 @@ services:
       HOP_FILE_PATH: /project/tests/run-tests.hwf
       HOP_RUN_CONFIG: local
       HOP_RUN_PARAMETERS: METRICS_FOLDER=${METRICS_FOLDER:-/project/metrics/local}
+      HOP_ENVIRONMENT_NAME: ${HOP_ENVIRONMENT_NAME:-local-docker-postgres}
+      HOP_ENVIRONMENT_CONFIG_FILE_NAME_PATHS: ${HOP_ENVIRONMENT_CONFIG_FILE_NAME_PATHS:-/project/environments/local-docker-postgres.json}
       HOST_UID: ${HOST_UID:-0}
       HOST_GID: ${HOST_GID:-0}
     volumes:

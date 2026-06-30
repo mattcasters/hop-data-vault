@@ -25,12 +25,56 @@
 DOCKER_DIR="${SCRIPT_DIR}/docker"
 HOP_IMAGE_NAME="docker-hop:latest"
 HOP_COMPOSE_FILE="${DOCKER_DIR}/compose.hop.yml"
+HOP_POSTGRES_LOCAL_COMPOSE_FILE="${DOCKER_DIR}/compose.postgres-local.yml"
 HOP_SVG_COMPOSE_FILE="${DOCKER_DIR}/compose.svg.yml"
 METRICS_COMPOSE_FILE="${HOP_COMPOSE_FILE}"
+LOCAL_POSTGRES_HOST="${LOCAL_POSTGRES_HOST:-localhost}"
+LOCAL_POSTGRES_PORT="${LOCAL_POSTGRES_PORT:-54320}"
+LOCAL_POSTGRES_USER="${LOCAL_POSTGRES_USER:-test}"
+LOCAL_POSTGRES_DB="${LOCAL_POSTGRES_DB:-test}"
+LOCAL_POSTGRES_ENV_FILE="${LOCAL_POSTGRES_ENV_FILE:-/project/environments/local-docker-postgres.json}"
 REPO_ROOT="$(CDPATH= cd -- "${SCRIPT_DIR}/.." && pwd)"
 WORKSPACE_PREFIX="/workspace"
 METRICS_OVERVIEW_CSV="${SCRIPT_DIR}/metrics/metrics-overview.csv"
 COLLECT_METRICS_PIPELINE="/project/tests/shared/collect-metrics-results.hpl"
+
+local_postgres_ready() {
+  if command -v pg_isready >/dev/null 2>&1; then
+    pg_isready -h "${LOCAL_POSTGRES_HOST}" -p "${LOCAL_POSTGRES_PORT}" \
+      -U "${LOCAL_POSTGRES_USER}" -d "${LOCAL_POSTGRES_DB}" >/dev/null 2>&1
+    return $?
+  fi
+
+  if command -v nc >/dev/null 2>&1; then
+    nc -z "${LOCAL_POSTGRES_HOST}" "${LOCAL_POSTGRES_PORT}" >/dev/null 2>&1
+    return $?
+  fi
+
+  # bash /dev/tcp when available (common on Linux)
+  (echo >/dev/tcp/"${LOCAL_POSTGRES_HOST}"/"${LOCAL_POSTGRES_PORT}") >/dev/null 2>&1
+}
+
+wait_for_local_postgres() {
+  max_attempts="${1:-30}"
+  attempt=1
+  while [ "${attempt}" -le "${max_attempts}" ]; do
+    if local_postgres_ready; then
+      return 0
+    fi
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+  return 1
+}
+
+require_local_postgres() {
+  if local_postgres_ready; then
+    return 0
+  fi
+  echo "PostgreSQL is not reachable at ${LOCAL_POSTGRES_HOST}:${LOCAL_POSTGRES_PORT}." >&2
+  echo "Start the local test database with: ./run-postgres.sh up" >&2
+  return 1
+}
 
 workflow_arg_to_container_path() {
   workflow_arg="${1:-tests/run-tests.hwf}"
