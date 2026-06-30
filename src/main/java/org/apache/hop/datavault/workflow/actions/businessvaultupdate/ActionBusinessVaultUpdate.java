@@ -55,7 +55,8 @@ import org.apache.hop.datavault.hopgui.file.businessvault.HopBusinessVaultFileTy
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
-import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
+import org.apache.hop.datavault.metadata.DvModelBulkUpdateExecutionSupport;
+import org.apache.hop.datavault.metadata.DvTargetLoadMode;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvModelResolver;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
@@ -524,72 +525,46 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
       }
 
       if (!allPipelineMetas.isEmpty()) {
-        String stagingFolder =
-            resolve(resolveStagingFolder(pipelineStagingFolder, getVariables(), bvModel.getName()));
-        int parallelCopies =
-            DvPipelineOrchestratorSupport.resolveParallelCopies(
-                parallelPipelineCopies, getVariables());
-
-        logBasic(
-            BaseMessages.getString(
-                PKG,
-                "ActionBusinessVaultUpdate.Log.StagingPipelines",
-                stagingFolder,
-                allPipelineMetas.size()));
-        logBasic(
-            BaseMessages.getString(
-                PKG, "ActionBusinessVaultUpdate.Log.ParallelCopies", parallelCopies));
-
-        try {
-          DvPipelineOrchestratorSupport.prepareStagingFolder(stagingFolder, getVariables());
-          DvPipelineOrchestratorSupport.stagePipelines(
-              stagingFolder, getVariables(), allPipelineMetas);
-
-          PipelineMeta orchestrator =
-              DvPipelineOrchestratorSupport.buildOrchestratorPipeline(
-                  stagingFolder, realRunConfig, parallelCopies, bvModel.getName());
-
-          logBasic(
-              BaseMessages.getString(
-                  PKG,
-                  "ActionBusinessVaultUpdate.Log.RunningOrchestrator",
-                  orchestrator.getName(),
-                  realRunConfig));
-
-          Result orchestratorResult =
-              DvPipelineOrchestratorSupport.runOrchestrator(
-                  orchestrator,
+        DvModelBulkUpdateExecutionSupport.ExecutionOutcome outcome;
+        if (pipelineConfig.resolveTargetLoadMode() == DvTargetLoadMode.STAGING_FILE) {
+          DatabaseMeta targetDatabase =
+              BvTargetDatabaseSupport.loadTargetDatabase(getMetadataProvider(), pipelineConfig);
+          outcome =
+              DvModelBulkUpdateExecutionSupport.executeStagingFileUpdate(
+                  result,
+                  bvModel.getName(),
+                  pipelineConfig,
+                  allPipelineMetas,
                   realRunConfig,
-                  getLogLevel() != null ? getLogLevel() : LogLevel.BASIC,
+                  getLogLevel(),
+                  pipelineStagingFolder,
+                  targetDatabase,
+                  pipelineConfig.getTargetDatabase(),
+                  success,
+                  totalErrors,
+                  getVariables(),
+                  this,
+                  getMetadataProvider());
+        } else {
+          outcome =
+              DvModelBulkUpdateExecutionSupport.executeOrchestratorUpdate(
+                  result,
+                  bvModel.getName(),
+                  allPipelineMetas,
+                  realRunConfig,
+                  getLogLevel(),
+                  pipelineStagingFolder,
+                  parallelPipelineCopies,
                   resolve(metricsOutputFolder),
+                  success,
+                  totalErrors,
+                  getVariables(),
                   this,
                   getParentWorkflow(),
-                  getVariables(),
                   getMetadataProvider());
-
-          DvPipelineOrchestratorSupport.mergeResult(result, orchestratorResult);
-
-          if (orchestratorResult.getNrErrors() > 0 || !orchestratorResult.getResult()) {
-            logError(
-                BaseMessages.getString(PKG, "ActionBusinessVaultUpdate.Error.OrchestratorFailed"));
-            success = false;
-            totalErrors += orchestratorResult.getNrErrors();
-          }
-        } finally {
-          try {
-            DvPipelineOrchestratorSupport.cleanupStagingFolder(stagingFolder, getVariables());
-            logBasic(
-                BaseMessages.getString(
-                    PKG, "ActionBusinessVaultUpdate.Log.StagingCleanup", stagingFolder));
-          } catch (HopException e) {
-            logError(
-                BaseMessages.getString(
-                    PKG,
-                    "ActionBusinessVaultUpdate.Error.StagingCleanupFailed",
-                    stagingFolder),
-                e);
-          }
         }
+        success = outcome.success();
+        totalErrors = outcome.totalErrors();
       }
 
       return finishExecution(result, success, totalErrors, bvModel, dvModel);

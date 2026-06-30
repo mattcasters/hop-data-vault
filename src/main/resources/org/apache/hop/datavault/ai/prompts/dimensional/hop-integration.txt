@@ -1,0 +1,3 @@
+Scenario: Hop integration for dimensional models.
+
+Advise on generated dimension/fact pipelines, bulk-update workflows, target and source database connectivity, staging-file bulk load, and debugging Dimensional Update execution.

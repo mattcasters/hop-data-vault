@@ -23,6 +23,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
@@ -71,8 +72,6 @@ import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
 import org.apache.hop.pipeline.transforms.mergerows.MergeRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
-import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
-import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -387,10 +386,14 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         TransformMeta constantTransform =
             addConstantForLoadDate(ctx, pipelineMeta, loadDate, checkSumTransform);
 
-        // Add Table Output at the end to write new rows (all target fields except "flag")
+        // Write new rows to the target (all target fields except "flag")
         IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
-        TransformMeta tableOutputTransform =
-            addTableOutput(ctx, pipelineMeta, targetLayout, constantTransform);
+        DvTargetLoadSupport.addTargetLoad(
+            buildTargetLoadContext(ctx, pipelineMeta.getName()),
+            pipelineMeta,
+            targetLayout,
+            constantTransform,
+            Set.of("flag"));
 
         result.add(pipelineMeta);
       }
@@ -628,45 +631,22 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     return tm;
   }
 
-  private TransformMeta addTableOutput(
-      HubUpdateContext ctx,
-      PipelineMeta pipelineMeta,
-      IRowMeta targetLayout,
-      TransformMeta predecessor)
-      throws HopException {
-    if (ctx.targetDatabaseMeta == null || Utils.isEmpty(ctx.targetDbName)) {
-      return null;
-    }
+  private static DvTargetLoadSupport.TargetLoadContext buildTargetLoadContext(
+      HubUpdateContext ctx, String pipelineName) {
     String tableName = ctx.targetTableName;
     if (Utils.isEmpty(tableName)) {
       tableName = ctx.hub.getName();
     }
-
-    try {
-      TableOutputMeta tableOutputMeta = new TableOutputMeta();
-      tableOutputMeta.setConnection(ctx.targetDbName);
-      tableOutputMeta.setTableName(tableName);
-      tableOutputMeta.setSpecifyFields(true);
-      tableOutputMeta.setCommitSize(ctx.config.resolveTargetTableCommitSize(ctx.variables));
-
-      if (targetLayout != null) {
-        for (IValueMeta vm : targetLayout.getValueMetaList()) {
-          String name = vm.getName();
-          if (!"flag".equalsIgnoreCase(name)) {
-            tableOutputMeta.getFields().add(new TableOutputField(name, name));
-          }
-        }
-      }
-
-      TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
-      tm.setCopiesString(ctx.config.resolveTargetTableParallelCopies(ctx.variables));
-      tm.setLocation(LOCATION_START_LINE_3.x + 6 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
-      pipelineMeta.addTransform(tm);
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
-      return tm;
-    } catch (Exception e) {
-      throw new HopException("Error creating Table Output transform", e);
-    }
+    return new DvTargetLoadSupport.TargetLoadContext(
+        ctx.config,
+        ctx.variables,
+        ctx.targetDatabaseMeta,
+        ctx.targetDbName,
+        tableName,
+        pipelineName,
+        ctx.model != null ? ctx.model.getName() : null,
+        LOCATION_START_LINE_3.x + 6 * SPACING_WIDTH,
+        LOCATION_START_LINE_3.y);
   }
 
   /**

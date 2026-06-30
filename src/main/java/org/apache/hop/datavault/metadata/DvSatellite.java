@@ -534,8 +534,14 @@ public class DvSatellite extends DvTableBase
       // Add Table Output to insert new satellite versions
       IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
 
-      TransformMeta tableOutputTransform =
-          addTableOutput(ctx, pipelineMeta, targetLayout, insertPredecessor);
+      DvTargetLoadSupport.TargetLoadResult targetLoadResult =
+          DvTargetLoadSupport.addTargetLoad(
+              buildTargetLoadContext(ctx, pipelineMeta.getName(), insertPredecessor),
+              pipelineMeta,
+              targetLayout,
+              insertPredecessor,
+              Set.of("flag", PREVIOUS_LOAD_DATE_FIELD));
+      TransformMeta tableOutputTransform = targetLoadResult.transformMeta;
 
       if (useLoadEndDate(ctx)) {
         TransformMeta filterPreviousTransform =
@@ -1640,47 +1646,24 @@ public class DvSatellite extends DvTableBase
     return ctx.variables.resolve(loadEndDateField);
   }
 
-  private TransformMeta addTableOutput(
-      SatelliteUpdateContext ctx,
-      PipelineMeta pipelineMeta,
-      IRowMeta targetLayout,
-      TransformMeta predecessor)
-      throws HopException {
-    if (ctx.targetDatabaseMeta == null || Utils.isEmpty(ctx.targetDbName)) {
-      return null;
-    }
+  private DvTargetLoadSupport.TargetLoadContext buildTargetLoadContext(
+      SatelliteUpdateContext ctx, String pipelineName, TransformMeta predecessor) {
     String tableName = ctx.targetTableName;
     if (Utils.isEmpty(tableName)) {
       tableName = getName();
     }
-
-    try {
-      TableOutputMeta tableOutputMeta = new TableOutputMeta();
-      tableOutputMeta.setConnection(ctx.targetDbName);
-      tableOutputMeta.setTableName(tableName);
-      tableOutputMeta.setSpecifyFields(true);
-      tableOutputMeta.setCommitSize(
-          ctx.config.resolveTargetTableCommitSize(ctx.variables));
-
-      if (targetLayout != null) {
-        for (IValueMeta vm : targetLayout.getValueMetaList()) {
-          String name = vm.getName();
-          if (!"flag".equalsIgnoreCase(name)
-              && !PREVIOUS_LOAD_DATE_FIELD.equalsIgnoreCase(name)) {
-            tableOutputMeta.getFields().add(new TableOutputField(name, name));
-          }
-        }
-      }
-
-      TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
-      tm.setCopiesString(ctx.config.resolveTargetTableParallelCopies(ctx.variables));
-      tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
-      pipelineMeta.addTransform(tm);
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
-      return tm;
-    } catch (Exception e) {
-      throw new HopException("Error creating Table Output transform", e);
-    }
+    int locationX = predecessor.getLocation().x + SPACING_WIDTH;
+    int locationY = predecessor.getLocation().y;
+    return new DvTargetLoadSupport.TargetLoadContext(
+        ctx.config,
+        ctx.variables,
+        ctx.targetDatabaseMeta,
+        ctx.targetDbName,
+        tableName,
+        pipelineName,
+        ctx.model != null ? ctx.model.getName() : null,
+        locationX,
+        locationY);
   }
 
   private static final Point LOCATION_STS_LINE_1 = new Point(160, 48);

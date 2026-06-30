@@ -81,7 +81,58 @@ The large test model uses `sortRowsSize=30000000` alongside `targetTableParallel
 
 **Setting:** `targetTableBatchSize` on the model **Target loading** tab (default `1000`).
 
-Commit size for Table Output. Larger batches reduce commit overhead; very large batches increase memory per output copy and time between commits. For bulk initial loads, values in the thousands are typical; increase gradually if the database tolerates it.
+Commit size for Table Output. For **Native bulk loader** mode on MySQL/SingleStore, this value is also passed as the bulk loader batch size. Larger batches reduce commit overhead; very large batches increase memory per output copy and time between commits. For bulk initial loads, values in the thousands are typical; increase gradually if the database tolerates it.
+
+---
+
+## Native bulk loading
+
+**Setting:** `targetLoadMode` on the model **Target loading** tab (default **Table Output**).
+
+When set to **Native bulk loader** and the matching Hop database plugin is installed, generated hub/link/satellite insert pipelines end in a bulk loader transform instead of Table Output:
+
+| Target database | Hop transform | Mechanism |
+|-----------------|---------------|-----------|
+| MySQL, SingleStore | MySQL bulk loader | `LOAD DATA` via named pipe |
+| PostgreSQL | PostgreSQL bulk loader | `COPY FROM STDIN` (streaming) |
+| Oracle | Oracle bulk loader | `sqlldr` direct-path stream |
+| Snowflake | Snowflake bulk loader | Internal stage + `COPY INTO` |
+| MonetDB | MonetDB bulk loader | Column-store bulk insert |
+| Vertica | Vertica bulk loader | Direct `COPY` stream |
+| Doris | Doris bulk loader | Stream Load HTTP API |
+
+Notes:
+
+- Only the **insert leg** uses bulk loading. Satellite load-end-date **Update** transforms are unchanged.
+- Native bulk loaders run as a **single transform copy** (`targetTableParallelCopies` is ignored for this mode). Use **Staging file** mode when you need parallel shard files.
+- Delimiter, enclosure, and encoding on the Target loading tab feed the bulk loader field format (defaults: comma, double quote, UTF-8).
+- Install the matching `hop-databases-*` and bulk-loader transform plugins in the Hop runtime.
+
+---
+
+## Staging file + bulk command
+
+**Setting:** `targetLoadMode` = **Staging file + bulk command**.
+
+Generated insert pipelines end in **Text File Output** with `targetTableParallelCopies` parallel copies. Each copy writes `${bulkLoadStagingFolder}/${pipelineName}-${Internal.Transform.CopyNr}.csv`. A master workflow then runs each staged pipeline and bulk-loads every shard file.
+
+| Target database | Workflow action | Notes |
+|-----------------|-----------------|-------|
+| MySQL, SingleStore | MySQL bulk load | `LOAD DATA LOCAL INFILE` from staged CSV |
+| Microsoft SQL Server | MSSQL bulk load | `BULK INSERT` from staged CSV (UTF-8, header skipped) |
+| PostgreSQL | SQL (`COPY`) | Server must read the file path; not client `\copy` |
+
+Operational notes:
+
+- Set **Bulk load staging folder** to a path visible to both Hop and the database when required (especially PostgreSQL `COPY FROM 'path'`).
+- **Bulk load requires local file** (default on) documents that Hop and the DB client must access the CSV on the filesystem.
+- Cleanup of pipeline staging (`.hpl`) and bulk CSV folders runs in a `finally` block after the master workflow finishes.
+
+---
+
+## Hash-key partitioning and bulk modes
+
+Deferred [hash-key mod partitioning](hash-key-partitioning-plan.md) targets multi-copy **Table Output** with hash-key swimlanes. It does **not** apply to native bulk loaders (single writer) or staging-file mode (use parallel Text File Output copies for shard fan-out instead). The model check emits a warning when a non–Table Output load mode is selected.
 
 ---
 

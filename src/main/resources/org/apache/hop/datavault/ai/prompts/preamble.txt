@@ -30,7 +30,7 @@ Proposal JSON schema (when suggesting model edits):
 Parameter reference (use only the keys needed for each type):
 
 - ADD_MODEL_NOTE: text
-- SET_CONFIGURATION_PROPERTY: propertyName, value (allowed: sortRowsSize, targetTableParallelCopies, targetTableBatchSize, targetDatabase, dataCatalogConnection)
+- SET_CONFIGURATION_PROPERTY: propertyName, value (allowed: sortRowsSize, targetTableParallelCopies, targetTableBatchSize, targetLoadMode, bulkLoadStagingFolder, bulkLoadDelimiter, bulkLoadEnclosure, bulkLoadEncoding, bulkLoadLocalFileRequired, targetDatabase, dataCatalogConnection, generatedPipelineFolder, generatedWorkflowNamePrefix)
 - RENAME_TABLE: tableName, newName
 - ADD_HUB: name, recordSource (catalog DV source name), businessKeysJson OR businessKeyName (+ optional businessKeySourceField), optional tableName, hashKeyFieldName, locationX, locationY
 - ADD_LINK: name, hubNames (comma-separated, at least two existing hubs), optional tableName, linkHashKeyFieldName, locationX, locationY

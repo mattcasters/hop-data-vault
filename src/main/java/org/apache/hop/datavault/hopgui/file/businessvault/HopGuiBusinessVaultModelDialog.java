@@ -63,6 +63,8 @@ public class HopGuiBusinessVaultModelDialog {
   private Button wDataVaultModelPathBrowse;
   private GuiCompositeWidgets widgets;
   private Composite wGeneralTabComp;
+  private Composite wTargetLoadTabComp;
+  private Composite wGeneratedArtifactsTabComp;
 
   private boolean ok;
   private boolean populatingWidgets;
@@ -177,6 +179,18 @@ public class HopGuiBusinessVaultModelDialog {
             wTabFolder,
             BaseMessages.getString(PKG, "HopGuiBusinessVaultModelDialog.Tab.General.Label"),
             BaseMessages.getString(PKG, "HopGuiBusinessVaultModelDialog.Tab.General.ToolTip"));
+    wTargetLoadTabComp =
+        createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiBusinessVaultModelDialog.Tab.TargetLoad.Label"),
+            BaseMessages.getString(PKG, "HopGuiBusinessVaultModelDialog.Tab.TargetLoad.ToolTip"));
+    wGeneratedArtifactsTabComp =
+        createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(
+                PKG, "HopGuiBusinessVaultModelDialog.Tab.GeneratedArtifacts.Label"),
+            BaseMessages.getString(
+                PKG, "HopGuiBusinessVaultModelDialog.Tab.GeneratedArtifacts.ToolTip"));
 
     BusinessVaultConfiguration configuration = input.getConfigurationOrDefault();
     widgets = new GuiCompositeWidgets(variables);
@@ -185,6 +199,18 @@ public class HopGuiBusinessVaultModelDialog {
         null,
         wGeneralTabComp,
         BusinessVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        configuration,
+        null,
+        wTargetLoadTabComp,
+        BusinessVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        configuration,
+        null,
+        wGeneratedArtifactsTabComp,
+        BusinessVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID,
         null);
 
     wTabFolder.setSelection(0);
@@ -248,10 +274,19 @@ public class HopGuiBusinessVaultModelDialog {
       if (input.getDataVaultModelPath() != null) {
         wDataVaultModelPath.setText(input.getDataVaultModelPath());
       }
+      BusinessVaultConfiguration configuration = input.getConfigurationOrDefault();
       widgets.setWidgetsContents(
-          input.getConfigurationOrDefault(),
+          configuration,
           wGeneralTabComp,
           BusinessVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID);
+      widgets.setWidgetsContents(
+          configuration,
+          wTargetLoadTabComp,
+          BusinessVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
+      widgets.setWidgetsContents(
+          configuration,
+          wGeneratedArtifactsTabComp,
+          BusinessVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID);
     } finally {
       populatingWidgets = false;
     }
@@ -264,6 +299,10 @@ public class HopGuiBusinessVaultModelDialog {
     BusinessVaultConfiguration configuration = input.getConfigurationOrDefault();
     widgets.getWidgetsContents(
         configuration, BusinessVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID);
+    widgets.getWidgetsContents(
+        configuration, BusinessVaultConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
+    widgets.getWidgetsContents(
+        configuration, BusinessVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID);
     input.setConfiguration(configuration);
     ok = true;
     dispose();

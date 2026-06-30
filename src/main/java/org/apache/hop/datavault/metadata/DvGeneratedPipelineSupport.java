@@ -28,8 +28,9 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.datavault.layout.DvPipelineElkLayout;
 import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.workflow.WorkflowMeta;
 
-/** Saves generated DV update pipelines when configured to do so. */
+/** Saves generated update pipelines and workflows when configured to do so. */
 public final class DvGeneratedPipelineSupport {
 
   private DvGeneratedPipelineSupport() {}
@@ -45,11 +46,11 @@ public final class DvGeneratedPipelineSupport {
   }
 
   /**
-   * Writes the pipeline to {@link DataVaultConfiguration#getGeneratedPipelineFolder()} when that
+   * Writes the pipeline to {@link IDvTargetLoadConfiguration#getGeneratedPipelineFolder()} when that
    * folder is set. Creates parent folders as needed.
    */
   public static String saveBeforeExecution(
-      DataVaultConfiguration config, IVariables variables, PipelineMeta pipelineMeta)
+      IDvTargetLoadConfiguration config, IVariables variables, PipelineMeta pipelineMeta)
       throws HopException {
     if (config == null || pipelineMeta == null) {
       return null;
@@ -88,6 +89,53 @@ public final class DvGeneratedPipelineSupport {
               + pipelineMeta.getName()
               + "' to "
               + pipelineFilename,
+          e);
+    }
+  }
+
+  /**
+   * Writes the workflow to {@link IDvTargetLoadConfiguration#getGeneratedPipelineFolder()} when that
+   * folder is set. Creates parent folders as needed.
+   */
+  public static String saveWorkflowBeforeExecution(
+      IDvTargetLoadConfiguration config, IVariables variables, WorkflowMeta workflowMeta)
+      throws HopException {
+    if (config == null || workflowMeta == null) {
+      return null;
+    }
+
+    String folder = config.getGeneratedPipelineFolder();
+    if (Utils.isEmpty(folder)) {
+      return null;
+    }
+    if (variables != null) {
+      folder = variables.resolve(folder);
+    }
+    if (Utils.isEmpty(folder)) {
+      return null;
+    }
+
+    String workflowFilename = appendPath(folder, workflowMeta.getName() + ".hwf");
+    workflowMeta.setFilename(workflowFilename);
+
+    try {
+      FileObject file = HopVfs.getFileObject(workflowFilename, variables);
+      FileObject parent = file.getParent();
+      if (parent != null && !parent.exists()) {
+        parent.createFolder();
+      }
+      String xml = workflowMeta.getXml(variables);
+      try (OutputStreamWriter writer =
+          new OutputStreamWriter(HopVfs.getOutputStream(file, false), StandardCharsets.UTF_8)) {
+        writer.write(xml);
+      }
+      return workflowFilename;
+    } catch (Exception e) {
+      throw new HopException(
+          "Unable to save generated workflow '"
+              + workflowMeta.getName()
+              + "' to "
+              + workflowFilename,
           e);
     }
   }

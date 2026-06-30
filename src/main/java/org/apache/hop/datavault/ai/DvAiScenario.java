@@ -18,36 +18,63 @@
 
 package org.apache.hop.datavault.ai;
 
+import lombok.Getter;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 
 /** Advisory scenario selecting the system prompt template. */
-public enum DvAiScenario {
-  SOURCE_ANALYSIS("source-analysis"),
-  TYPE_MAPPING("type-mapping"),
-  DV_MODELING("dv-modeling"),
-  HOP_INTEGRATION("hop-integration"),
-  ERROR_DIAGNOSIS("error-diagnosis"),
-  GENERAL("general");
+@Getter
+public enum DvAiScenario implements IEnumHasCodeAndDescription {
+  SOURCE_ANALYSIS("SOURCE_ANALYSIS", "DvAiScenario.SourceAnalysis", "source-analysis"),
+  TYPE_MAPPING("TYPE_MAPPING", "DvAiScenario.TypeMapping", "type-mapping"),
+  DV_MODELING("DV_MODELING", "DvAiScenario.DvModeling", "dv-modeling"),
+  HOP_INTEGRATION("HOP_INTEGRATION", "DvAiScenario.HopIntegration", "hop-integration"),
+  ERROR_DIAGNOSIS("ERROR_DIAGNOSIS", "DvAiScenario.ErrorDiagnosis", "error-diagnosis"),
+  GENERAL("GENERAL", "DvAiScenario.General", "general");
 
+  private final String code;
+  private final String descriptionKey;
   private final String promptResource;
 
-  DvAiScenario(String promptResource) {
+  DvAiScenario(String code, String descriptionKey, String promptResource) {
+    this.code = code;
+    this.descriptionKey = descriptionKey;
     this.promptResource = promptResource;
   }
 
-  public String getPromptResource() {
-    return promptResource;
+  @Override
+  public String getDescription() {
+    return BaseMessages.getString(DvAiScenario.class, descriptionKey);
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(DvAiScenario.class);
+  }
+
+  public static DvAiScenario lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(DvAiScenario.class, description, GENERAL);
+  }
+
+  public static DvAiScenario lookupCode(String code) {
+    return IEnumHasCode.lookupCode(DvAiScenario.class, code, GENERAL);
   }
 
   public static DvAiScenario resolve(String value) {
     if (Utils.isEmpty(value)) {
       return GENERAL;
     }
+    String trimmed = value.trim();
     for (DvAiScenario scenario : values()) {
-      if (scenario.name().equalsIgnoreCase(value.trim())) {
+      if (scenario.name().equalsIgnoreCase(trimmed)) {
         return scenario;
       }
     }
-    return GENERAL;
+    DvAiScenario byCode = IEnumHasCode.lookupCode(DvAiScenario.class, trimmed, null);
+    if (byCode != null) {
+      return byCode;
+    }
+    return lookupDescription(trimmed);
   }
 }

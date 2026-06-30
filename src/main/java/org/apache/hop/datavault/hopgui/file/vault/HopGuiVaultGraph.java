@@ -70,6 +70,7 @@ import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.hopgui.ai.DvAiAdvisorDialog;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.vault.delegates.HopGuiVaultSnapshotUndo;
+import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvIntegrationSupport;
@@ -80,6 +81,9 @@ import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
+import org.apache.hop.datavault.metadata.DvTargetLoadMode;
+import org.apache.hop.datavault.metadata.DvUpdateExecutionSupport;
+import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -974,6 +978,11 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
     if (debugVariables == null) {
       return;
     }
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
+    if (config.resolveTargetLoadMode() == DvTargetLoadMode.STAGING_FILE) {
+      debugStagingWorkflow(debugVariables);
+      return;
+    }
     for (IDvTable table : model.getTables()) {
       // Only show the pipelines of the selected tables if one or more tables are selected.
       //
@@ -981,6 +990,72 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
         continue;
       }
       openUpdatePipeline(table, debugVariables);
+    }
+  }
+
+  private void debugStagingWorkflow(IVariables debugVariables) {
+    try {
+      Timestamp loadDate = Timestamp.from(Instant.now());
+      List<PipelineMeta> pipelineMetas = new ArrayList<>();
+      for (IDvTable table : DvUpdateExecutionSupport.orderTablesForPipelineExecution(model.getTables())) {
+        if (!table.isSelected() && model.nrSelectedTables() > 0) {
+          continue;
+        }
+        if (DvIntegrationSupport.isExternalRead(table)) {
+          continue;
+        }
+        List<PipelineMeta> generated =
+            table.generateUpdatePipelines(
+                hopGui.getMetadataProvider(), debugVariables, model, loadDate, null);
+        if (generated != null) {
+          pipelineMetas.addAll(generated);
+        }
+      }
+
+      for (PipelineMeta pipelineMeta : pipelineMetas) {
+        if (pipelineMeta != null) {
+          openReloadedPipeline(pipelineMeta, debugVariables);
+        }
+      }
+
+      if (pipelineMetas.isEmpty()) {
+        return;
+      }
+
+      DataVaultConfiguration config = model.getConfigurationOrDefault();
+      org.apache.hop.core.database.DatabaseMeta targetDatabase =
+          DvSpecialRecordSupport.loadTargetDatabase(hopGui.getMetadataProvider(), config);
+      if (targetDatabase == null || Utils.isEmpty(config.getTargetDatabase())) {
+        return;
+      }
+
+      for (PipelineMeta pipelineMeta : pipelineMetas) {
+        if (pipelineMeta != null) {
+          pipelineMeta.setFilename(
+              config.resolveBulkLoadStagingFolder(debugVariables, model.getName())
+                  + pipelineMeta.getName()
+                  + PipelineMeta.PIPELINE_EXTENSION);
+        }
+      }
+
+      List<DvUpdateWorkflowSupport.DvStagingLoadDescriptor> descriptors =
+          DvUpdateWorkflowSupport.buildStagingDescriptors(
+              config,
+              debugVariables,
+              model.getName(),
+              targetDatabase,
+              config.getTargetDatabase(),
+              pipelineMetas);
+      WorkflowMeta masterWorkflow =
+          DvUpdateWorkflowSupport.buildMasterWorkflow(
+              descriptors, config, debugVariables, "local", model.getName());
+      HopGui.getExplorerPerspective().addWorkflow(masterWorkflow);
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          "Error",
+          "Error generating bulk-load debug workflow for model '" + model.getName() + "'",
+          e);
     }
   }
 
@@ -1033,22 +1108,24 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
 
       for (PipelineMeta pipelineMeta : pipelineMetas) {
         if (pipelineMeta == null) continue;
-
-        // Serialize to XML and back before opening.
-        // This ensures the transforms are loaded via the Hop plugin registry / proper classloaders
-        // (instead of direct compile-time classes) which prevents class loading issues when
-        // opening e.g. the Table Input transform dialog in the generated pipeline.
-        String xml = pipelineMeta.getXml(debugVariables);
-        Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
-        PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
-
-        // Open in HopGui (not saved). For multi-source hubs we open one per source.
-        HopGui.getExplorerPerspective().addPipeline(reloaded);
+        openReloadedPipeline(pipelineMeta, debugVariables);
       }
     } catch (Exception e) {
       new ErrorDialog(
           hopGui.getShell(), "Error", "Error generating debug pipeline for '" + tableName + "'", e);
     }
+  }
+
+  private void openReloadedPipeline(PipelineMeta pipelineMeta, IVariables debugVariables)
+      throws Exception {
+    // Serialize to XML and back before opening.
+    // This ensures the transforms are loaded via the Hop plugin registry / proper classloaders
+    // (instead of direct compile-time classes) which prevents class loading issues when
+    // opening e.g. the Table Input transform dialog in the generated pipeline.
+    String xml = pipelineMeta.getXml(debugVariables);
+    Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
+    PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
+    HopGui.getExplorerPerspective().addPipeline(reloaded);
   }
 
   /**

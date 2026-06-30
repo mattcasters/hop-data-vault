@@ -33,15 +33,13 @@ import org.apache.hop.datavault.metadata.DvSqlSupport;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
+import org.apache.hop.datavault.metadata.DvTargetLoadSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
-import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
-import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
-
 /** Generates PIT build pipelines from DV hub/satellite history. */
 public final class BvPitPipelineSupport {
 
@@ -272,25 +270,27 @@ public final class BvPitPipelineSupport {
     IRowMeta targetLayout =
         BvPitLayoutSupport.buildTargetTableLayout(ctx.pitTable(), ctx.dvModel(), ctx.variables());
 
-    TableOutputMeta tableOutputMeta = new TableOutputMeta();
-    tableOutputMeta.setConnection(ctx.targetDbName());
-    tableOutputMeta.setTableName(ctx.bvTargetTableName());
-    tableOutputMeta.setSpecifyFields(true);
-    tableOutputMeta.setTruncateTable(false);
-    tableOutputMeta.setCommitSize(ctx.bvConfig().resolveTargetTableCommitSize(ctx.variables()));
+    DvTargetLoadSupport.TargetLoadContext targetCtx =
+        new DvTargetLoadSupport.TargetLoadContext(
+            ctx.bvConfig(),
+            ctx.variables(),
+            ctx.targetDatabaseMeta(),
+            ctx.targetDbName(),
+            ctx.bvTargetTableName(),
+            ctx.pipelineName(),
+            ctx.bvModel().getName(),
+            LOCATION_TABLE_OUTPUT.x,
+            LOCATION_TABLE_OUTPUT.y);
 
-    for (IValueMeta vm : targetLayout.getValueMetaList()) {
-      String name = vm.getName();
-      tableOutputMeta.getFields().add(new TableOutputField(name, name));
-    }
-
-    TransformMeta tm =
-        new TransformMeta("TableOutput", "write_" + ctx.bvTargetTableName(), tableOutputMeta);
-    tm.setCopiesString(ctx.bvConfig().resolveTargetTableParallelCopies(ctx.variables()));
-    tm.setLocation(LOCATION_TABLE_OUTPUT);
-    pipelineMeta.addTransform(tm);
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
-    return tm;
+    DvTargetLoadSupport.TargetLoadResult result =
+        DvTargetLoadSupport.addTargetLoad(
+            targetCtx,
+            pipelineMeta,
+            targetLayout,
+            predecessor,
+            java.util.Collections.emptySet(),
+            false);
+    return result.transformMeta;
   }
 
   private static String buildSatellitePointerSubquery(PitBuildContext ctx) {

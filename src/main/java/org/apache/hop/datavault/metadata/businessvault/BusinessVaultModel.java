@@ -41,6 +41,7 @@ import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvTargetLoadModelCheckSupport;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -312,6 +313,24 @@ public class BusinessVaultModel extends HopMetadataBase
       }
       table.check(remarks, metadataProvider, variables, this, dataVaultModel);
     }
+
+    BusinessVaultConfiguration config = getConfigurationOrDefault();
+    org.apache.hop.core.database.DatabaseMeta targetDatabase = null;
+    try {
+      targetDatabase = BvTargetDatabaseSupport.loadTargetDatabase(metadataProvider, config);
+    } catch (HopException e) {
+      // Target database validation is reported on individual tables.
+    }
+    DvTargetLoadModelCheckSupport.checkTargetLoadMode(remarks, config, targetDatabase);
+    DvTargetLoadModelCheckSupport.checkTargetLoadModeGuidance(
+        remarks, config, targetDatabase, variables);
+    DvTargetLoadModelCheckSupport.checkTargetLoadingIntegerSettings(
+        remarks,
+        config.getTargetTableBatchSize(),
+        config.getTargetTableParallelCopies(),
+        variables,
+        BusinessVaultConfiguration.DEFAULT_TARGET_TABLE_BATCH_SIZE,
+        BusinessVaultConfiguration.DEFAULT_TARGET_TABLE_PARALLEL_COPIES);
 
     for (BvDvTableReference reference : getDvReferences()) {
       if (reference == null || Utils.isEmpty(reference.getDvTableName())) {

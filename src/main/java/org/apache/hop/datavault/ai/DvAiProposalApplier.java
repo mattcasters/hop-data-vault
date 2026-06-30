@@ -35,13 +35,21 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 /** Previews and applies validated AI proposals to an open model. */
 public final class DvAiProposalApplier {
 
-  private static final Set<String> ALLOWED_CONFIGURATION_PROPERTIES =
+  public static final Set<String> ALLOWED_CONFIGURATION_PROPERTIES =
       Set.of(
           "sortRowsSize",
           "targetTableParallelCopies",
           "targetTableBatchSize",
+          "targetLoadMode",
+          "bulkLoadStagingFolder",
+          "bulkLoadDelimiter",
+          "bulkLoadEnclosure",
+          "bulkLoadEncoding",
+          "bulkLoadLocalFileRequired",
           "targetDatabase",
-          "dataCatalogConnection");
+          "dataCatalogConnection",
+          "generatedPipelineFolder",
+          "generatedWorkflowNamePrefix");
 
   private DvAiProposalApplier() {}
 
@@ -131,14 +139,7 @@ public final class DvAiProposalApplier {
       throw new HopException("Configuration property not allowed: " + propertyName);
     }
     DataVaultConfiguration config = model.getConfigurationOrDefault();
-    switch (propertyName.trim()) {
-      case "sortRowsSize" -> config.setSortRowsSize(value);
-      case "targetTableParallelCopies" -> config.setTargetTableParallelCopies(value);
-      case "targetTableBatchSize" -> config.setTargetTableBatchSize(value);
-      case "targetDatabase" -> config.setTargetDatabase(value);
-      case "dataCatalogConnection" -> config.setDataCatalogConnection(value);
-      default -> throw new HopException("Configuration property not allowed: " + propertyName);
-    }
+    DvTargetLoadAiConfigurationSupport.applyToDataVault(config, propertyName, value);
     model.setChanged(true);
   }
 

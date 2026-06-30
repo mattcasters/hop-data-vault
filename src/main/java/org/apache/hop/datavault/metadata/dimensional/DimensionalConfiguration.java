@@ -18,26 +18,38 @@
 
 package org.apache.hop.datavault.metadata.dimensional;
 
+import java.util.List;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DvTargetLoadConfigurationSupport;
+import org.apache.hop.datavault.metadata.DvTargetLoadMode;
+import org.apache.hop.datavault.metadata.IDvTargetLoadConfiguration;
 import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadata;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /** Warehouse configuration for a dimensional model. */
 @GuiPlugin
 @Getter
 @Setter
-public class DimensionalConfiguration extends HopMetadataBase implements IHopMetadata {
+public class DimensionalConfiguration extends HopMetadataBase
+    implements IHopMetadata, IDvTargetLoadConfiguration {
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "DIMENSIONAL_MODEL_DIALOG";
   public static final String GUI_PLUGIN_ELEMENT_COLUMNS_TAB_ID = "DIMENSIONAL_CONFIGURATION_COLUMNS_TAB";
+  public static final String GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID =
+      "DIMENSIONAL_CONFIGURATION_TARGET_LOAD_TAB";
+  public static final String GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID =
+      "DIMENSIONAL_CONFIGURATION_GENERATED_ARTIFACTS_TAB";
 
   public static final String DEFAULT_DIM_KEY_FIELD = "dim_key";
   public static final String DEFAULT_VERSION_FIELD = "version";
@@ -53,6 +65,7 @@ public class DimensionalConfiguration extends HopMetadataBase implements IHopMet
   public static final String DEFAULT_JUNK_DIMENSION_PIPELINE_NAME_PREFIX = "dm-junk-";
   public static final String DEFAULT_BRIDGE_PIPELINE_NAME_PREFIX = "dm-bridge-";
   public static final String DEFAULT_FACT_PIPELINE_NAME_PREFIX = "dm-fact-";
+  public static final String DEFAULT_GENERATED_WORKFLOW_NAME_PREFIX = "DM Bulk Update - ";
 
   @GuiWidgetElement(
       order = "0100",
@@ -148,27 +161,211 @@ public class DimensionalConfiguration extends HopMetadataBase implements IHopMet
   @HopMetadataProperty private String openEndSentinel = DEFAULT_OPEN_END_SENTINEL;
 
   @GuiWidgetElement(
-      order = "0300",
+      order = "0510",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.TargetTableBatchSize.Label",
+      toolTip = "i18n::DataVaultConfiguration.TargetTableBatchSize.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private String targetTableBatchSize = DEFAULT_TARGET_TABLE_BATCH_SIZE;
+
+  @GuiWidgetElement(
+      order = "0511",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.TargetTableParallelCopies.Label",
+      toolTip = "i18n::DataVaultConfiguration.TargetTableParallelCopies.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private String targetTableParallelCopies = DEFAULT_TARGET_TABLE_PARALLEL_COPIES;
+
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
+  @GuiWidgetElement(
+      order = "0512",
+      type = GuiElementType.COMBO,
+      label = "i18n::DataVaultConfiguration.TargetLoadMode.Label",
+      toolTip = "i18n::DataVaultConfiguration.TargetLoadMode.ToolTip",
+      comboValuesMethod = "getTargetLoadModeOptions",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty(key = "target_load_mode")
+  private String targetLoadMode = DvTargetLoadMode.TABLE_OUTPUT.getCode();
+
+  @GuiWidgetElement(
+      order = "0513",
       type = GuiElementType.FOLDER,
       variables = true,
-      label = "i18n::DimensionalConfiguration.GeneratedPipelineFolder.Label",
-      toolTip = "i18n::DimensionalConfiguration.GeneratedPipelineFolder.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+      label = "i18n::DataVaultConfiguration.BulkLoadStagingFolder.Label",
+      toolTip = "i18n::DataVaultConfiguration.BulkLoadStagingFolder.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private String bulkLoadStagingFolder = DvTargetLoadConfigurationSupport.DEFAULT_BULK_LOAD_STAGING_FOLDER;
+
+  @GuiWidgetElement(
+      order = "0514",
+      type = GuiElementType.TEXT,
+      label = "i18n::DataVaultConfiguration.BulkLoadDelimiter.Label",
+      toolTip = "i18n::DataVaultConfiguration.BulkLoadDelimiter.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private String bulkLoadDelimiter = DvTargetLoadConfigurationSupport.DEFAULT_BULK_LOAD_DELIMITER;
+
+  @GuiWidgetElement(
+      order = "0515",
+      type = GuiElementType.TEXT,
+      label = "i18n::DataVaultConfiguration.BulkLoadEnclosure.Label",
+      toolTip = "i18n::DataVaultConfiguration.BulkLoadEnclosure.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private String bulkLoadEnclosure = DvTargetLoadConfigurationSupport.DEFAULT_BULK_LOAD_ENCLOSURE;
+
+  @GuiWidgetElement(
+      order = "0516",
+      type = GuiElementType.TEXT,
+      label = "i18n::DataVaultConfiguration.BulkLoadEncoding.Label",
+      toolTip = "i18n::DataVaultConfiguration.BulkLoadEncoding.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private String bulkLoadEncoding = DvTargetLoadConfigurationSupport.DEFAULT_BULK_LOAD_ENCODING;
+
+  @GuiWidgetElement(
+      order = "0517",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::DataVaultConfiguration.BulkLoadLocalFileRequired.Label",
+      toolTip = "i18n::DataVaultConfiguration.BulkLoadLocalFileRequired.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private boolean bulkLoadLocalFileRequired = true;
+
+  @GuiWidgetElement(
+      order = "0600",
+      type = GuiElementType.FOLDER,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.GeneratedPipelineFolder.Label",
+      toolTip = "i18n::DataVaultConfiguration.GeneratedPipelineFolder.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID)
   @HopMetadataProperty
   private String generatedPipelineFolder;
 
-  @HopMetadataProperty private String dimensionPipelineNamePrefix = DEFAULT_DIMENSION_PIPELINE_NAME_PREFIX;
+  @GuiWidgetElement(
+      order = "0610",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DimensionalConfiguration.DimensionPipelineNamePrefix.Label",
+      toolTip = "i18n::DimensionalConfiguration.DimensionPipelineNamePrefix.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID)
+  @HopMetadataProperty
+  private String dimensionPipelineNamePrefix = DEFAULT_DIMENSION_PIPELINE_NAME_PREFIX;
 
+  @GuiWidgetElement(
+      order = "0620",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DimensionalConfiguration.JunkDimensionPipelineNamePrefix.Label",
+      toolTip = "i18n::DimensionalConfiguration.JunkDimensionPipelineNamePrefix.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID)
   @HopMetadataProperty
   private String junkDimensionPipelineNamePrefix = DEFAULT_JUNK_DIMENSION_PIPELINE_NAME_PREFIX;
 
-  @HopMetadataProperty private String bridgePipelineNamePrefix = DEFAULT_BRIDGE_PIPELINE_NAME_PREFIX;
+  @GuiWidgetElement(
+      order = "0630",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DimensionalConfiguration.BridgePipelineNamePrefix.Label",
+      toolTip = "i18n::DimensionalConfiguration.BridgePipelineNamePrefix.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID)
+  @HopMetadataProperty
+  private String bridgePipelineNamePrefix = DEFAULT_BRIDGE_PIPELINE_NAME_PREFIX;
 
-  @HopMetadataProperty private String factPipelineNamePrefix = DEFAULT_FACT_PIPELINE_NAME_PREFIX;
+  @GuiWidgetElement(
+      order = "0640",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DimensionalConfiguration.FactPipelineNamePrefix.Label",
+      toolTip = "i18n::DimensionalConfiguration.FactPipelineNamePrefix.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID)
+  @HopMetadataProperty
+  private String factPipelineNamePrefix = DEFAULT_FACT_PIPELINE_NAME_PREFIX;
 
-  @HopMetadataProperty private String targetTableBatchSize = DEFAULT_TARGET_TABLE_BATCH_SIZE;
+  @GuiWidgetElement(
+      order = "0650",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.GeneratedWorkflowNamePrefix.Label",
+      toolTip = "i18n::DataVaultConfiguration.GeneratedWorkflowNamePrefix.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID)
+  @HopMetadataProperty
+  private String generatedWorkflowNamePrefix = DEFAULT_GENERATED_WORKFLOW_NAME_PREFIX;
 
-  @HopMetadataProperty private String targetTableParallelCopies = DEFAULT_TARGET_TABLE_PARALLEL_COPIES;
+  public List<String> getTargetLoadModeOptions(
+      ILogChannel log, IHopMetadataProvider metadataProvider) {
+    return DvTargetLoadConfigurationSupport.getTargetLoadModeOptions(
+        log, metadataProvider, targetDatabase);
+  }
+
+  public String getTargetLoadMode() {
+    return DvTargetLoadConfigurationSupport.getTargetLoadModeDescription(targetLoadMode);
+  }
+
+  public void setTargetLoadMode(String descriptionOrCode) {
+    DvTargetLoadConfigurationSupport.TargetLoadModeHolder holder =
+        new DvTargetLoadConfigurationSupport.TargetLoadModeHolder();
+    holder.targetLoadMode = targetLoadMode;
+    DvTargetLoadConfigurationSupport.setTargetLoadModeFromDescriptionOrCode(
+        descriptionOrCode, holder);
+    targetLoadMode = holder.targetLoadMode;
+  }
+
+  @Override
+  public DvTargetLoadMode resolveTargetLoadMode() {
+    return DvTargetLoadMode.lookupCode(targetLoadMode);
+  }
+
+  @Override
+  public String resolveTargetTableCommitSize(IVariables variables) {
+    return DvTargetLoadConfigurationSupport.resolveTargetTableCommitSize(
+        targetTableBatchSize, DEFAULT_TARGET_TABLE_BATCH_SIZE, variables);
+  }
+
+  @Override
+  public String resolveTargetTableParallelCopies(IVariables variables) {
+    return DvTargetLoadConfigurationSupport.resolveTargetTableParallelCopies(
+        targetTableParallelCopies, DEFAULT_TARGET_TABLE_PARALLEL_COPIES, variables);
+  }
+
+  @Override
+  public String resolveBulkLoadStagingFolder(IVariables variables, String modelName) {
+    return DvTargetLoadConfigurationSupport.resolveBulkLoadStagingFolder(
+        bulkLoadStagingFolder,
+        DvTargetLoadConfigurationSupport.DEFAULT_BULK_LOAD_STAGING_FOLDER,
+        variables,
+        modelName);
+  }
+
+  @Override
+  public String resolveBulkLoadDelimiter(IVariables variables) {
+    return DvTargetLoadConfigurationSupport.resolveBulkLoadTextSetting(
+        bulkLoadDelimiter, DvTargetLoadConfigurationSupport.DEFAULT_BULK_LOAD_DELIMITER, variables);
+  }
+
+  @Override
+  public String resolveBulkLoadEnclosure(IVariables variables) {
+    return DvTargetLoadConfigurationSupport.resolveBulkLoadTextSetting(
+        bulkLoadEnclosure, DvTargetLoadConfigurationSupport.DEFAULT_BULK_LOAD_ENCLOSURE, variables);
+  }
+
+  @Override
+  public String resolveBulkLoadEncoding(IVariables variables) {
+    return DvTargetLoadConfigurationSupport.resolveBulkLoadTextSetting(
+        bulkLoadEncoding, DvTargetLoadConfigurationSupport.DEFAULT_BULK_LOAD_ENCODING, variables);
+  }
+
+  @Override
+  public String resolveGeneratedWorkflowName(IVariables variables, String modelName) {
+    return DvTargetLoadConfigurationSupport.resolveGeneratedWorkflowName(
+        generatedWorkflowNamePrefix, DEFAULT_GENERATED_WORKFLOW_NAME_PREFIX, variables, modelName);
+  }
 
   public String resolveDimKeyField(IVariables variables) {
     return resolveField(dimKeyField, DEFAULT_DIM_KEY_FIELD, variables);
@@ -192,14 +389,6 @@ public class DimensionalConfiguration extends HopMetadataBase implements IHopMet
 
   public String resolveCurrentFlagField(IVariables variables) {
     return resolveField(currentFlagField, DEFAULT_CURRENT_FLAG_FIELD, variables);
-  }
-
-  public String resolveTargetTableCommitSize(IVariables variables) {
-    return resolveField(targetTableBatchSize, DEFAULT_TARGET_TABLE_BATCH_SIZE, variables);
-  }
-
-  public String resolveTargetTableParallelCopies(IVariables variables) {
-    return resolveField(targetTableParallelCopies, DEFAULT_TARGET_TABLE_PARALLEL_COPIES, variables);
   }
 
   public String buildDimensionPipelineName(IVariables variables, String targetTableName) {

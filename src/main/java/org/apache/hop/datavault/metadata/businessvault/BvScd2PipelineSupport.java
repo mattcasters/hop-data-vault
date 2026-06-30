@@ -48,6 +48,7 @@ import org.apache.hop.datavault.metadata.HashKeyDataType;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
+import org.apache.hop.datavault.metadata.DvTargetLoadSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.SatelliteAttribute;
@@ -75,9 +76,6 @@ import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta.RepeatTy
 import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
-import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
-import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
-
 /**
  * Generates SCD2 build pipelines from DV satellite history using Analytic Query (LAG/LEAD validity
  * bounds), If Null sentinels, and Group By collapse for duplicate timestamps.
@@ -1240,30 +1238,32 @@ public final class BvScd2PipelineSupport {
       throws HopException {
     IRowMeta targetLayout =
         buildTargetTableLayout(ctx.scd2Table, ctx.bvConfig, ctx.dvModel, ctx.variables);
-
-    TableOutputMeta tableOutputMeta = new TableOutputMeta();
-    tableOutputMeta.setConnection(ctx.targetDbName);
-    tableOutputMeta.setTableName(ctx.bvTargetTableName);
-    tableOutputMeta.setSpecifyFields(true);
-    tableOutputMeta.setTruncateTable(true);
-    tableOutputMeta.setCommitSize(ctx.bvConfig.resolveTargetTableCommitSize(ctx.variables));
-
-    for (IValueMeta vm : targetLayout.getValueMetaList()) {
-      String name = vm.getName();
-      tableOutputMeta.getFields().add(new TableOutputField(name, name));
-    }
-
-    TransformMeta tm =
-        new TransformMeta("TableOutput", "write_" + ctx.bvTargetTableName, tableOutputMeta);
-    tm.setCopiesString(ctx.bvConfig.resolveTargetTableParallelCopies(ctx.variables));
     int tableOutputX =
         ctx.isMultiSatellite()
             ? LOCATION_START.x + 9 * SPACING_WIDTH
             : LOCATION_START.x + 4 * SPACING_WIDTH;
-    tm.setLocation(tableOutputX, LOCATION_START.y);
-    pipelineMeta.addTransform(tm);
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
-    return tm;
+
+    DvTargetLoadSupport.TargetLoadContext targetCtx =
+        new DvTargetLoadSupport.TargetLoadContext(
+            ctx.bvConfig,
+            ctx.variables,
+            ctx.targetDatabaseMeta,
+            ctx.targetDbName,
+            ctx.bvTargetTableName,
+            ctx.pipelineName,
+            ctx.bvModel.getName(),
+            tableOutputX,
+            LOCATION_START.y);
+
+    DvTargetLoadSupport.TargetLoadResult result =
+        DvTargetLoadSupport.addTargetLoad(
+            targetCtx,
+            pipelineMeta,
+            targetLayout,
+            predecessor,
+            java.util.Collections.emptySet(),
+            true);
+    return result.transformMeta;
   }
 
   public static List<PipelineMeta> generateBuildPipelines(

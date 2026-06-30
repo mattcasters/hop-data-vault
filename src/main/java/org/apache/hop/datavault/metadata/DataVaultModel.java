@@ -222,6 +222,8 @@ public class DataVaultModel extends HopMetadataBase
     List<DataVaultSource> sources =
         loadDataVaultSources(metadataProvider, variables, remarks);
     checkTargetDatabase(remarks);
+    checkTargetLoadMode(remarks, metadataProvider);
+    checkTargetLoadModeGuidance(remarks, variables, metadataProvider);
     checkTargetLoadingIntegerSettings(remarks, variables);
     checkTablesPresent(remarks);
     checkTables(remarks, metadataProvider, variables, collectDefinedHubAndLinkNames(), options);
@@ -247,6 +249,105 @@ public class DataVaultModel extends HopMetadataBase
               BaseMessages.getString(PKG, "DataVaultModel.CheckResult.ErrorLoadingMetadata"),
               null));
       return new ArrayList<>();
+    }
+  }
+
+  private void checkTargetLoadMode(
+      List<ICheckResult> remarks, IHopMetadataProvider metadataProvider) {
+    DataVaultConfiguration config = getConfigurationOrDefault();
+    DvTargetLoadMode mode = config.resolveTargetLoadMode();
+    if (mode == DvTargetLoadMode.TABLE_OUTPUT) {
+      return;
+    }
+    org.apache.hop.core.database.DatabaseMeta targetDatabase = null;
+    try {
+      targetDatabase = DvSpecialRecordSupport.loadTargetDatabase(metadataProvider, config);
+    } catch (HopException e) {
+      // Target database validation is reported separately in checkTargetDatabase().
+      return;
+    }
+    if (!DvBulkLoadPluginSupport.isModeAvailable(targetDatabase, mode)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DataVaultModel.CheckResult.TargetLoadModeUnavailable",
+                  mode.getDescription(),
+                  targetDatabase != null ? targetDatabase.getPluginId() : ""),
+              null));
+    }
+  }
+
+  private void checkTargetLoadModeGuidance(
+      List<ICheckResult> remarks, IVariables variables, IHopMetadataProvider metadataProvider) {
+    DataVaultConfiguration config = getConfigurationOrDefault();
+    DvTargetLoadMode mode = config.resolveTargetLoadMode();
+    if (mode == DvTargetLoadMode.TABLE_OUTPUT) {
+      return;
+    }
+
+    org.apache.hop.core.database.DatabaseMeta targetDatabase = null;
+    try {
+      targetDatabase = DvSpecialRecordSupport.loadTargetDatabase(metadataProvider, config);
+    } catch (HopException e) {
+      return;
+    }
+
+    int parallelCopies = resolveTargetTableParallelCopies(config, variables);
+    if (mode == DvTargetLoadMode.NATIVE_BULK && parallelCopies > 1) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_WARNING,
+              BaseMessages.getString(
+                  PKG,
+                  "DataVaultModel.CheckResult.TargetLoadNativeBulkIgnoresParallelCopies",
+                  parallelCopies),
+              null));
+    }
+
+    if (mode == DvTargetLoadMode.STAGING_FILE) {
+      if (config.isBulkLoadLocalFileRequired()) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_WARNING,
+                BaseMessages.getString(
+                    PKG, "DataVaultModel.CheckResult.TargetLoadStagingLocalFileRequired"),
+                null));
+      }
+      if (targetDatabase != null
+          && DvBulkLoadPluginSupport.POSTGRESQL_DB_PLUGIN_ID.equals(targetDatabase.getPluginId())) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_WARNING,
+                BaseMessages.getString(
+                    PKG, "DataVaultModel.CheckResult.TargetLoadStagingPostgresServerPath"),
+                null));
+      }
+    }
+
+    remarks.add(
+        new CheckResult(
+            ICheckResult.TYPE_RESULT_WARNING,
+            BaseMessages.getString(
+                PKG,
+                "DataVaultModel.CheckResult.TargetLoadHashKeyPartitioningTableOutputOnly",
+                mode.getDescription()),
+            null));
+  }
+
+  private static int resolveTargetTableParallelCopies(
+      DataVaultConfiguration config, IVariables variables) {
+    try {
+      return DvIntegerSettingValidationSupport.requirePositiveInteger(
+          config.getTargetTableParallelCopies(),
+          variables,
+          DataVaultConfiguration.DEFAULT_TARGET_TABLE_PARALLEL_COPIES,
+          BaseMessages.getString(
+              DvIntegerSettingValidationSupport.class,
+              "DvIntegerSettingValidation.Label.TargetTableParallelCopies"));
+    } catch (HopException e) {
+      return 1;
     }
   }
 

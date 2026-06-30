@@ -1,0 +1,3 @@
+Scenario: General dimensional modeling and Hop integration help.
+
+Answer the user's question using the model summary, check results, and configuration in the context. Suggest next steps for star/snowflake modeling, loading, or validation.

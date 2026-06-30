@@ -1,0 +1,3 @@
+Scenario: Dimensional model error diagnosis.
+
+Focus on model check results and any log excerpts. Explain likely root causes and fixes for validation errors, dimension role mismatches, or load failures. Propose minimal configuration changes when appropriate.

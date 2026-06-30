@@ -19,17 +19,65 @@
 package org.apache.hop.datavault.ai.pipeline;
 
 import lombok.Getter;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 
 @Getter
-public enum PipelineAiScenario {
-  PIPELINE_GENERAL("pipeline-general"),
-  TRANSFORM_SELECTION("transform-selection"),
-  PIPELINE_ERROR_DIAGNOSIS("pipeline-error-diagnosis"),
-  PIPELINE_DESIGN("pipeline-design");
+public enum PipelineAiScenario implements IEnumHasCodeAndDescription {
+  PIPELINE_GENERAL(
+      "PIPELINE_GENERAL", "PipelineAiScenario.PipelineGeneral", "pipeline-general"),
+  TRANSFORM_SELECTION(
+      "TRANSFORM_SELECTION", "PipelineAiScenario.TransformSelection", "transform-selection"),
+  PIPELINE_ERROR_DIAGNOSIS(
+      "PIPELINE_ERROR_DIAGNOSIS",
+      "PipelineAiScenario.PipelineErrorDiagnosis",
+      "pipeline-error-diagnosis"),
+  PIPELINE_DESIGN("PIPELINE_DESIGN", "PipelineAiScenario.PipelineDesign", "pipeline-design");
 
+  private final String code;
+  private final String descriptionKey;
   private final String promptResource;
 
-  PipelineAiScenario(String promptResource) {
+  PipelineAiScenario(String code, String descriptionKey, String promptResource) {
+    this.code = code;
+    this.descriptionKey = descriptionKey;
     this.promptResource = promptResource;
+  }
+
+  @Override
+  public String getDescription() {
+    return BaseMessages.getString(PipelineAiScenario.class, descriptionKey);
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(PipelineAiScenario.class);
+  }
+
+  public static PipelineAiScenario lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(
+        PipelineAiScenario.class, description, PIPELINE_GENERAL);
+  }
+
+  public static PipelineAiScenario lookupCode(String code) {
+    return IEnumHasCode.lookupCode(PipelineAiScenario.class, code, PIPELINE_GENERAL);
+  }
+
+  public static PipelineAiScenario resolve(String value) {
+    if (Utils.isEmpty(value)) {
+      return PIPELINE_GENERAL;
+    }
+    String trimmed = value.trim();
+    for (PipelineAiScenario scenario : values()) {
+      if (scenario.name().equalsIgnoreCase(trimmed)) {
+        return scenario;
+      }
+    }
+    PipelineAiScenario byCode = IEnumHasCode.lookupCode(PipelineAiScenario.class, trimmed, null);
+    if (byCode != null) {
+      return byCode;
+    }
+    return lookupDescription(trimmed);
   }
 }

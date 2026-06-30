@@ -50,6 +50,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.datavault.command.svg.SvgExportService;
+import org.apache.hop.datavault.hopgui.ai.BvAiAdvisorDialog;
 import org.apache.hop.datavault.command.svg.SvgRenderOptions;
 import org.apache.hop.datavault.hopgui.file.businessvault.delegates.HopGuiBusinessVaultClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.businessvault.delegates.HopGuiBusinessVaultSnapshotUndo;
@@ -62,7 +63,12 @@ import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.datavault.metadata.DvTargetLoadMode;
+import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
+import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
+import org.apache.hop.datavault.metadata.businessvault.BusinessVaultUpdateExecutionSupport;
+import org.apache.hop.datavault.metadata.businessvault.BvTargetDatabaseSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvModelResolver;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvReferenceSupport;
 import org.apache.hop.datavault.metadata.businessvault.BvDvTableReference;
@@ -74,6 +80,7 @@ import org.apache.hop.datavault.metadata.businessvault.BvTableBase;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.hopgui.context.GuiContextUtil;
@@ -131,6 +138,8 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       "HopGuiBusinessVaultGraph-ToolBar-10050-Edit-Model";
   public static final String TOOLBAR_ITEM_CHECK_MODEL =
       "HopGuiBusinessVaultGraph-ToolBar-10060-Check-Model";
+  public static final String TOOLBAR_ITEM_AI_HELP =
+      "HopGuiBusinessVaultGraph-ToolBar-10065-AI-Help";
   public static final String TOOLBAR_ITEM_EXPORT_SVG =
       "HopGuiBusinessVaultGraph-ToolBar-10065-Export-Svg";
   public static final String TOOLBAR_ITEM_RELOAD_DV =
@@ -1077,6 +1086,22 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = "bv-graph-ai-help",
+      parentId = HopGuiBusinessVaultContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiBusinessVaultGraph.AiHelp.Name",
+      tooltip = "i18n::HopGuiBusinessVaultGraph.AiHelp.Tooltip",
+      image = "datavault_ai_help.svg",
+      category = "Help",
+      categoryOrder = "1")
+  public void openAiAdvisorContext(HopGuiBusinessVaultContext context) {
+    HopGuiBusinessVaultGraph graph = context.getBusinessVaultGraph();
+    if (graph != null) {
+      graph.openAiAdvisor();
+    }
+  }
+
+  @GuiContextAction(
       id = "bv-graph-paste-clipboard",
       parentId = HopGuiBusinessVaultContext.CONTEXT_ID,
       type = GuiActionType.Modify,
@@ -1179,6 +1204,30 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       return;
     }
     showCheckResultsDialog(model.check(hopGui.getMetadataProvider(), getVariables()));
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_AI_HELP,
+      toolTip = "i18n::HopGuiBusinessVaultGraph.Toolbar.AiHelp.Tooltip",
+      image = "datavault_ai_help.svg")
+  public void openAiAdvisor() {
+    if (model == null) {
+      return;
+    }
+    new BvAiAdvisorDialog(
+            hopShell(),
+            hopGui,
+            model,
+            getVariables(),
+            hopGui.getMetadataProvider(),
+            this::markUndoPoint,
+            () -> {
+              setChanged();
+              redraw();
+              enableUndoToolbarItems();
+            })
+        .open();
   }
 
   @GuiToolbarElement(
@@ -1286,6 +1335,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       return;
     }
     IVariables debugVariables = getVariables();
+    BusinessVaultConfiguration config = model.getConfigurationOrDefault();
+    if (config.resolveTargetLoadMode() == DvTargetLoadMode.STAGING_FILE) {
+      debugStagingWorkflow(debugVariables);
+      return;
+    }
     for (IBvTable table : model.getTables()) {
       if (table == null || !(table instanceof BvScd2Table || table instanceof BvPitTable)) {
         continue;
@@ -1320,6 +1374,75 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
             : BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Debug.Error.MissingDvModel"),
         null);
     return false;
+  }
+
+  private void debugStagingWorkflow(IVariables debugVariables) {
+    try {
+      List<PipelineMeta> pipelineMetas = new ArrayList<>();
+      for (IBvTable table :
+          BusinessVaultUpdateExecutionSupport.orderTablesForPipelineExecution(model.getTables())) {
+        if (!(table instanceof BvScd2Table || table instanceof BvPitTable)) {
+          continue;
+        }
+        if (!table.isSelected() && nrSelectedBvTables() > 0) {
+          continue;
+        }
+        List<PipelineMeta> generated =
+            table.generateBuildPipelines(
+                hopGui.getMetadataProvider(), debugVariables, model, dataVaultModel);
+        if (generated != null) {
+          pipelineMetas.addAll(generated);
+        }
+      }
+
+      for (PipelineMeta pipelineMeta : pipelineMetas) {
+        if (pipelineMeta != null) {
+          String xml = pipelineMeta.getXml(debugVariables);
+          Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
+          PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
+          HopGui.getExplorerPerspective().addPipeline(reloaded);
+        }
+      }
+
+      if (pipelineMetas.isEmpty()) {
+        return;
+      }
+
+      BusinessVaultConfiguration config = model.getConfigurationOrDefault();
+      org.apache.hop.core.database.DatabaseMeta targetDatabase =
+          BvTargetDatabaseSupport.loadTargetDatabase(hopGui.getMetadataProvider(), config);
+      if (targetDatabase == null || Utils.isEmpty(config.getTargetDatabase())) {
+        return;
+      }
+
+      for (PipelineMeta pipelineMeta : pipelineMetas) {
+        if (pipelineMeta != null) {
+          pipelineMeta.setFilename(
+              config.resolveBulkLoadStagingFolder(debugVariables, model.getName())
+                  + pipelineMeta.getName()
+                  + PipelineMeta.PIPELINE_EXTENSION);
+        }
+      }
+
+      List<DvUpdateWorkflowSupport.DvStagingLoadDescriptor> descriptors =
+          DvUpdateWorkflowSupport.buildStagingDescriptors(
+              config,
+              debugVariables,
+              model.getName(),
+              targetDatabase,
+              config.getTargetDatabase(),
+              pipelineMetas);
+      WorkflowMeta masterWorkflow =
+          DvUpdateWorkflowSupport.buildMasterWorkflow(
+              descriptors, config, debugVariables, "local", model.getName());
+      HopGui.getExplorerPerspective().addWorkflow(masterWorkflow);
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Debug.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Debug.Error.StagingWorkflow"),
+          e);
+    }
   }
 
   private void openBuildPipeline(IBvTable table, IVariables debugVariables) {

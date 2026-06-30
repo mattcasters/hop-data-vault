@@ -18,14 +18,11 @@
 
 package org.apache.hop.datavault.metadata.businessvault;
 
-import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
-import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.exception.HopException;
-import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
-import org.apache.hop.core.vfs.HopVfs;
+import org.apache.hop.datavault.metadata.DvGeneratedPipelineSupport;
+import org.apache.hop.datavault.metadata.IDvTargetLoadConfiguration;
 import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.layout.DvPipelineElkLayout;
 import org.apache.hop.datavault.layout.ElkLayout;
@@ -63,51 +60,18 @@ public final class BvGeneratedPipelineSupport {
   public static String saveBeforeExecution(
       BusinessVaultConfiguration config, IVariables variables, PipelineMeta pipelineMeta)
       throws HopException {
-    if (config == null || pipelineMeta == null) {
-      return null;
-    }
-
-    String folder = config.getGeneratedPipelineFolder();
-    if (Utils.isEmpty(folder)) {
-      return null;
-    }
-    if (variables != null) {
-      folder = variables.resolve(folder);
-    }
-    if (Utils.isEmpty(folder)) {
-      return null;
-    }
-
-    String pipelineFilename =
-        appendPath(folder, pipelineMeta.getName() + PipelineMeta.PIPELINE_EXTENSION);
-    pipelineMeta.setFilename(pipelineFilename);
-
-    try {
-      FileObject file = HopVfs.getFileObject(pipelineFilename, variables);
-      FileObject parent = file.getParent();
-      if (parent != null && !parent.exists()) {
-        parent.createFolder();
-      }
-      String xml = pipelineMeta.getXml(variables);
-      try (OutputStreamWriter writer =
-          new OutputStreamWriter(HopVfs.getOutputStream(file, false), StandardCharsets.UTF_8)) {
-        writer.write(xml);
-      }
-      return pipelineFilename;
-    } catch (Exception e) {
-      throw new HopException(
-          "Unable to save generated pipeline '"
-              + pipelineMeta.getName()
-              + "' to "
-              + pipelineFilename,
-          e);
-    }
+    return saveBeforeExecution((IDvTargetLoadConfiguration) config, variables, pipelineMeta);
   }
 
-  private static String appendPath(String folder, String filename) {
-    if (folder.endsWith("/") || folder.endsWith("\\")) {
-      return folder + filename;
-    }
-    return folder + "/" + filename;
+  public static String saveBeforeExecution(
+      IDvTargetLoadConfiguration config, IVariables variables, PipelineMeta pipelineMeta)
+      throws HopException {
+    return DvGeneratedPipelineSupport.saveBeforeExecution(config, variables, pipelineMeta);
+  }
+
+  public static String saveWorkflowBeforeExecution(
+      IDvTargetLoadConfiguration config, IVariables variables, org.apache.hop.workflow.WorkflowMeta workflowMeta)
+      throws HopException {
+    return DvGeneratedPipelineSupport.saveWorkflowBeforeExecution(config, variables, workflowMeta);
   }
 }

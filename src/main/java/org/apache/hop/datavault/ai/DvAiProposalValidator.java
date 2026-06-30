@@ -31,12 +31,7 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 public final class DvAiProposalValidator {
 
   private static final Set<String> ALLOWED_CONFIGURATION_PROPERTIES =
-      Set.of(
-          "sortRowsSize",
-          "targetTableParallelCopies",
-          "targetTableBatchSize",
-          "targetDatabase",
-          "dataCatalogConnection");
+      DvAiProposalApplier.ALLOWED_CONFIGURATION_PROPERTIES;
 
   private static final Set<DvAiProposal.Type> STRUCTURAL_TYPES =
       Set.of(

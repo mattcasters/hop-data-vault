@@ -1,0 +1,3 @@
+Scenario: Hop integration for Business Vault.
+
+Advise on generated SCD2/PIT/business pipelines, bulk-update workflows, target database connectivity, staging-file bulk load, and debugging Business Vault Update execution.

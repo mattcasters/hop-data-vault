@@ -212,9 +212,7 @@ public final class DvAiContextBuilder {
     json.append("{\"targetDatabase\":").append(jsonString(config.getTargetDatabase()));
     json.append(",\"dataCatalogConnection\":").append(jsonString(config.getDataCatalogConnection()));
     json.append(",\"sortRowsSize\":").append(jsonString(config.getSortRowsSize()));
-    json.append(",\"targetTableParallelCopies\":")
-        .append(jsonString(config.getTargetTableParallelCopies()));
-    json.append(",\"targetTableBatchSize\":").append(jsonString(config.getTargetTableBatchSize()));
+    DvTargetLoadAiConfigurationSupport.appendTargetLoadSummaryJson(json, config);
     json.append("}}");
     return json.toString();
   }
@@ -425,7 +423,7 @@ public final class DvAiContextBuilder {
     return name + ": " + description;
   }
 
-  static String jsonString(String value) {
+  public static String jsonString(String value) {
     if (value == null) {
       return "null";
     }

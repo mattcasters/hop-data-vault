@@ -59,6 +59,8 @@ public class HopGuiDimensionalModelDialog {
   private Text wDescription;
   private GuiCompositeWidgets widgets;
   private Composite wGeneralTabComp;
+  private Composite wTargetLoadTabComp;
+  private Composite wGeneratedArtifactsTabComp;
 
   private boolean ok;
   private boolean populatingWidgets;
@@ -145,6 +147,17 @@ public class HopGuiDimensionalModelDialog {
             wTabFolder,
             BaseMessages.getString(PKG, "HopGuiDimensionalModelDialog.Tab.General.Label"),
             BaseMessages.getString(PKG, "HopGuiDimensionalModelDialog.Tab.General.ToolTip"));
+    wTargetLoadTabComp =
+        createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiDimensionalModelDialog.Tab.TargetLoad.Label"),
+            BaseMessages.getString(PKG, "HopGuiDimensionalModelDialog.Tab.TargetLoad.ToolTip"));
+    wGeneratedArtifactsTabComp =
+        createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiDimensionalModelDialog.Tab.GeneratedArtifacts.Label"),
+            BaseMessages.getString(
+                PKG, "HopGuiDimensionalModelDialog.Tab.GeneratedArtifacts.ToolTip"));
 
     DimensionalConfiguration configuration = input.getConfigurationOrDefault();
     widgets = new GuiCompositeWidgets(variables);
@@ -153,6 +166,18 @@ public class HopGuiDimensionalModelDialog {
         null,
         wGeneralTabComp,
         DimensionalConfiguration.GUI_PLUGIN_ELEMENT_PARENT_ID,
+        null);
+    widgets.createCompositeWidgets(
+        configuration,
+        null,
+        wTargetLoadTabComp,
+        DimensionalConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID,
+        null);
+    widgets.createCompositeWidgets(
+        configuration,
+        null,
+        wGeneratedArtifactsTabComp,
+        DimensionalConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID,
         null);
 
     wTabFolder.setSelection(0);
@@ -199,10 +224,19 @@ public class HopGuiDimensionalModelDialog {
       if (input.getDescription() != null) {
         wDescription.setText(input.getDescription());
       }
+      DimensionalConfiguration configuration = input.getConfigurationOrDefault();
       widgets.setWidgetsContents(
-          input.getConfigurationOrDefault(),
+          configuration,
           wGeneralTabComp,
           DimensionalConfiguration.GUI_PLUGIN_ELEMENT_PARENT_ID);
+      widgets.setWidgetsContents(
+          configuration,
+          wTargetLoadTabComp,
+          DimensionalConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
+      widgets.setWidgetsContents(
+          configuration,
+          wGeneratedArtifactsTabComp,
+          DimensionalConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID);
     } finally {
       populatingWidgets = false;
     }
@@ -214,6 +248,10 @@ public class HopGuiDimensionalModelDialog {
     DimensionalConfiguration configuration = input.getConfigurationOrDefault();
     widgets.getWidgetsContents(
         configuration, DimensionalConfiguration.GUI_PLUGIN_ELEMENT_PARENT_ID);
+    widgets.getWidgetsContents(
+        configuration, DimensionalConfiguration.GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID);
+    widgets.getWidgetsContents(
+        configuration, DimensionalConfiguration.GUI_PLUGIN_ELEMENT_GENERATED_ARTIFACTS_TAB_ID);
     input.setConfiguration(configuration);
     ok = true;
     dispose();

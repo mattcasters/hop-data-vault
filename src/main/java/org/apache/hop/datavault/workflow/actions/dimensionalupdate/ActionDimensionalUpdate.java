@@ -53,7 +53,8 @@ import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.hopgui.file.dimensional.HopDimensionalFileType;
 import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
-import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
+import org.apache.hop.datavault.metadata.DvModelBulkUpdateExecutionSupport;
+import org.apache.hop.datavault.metadata.DvTargetLoadMode;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmTargetDatabaseSupport;
@@ -483,72 +484,46 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
       }
 
       if (!allPipelineMetas.isEmpty()) {
-        String stagingFolder =
-            resolve(resolveStagingFolder(pipelineStagingFolder, getVariables(), dmModel.getName()));
-        int parallelCopies =
-            DvPipelineOrchestratorSupport.resolveParallelCopies(
-                parallelPipelineCopies, getVariables());
-
-        logBasic(
-            BaseMessages.getString(
-                PKG,
-                "ActionDimensionalUpdate.Log.StagingPipelines",
-                stagingFolder,
-                allPipelineMetas.size()));
-        logBasic(
-            BaseMessages.getString(
-                PKG, "ActionDimensionalUpdate.Log.ParallelCopies", parallelCopies));
-
-        try {
-          DvPipelineOrchestratorSupport.prepareStagingFolder(stagingFolder, getVariables());
-          DvPipelineOrchestratorSupport.stagePipelines(
-              stagingFolder, getVariables(), allPipelineMetas);
-
-          PipelineMeta orchestrator =
-              DvPipelineOrchestratorSupport.buildOrchestratorPipeline(
-                  stagingFolder, realRunConfig, parallelCopies, dmModel.getName());
-
-          logBasic(
-              BaseMessages.getString(
-                  PKG,
-                  "ActionDimensionalUpdate.Log.RunningOrchestrator",
-                  orchestrator.getName(),
-                  realRunConfig));
-
-          Result orchestratorResult =
-              DvPipelineOrchestratorSupport.runOrchestrator(
-                  orchestrator,
+        DvModelBulkUpdateExecutionSupport.ExecutionOutcome outcome;
+        if (pipelineConfig.resolveTargetLoadMode() == DvTargetLoadMode.STAGING_FILE) {
+          DatabaseMeta targetDatabase =
+              DmTargetDatabaseSupport.loadTargetDatabase(getMetadataProvider(), pipelineConfig);
+          outcome =
+              DvModelBulkUpdateExecutionSupport.executeStagingFileUpdate(
+                  result,
+                  dmModel.getName(),
+                  pipelineConfig,
+                  allPipelineMetas,
                   realRunConfig,
-                  getLogLevel() != null ? getLogLevel() : LogLevel.BASIC,
+                  getLogLevel(),
+                  pipelineStagingFolder,
+                  targetDatabase,
+                  pipelineConfig.getTargetDatabase(),
+                  success,
+                  totalErrors,
+                  getVariables(),
+                  this,
+                  getMetadataProvider());
+        } else {
+          outcome =
+              DvModelBulkUpdateExecutionSupport.executeOrchestratorUpdate(
+                  result,
+                  dmModel.getName(),
+                  allPipelineMetas,
+                  realRunConfig,
+                  getLogLevel(),
+                  pipelineStagingFolder,
+                  parallelPipelineCopies,
                   resolve(metricsOutputFolder),
+                  success,
+                  totalErrors,
+                  getVariables(),
                   this,
                   getParentWorkflow(),
-                  getVariables(),
                   getMetadataProvider());
-
-          DvPipelineOrchestratorSupport.mergeResult(result, orchestratorResult);
-
-          if (orchestratorResult.getNrErrors() > 0 || !orchestratorResult.getResult()) {
-            logError(
-                BaseMessages.getString(PKG, "ActionDimensionalUpdate.Error.OrchestratorFailed"));
-            success = false;
-            totalErrors += orchestratorResult.getNrErrors();
-          }
-        } finally {
-          try {
-            DvPipelineOrchestratorSupport.cleanupStagingFolder(stagingFolder, getVariables());
-            logBasic(
-                BaseMessages.getString(
-                    PKG, "ActionDimensionalUpdate.Log.StagingCleanup", stagingFolder));
-          } catch (HopException e) {
-            logError(
-                BaseMessages.getString(
-                    PKG,
-                    "ActionDimensionalUpdate.Error.StagingCleanupFailed",
-                    stagingFolder),
-                e);
-          }
         }
+        success = outcome.success();
+        totalErrors = outcome.totalErrors();
       }
 
       return finishExecution(result, success, totalErrors);

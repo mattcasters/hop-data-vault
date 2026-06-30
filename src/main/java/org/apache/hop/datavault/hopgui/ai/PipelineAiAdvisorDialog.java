@@ -32,6 +32,7 @@ import org.apache.hop.datavault.ai.pipeline.PipelineAiAdvisorService;
 import org.apache.hop.datavault.ai.pipeline.PipelineAiContextBuilder;
 import org.apache.hop.datavault.ai.pipeline.PipelineAiRequest;
 import org.apache.hop.datavault.ai.pipeline.PipelineAiScenario;
+import org.apache.hop.datavault.hopgui.EnumDialogSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
@@ -170,10 +171,8 @@ public class PipelineAiAdvisorDialog {
 
     wScenario = new Combo(shell, SWT.READ_ONLY | SWT.BORDER);
     PropsUi.setLook(wScenario);
-    for (PipelineAiScenario scenario : PipelineAiScenario.values()) {
-      wScenario.add(scenario.name().replace('_', ' '));
-    }
-    wScenario.select(PipelineAiScenario.PIPELINE_GENERAL.ordinal());
+    EnumDialogSupport.populateCombo(wScenario, PipelineAiScenario.class);
+    EnumDialogSupport.selectCombo(wScenario, PipelineAiScenario.PIPELINE_GENERAL);
     lastScenarioIndex = wScenario.getSelectionIndex();
     wScenario.addListener(SWT.Selection, this::changeScenarioMessageBox);
     FormData fdScenario = new FormData();
@@ -318,7 +317,9 @@ public class PipelineAiAdvisorDialog {
     var requestBuilder =
         PipelineAiRequest.builder()
             .userPrompt(question.trim())
-            .scenario(PipelineAiScenario.values()[wScenario.getSelectionIndex()])
+            .scenario(
+                EnumDialogSupport.readCombo(
+                    wScenario, PipelineAiScenario.class, PipelineAiScenario.PIPELINE_GENERAL))
             .includeCheckResults(wIncludeChecks.getSelection())
             .includeTransformCatalog(wIncludeCatalog.getSelection())
             .includeTopologyXml(wIncludeTopologyXml.getSelection())

@@ -274,6 +274,18 @@
       <version>${hop.version}</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-databases-mysql</artifactId>
+      <version>${hop.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-databases-postgresql</artifactId>
+      <version>${hop.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

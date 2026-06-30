@@ -112,15 +112,33 @@ public final class DvPipelineOrchestratorSupport {
   /** Writes each generated pipeline to the staging folder. */
   public static void stagePipelines(
       String folder, IVariables variables, List<PipelineMeta> pipelines) throws HopException {
+    stagePipelines(folder, variables, pipelines, false);
+  }
+
+  /**
+   * Writes each generated pipeline to the staging folder.
+   *
+   * @param sequenceFilenames when {@code true}, prefixes each filename with a zero-padded sequence
+   *     ({@code 0001-}, {@code 0002-}, …) so Get File Names picks up pipelines in list order
+   */
+  public static void stagePipelines(
+      String folder,
+      IVariables variables,
+      List<PipelineMeta> pipelines,
+      boolean sequenceFilenames)
+      throws HopException {
     if (pipelines == null || pipelines.isEmpty()) {
       return;
     }
+    int sequence = 1;
     for (PipelineMeta pipelineMeta : pipelines) {
       if (pipelineMeta == null) {
         continue;
       }
       String pipelineFilename =
-          appendPath(folder, pipelineMeta.getName() + PipelineMeta.PIPELINE_EXTENSION);
+          appendPath(
+              folder,
+              buildStagedPipelineFilename(pipelineMeta.getName(), sequence++, sequenceFilenames));
       pipelineMeta.setFilename(pipelineFilename);
       writePipeline(variables, pipelineMeta, pipelineFilename);
     }
@@ -282,6 +300,16 @@ public final class DvPipelineOrchestratorSupport {
               + pipelineFilename,
           e);
     }
+  }
+
+  /** Builds the staged pipeline base filename (including {@code .hpl} extension). */
+  static String buildStagedPipelineFilename(
+      String pipelineName, int sequence, boolean sequenceFilenames) {
+    String stagedBaseName = pipelineName;
+    if (sequenceFilenames) {
+      stagedBaseName = String.format("%04d-%s", sequence, pipelineName);
+    }
+    return stagedBaseName + PipelineMeta.PIPELINE_EXTENSION;
   }
 
   private static String sanitizeModelName(String modelName) {

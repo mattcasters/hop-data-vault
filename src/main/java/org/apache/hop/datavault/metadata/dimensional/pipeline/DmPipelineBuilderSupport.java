@@ -18,6 +18,7 @@
 package org.apache.hop.datavault.metadata.dimensional.pipeline;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
@@ -26,6 +27,7 @@ import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DvSqlSupport;
+import org.apache.hop.datavault.metadata.DvTargetLoadSupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmSourceConfiguration;
@@ -38,8 +40,7 @@ import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.dummy.DummyMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
-import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
-import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
+
 
 /** Shared helpers for generated dimensional load pipelines. */
 public final class DmPipelineBuilderSupport {
@@ -152,31 +153,41 @@ public final class DmPipelineBuilderSupport {
       TransformMeta predecessor,
       boolean truncate)
       throws HopException {
+    return addTargetLoad(ctx, pipelineMeta, targetLayout, predecessor, truncate);
+  }
+
+  public static TransformMeta addTargetLoad(
+      BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      IRowMeta targetLayout,
+      TransformMeta predecessor,
+      boolean truncate)
+      throws HopException {
     if (predecessor == null) {
       return null;
     }
 
-    TableOutputMeta tableOutputMeta = new TableOutputMeta();
-    tableOutputMeta.setConnection(ctx.targetDbName);
-    tableOutputMeta.setTableName(ctx.targetTableName);
-    tableOutputMeta.setSpecifyFields(true);
-    tableOutputMeta.setTruncateTable(truncate);
-    tableOutputMeta.setCommitSize(ctx.config.resolveTargetTableCommitSize(ctx.variables));
+    DvTargetLoadSupport.TargetLoadContext targetCtx =
+        new DvTargetLoadSupport.TargetLoadContext(
+            ctx.config,
+            ctx.variables,
+            ctx.targetDatabaseMeta,
+            ctx.targetDbName,
+            ctx.targetTableName,
+            ctx.pipelineName,
+            ctx.model.getName(),
+            predecessor.getLocation().x + SPACING_WIDTH,
+            predecessor.getLocation().y);
 
-    if (targetLayout != null) {
-      for (var vm : targetLayout.getValueMetaList()) {
-        String name = vm.getName();
-        tableOutputMeta.getFields().add(new TableOutputField(name, name));
-      }
-    }
-
-    TransformMeta tm =
-        new TransformMeta("TableOutput", "write_" + ctx.targetTableName, tableOutputMeta);
-    tm.setLocation(predecessor.getLocation().x + SPACING_WIDTH, predecessor.getLocation().y);
-    tm.setCopiesString(ctx.config.resolveTargetTableParallelCopies(ctx.variables));
-    pipelineMeta.addTransform(tm);
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
-    return tm;
+    DvTargetLoadSupport.TargetLoadResult result =
+        DvTargetLoadSupport.addTargetLoad(
+            targetCtx,
+            pipelineMeta,
+            targetLayout,
+            predecessor,
+            Collections.emptySet(),
+            truncate);
+    return result.transformMeta;
   }
 
   public static TransformMeta addDummyTransform(

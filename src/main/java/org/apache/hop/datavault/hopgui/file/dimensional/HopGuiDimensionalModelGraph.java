@@ -45,6 +45,7 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.datavault.hopgui.ai.DmAiAdvisorDialog;
 import org.apache.hop.datavault.hopgui.file.dimensional.delegates.HopGuiDimensionalClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.dimensional.delegates.HopGuiDimensionalSnapshotUndo;
 import org.apache.hop.datavault.hopgui.file.modelgraph.HopGuiModelGraphBase;
@@ -52,6 +53,10 @@ import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphHit;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphMouseInteractions;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphSnapshotUndo;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
+import org.apache.hop.datavault.metadata.DvTargetLoadMode;
+import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
+import org.apache.hop.datavault.metadata.dimensional.DmTargetDatabaseSupport;
+import org.apache.hop.datavault.metadata.dimensional.pipeline.DmUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
@@ -73,6 +78,7 @@ import org.apache.hop.datavault.metadata.dimensional.IDmFactLikeTable;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
@@ -132,6 +138,8 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       "HopGuiDimensionalModelGraph-ToolBar-10050-Edit-Model";
   public static final String TOOLBAR_ITEM_CHECK_MODEL =
       "HopGuiDimensionalModelGraph-ToolBar-10060-Check-Model";
+  public static final String TOOLBAR_ITEM_AI_HELP =
+      "HopGuiDimensionalModelGraph-ToolBar-10065-AI-Help";
   public static final String TOOLBAR_ITEM_DEBUG =
       "HopGuiDimensionalModelGraph-ToolBar-10070-Debug";
   public static final String TOOLBAR_ITEM_SELECT_ALL =
@@ -699,6 +707,22 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = "dm-graph-ai-help",
+      parentId = HopGuiDimensionalContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiDimensionalModelGraph.AiHelp.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.AiHelp.Tooltip",
+      image = "datavault_ai_help.svg",
+      category = "Help",
+      categoryOrder = "1")
+  public void openAiAdvisorContext(HopGuiDimensionalContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph != null) {
+      graph.openAiAdvisor();
+    }
+  }
+
+  @GuiContextAction(
       id = "dm-graph-import-database-tables",
       parentId = HopGuiDimensionalContext.CONTEXT_ID,
       type = GuiActionType.Create,
@@ -969,6 +993,30 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
 
   @GuiToolbarElement(
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_AI_HELP,
+      toolTip = "i18n::HopGuiDimensionalModelGraph.Toolbar.AiHelp.Tooltip",
+      image = "datavault_ai_help.svg")
+  public void openAiAdvisor() {
+    if (model == null) {
+      return;
+    }
+    new DmAiAdvisorDialog(
+            hopShell(),
+            hopGui,
+            model,
+            getVariables(),
+            hopGui.getMetadataProvider(),
+            this::markUndoPoint,
+            () -> {
+              setChanged();
+              redraw();
+              enableUndoToolbarItems();
+            })
+        .open();
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_DEBUG,
       toolTip = "i18n::HopGuiDimensionalModelGraph.Toolbar.Debug.Tooltip",
       image = "ui/images/debug.svg")
@@ -980,6 +1028,11 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       return;
     }
     IVariables debugVariables = getVariables();
+    DimensionalConfiguration config = model.getConfigurationOrDefault();
+    if (config.resolveTargetLoadMode() == DvTargetLoadMode.STAGING_FILE) {
+      debugStagingWorkflow(debugVariables);
+      return;
+    }
     for (IDmTable table : model.getTables()) {
       if (table == null) {
         continue;
@@ -1074,6 +1127,78 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
               PKG, "HopGuiDimensionalModelGraph.Debug.Error.Pipeline", tableName),
           e);
     }
+  }
+
+  private void debugStagingWorkflow(IVariables debugVariables) {
+    try {
+      List<PipelineMeta> pipelineMetas = new ArrayList<>();
+      Date loadTimestamp = new Date();
+      for (IDmTable table :
+          DmUpdateExecutionSupport.orderTablesForPipelineExecution(model.getTables())) {
+        if (!table.isSelected() && nrSelectedTables() > 0) {
+          continue;
+        }
+        List<PipelineMeta> generated =
+            table.generateUpdatePipelines(
+                hopGui.getMetadataProvider(), debugVariables, model, loadTimestamp);
+        if (generated != null) {
+          pipelineMetas.addAll(generated);
+        }
+      }
+
+      for (PipelineMeta pipelineMeta : pipelineMetas) {
+        if (pipelineMeta != null) {
+          openReloadedPipeline(pipelineMeta, debugVariables);
+        }
+      }
+
+      if (pipelineMetas.isEmpty()) {
+        return;
+      }
+
+      DimensionalConfiguration config = model.getConfigurationOrDefault();
+      org.apache.hop.core.database.DatabaseMeta targetDatabase =
+          DmTargetDatabaseSupport.loadTargetDatabase(hopGui.getMetadataProvider(), config);
+      if (targetDatabase == null || Utils.isEmpty(config.getTargetDatabase())) {
+        return;
+      }
+
+      for (PipelineMeta pipelineMeta : pipelineMetas) {
+        if (pipelineMeta != null) {
+          pipelineMeta.setFilename(
+              config.resolveBulkLoadStagingFolder(debugVariables, model.getName())
+                  + pipelineMeta.getName()
+                  + PipelineMeta.PIPELINE_EXTENSION);
+        }
+      }
+
+      List<DvUpdateWorkflowSupport.DvStagingLoadDescriptor> descriptors =
+          DvUpdateWorkflowSupport.buildStagingDescriptors(
+              config,
+              debugVariables,
+              model.getName(),
+              targetDatabase,
+              config.getTargetDatabase(),
+              pipelineMetas);
+      WorkflowMeta masterWorkflow =
+          DvUpdateWorkflowSupport.buildMasterWorkflow(
+              descriptors, config, debugVariables, "local", model.getName());
+      HopGui.getExplorerPerspective().addWorkflow(masterWorkflow);
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.Debug.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.Debug.Error.StagingWorkflow"),
+          e);
+    }
+  }
+
+  private void openReloadedPipeline(PipelineMeta pipelineMeta, IVariables debugVariables)
+      throws HopException {
+    String xml = pipelineMeta.getXml(debugVariables);
+    Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
+    PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
+    HopGui.getExplorerPerspective().addPipeline(reloaded);
   }
 
   private void showCheckResultsDialog(List<ICheckResult> remarks) {

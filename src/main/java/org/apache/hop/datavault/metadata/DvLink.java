@@ -24,6 +24,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
@@ -75,8 +76,6 @@ import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.sort.SortRowsField;
 import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
-import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
-import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -550,7 +549,12 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
         IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
 
-        addTableOutput(ctx, pipelineMeta, targetLayout, constantTransform);
+        DvTargetLoadSupport.addTargetLoad(
+            buildTargetLoadContext(ctx, pipelineMeta.getName()),
+            pipelineMeta,
+            targetLayout,
+            constantTransform,
+            Set.of("flag"));
 
         result.add(pipelineMeta);
       }
@@ -1004,46 +1008,22 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     return tm;
   }
 
-  private TransformMeta addTableOutput(
-      LinkUpdateContext ctx,
-      PipelineMeta pipelineMeta,
-      IRowMeta targetLayout,
-      TransformMeta predecessor)
-      throws HopException {
-    if (ctx.targetDatabaseMeta == null || Utils.isEmpty(ctx.targetDbName)) {
-      return null;
-    }
+  private DvTargetLoadSupport.TargetLoadContext buildTargetLoadContext(
+      LinkUpdateContext ctx, String pipelineName) {
     String tableName = ctx.targetTableName;
     if (Utils.isEmpty(tableName)) {
       tableName = getName();
     }
-
-    try {
-      TableOutputMeta tableOutputMeta = new TableOutputMeta();
-      tableOutputMeta.setConnection(ctx.targetDbName);
-      tableOutputMeta.setTableName(tableName);
-      tableOutputMeta.setSpecifyFields(true);
-      tableOutputMeta.setCommitSize(
-          ctx.config.resolveTargetTableCommitSize(ctx.variables));
-
-      if (targetLayout != null) {
-        for (IValueMeta vm : targetLayout.getValueMetaList()) {
-          String name = vm.getName();
-          if (!"flag".equalsIgnoreCase(name)) {
-            tableOutputMeta.getFields().add(new TableOutputField(name, name));
-          }
-        }
-      }
-
-      TransformMeta tm = new TransformMeta("TableOutput", "write_to_" + tableName, tableOutputMeta);
-      tm.setCopiesString(ctx.config.resolveTargetTableParallelCopies(ctx.variables));
-      tm.setLocation(LOCATION_START_LINE_3.x + 5 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
-      pipelineMeta.addTransform(tm);
-      pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
-      return tm;
-    } catch (Exception e) {
-      throw new HopException("Error creating Table Output transform", e);
-    }
+    return new DvTargetLoadSupport.TargetLoadContext(
+        ctx.config,
+        ctx.variables,
+        ctx.targetDatabaseMeta,
+        ctx.targetDbName,
+        tableName,
+        pipelineName,
+        ctx.model != null ? ctx.model.getName() : null,
+        LOCATION_START_LINE_3.x + 5 * SPACING_WIDTH,
+        LOCATION_START_LINE_3.y);
   }
 
   // The main addSortRows is defined above and used for both the link hash sort and the helper.

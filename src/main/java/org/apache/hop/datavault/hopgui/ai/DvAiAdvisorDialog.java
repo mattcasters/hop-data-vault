@@ -32,6 +32,7 @@ import org.apache.hop.datavault.ai.DvAiProposalValidator;
 import org.apache.hop.datavault.ai.DvAiRequest;
 import org.apache.hop.datavault.ai.DvAiResponse;
 import org.apache.hop.datavault.ai.DvAiScenario;
+import org.apache.hop.datavault.hopgui.EnumDialogSupport;
 import org.apache.hop.datavault.ai.HopAiConfig;
 import org.apache.hop.datavault.ai.HopAiConfigSingleton;
 import org.apache.hop.datavault.metadata.DataVaultModel;
@@ -282,10 +283,8 @@ public class DvAiAdvisorDialog {
 
     wScenario = new Combo(shell, SWT.READ_ONLY | SWT.BORDER);
     PropsUi.setLook(wScenario);
-    for (DvAiScenario scenario : DvAiScenario.values()) {
-      wScenario.add(scenario.name().replace('_', ' '));
-    }
-    wScenario.select(DvAiScenario.GENERAL.ordinal());
+    EnumDialogSupport.populateCombo(wScenario, DvAiScenario.class);
+    EnumDialogSupport.selectCombo(wScenario, DvAiScenario.GENERAL);
     lastScenarioIndex = wScenario.getSelectionIndex();
     wScenario.addListener(SWT.Selection, this::changeScenarioMessageBox);
     FormData fdScenario = new FormData();
@@ -397,7 +396,7 @@ public class DvAiAdvisorDialog {
     var requestBuilder =
         DvAiRequest.builder()
             .userPrompt(question.trim())
-            .scenario(DvAiScenario.values()[wScenario.getSelectionIndex()])
+            .scenario(EnumDialogSupport.readCombo(wScenario, DvAiScenario.class, DvAiScenario.GENERAL))
             .includeCheckResults(wIncludeChecks.getSelection())
             .includeCatalogSources(wIncludeCatalog.getSelection())
             .includeModelXml(wIncludeModelXml.getSelection())
@@ -564,7 +563,7 @@ public class DvAiAdvisorDialog {
   private void startNewConversation() {
     session.clear();
     lastScenarioIndex = wScenario.getSelectionIndex();
-    session.setScenario(DvAiScenario.values()[wScenario.getSelectionIndex()]);
+    session.setScenario(EnumDialogSupport.readCombo(wScenario, DvAiScenario.class, DvAiScenario.GENERAL));
     for (Control child : transcriptContent.getChildren()) {
       child.dispose();
     }

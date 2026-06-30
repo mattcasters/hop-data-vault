@@ -32,6 +32,7 @@ import org.apache.hop.datavault.ai.workflow.WorkflowAiAdvisorService;
 import org.apache.hop.datavault.ai.workflow.WorkflowAiContextBuilder;
 import org.apache.hop.datavault.ai.workflow.WorkflowAiRequest;
 import org.apache.hop.datavault.ai.workflow.WorkflowAiScenario;
+import org.apache.hop.datavault.hopgui.EnumDialogSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.ui.core.FormDataBuilder;
@@ -170,10 +171,8 @@ public class WorkflowAiAdvisorDialog {
 
     wScenario = new Combo(shell, SWT.READ_ONLY | SWT.BORDER);
     PropsUi.setLook(wScenario);
-    for (WorkflowAiScenario scenario : WorkflowAiScenario.values()) {
-      wScenario.add(scenario.name().replace('_', ' '));
-    }
-    wScenario.select(WorkflowAiScenario.WORKFLOW_GENERAL.ordinal());
+    EnumDialogSupport.populateCombo(wScenario, WorkflowAiScenario.class);
+    EnumDialogSupport.selectCombo(wScenario, WorkflowAiScenario.WORKFLOW_GENERAL);
     lastScenarioIndex = wScenario.getSelectionIndex();
     wScenario.addListener(SWT.Selection, this::changeScenarioMessageBox);
     FormData fdScenario = new FormData();
@@ -318,7 +317,9 @@ public class WorkflowAiAdvisorDialog {
     var requestBuilder =
         WorkflowAiRequest.builder()
             .userPrompt(question.trim())
-            .scenario(WorkflowAiScenario.values()[wScenario.getSelectionIndex()])
+            .scenario(
+                EnumDialogSupport.readCombo(
+                    wScenario, WorkflowAiScenario.class, WorkflowAiScenario.WORKFLOW_GENERAL))
             .includeCheckResults(wIncludeChecks.getSelection())
             .includeActionCatalog(wIncludeCatalog.getSelection())
             .includeTopologyXml(wIncludeTopologyXml.getSelection())

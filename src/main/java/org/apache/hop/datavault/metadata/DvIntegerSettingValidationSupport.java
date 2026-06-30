@@ -161,6 +161,32 @@ public final class DvIntegerSettingValidationSupport {
     }
   }
 
+  public static void requireTargetLoadIntegerSettings(
+      String targetTableBatchSize,
+      String targetTableParallelCopies,
+      IVariables variables,
+      String defaultBatchSize,
+      String defaultParallelCopies)
+      throws HopException {
+    for (IntegerSettingValidation validation :
+        List.of(
+            validatePositiveInteger(
+                targetTableBatchSize,
+                variables,
+                defaultBatchSize,
+                BaseMessages.getString(PKG, "DvIntegerSettingValidation.Label.TargetTableBatchSize")),
+            validatePositiveInteger(
+                targetTableParallelCopies,
+                variables,
+                defaultParallelCopies,
+                BaseMessages.getString(
+                    PKG, "DvIntegerSettingValidation.Label.TargetTableParallelCopies")))) {
+      if (!validation.isValid()) {
+        throw new HopException(validation.errorMessage());
+      }
+    }
+  }
+
   private static String resolve(IVariables variables, String value) {
     if (value == null) {
       return "";
