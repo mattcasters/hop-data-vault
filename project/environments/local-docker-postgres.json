@@ -3,34 +3,27 @@
     {
       "name": "DB_HOST",
       "value": "localhost",
-      "description": "PostgreSQL server"
+      "description": "Local Docker PostgreSQL (host network from run-tests.sh)"
     },
     {
       "name": "DB_PORT",
-      "value": "5432",
-      "description": "PostgreSQL port"
+      "value": "54320",
+      "description": "PostgreSQL port (non-default to avoid collision with host PostgreSQL on 5432)"
     },
     {
       "name": "DB_USER",
-      "value": "matt",
+      "value": "test",
       "description": "PostgreSQL username"
     },
     {
       "name": "DB_PASSWORD",
-      "value": "abcd",
+      "value": "test",
       "description": "PostgreSQL password"
     },
     {
       "name": "DB_NAME",
       "value": "test",
       "description": "PostgreSQL database name"
-    },
-    {
-      "name": "OUTPUT_COPIES",
-      "value": "2",
-      "description": "Parallel db insert threads"
     }
-  ]
-}
   ]
 }

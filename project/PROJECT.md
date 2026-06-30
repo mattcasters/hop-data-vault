@@ -16,12 +16,15 @@ This folder is a sample Hop project demonstrating the Data Vault 2.0 and Busines
 ```
 project/
 ├── project-config.json          # Hop project settings (metadata, datasets, unit tests)
-├── run-tests.sh                 # Run workflows in the Hop Docker image (host DB)
+├── run-postgres.sh              # Start local PostgreSQL Docker container on port 54320
+├── run-tests.sh                 # Run workflows in the Hop Docker image (local Docker Postgres)
 ├── run-tests-all-databases.sh   # Full suite against Docker PostgreSQL, MySQL, SingleStore
 ├── run-svg.sh                   # Export DV/BV/pipeline SVGs via hop svg in Docker
+├── SCRIPTS.md                   # How the project shell scripts work together
 ├── docker/                      # Docker image, compose files, shared shell helpers
 │   ├── Dockerfile               # Extends apache/hop:2.18.1 with plugin + JDBC drivers
 │   ├── compose.hop.yml          # Hop-only (host network, for run-tests.sh)
+│   ├── compose.postgres-local.yml # PostgreSQL only on port 54320 (for run-postgres.sh)
 │   ├── compose.<engine>.yml     # Database + Hop (for run-tests-all-databases.sh)
 │   └── hop-docker-lib.sh        # Shared image build, metrics, and ownership helpers
 ├── metrics/                     # DV update metrics JSON + overview CSV (gitignored)
@@ -69,10 +72,20 @@ project/
 
 Both test scripts use the same Hop Docker image (`docker-hop:latest`). The image is built automatically on first use and reused on later runs. Shared logic lives in `docker/hop-docker-lib.sh`.
 
-**`run-tests.sh`** — run against your configured host databases (`localhost` CRM/Vault connections). The container uses host networking so connection hostnames match the Hop GUI.
+**`run-postgres.sh`** — start a local PostgreSQL 16 container on port **54320** (`test` / `test` / `test`). Required before `run-tests.sh`.
 
 ```bash
-# All suites (~20 seconds on a local PostgreSQL)
+./run-postgres.sh up       # start and wait for healthy
+./run-postgres.sh status   # check container and connectivity
+./run-postgres.sh down     # stop (keeps data volume)
+```
+
+**`run-tests.sh`** — run against the local Docker PostgreSQL above. The Hop container uses host networking and loads [`environments/local-docker-postgres.json`](environments/local-docker-postgres.json) so CRM/Vault connections resolve `${DB_*}` variables in `metadata/rdbms/`.
+
+```bash
+./run-postgres.sh up
+
+# All suites (~20 seconds)
 ./run-tests.sh
 
 # One workflow
@@ -81,6 +94,8 @@ Both test scripts use the same Hop Docker image (`docker-hop:latest`). The image
 # Skip metrics overview collection
 COLLECT_METRICS=N ./run-tests.sh
 ```
+
+See [`SCRIPTS.md`](SCRIPTS.md) for full script reference.
 
 **`run-tests-all-databases.sh`** — run the full suite against containerised PostgreSQL, MySQL, and SingleStore (no host database required).
 

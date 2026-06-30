@@ -33,7 +33,9 @@ export METRICS_FOLDER="${METRICS_FOLDER:-/project/metrics/local}"
 mkdir -p "${SCRIPT_DIR}/metrics/local"
 
 echo "=== Running ${WORKFLOW_ARG} in Hop docker container ==="
-echo "Using CRM/Vault connections from ${SCRIPT_DIR}/metadata/rdbms/ (host network)"
+echo "Environment: ${HOP_ENVIRONMENT_NAME:-local-docker-postgres} (${LOCAL_POSTGRES_ENV_FILE})"
+echo "Database: ${LOCAL_POSTGRES_USER}@${LOCAL_POSTGRES_HOST}:${LOCAL_POSTGRES_PORT}/${LOCAL_POSTGRES_DB}"
+require_local_postgres
 
 EXIT_CODE=0
 run_hop_docker_short_lived "${HOP_COMPOSE_FILE}" "${HOP_FILE_PATH}" "${METRICS_FOLDER}" \
