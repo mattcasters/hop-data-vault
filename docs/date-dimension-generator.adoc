@@ -1,0 +1,207 @@
+= Date Dimension Generator
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+The **Date Dimension Generator** transform produces a calendar date dimension as pipeline rows. It is an input transform (category **Input**) and appears in the transform palette with the calendar icon.
+
+For each day between a configured **start date** and **end date** (inclusive), the transform emits one output row. Each output column is defined in a field table: you specify the field name, Hop data type, length, precision, a Java `DateTimeFormatter` pattern, and an optional locale. This makes it straightforward to populate a `dim_date` table (or role-playing date aliases) for Kimball star schemas modeled in link:dimensional-modeler-overview.adoc[the dimensional modeler].
+
+The transform does not read upstream rows. Incoming hops, if present, are ignored.
+
+== Prerequisites
+
+* Apache Hop 2.18.1 or compatible (provided by the hop-data-vault plugin).
+* A target table (or downstream transforms) that accept the field layout you configure. The **Load defaults** button supplies a layout aligned with the standard `dim_date` attributes created by the dimensional modeler's date dimension template (`date_key`, `full_date`, `day_of_week`, and related calendar columns).
+
+== Dialog overview
+
+The transform dialog has three areas: **Start date**, **End date**, and the **Output fields** table. A **Load defaults** button fills the standard calendar field set and the default range `2000-01-01` through `2030-12-31`.
+
+=== Date range
+
+[cols="1,3", options="header"]
+|===
+|Option |Description
+
+|Transform name
+|The name of this transform in the pipeline graph.
+
+|Start date
+|First calendar day to emit, in `yyyy-MM-dd` form. Variables are supported (for example `${DIM_DATE_START}`).
+
+|End date
+|Last calendar day to emit, inclusive, in `yyyy-MM-dd` form. Variables are supported.
+
+|Load defaults
+|Replaces the date range and output field table with the built-in standard date dimension layout.
+|===
+
+The transform validates that the start date is not after the end date. An empty or unparseable date produces a configuration error at runtime.
+
+=== Output fields
+
+Each row in the **Output fields** table defines one column on the output stream.
+
+[cols="1,3", options="header"]
+|===
+|Column |Description
+
+|Field name
+|Name of the output field added to the row stream.
+
+|Type
+|Hop data type (`Integer`, `String`, `Date`, `Boolean`, `Number`, `Timestamp`, and others from the type combo).
+
+|Length
+|Optional length for the Hop value metadata. Leave empty when not applicable.
+
+|Precision
+|Optional precision (mainly for `Number`). Leave empty when not applicable.
+
+|Format mask
+|Pattern used to derive the field value from the current calendar day. See <<format-masks,Format masks>> below.
+
+|Locale
+|Optional locale for localized names (for example `en_US`, `nl_NL`, `de_DE`). When empty, the JVM default locale is used. Locale affects patterns such as `MMMM` (month name) and `EEEE` (weekday name).
+|===
+
+Values are computed per day, then converted to the configured Hop type. For example, an `Integer` field with mask `d` stores the day-of-month as a number; a `String` field with mask `MMMM` and locale `nl_NL` stores the Dutch month name.
+
+== Format masks
+
+Format masks use Java `DateTimeFormatter` pattern letters unless noted as a special token below.
+
+Common patterns for date dimensions:
+
+[cols="2,1,3", options="header"]
+|===
+|Mask |Typical type |Produces
+
+|`yyyyMMdd` |Integer |Surrogate date key (`20000101` for 2000-01-01). Optimized internally; does not round-trip through a string.
+
+|`yyyy-MM-dd` |Date |Calendar date at start of day in the JVM default time zone.
+
+|`@day_of_week` |Integer |ISO day of week: Monday = 1 through Sunday = 7.
+
+|`d` |Integer |Day of month (1–31).
+
+|`D` |Integer |Day of year (1–366).
+
+|`w` |Integer |Week of week-based year.
+
+|`M` |Integer |Month of year (1–12).
+
+|`MMMM` |String |Full month name in the field's locale (`March`, `maart`, …).
+
+|`Q` |Integer |Quarter of year (1–4).
+
+|`yyyy` |Integer |Four-digit year.
+
+|`@is_weekend` |Boolean |`true` on Saturday and Sunday, `false` otherwise.
+|===
+
+=== Special tokens
+
+Some calendar attributes are easier to express as tokens than as formatter letters:
+
+[cols="1,3", options="header"]
+|===
+|Token |Behavior
+
+|`@day_of_week`
+|Integer ISO day of week (Monday = 1). Prefer this over the letter `u`, which in `DateTimeFormatter` means *year*, not day of week.
+
+|`@is_weekend`
+|Boolean weekend flag. Use with type `Boolean`.
+
+|`yyyyMMdd` or `YYYYMMDD`
+|Integer date key. Stored directly as `year * 10000 + month * 100 + day` for efficiency.
+|===
+
+=== Hop conversion masks
+
+Format masks drive *generation* only. They are **not** copied to Hop conversion masks on `Integer`, `String`, or `Boolean` fields. If they were, the Hop preview grid would prepend the mask to displayed values (for example `yyyyMMdd20000101` instead of `20000101`). Conversion masks are set only on `Date` and `Timestamp` fields so preview and downstream steps can render dates consistently.
+
+== Default field layout
+
+**Load defaults** configures the following fields (matching the dimensional modeler's standard `dim_date` attributes):
+
+[cols="2,1,1,1,2,1", options="header"]
+|===
+|Field name |Type |Length |Precision |Format mask |Locale
+
+|`date_key` |Integer |8 |0 |`yyyyMMdd` |
+
+|`full_date` |Date | | |`yyyy-MM-dd` |
+
+|`day_of_week` |Integer |1 |0 |`@day_of_week` |
+
+|`day_of_month` |Integer |2 |0 |`d` |
+
+|`day_of_year` |Integer |3 |0 |`D` |
+
+|`week_of_year` |Integer |2 |0 |`w` |
+
+|`month` |Integer |2 |0 |`M` |
+
+|`month_name` |String |20 |0 |`MMMM` |`en_US`
+
+|`quarter` |Integer |1 |0 |`Q` |
+
+|`year` |Integer |4 |0 |`yyyy` |
+
+|`is_weekend` |Boolean | | |`@is_weekend` |
+|===
+
+You can add, remove, or rename fields. Multiple string fields with different locales on the same pipeline are supported (for example `month_name_en` with `en_US` and `month_name_nl` with `nl_NL`, both using mask `MMMM`).
+
+== Example: load `dim_date`
+
+A typical pipeline to populate a warehouse date dimension:
+
+1. **Date Dimension Generator** — set start/end dates for the calendar span you need; use **Load defaults** or customize the field table.
+2. **Table output** (or **Insert / update**) — map output fields to the physical `d_date` (or `dim_date`) table on your warehouse connection.
+
+For a 31-day range, the transform emits 31 rows with no upstream input. Connect only the generator's output hop to the loader.
+
+=== Variables for rolling calendars
+
+Use pipeline or workflow variables on the date range so the same pipeline can be reused:
+
+* Start date: `${DIM_DATE_START}`
+* End date: `${DIM_DATE_END}`
+
+Set the variables before the pipeline runs, for example in a parent workflow or using the **Set variables** action.
+
+=== Role-playing date dimensions
+
+In link:dimensional-modeler-overview.adoc[the dimensional modeler], multiple fact date roles (order date, ship date, delivery date) often reference the same conformed `dim_date` table. Generate the calendar once, load it once, and join facts to `dim_date` on `date_key` for each role. The modeler can create role-playing aliases that point at the same physical table.
+
+== Multilingual month and weekday names
+
+Set **Locale** per field when the format mask includes localized text:
+
+* `MMMM` — full month name
+* `MMM` — abbreviated month name
+* `EEEE` — full weekday name
+* `EEE` — abbreviated weekday name
+
+Example: two fields both named with mask `MMMM`, one with `en_US` and one with `nl_NL`, on the same row for `2024-03-15` yield `March` and `maart`.
+
+Locale values use the usual language and country form (`en_US`, `fr_FR`). Underscores are accepted and normalized internally.
+
+== Tips
+
+* Use **Preview** on the transform to verify masks and locales before loading to the database. After fixing configuration, reload defaults if you still have the old `day_of_week` mask `u` (that letter formats the *year* in Java, not the day of week).
+* Keep `date_key` as `Integer` with mask `yyyyMMdd` for integer join keys; use `full_date` as `Date` for human-readable reporting and date arithmetic in SQL.
+* Narrow the start/end range during development to keep previews fast; widen for production loads (for example 20–30 years).
+* The transform is suitable as the source SQL replacement for `dim_date` in generated dimensional pipelines when you wire it manually; the dimensional modeler's generated pipelines still default to `TableInput` until integrated with this transform.
+* Boolean fields accept `@is_weekend` or formatted values parsed as `Y`/`N`, `true`/`false`, or `1`/`0` when you use a string-producing mask with type `Boolean`.
+
+== Related documentation
+
+* link:dimensional-modeler-overview.adoc[Dimensional modeler overview] — `dim_date` and star schema modeling
+* link:record-definition-input.adoc[Record Definition Input] — another hop-data-vault input transform
+* link:datavault-plugin.adoc[Data Vault plugin overview] — shared Hop GUI and workflow infrastructure

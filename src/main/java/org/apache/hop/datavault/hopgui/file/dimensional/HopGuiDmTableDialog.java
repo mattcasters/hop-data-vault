@@ -32,6 +32,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmAggregateFact;
 import org.apache.hop.datavault.metadata.dimensional.DmBridge;
 import org.apache.hop.datavault.metadata.dimensional.DmBridgeDimensionRef;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAttribute;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionScdType;
@@ -95,9 +96,11 @@ public class HopGuiDmTableDialog {
   private TableView wOutriggers;
   private TableView wDimensionRoles;
   private TableView wMeasures;
+  private Combo wReferencedDimension;
 
   private boolean ok;
   private final boolean dimension;
+  private final boolean dimensionAlias;
   private final boolean junk;
   private final boolean bridge;
   private final boolean factLike;
@@ -119,6 +122,7 @@ public class HopGuiDmTableDialog {
     this.metadataProvider = metadataProvider;
     DmTableType tableType = table.getTableType();
     this.dimension = tableType == DmTableType.DIMENSION;
+    this.dimensionAlias = tableType == DmTableType.DIMENSION_ALIAS;
     this.junk = tableType == DmTableType.JUNK_DIMENSION;
     this.bridge = tableType == DmTableType.BRIDGE;
     this.factLike = table instanceof IDmFactLikeTable;
@@ -133,7 +137,9 @@ public class HopGuiDmTableDialog {
             PKG,
             "HopGuiDmTableDialog.Title",
             Const.NVL(input.getName(), input.getTableType().name())));
-    shell.setSize(620, dimension ? 620 : junk ? 480 : bridge ? 520 : factless ? 520 : 580);
+    shell.setSize(
+        620,
+        dimensionAlias ? 360 : dimension ? 620 : junk ? 480 : bridge ? 520 : factless ? 520 : 580);
 
     FormLayout formLayout = new FormLayout();
     formLayout.marginWidth = PropsUi.getFormMargin();
@@ -157,8 +163,12 @@ public class HopGuiDmTableDialog {
         new FormDataBuilder().left().top(0, margin).right().bottom(wOk, -2 * margin).result());
 
     addGeneralTab();
-    addSourceTab();
-    if (junk) {
+    if (!dimensionAlias) {
+      addSourceTab();
+    }
+    if (dimensionAlias) {
+      addDimensionAliasTab();
+    } else if (junk) {
       addJunkKeyFieldsTab();
     } else if (bridge) {
       addBridgeDimensionsTab();
@@ -222,6 +232,10 @@ public class HopGuiDmTableDialog {
     wDescription.setLayoutData(
         new FormDataBuilder().left(middle, 0).top(wTableName, margin).right().result());
 
+    if (dimensionAlias) {
+      wTableName.setEditable(false);
+    }
+
     if (dimension) {
       Label wlScdType = new Label(comp, SWT.RIGHT);
       wlScdType.setText(BaseMessages.getString(PKG, "HopGuiDmTableDialog.ScdType.Label"));
@@ -235,6 +249,27 @@ public class HopGuiDmTableDialog {
       wScdType.setLayoutData(
           new FormDataBuilder().left(middle, 0).top(wDescription, margin).right().result());
     }
+  }
+
+  private void addDimensionAliasTab() {
+    Composite comp =
+        HopGuiDimensionalModelDialog.createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.DimensionAlias.Label"),
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.DimensionAlias.ToolTip"));
+
+    Label wlReferencedDimension = new Label(comp, SWT.RIGHT);
+    wlReferencedDimension.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedDimension.Label"));
+    PropsUi.setLook(wlReferencedDimension);
+    wlReferencedDimension.setLayoutData(
+        new FormDataBuilder().left().top(0, margin).right(middle, -margin).result());
+
+    wReferencedDimension = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
+    PropsUi.setLook(wReferencedDimension);
+    wReferencedDimension.setItems(listBaseDimensionNames());
+    wReferencedDimension.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(0, margin).right().result());
   }
 
   private void addSourceTab() {
@@ -534,6 +569,21 @@ public class HopGuiDmTableDialog {
     List<String> names = new ArrayList<>();
     if (model != null) {
       for (IDmTable table : model.getTables()) {
+        if ((table instanceof DmDimension || table instanceof DmDimensionAlias)
+            && !Utils.isEmpty(table.getName())) {
+          if (input == null || !table.getName().equals(input.getName())) {
+            names.add(table.getName());
+          }
+        }
+      }
+    }
+    return names.toArray(new String[0]);
+  }
+
+  private String[] listBaseDimensionNames() {
+    List<String> names = new ArrayList<>();
+    if (model != null) {
+      for (IDmTable table : model.getTables()) {
         if (table instanceof DmDimension && !Utils.isEmpty(table.getName())) {
           if (input == null || !table.getName().equals(input.getName())) {
             names.add(table.getName());
@@ -554,11 +604,13 @@ public class HopGuiDmTableDialog {
     if (!Utils.isEmpty(input.getDescription())) {
       wDescription.setText(input.getDescription());
     }
-    if (!Utils.isEmpty(input.getSourceOrDefault().getSourceConnection())) {
-      wSourceConnection.setText(input.getSourceOrDefault().getSourceConnection());
-    }
-    if (!Utils.isEmpty(input.getSourceOrDefault().getSourceSql())) {
-      wSourceSql.setText(input.getSourceOrDefault().getSourceSql());
+    if (!dimensionAlias) {
+      if (!Utils.isEmpty(input.getSourceOrDefault().getSourceConnection())) {
+        wSourceConnection.setText(input.getSourceOrDefault().getSourceConnection());
+      }
+      if (!Utils.isEmpty(input.getSourceOrDefault().getSourceSql())) {
+        wSourceSql.setText(input.getSourceOrDefault().getSourceSql());
+      }
     }
 
     if (junk && input instanceof DmJunkDimension junkDimension) {
@@ -590,6 +642,15 @@ public class HopGuiDmTableDialog {
       wOutriggers.removeEmptyRows();
       wOutriggers.setRowNums();
       wOutriggers.optWidth(true);
+    }
+
+    if (dimensionAlias && input instanceof DmDimensionAlias alias) {
+      if (wReferencedDimension != null && !Utils.isEmpty(alias.getReferencedDimensionName())) {
+        int index = wReferencedDimension.indexOf(alias.getReferencedDimensionName());
+        if (index >= 0) {
+          wReferencedDimension.select(index);
+        }
+      }
     }
 
     if (dimension && input instanceof DmDimension dmDimension) {
@@ -675,10 +736,12 @@ public class HopGuiDmTableDialog {
 
   private void ok() {
     input.setName(wName.getText());
-    input.setTableName(wTableName.getText());
     input.setDescription(wDescription.getText());
-    input.getSourceOrDefault().setSourceConnection(wSourceConnection.getText());
-    input.getSourceOrDefault().setSourceSql(wSourceSql.getText());
+    if (!dimensionAlias) {
+      input.setTableName(wTableName.getText());
+      input.getSourceOrDefault().setSourceConnection(wSourceConnection.getText());
+      input.getSourceOrDefault().setSourceSql(wSourceSql.getText());
+    }
 
     if (junk && input instanceof DmJunkDimension junkDimension) {
       junkDimension.getKeyFields().clear();
@@ -699,6 +762,14 @@ public class HopGuiDmTableDialog {
         }
         dmBridge.getDimensionRefs().add(new DmBridgeDimensionRef(dimensionName, item.getText(2)));
       }
+    }
+
+    if (dimensionAlias && input instanceof DmDimensionAlias alias) {
+      if (wReferencedDimension != null) {
+        alias.setReferencedDimensionName(wReferencedDimension.getText());
+      }
+      alias.syncPhysicalTableName(model, variables);
+      input.setTableName(alias.getTableName());
     }
 
     if (dimension && input instanceof DmDimension dmDimension) {

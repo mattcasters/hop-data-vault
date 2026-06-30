@@ -108,8 +108,9 @@ public final class DmLayoutSupport {
       if (Utils.isEmpty(fkColumn)) {
         String dimensionName = role.getDimensionTableName();
         if (!Utils.isEmpty(dimensionName) && model != null) {
-          IDmTable dimension = model.findTable(dimensionName);
-          if (dimension instanceof DmDimension dmDimension) {
+          DmDimension dmDimension =
+              DmDimensionResolutionSupport.resolveDimension(model, dimensionName, variables);
+          if (dmDimension != null) {
             DimensionalConfiguration resolvedConfig =
                 config != null ? config : new DimensionalConfiguration();
             fkColumn = defaultFactForeignKeyColumn(dmDimension, role, resolvedConfig, variables);
@@ -255,8 +256,12 @@ public final class DmLayoutSupport {
     if (!Utils.isEmpty(role.getRoleName())) {
       return resolveFieldName(role.getRoleName() + "_key", variables);
     }
-    if (dimension != null && !Utils.isEmpty(dimension.getName())) {
-      String base = dimension.getName();
+    String namingSource = resolveFieldName(role.getDimensionTableName(), variables);
+    if (Utils.isEmpty(namingSource) && dimension != null) {
+      namingSource = dimension.getName();
+    }
+    if (!Utils.isEmpty(namingSource)) {
+      String base = namingSource;
       if (base.startsWith("dim_")) {
         base = base.substring(4);
       }
@@ -350,8 +355,9 @@ public final class DmLayoutSupport {
       if (Utils.isEmpty(fkColumn)) {
         String dimensionName = role.getDimensionTableName();
         if (!Utils.isEmpty(dimensionName) && model != null) {
-          IDmTable dimension = model.findTable(dimensionName);
-          if (dimension instanceof DmDimension dmDimension) {
+          DmDimension dmDimension =
+              DmDimensionResolutionSupport.resolveDimension(model, dimensionName, variables);
+          if (dmDimension != null) {
             DimensionalConfiguration resolvedConfig =
                 config != null ? config : new DimensionalConfiguration();
             fkColumn = defaultFactForeignKeyColumn(dmDimension, role, resolvedConfig, variables);

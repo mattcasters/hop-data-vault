@@ -18,14 +18,47 @@
 
 package org.apache.hop.datavault.metadata.dimensional;
 
+import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IEnumHasCode;
+import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
+
 /** Kimball table kinds on a dimensional model canvas. */
-public enum DmTableType {
-  DIMENSION,
-  JUNK_DIMENSION,
-  FACT,
-  FACTLESS_FACT,
-  PERIODIC_SNAPSHOT_FACT,
-  ACCUMULATING_SNAPSHOT_FACT,
-  BRIDGE,
-  AGGREGATE_FACT
+public enum DmTableType implements IEnumHasCodeAndDescription {
+  DIMENSION("DmTableType.Dimension"),
+  DIMENSION_ALIAS("DmTableType.DimensionAlias"),
+  JUNK_DIMENSION("DmTableType.JunkDimension"),
+  FACT("DmTableType.Fact"),
+  FACTLESS_FACT("DmTableType.FactlessFact"),
+  PERIODIC_SNAPSHOT_FACT("DmTableType.PeriodicSnapshotFact"),
+  ACCUMULATING_SNAPSHOT_FACT("DmTableType.AccumulatingSnapshotFact"),
+  BRIDGE("DmTableType.Bridge"),
+  AGGREGATE_FACT("DmTableType.AggregateFact");
+
+  private final String descriptionKey;
+
+  DmTableType(String descriptionKey) {
+    this.descriptionKey = descriptionKey;
+  }
+
+  @Override
+  public String getCode() {
+    return name();
+  }
+
+  @Override
+  public String getDescription() {
+    return BaseMessages.getString(DmTableType.class, descriptionKey);
+  }
+
+  public static String[] getDescriptions() {
+    return IEnumHasCodeAndDescription.getDescriptions(DmTableType.class);
+  }
+
+  public static DmTableType lookupDescription(String description) {
+    return IEnumHasCodeAndDescription.lookupDescription(DmTableType.class, description, DIMENSION);
+  }
+
+  public static DmTableType lookupCode(String code) {
+    return IEnumHasCode.lookupCode(DmTableType.class, code, DIMENSION);
+  }
 }

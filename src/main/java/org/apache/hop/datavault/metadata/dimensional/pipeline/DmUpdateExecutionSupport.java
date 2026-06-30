@@ -41,6 +41,9 @@ public final class DmUpdateExecutionSupport {
       }
       switch (table.getTableType()) {
         case DIMENSION -> dimensions.add(table);
+        case DIMENSION_ALIAS -> {
+          // Aliases inherit pipelines from the referenced physical dimension.
+        }
         case JUNK_DIMENSION -> junkDimensions.add(table);
         case BRIDGE -> bridges.add(table);
         case FACT,

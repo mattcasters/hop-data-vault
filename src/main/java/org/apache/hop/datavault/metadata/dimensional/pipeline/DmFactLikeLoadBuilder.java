@@ -25,7 +25,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.IDmFactLikeTable;
-import org.apache.hop.datavault.metadata.dimensional.IDmTable;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
@@ -58,8 +58,10 @@ public final class DmFactLikeLoadBuilder {
       if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
         continue;
       }
-      IDmTable dimensionTable = model.findTable(role.getDimensionTableName());
-      if (!(dimensionTable instanceof DmDimension dimension)) {
+      DmDimension dimension =
+          DmDimensionResolutionSupport.resolveDimension(
+              model, role.getDimensionTableName(), ctx.variables);
+      if (dimension == null) {
         throw new HopException(
             "Table "
                 + factLike.getName()

@@ -36,6 +36,7 @@ import org.apache.hop.datavault.hopgui.file.vault.BasePainter;
 import org.apache.hop.datavault.metadata.dimensional.DmBridge;
 import org.apache.hop.datavault.metadata.dimensional.DmBridgeDimensionRef;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
@@ -136,7 +137,27 @@ public class DimensionalModelPainter extends BasePainter {
       if (table instanceof DmDimension dimension) {
         drawOutriggerConnections(dimension);
       }
+      if (table instanceof DmDimensionAlias alias) {
+        drawAliasInheritanceConnection(alias);
+      }
     }
+  }
+
+  private void drawAliasInheritanceConnection(DmDimensionAlias alias) {
+    if (alias == null || Utils.isEmpty(alias.getReferencedDimensionName())) {
+      return;
+    }
+    IDmTable referenced = tableByName.get(alias.getReferencedDimensionName());
+    if (referenced == null || referenced.getLocation() == null || alias.getLocation() == null) {
+      return;
+    }
+    Point aliasCenter = boxCenter(alias, alias.getLocation());
+    Point referencedCenter = boxCenter(referenced, referenced.getLocation());
+    gc.setLineStyle(ELineStyle.DOT);
+    gc.setForeground(EColor.DARKGRAY);
+    gc.drawLine(aliasCenter.x, aliasCenter.y, referencedCenter.x, referencedCenter.y);
+    gc.setLineStyle(ELineStyle.SOLID);
+    gc.setForeground(EColor.BLACK);
   }
 
   private void drawFactDimensionConnections(IDmFactLikeTable fact) {
@@ -321,7 +342,7 @@ public class DimensionalModelPainter extends BasePainter {
       gc.drawRoundRectangle(x, y, boxWidth, boxHeight, 8, 8);
       gc.setLineWidth(1);
 
-      String label = Const.NVL(base.getName(), base.getTableType().name());
+      String label = Const.NVL(base.getName(), tableTypeLabel(base.getTableType()));
       gc.setFont(EFont.GRAPH);
       gc.setForeground(EColor.BLACK);
       boolean underline = label.equals(mouseOverTableName);
@@ -334,7 +355,7 @@ public class DimensionalModelPainter extends BasePainter {
       }
 
       gc.setFont(EFont.SMALL);
-      gc.drawText(base.getTableType().name(), x + 8, y + 28, true);
+      gc.drawText(tableTypeLabel(base.getTableType()), x + 8, y + 28, true);
 
       if (areaOwners != null) {
         areaOwners.add(
@@ -355,7 +376,7 @@ public class DimensionalModelPainter extends BasePainter {
   }
 
   private int computeBoxWidth(DmTableBase base) {
-    String label = Const.NVL(base.getName(), base.getTableType().name());
+    String label = Const.NVL(base.getName(), tableTypeLabel(base.getTableType()));
     gc.setFont(EFont.GRAPH);
     Point extent = gc.textExtent(label);
     return Math.max(140, extent.x + 16);
@@ -363,6 +384,13 @@ public class DimensionalModelPainter extends BasePainter {
 
   private int computeBoxHeight(DmTableBase base) {
     return 70;
+  }
+
+  private static String tableTypeLabel(DmTableType tableType) {
+    if (tableType == null) {
+      return "";
+    }
+    return tableType.getDescription();
   }
 
   private static int[] tableTypeColor(DmTableType tableType) {
@@ -373,6 +401,7 @@ public class DimensionalModelPainter extends BasePainter {
       case JUNK_DIMENSION -> new int[] {120, 90, 160};
       case BRIDGE -> new int[] {90, 150, 90};
       case DIMENSION -> new int[] {60, 120, 180};
+      case DIMENSION_ALIAS -> new int[] {100, 140, 180};
     };
   }
 

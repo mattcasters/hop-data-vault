@@ -81,7 +81,11 @@ public final class DmDimensionLookupBuilder {
 
     String transformName =
         "lookup_"
-            + (!Utils.isEmpty(role.getRoleName()) ? role.getRoleName() : dimension.getName());
+            + (!Utils.isEmpty(role.getRoleName())
+                ? role.getRoleName()
+                : !Utils.isEmpty(role.getDimensionTableName())
+                    ? role.getDimensionTableName()
+                    : dimension.getName());
     TransformMeta tm = new TransformMeta("DimensionLookup", transformName, lookupMeta);
     tm.setLocation(
         predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,

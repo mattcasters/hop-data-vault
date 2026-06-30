@@ -30,6 +30,8 @@ import org.apache.hop.datavault.ai.DvTargetLoadAiConfigurationSupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAttribute;
 import org.apache.hop.datavault.metadata.dimensional.DmFact;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
@@ -112,6 +114,14 @@ public final class DmAiContextBuilder {
         json.append("],\"attributes\":[");
         appendAttributes(json, dimension.getAttributes());
         json.append(']');
+      } else if (table instanceof DmDimensionAlias alias) {
+        json.append(",\"referencedDimension\":")
+            .append(DvAiContextBuilder.jsonString(alias.getReferencedDimensionName()));
+        json.append(",\"physicalTable\":")
+            .append(
+                DvAiContextBuilder.jsonString(
+                    DmDimensionResolutionSupport.resolvePhysicalTableName(
+                        model, alias.getName(), null)));
       } else if (table instanceof IDmFactLikeTable factLike) {
         json.append(",\"measures\":[");
         appendMeasures(json, factLike.getMeasuresOrEmpty());

@@ -82,6 +82,7 @@ public interface IDmTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
       DmTableType tableType = DmTableType.valueOf(id);
       return switch (tableType) {
         case DIMENSION -> new DmDimension();
+        case DIMENSION_ALIAS -> new DmDimensionAlias();
         case JUNK_DIMENSION -> new DmJunkDimension();
         case FACT -> new DmFact();
         case FACTLESS_FACT -> new DmFactlessFact();

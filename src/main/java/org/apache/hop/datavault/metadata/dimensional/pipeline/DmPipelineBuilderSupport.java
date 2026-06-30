@@ -213,6 +213,7 @@ public final class DmPipelineBuilderSupport {
       String targetTableName) {
     return switch (table.getTableType()) {
       case DIMENSION -> config.buildDimensionPipelineName(variables, targetTableName);
+      case DIMENSION_ALIAS -> config.buildDimensionPipelineName(variables, targetTableName);
       case JUNK_DIMENSION -> config.buildJunkDimensionPipelineName(variables, targetTableName);
       case BRIDGE -> config.buildBridgePipelineName(variables, targetTableName);
       case FACT,

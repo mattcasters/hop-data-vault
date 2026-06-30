@@ -151,10 +151,11 @@ public class DimensionalModel extends HopMetadataBase
       if (ref == null || !logicalName.equals(ref.getLogicalName())) {
         continue;
       }
-      IDmTable table = findTable(ref.getDimensionTableName());
-      if (table instanceof DmDimension dimension) {
-        return dimension;
-      }
+      return DmDimensionResolutionSupport.resolveDimension(this, ref.getDimensionTableName());
+    }
+    IDmTable aliasTable = findTable(logicalName);
+    if (aliasTable instanceof DmDimensionAlias alias) {
+      return DmDimensionResolutionSupport.resolveAliasTarget(this, alias, null);
     }
     return null;
   }

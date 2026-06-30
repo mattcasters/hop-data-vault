@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.hop.core.CheckResult;
+import org.apache.hop.core.Const;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
@@ -279,8 +280,7 @@ public final class DmValidationSupport {
                 null));
         continue;
       }
-      IDmTable table = model.findTable(dimensionName);
-      if (!(table instanceof DmDimension)) {
+      if (DmDimensionResolutionSupport.resolveDimension(model, dimensionName, variables) == null) {
         remarks.add(
             new CheckResult(
                 ICheckResult.TYPE_RESULT_ERROR,
@@ -291,6 +291,73 @@ public final class DmValidationSupport {
                     dimensionName),
                 null));
       }
+    }
+  }
+
+  public static void validateDimensionAlias(
+      List<ICheckResult> remarks,
+      DmDimensionAlias alias,
+      DimensionalModel model,
+      IVariables variables) {
+    if (remarks == null || alias == null) {
+      return;
+    }
+    String aliasName = resolve(alias.getName(), variables);
+    String referencedName = resolve(alias.getReferencedDimensionName(), variables);
+    if (Utils.isEmpty(referencedName)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.MissingAliasReferencedDimension",
+                  Const.NVL(aliasName, "?")),
+              alias));
+      return;
+    }
+    if (aliasName != null && aliasName.equals(referencedName)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.AliasReferencesSelf",
+                  aliasName),
+              alias));
+      return;
+    }
+    IDmTable referenced = model != null ? model.findTable(referencedName) : null;
+    if (referenced instanceof DmDimensionAlias) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.AliasReferencesAlias",
+                  aliasName,
+                  referencedName),
+              alias));
+      return;
+    }
+    if (!(referenced instanceof DmDimension)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.UnknownAliasReferencedDimension",
+                  aliasName,
+                  referencedName),
+              alias));
+    }
+    alias.syncPhysicalTableName(model, variables);
+    if (Utils.isEmpty(alias.getTableName())) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG, "DmTableBase.CheckResult.MissingTableName", Const.NVL(aliasName, "?")),
+              alias));
     }
   }
 
@@ -489,8 +556,11 @@ public final class DmValidationSupport {
                 source));
         continue;
       }
-      IDmTable target = model != null ? model.findTable(dimensionName) : null;
-      if (!(target instanceof DmDimension)) {
+      DmDimension resolvedDimension =
+          model != null
+              ? DmDimensionResolutionSupport.resolveDimension(model, dimensionName, variables)
+              : null;
+      if (resolvedDimension == null) {
         remarks.add(
             new CheckResult(
                 ICheckResult.TYPE_RESULT_ERROR,

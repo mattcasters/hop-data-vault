@@ -61,6 +61,8 @@ Open a `.hdm` file in Hop GUI for the visual editor (same interaction model as t
 
 Each table carries **source SQL** used by generated `TableInput` transforms. Model validation requires non-empty source SQL before running **Dimensional Update**.
 
+For the standard calendar **`dim_date`** dimension, you can populate the physical table with the link:date-dimension-generator.adoc[Date Dimension Generator] transform instead of hand-written SQL or an external calendar source. The generator's **Load defaults** button matches the attributes on the modeler's date dimension template (`date_key`, `full_date`, `day_of_week`, and related columns).
+
 == Workflow integration
 
 === Dimensional Update

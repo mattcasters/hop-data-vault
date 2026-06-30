@@ -181,7 +181,7 @@ Full index: **[docs/README.md](docs/README.md)**
 | [`docs/business-vault-configuration.adoc`](docs/business-vault-configuration.adoc) | Embedded `.hbv` configuration |
 | [`docs/business-vault-update-action.adoc`](docs/business-vault-update-action.adoc) | Business Vault Update action |
 
-Also: [`docs/ai-advisory.md`](docs/ai-advisory.md), [`docs/datavault-source.adoc`](docs/datavault-source.adoc), [`docs/datavault-source-database.adoc`](docs/datavault-source-database.adoc).
+Also: [`docs/ai-advisory.md`](docs/ai-advisory.md), [`docs/datavault-source.adoc`](docs/datavault-source.adoc), [`docs/datavault-source-database.adoc`](docs/datavault-source-database.adoc), [`docs/record-definition-input.adoc`](docs/record-definition-input.adoc), [`docs/date-dimension-generator.adoc`](docs/date-dimension-generator.adoc).
 
 Screenshots are in [`docs/images/`](docs/images/). The sample project guide is **[project/PROJECT.md](project/PROJECT.md)**.
 

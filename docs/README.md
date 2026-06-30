@@ -55,6 +55,13 @@ Documentation by audience.
 | [business-vault-configuration.adoc](business-vault-configuration.adoc) | Embedded `.hbv` configuration |
 | [business-vault-update-action.adoc](business-vault-update-action.adoc) | Business Vault Update workflow action |
 
+## Pipeline transforms (AsciiDoc)
+
+| Document | Description |
+|----------|-------------|
+| [record-definition-input.adoc](record-definition-input.adoc) | Read data catalog record definitions as pipeline rows |
+| [date-dimension-generator.adoc](date-dimension-generator.adoc) | Generate calendar date dimension rows for `dim_date` loads |
+
 ## AI and advanced topics
 
 | Document | Description |

@@ -33,6 +33,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmAccumulatingSnapshotFact;
 import org.apache.hop.datavault.metadata.dimensional.DmAggregateFact;
 import org.apache.hop.datavault.metadata.dimensional.DmBridge;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
 import org.apache.hop.datavault.metadata.dimensional.DmFact;
 import org.apache.hop.datavault.metadata.dimensional.DmFactlessFact;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
@@ -208,6 +209,8 @@ public class HopGuiDimensionalClipboardDelegate {
     return switch (tableType) {
       case DIMENSION ->
           XmlMetadataUtil.deSerializeFromXml(tableNode, DmDimension.class, metadataProvider);
+      case DIMENSION_ALIAS ->
+          XmlMetadataUtil.deSerializeFromXml(tableNode, DmDimensionAlias.class, metadataProvider);
       case JUNK_DIMENSION ->
           XmlMetadataUtil.deSerializeFromXml(tableNode, DmJunkDimension.class, metadataProvider);
       case FACT -> XmlMetadataUtil.deSerializeFromXml(tableNode, DmFact.class, metadataProvider);

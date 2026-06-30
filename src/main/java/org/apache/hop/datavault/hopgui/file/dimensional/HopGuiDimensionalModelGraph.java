@@ -32,7 +32,6 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.IGc;
 import org.apache.hop.core.gui.Point;
-import org.apache.hop.core.gui.Rectangle;
 import org.apache.hop.core.gui.SnapAllignDistribute;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.IGuiRefresher;
@@ -53,32 +52,34 @@ import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphHit;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphMouseInteractions;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphSnapshotUndo;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
-import org.apache.hop.datavault.metadata.DvTargetLoadMode;
-import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
-import org.apache.hop.datavault.metadata.dimensional.DmTargetDatabaseSupport;
-import org.apache.hop.datavault.metadata.dimensional.pipeline.DmUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
+import org.apache.hop.datavault.metadata.DvTargetLoadMode;
+import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
+import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.dimensional.DmAccumulatingSnapshotFact;
+import org.apache.hop.datavault.metadata.dimensional.DmAggregateFact;
 import org.apache.hop.datavault.metadata.dimensional.DmBridge;
 import org.apache.hop.datavault.metadata.dimensional.DmBridgeDimensionRef;
+import org.apache.hop.datavault.metadata.dimensional.DmDateDimensionTemplate;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmFact;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmFactlessFact;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmPeriodicSnapshotFact;
-import org.apache.hop.datavault.metadata.dimensional.DmAccumulatingSnapshotFact;
-import org.apache.hop.datavault.metadata.dimensional.DmAggregateFact;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
-import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.dimensional.DmTargetDatabaseSupport;
 import org.apache.hop.datavault.metadata.dimensional.IDmFactLikeTable;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
+import org.apache.hop.datavault.metadata.dimensional.pipeline.DmUpdateExecutionSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
-import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
@@ -98,6 +99,7 @@ import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
 import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.hopgui.shared.SwtGc;
+import org.apache.hop.workflow.WorkflowMeta;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.graphics.GC;
@@ -437,7 +439,9 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   }
 
   private static boolean isDimensionLike(IDmTable table) {
-    return table instanceof DmDimension || table instanceof DmJunkDimension;
+    return table instanceof DmDimension
+        || table instanceof DmDimensionAlias
+        || table instanceof DmJunkDimension;
   }
 
   private static boolean isFactLikeTable(IDmTable table) {
@@ -464,7 +468,11 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     if (isBridgeTable(b) && isDimensionLike(a)) {
       return true;
     }
-    return a instanceof DmDimension && b instanceof DmDimension;
+    if (a instanceof DmDimension && b instanceof DmDimension) {
+      return true;
+    }
+    return (a instanceof DmDimensionAlias && b instanceof DmDimension)
+        || (b instanceof DmDimensionAlias && a instanceof DmDimension);
   }
 
   private void createRelationship(IDmTable from, IDmTable to) {
@@ -485,6 +493,10 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       modelChanged = addBridgeDimensionRef((DmBridge) to, from);
     } else if (from instanceof DmDimension parent && to instanceof DmDimension outrigger) {
       modelChanged = addOutriggerRef(parent, outrigger);
+    } else if (from instanceof DmDimensionAlias alias && to instanceof DmDimension dimension) {
+      modelChanged = setAliasReferencedDimension(alias, dimension);
+    } else if (from instanceof DmDimension dimension && to instanceof DmDimensionAlias alias) {
+      modelChanged = setAliasReferencedDimension(alias, dimension);
     }
 
     if (modelChanged) {
@@ -497,7 +509,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     if (fact == null || dimension == null || Utils.isEmpty(dimension.getName())) {
       return false;
     }
-    if (hasExistingFactRole(fact, dimension.getName())) {
+    if (hasExistingFactRole(fact, dimension.getName(), defaultForeignKeyForDimension(dimension))) {
       return false;
     }
     String fkColumn = defaultForeignKeyForDimension(dimension);
@@ -505,13 +517,36 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     return appendFactDimensionRole(fact, role);
   }
 
-  private boolean hasExistingFactRole(IDmFactLikeTable fact, String dimensionName) {
+  private boolean hasExistingFactRole(
+      IDmFactLikeTable fact, String dimensionName, String foreignKeyColumn) {
     for (DmFactDimensionRole role : fact.getDimensionRolesOrEmpty()) {
-      if (role != null && dimensionName.equals(role.getDimensionTableName())) {
+      if (role == null) {
+        continue;
+      }
+      if (!dimensionName.equals(role.getDimensionTableName())) {
+        continue;
+      }
+      String existingFk = role.getForeignKeyColumn();
+      if (Utils.isEmpty(existingFk) || Utils.isEmpty(foreignKeyColumn)) {
+        return true;
+      }
+      if (existingFk.equals(foreignKeyColumn)) {
         return true;
       }
     }
     return false;
+  }
+
+  private boolean setAliasReferencedDimension(DmDimensionAlias alias, DmDimension dimension) {
+    if (alias == null || dimension == null || Utils.isEmpty(dimension.getName())) {
+      return false;
+    }
+    if (dimension.getName().equals(alias.getName())) {
+      return false;
+    }
+    alias.setReferencedDimensionName(dimension.getName());
+    alias.syncPhysicalTableName(model, variables);
+    return true;
   }
 
   private boolean appendFactDimensionRole(IDmFactLikeTable fact, DmFactDimensionRole role) {
@@ -575,6 +610,14 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     if (dimension instanceof DmDimension dmDimension) {
       DmFactDimensionRole tempRole = new DmFactDimensionRole(dimension.getName(), null, null);
       return DmLayoutSupport.defaultFactForeignKeyColumn(dmDimension, tempRole, config, variables);
+    }
+    if (dimension instanceof DmDimensionAlias alias) {
+      DmDimension resolved =
+          DmDimensionResolutionSupport.resolveDimension(model, alias.getName(), variables);
+      if (resolved != null) {
+        DmFactDimensionRole tempRole = new DmFactDimensionRole(alias.getName(), null, null);
+        return DmLayoutSupport.defaultFactForeignKeyColumn(resolved, tempRole, config, variables);
+      }
     }
     String base = dimension.getName();
     if (base.startsWith("dim_")) {
@@ -763,6 +806,75 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     }
     graph.markUndoPoint();
     graph.addTableAtClick(new DmDimension(), context.getClick());
+  }
+
+  @GuiContextAction(
+      id = "dm-graph-add-dimension-alias",
+      parentId = HopGuiDimensionalContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.AddDimensionAlias.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddDimensionAlias.Tooltip",
+      image = "dimensional_model.svg",
+      category = "Dimensional",
+      categoryOrder = "1")
+  public void addDimensionAlias(HopGuiDimensionalContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph == null || context.getModel() == null) {
+      return;
+    }
+    graph.markUndoPoint();
+    DmDimensionAlias alias = new DmDimensionAlias();
+    alias.setName("dim_alias");
+    graph.addTableAtClick(alias, context.getClick());
+    graph.editDmTable(alias);
+  }
+
+  @GuiContextAction(
+      id = "dm-graph-add-date-dimension",
+      parentId = HopGuiDimensionalContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.AddDateDimension.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddDateDimension.Tooltip",
+      image = "dimensional_model.svg",
+      category = "Dimensional",
+      categoryOrder = "1")
+  public void addDateDimension(HopGuiDimensionalContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    DimensionalModel dmModel = context.getModel();
+    if (graph == null || dmModel == null) {
+      return;
+    }
+    if (DmDateDimensionTemplate.isDateDimensionPresent(dmModel)) {
+      MessageBox box = new MessageBox(graph.getShell(), SWT.OK | SWT.ICON_INFORMATION);
+      box.setText(
+          BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.DateDimension.Exists.Title"));
+      box.setMessage(
+          BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.DateDimension.Exists.Message"));
+      box.open();
+      return;
+    }
+    graph.markUndoPoint();
+    Point click = context.getClick();
+    DmDimension dateDimension =
+        DmDateDimensionTemplate.createDateDimension(
+            click != null ? click : new Point(50, 50));
+    graph.addTableAtClick(dateDimension, click);
+    MessageBox box = new MessageBox(graph.getShell(), SWT.YES | SWT.NO | SWT.ICON_QUESTION);
+    box.setText(
+        BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.DateDimension.Aliases.Title"));
+    box.setMessage(
+        BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.DateDimension.Aliases.Message"));
+    if (box.open() == SWT.YES) {
+      int baseX = dateDimension.getLocation().x + 220;
+      int baseY = dateDimension.getLocation().y;
+      for (DmDimensionAlias alias :
+          DmDateDimensionTemplate.createCommonDateAliases(
+              dateDimension.getName(), new Point(baseX, baseY))) {
+        dmModel.getTables().add(alias);
+      }
+      graph.setChanged();
+      graph.redraw();
+    }
   }
 
   @GuiContextAction(
@@ -1784,7 +1896,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
 
   @Override
   public void close() {
-    // perspective removes the tab
+    perspective.remove(this);
   }
 
   @Override
