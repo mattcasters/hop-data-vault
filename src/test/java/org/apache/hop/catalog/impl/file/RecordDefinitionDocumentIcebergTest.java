@@ -38,7 +38,7 @@ class RecordDefinitionDocumentIcebergTest {
   @Test
   void projectCatalogJson_deserializesPhysicalIcebergTable() throws Exception {
     Path catalogJson =
-        Path.of("project/catalog-data/hop/project/sources/CRM-customer-iceberg.json");
+        Path.of("integration-tests/catalog-data/hop/integration-tests/sources/CRM-customer-iceberg.json");
     RecordDefinitionDocument doc =
         MAPPER.readValue(Files.readString(catalogJson), RecordDefinitionDocument.class);
 

@@ -19,9 +19,12 @@
 package org.apache.hop.datavault.hopgui.file.dimensional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.Props;
+
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
@@ -41,19 +44,28 @@ import org.apache.hop.datavault.metadata.dimensional.DmFactlessFact;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmPeriodicSnapshotFact;
 import org.apache.hop.datavault.metadata.dimensional.IDmFactLikeTable;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
+import org.apache.hop.datavault.metadata.dimensional.DmModelLoadSupport;
+import org.apache.hop.datavault.hopgui.file.dimensional.HopDimensionalFileType;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmFactMeasure;
+import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmNaturalKeyField;
+import org.apache.hop.datavault.metadata.dimensional.DmJunkSurrogateKeyStrategy;
 import org.apache.hop.datavault.metadata.dimensional.DmScdUpdatePolicy;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DmTableType;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
+import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.widget.ColumnInfo;
 import org.apache.hop.ui.core.widget.MetaSelectionLine;
 import org.apache.hop.ui.core.widget.SQLStyledTextComp;
@@ -91,11 +103,19 @@ public class HopGuiDmTableDialog {
   private MetaSelectionLine<DatabaseMeta> wSourceConnection;
   private TextComposite wSourceSql;
   private Combo wScdType;
+  private Combo wSurrogateKeyStrategy;
+  private Text wSurrogateKeyField;
+  private Text wSurrogateKeySourceField;
   private TableView wNaturalKeys;
+  private ColumnInfo naturalKeyFieldColumn;
   private TableView wAttributes;
+  private ColumnInfo attributeFieldColumn;
   private TableView wOutriggers;
   private TableView wDimensionRoles;
+  private ColumnInfo dimensionJoinSourceFieldColumn;
   private TableView wMeasures;
+  private ColumnInfo measureFieldColumn;
+  private Text wReferencedModelFilename;
   private Combo wReferencedDimension;
 
   private boolean ok;
@@ -248,6 +268,160 @@ public class HopGuiDmTableDialog {
       EnumDialogSupport.populateCombo(wScdType, DmDimensionScdType.class);
       wScdType.setLayoutData(
           new FormDataBuilder().left(middle, 0).top(wDescription, margin).right().result());
+      addSurrogateKeyControls(comp, wScdType);
+    } else if (junk) {
+      addJunkSurrogateKeyControls(comp, wDescription);
+    }
+  }
+
+  private void addSurrogateKeyControls(Composite comp, org.eclipse.swt.widgets.Control topControl) {
+    Label wlSurrogateKeyStrategy = new Label(comp, SWT.RIGHT);
+    wlSurrogateKeyStrategy.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SurrogateKeyStrategy.Label"));
+    wlSurrogateKeyStrategy.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SurrogateKeyStrategy.ToolTip"));
+    PropsUi.setLook(wlSurrogateKeyStrategy);
+    wlSurrogateKeyStrategy.setLayoutData(
+        new FormDataBuilder().left().top(topControl, margin).right(middle, -margin).result());
+
+    wSurrogateKeyStrategy = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
+    PropsUi.setLook(wSurrogateKeyStrategy);
+    EnumDialogSupport.populateCombo(wSurrogateKeyStrategy, DmSurrogateKeyStrategy.class);
+    wSurrogateKeyStrategy.addListener(SWT.Selection, e -> refreshSurrogateKeyFieldState());
+    wSurrogateKeyStrategy.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(topControl, margin).right().result());
+
+    Label wlSurrogateKeyField = new Label(comp, SWT.RIGHT);
+    wlSurrogateKeyField.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SurrogateKeyField.Label"));
+    PropsUi.setLook(wlSurrogateKeyField);
+    wlSurrogateKeyField.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wSurrogateKeyStrategy, margin)
+            .right(middle, -margin)
+            .result());
+
+    wSurrogateKeyField = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wSurrogateKeyField);
+    wSurrogateKeyField.setLayoutData(
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(wSurrogateKeyStrategy, margin)
+            .right()
+            .result());
+
+    Label wlSurrogateKeySourceField = new Label(comp, SWT.RIGHT);
+    wlSurrogateKeySourceField.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SurrogateKeySourceField.Label"));
+    wlSurrogateKeySourceField.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SurrogateKeySourceField.ToolTip"));
+    PropsUi.setLook(wlSurrogateKeySourceField);
+    wlSurrogateKeySourceField.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wSurrogateKeyField, margin)
+            .right(middle, -margin)
+            .result());
+
+    wSurrogateKeySourceField = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wSurrogateKeySourceField);
+    wSurrogateKeySourceField.setLayoutData(
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(wSurrogateKeyField, margin)
+            .right()
+            .result());
+    refreshSurrogateKeyFieldState();
+  }
+
+  private void addJunkSurrogateKeyControls(Composite comp, org.eclipse.swt.widgets.Control topControl) {
+    Label wlSurrogateKeyStrategy = new Label(comp, SWT.RIGHT);
+    wlSurrogateKeyStrategy.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SurrogateKeyStrategy.Label"));
+    PropsUi.setLook(wlSurrogateKeyStrategy);
+    wlSurrogateKeyStrategy.setLayoutData(
+        new FormDataBuilder().left().top(topControl, margin).right(middle, -margin).result());
+
+    wSurrogateKeyStrategy = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
+    PropsUi.setLook(wSurrogateKeyStrategy);
+    EnumDialogSupport.populateCombo(wSurrogateKeyStrategy, DmJunkSurrogateKeyStrategy.class);
+    wSurrogateKeyStrategy.addListener(SWT.Selection, e -> refreshSurrogateKeyFieldState());
+    wSurrogateKeyStrategy.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(topControl, margin).right().result());
+
+    Label wlSurrogateKeyField = new Label(comp, SWT.RIGHT);
+    wlSurrogateKeyField.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SurrogateKeyField.Label"));
+    PropsUi.setLook(wlSurrogateKeyField);
+    wlSurrogateKeyField.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wSurrogateKeyStrategy, margin)
+            .right(middle, -margin)
+            .result());
+
+    wSurrogateKeyField = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wSurrogateKeyField);
+    wSurrogateKeyField.setLayoutData(
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(wSurrogateKeyStrategy, margin)
+            .right()
+            .result());
+
+    Label wlSurrogateKeySourceField = new Label(comp, SWT.RIGHT);
+    wlSurrogateKeySourceField.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SurrogateKeySourceField.Label"));
+    PropsUi.setLook(wlSurrogateKeySourceField);
+    wlSurrogateKeySourceField.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wSurrogateKeyField, margin)
+            .right(middle, -margin)
+            .result());
+
+    wSurrogateKeySourceField = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wSurrogateKeySourceField);
+    wSurrogateKeySourceField.setLayoutData(
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(wSurrogateKeyField, margin)
+            .right()
+            .result());
+    refreshSurrogateKeyFieldState();
+  }
+
+  private void refreshSurrogateKeyFieldState() {
+    if (wSurrogateKeyStrategy == null || wSurrogateKeyStrategy.isDisposed()) {
+      return;
+    }
+    boolean dimensionTable = dimension && input instanceof DmDimension;
+    boolean junkTable = junk && input instanceof DmJunkDimension;
+    if (!dimensionTable && !junkTable) {
+      return;
+    }
+    boolean noneStrategy = false;
+    boolean sourceStrategy = false;
+    if (dimensionTable) {
+      DmSurrogateKeyStrategy strategy =
+          EnumDialogSupport.readCombo(
+              wSurrogateKeyStrategy, DmSurrogateKeyStrategy.class, DmSurrogateKeyStrategy.NONE);
+      noneStrategy = strategy == DmSurrogateKeyStrategy.NONE;
+      sourceStrategy = strategy == DmSurrogateKeyStrategy.USE_SOURCE_FIELD;
+    } else if (junkTable) {
+      DmJunkSurrogateKeyStrategy strategy =
+          EnumDialogSupport.readCombo(
+              wSurrogateKeyStrategy,
+              DmJunkSurrogateKeyStrategy.class,
+              DmJunkSurrogateKeyStrategy.AUTO_INCREMENT);
+      sourceStrategy = strategy == DmJunkSurrogateKeyStrategy.USE_SOURCE_FIELD;
+    }
+    if (wSurrogateKeyField != null && !wSurrogateKeyField.isDisposed()) {
+      wSurrogateKeyField.setEnabled(!noneStrategy);
+    }
+    if (wSurrogateKeySourceField != null && !wSurrogateKeySourceField.isDisposed()) {
+      wSurrogateKeySourceField.setEnabled(sourceStrategy);
     }
   }
 
@@ -258,18 +432,107 @@ public class HopGuiDmTableDialog {
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.DimensionAlias.Label"),
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.DimensionAlias.ToolTip"));
 
+    Label wlReferencedModelFilename = new Label(comp, SWT.RIGHT);
+    wlReferencedModelFilename.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedModelFilename.Label"));
+    wlReferencedModelFilename.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedModelFilename.ToolTip"));
+    PropsUi.setLook(wlReferencedModelFilename);
+    wlReferencedModelFilename.setLayoutData(
+        new FormDataBuilder().left().top(0, margin).right(middle, -margin).result());
+
+    wReferencedModelFilename = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wReferencedModelFilename);
+    wReferencedModelFilename.addListener(SWT.Modify, e -> refreshReferencedDimensionChoices());
+    wReferencedModelFilename.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(0, margin).right(100, -margin).result());
+
+    Button wBrowseReferencedModel = new Button(comp, SWT.PUSH);
+    wBrowseReferencedModel.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedModelFilename.Browse.Label"));
+    wBrowseReferencedModel.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedModelFilename.Browse.ToolTip"));
+    PropsUi.setLook(wBrowseReferencedModel);
+    wBrowseReferencedModel.setLayoutData(
+        new FormDataBuilder().right().top(0, margin).width(100).result());
+    wBrowseReferencedModel.addListener(SWT.Selection, e -> browseReferencedModelFilename());
+
     Label wlReferencedDimension = new Label(comp, SWT.RIGHT);
     wlReferencedDimension.setText(
         BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedDimension.Label"));
     PropsUi.setLook(wlReferencedDimension);
     wlReferencedDimension.setLayoutData(
-        new FormDataBuilder().left().top(0, margin).right(middle, -margin).result());
+        new FormDataBuilder()
+            .left()
+            .top(wReferencedModelFilename, margin)
+            .right(middle, -margin)
+            .result());
 
     wReferencedDimension = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
     PropsUi.setLook(wReferencedDimension);
-    wReferencedDimension.setItems(listBaseDimensionNames());
+    refreshReferencedDimensionChoices();
     wReferencedDimension.setLayoutData(
-        new FormDataBuilder().left(middle, 0).top(0, margin).right().result());
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(wReferencedModelFilename, margin)
+            .right()
+            .result());
+  }
+
+  private void browseReferencedModelFilename() {
+    String selectedFile =
+        BaseDialog.presentFileDialog(
+            false,
+            shell,
+            new String[] {"*" + HopDimensionalFileType.DIMENSIONAL_FILE_EXTENSION},
+            new String[] {HopDimensionalFileType.DIMENSIONAL_FILE_TYPE_DESCRIPTION},
+            false);
+    if (Utils.isEmpty(selectedFile)) {
+      return;
+    }
+    wReferencedModelFilename.setText(variables.resolve(selectedFile));
+    refreshReferencedDimensionChoices();
+  }
+
+  private void refreshReferencedDimensionChoices() {
+    if (wReferencedDimension == null || wReferencedDimension.isDisposed()) {
+      return;
+    }
+    String previousSelection = wReferencedDimension.getText();
+    wReferencedDimension.setItems(listReferencedDimensionNames());
+    if (!Utils.isEmpty(previousSelection)) {
+      int index = wReferencedDimension.indexOf(previousSelection);
+      if (index >= 0) {
+        wReferencedDimension.select(index);
+      }
+    }
+  }
+
+  private String[] listReferencedDimensionNames() {
+    String externalModelPath =
+        wReferencedModelFilename != null && !wReferencedModelFilename.isDisposed()
+            ? variables.resolve(wReferencedModelFilename.getText())
+            : null;
+    if (!Utils.isEmpty(externalModelPath)) {
+      try {
+        DimensionalModel externalModel =
+            DmModelLoadSupport.loadDimensionalModel(
+                externalModelPath,
+                model != null ? model.getFilename() : null,
+                variables,
+                metadataProvider);
+        return DmModelLoadSupport.listBaseDimensionNames(externalModel);
+      } catch (HopException e) {
+        new ErrorDialog(
+            shell,
+            BaseMessages.getString(
+                PKG, "HopGuiDmTableDialog.ReferencedModelFilename.LoadError.Header"),
+            BaseMessages.getString(
+                PKG, "HopGuiDmTableDialog.ReferencedModelFilename.LoadError.Message"),
+            e);
+      }
+    }
+    return listBaseDimensionNames();
   }
 
   private void addSourceTab() {
@@ -310,12 +573,21 @@ public class HopGuiDmTableDialog {
       wSourceSql.addLineStyleListener(getSqlReservedWords());
     }
     PropsUi.setLook(wSourceSql, Props.WIDGET_STYLE_FIXED);
+
+    Button wSourcePreview = new Button(comp, SWT.PUSH);
+    wSourcePreview.setText(BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePreview.Label"));
+    wSourcePreview.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePreview.ToolTip"));
+    PropsUi.setLook(wSourcePreview);
+    wSourcePreview.setLayoutData(new FormDataBuilder().left(middle, 0).bottom().result());
+    wSourcePreview.addListener(SWT.Selection, e -> previewSourceSql());
+
     wSourceSql.setLayoutData(
         new FormDataBuilder()
             .left(middle, 0)
             .top(wSourceConnection, margin)
             .right()
-            .bottom()
+            .bottom(wSourcePreview, -margin)
             .result());
   }
 
@@ -415,13 +687,22 @@ public class HopGuiDmTableDialog {
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.NaturalKeys.Label"),
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.NaturalKeys.ToolTip"));
 
-    ColumnInfo[] naturalKeyColumns =
-        new ColumnInfo[] {
-          new ColumnInfo(
-              BaseMessages.getString(PKG, "HopGuiDmTableDialog.NaturalKeys.Column.Field"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false)
-        };
+    naturalKeyFieldColumn =
+        new ColumnInfo(
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.NaturalKeys.Column.Field"),
+            ColumnInfo.COLUMN_TYPE_CCOMBO,
+            new String[] {""},
+            false);
+    ColumnInfo[] naturalKeyColumns = new ColumnInfo[] {naturalKeyFieldColumn};
+
+    Button wGetKeys = new Button(comp, SWT.PUSH);
+    wGetKeys.setText(BaseMessages.getString(PKG, "HopGuiDmTableDialog.NaturalKeys.GetKeys.Label"));
+    wGetKeys.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.NaturalKeys.GetKeys.ToolTip"));
+    PropsUi.setLook(wGetKeys);
+    wGetKeys.setLayoutData(new FormDataBuilder().left().bottom().result());
+    wGetKeys.addListener(SWT.Selection, e -> getNaturalKeysFromSource());
+
     wNaturalKeys =
         new TableView(
             variables,
@@ -431,7 +712,8 @@ public class HopGuiDmTableDialog {
             3,
             null,
             PropsUi.getInstance());
-    wNaturalKeys.setLayoutData(new FormDataBuilder().left().top(0, margin).right().bottom().result());
+    wNaturalKeys.setLayoutData(
+        new FormDataBuilder().left().top(0, margin).right().bottom(wGetKeys, -margin).result());
   }
 
   private void addAttributesTab() {
@@ -441,18 +723,31 @@ public class HopGuiDmTableDialog {
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.Attributes.Label"),
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.Attributes.ToolTip"));
 
+    attributeFieldColumn =
+        new ColumnInfo(
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.Attributes.Column.Field"),
+            ColumnInfo.COLUMN_TYPE_CCOMBO,
+            new String[] {""},
+            false);
     ColumnInfo[] attributeColumns =
         new ColumnInfo[] {
-          new ColumnInfo(
-              BaseMessages.getString(PKG, "HopGuiDmTableDialog.Attributes.Column.Field"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+          attributeFieldColumn,
           new ColumnInfo(
               BaseMessages.getString(PKG, "HopGuiDmTableDialog.Attributes.Column.ScdPolicy"),
               ColumnInfo.COLUMN_TYPE_CCOMBO,
               EnumDialogSupport.comboOptions(DmScdUpdatePolicy.class),
               true)
         };
+
+    Button wGetAttributes = new Button(comp, SWT.PUSH);
+    wGetAttributes.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.Attributes.GetAttributes.Label"));
+    wGetAttributes.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.Attributes.GetAttributes.ToolTip"));
+    PropsUi.setLook(wGetAttributes);
+    wGetAttributes.setLayoutData(new FormDataBuilder().left().bottom().result());
+    wGetAttributes.addListener(SWT.Selection, e -> getAttributesFromSource());
+
     wAttributes =
         new TableView(
             variables,
@@ -462,7 +757,8 @@ public class HopGuiDmTableDialog {
             3,
             null,
             PropsUi.getInstance());
-    wAttributes.setLayoutData(new FormDataBuilder().left().top(0, margin).right().bottom().result());
+    wAttributes.setLayoutData(
+        new FormDataBuilder().left().top(0, margin).right().bottom(wGetAttributes, -margin).result());
   }
 
   private void addOutriggersTab() {
@@ -505,6 +801,21 @@ public class HopGuiDmTableDialog {
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.DimensionRoles.ToolTip"));
 
     String[] dimensionNames = listDimensionNames();
+    dimensionJoinSourceFieldColumn =
+        new ColumnInfo(
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.Column.SourceField"),
+            ColumnInfo.COLUMN_TYPE_CCOMBO,
+            new String[] {""},
+            false);
+    dimensionJoinSourceFieldColumn.setToolTip(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.Column.SourceField.ToolTip"));
+    ColumnInfo factKeyColumn =
+        new ColumnInfo(
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.Column.ForeignKey"),
+            ColumnInfo.COLUMN_TYPE_TEXT,
+            false);
+    factKeyColumn.setToolTip(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.Column.ForeignKey.ToolTip"));
     ColumnInfo[] roleColumns =
         new ColumnInfo[] {
           new ColumnInfo(
@@ -512,15 +823,25 @@ public class HopGuiDmTableDialog {
               ColumnInfo.COLUMN_TYPE_CCOMBO,
               dimensionNames,
               true),
+          dimensionJoinSourceFieldColumn,
+          factKeyColumn,
           new ColumnInfo(
-              BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.Column.Role"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
-          new ColumnInfo(
-              BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.Column.ForeignKey"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false)
+              BaseMessages.getString(
+                  PKG, "HopGuiDmTableDialog.DimensionRoles.Column.TruncateToDate"),
+              ColumnInfo.COLUMN_TYPE_CCOMBO,
+              new String[] {"N", "Y"},
+              true)
         };
+
+    Button wGetJoins = new Button(comp, SWT.PUSH);
+    wGetJoins.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.GetJoins.Label"));
+    wGetJoins.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.GetJoins.ToolTip"));
+    PropsUi.setLook(wGetJoins);
+    wGetJoins.setLayoutData(new FormDataBuilder().left().bottom().result());
+    wGetJoins.addListener(SWT.Selection, e -> getJoinsFromSource());
+
     wDimensionRoles =
         new TableView(
             variables,
@@ -531,7 +852,12 @@ public class HopGuiDmTableDialog {
             null,
             PropsUi.getInstance());
     wDimensionRoles.setLayoutData(
-        new FormDataBuilder().left().top(0, margin).right().bottom().result());
+        new FormDataBuilder()
+            .left()
+            .top(0, margin)
+            .right()
+            .bottom(wGetJoins, -margin)
+            .result());
   }
 
   private void addMeasuresTab() {
@@ -541,18 +867,31 @@ public class HopGuiDmTableDialog {
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.Measures.Label"),
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.Measures.ToolTip"));
 
+    measureFieldColumn =
+        new ColumnInfo(
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.Measures.Column.Field"),
+            ColumnInfo.COLUMN_TYPE_CCOMBO,
+            new String[] {""},
+            false);
     ColumnInfo[] measureColumns =
         new ColumnInfo[] {
-          new ColumnInfo(
-              BaseMessages.getString(PKG, "HopGuiDmTableDialog.Measures.Column.Field"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false),
+          measureFieldColumn,
           new ColumnInfo(
               BaseMessages.getString(PKG, "HopGuiDmTableDialog.Measures.Column.Additive"),
               ColumnInfo.COLUMN_TYPE_CCOMBO,
               new String[] {"Y", "N"},
               true)
         };
+
+    Button wGetMeasures = new Button(comp, SWT.PUSH);
+    wGetMeasures.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.Measures.GetMeasures.Label"));
+    wGetMeasures.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.Measures.GetMeasures.ToolTip"));
+    PropsUi.setLook(wGetMeasures);
+    wGetMeasures.setLayoutData(new FormDataBuilder().left().bottom().result());
+    wGetMeasures.addListener(SWT.Selection, e -> getMeasuresFromSource());
+
     wMeasures =
         new TableView(
             variables,
@@ -562,7 +901,8 @@ public class HopGuiDmTableDialog {
             3,
             null,
             PropsUi.getInstance());
-    wMeasures.setLayoutData(new FormDataBuilder().left().top(0, margin).right().bottom().result());
+    wMeasures.setLayoutData(
+        new FormDataBuilder().left().top(0, margin).right().bottom(wGetMeasures, -margin).result());
   }
 
   private String[] listDimensionNames() {
@@ -614,6 +954,20 @@ public class HopGuiDmTableDialog {
     }
 
     if (junk && input instanceof DmJunkDimension junkDimension) {
+      if (junkDimension.getSurrogateKeyStrategy() != null) {
+        EnumDialogSupport.selectCombo(wSurrogateKeyStrategy, junkDimension.getSurrogateKeyStrategy());
+      } else {
+        EnumDialogSupport.selectCombo(
+            wSurrogateKeyStrategy, DmSurrogateKeySupport.resolveJunkStrategy(junkDimension));
+      }
+      if (wSurrogateKeyField != null && !Utils.isEmpty(junkDimension.getSurrogateKeyField())) {
+        wSurrogateKeyField.setText(junkDimension.getSurrogateKeyField());
+      }
+      if (wSurrogateKeySourceField != null
+          && !Utils.isEmpty(junkDimension.getSurrogateKeySourceField())) {
+        wSurrogateKeySourceField.setText(junkDimension.getSurrogateKeySourceField());
+      }
+      refreshSurrogateKeyFieldState();
       wNaturalKeys.clearAll();
       for (DmNaturalKeyField keyField : junkDimension.getKeyFieldsOrEmpty()) {
         if (keyField == null || Utils.isEmpty(keyField.getFieldName())) {
@@ -645,6 +999,11 @@ public class HopGuiDmTableDialog {
     }
 
     if (dimensionAlias && input instanceof DmDimensionAlias alias) {
+      if (wReferencedModelFilename != null
+          && !Utils.isEmpty(alias.getReferencedModelFilename())) {
+        wReferencedModelFilename.setText(alias.getReferencedModelFilename());
+      }
+      refreshReferencedDimensionChoices();
       if (wReferencedDimension != null && !Utils.isEmpty(alias.getReferencedDimensionName())) {
         int index = wReferencedDimension.indexOf(alias.getReferencedDimensionName());
         if (index >= 0) {
@@ -655,6 +1014,20 @@ public class HopGuiDmTableDialog {
 
     if (dimension && input instanceof DmDimension dmDimension) {
       EnumDialogSupport.selectCombo(wScdType, dmDimension.getScdTypeOrDefault());
+      if (dmDimension.getSurrogateKeyStrategy() != null) {
+        EnumDialogSupport.selectCombo(wSurrogateKeyStrategy, dmDimension.getSurrogateKeyStrategy());
+      } else {
+        EnumDialogSupport.selectCombo(
+            wSurrogateKeyStrategy, DmSurrogateKeySupport.resolveStrategy(dmDimension));
+      }
+      if (wSurrogateKeyField != null && !Utils.isEmpty(dmDimension.getSurrogateKeyField())) {
+        wSurrogateKeyField.setText(dmDimension.getSurrogateKeyField());
+      }
+      if (wSurrogateKeySourceField != null
+          && !Utils.isEmpty(dmDimension.getSurrogateKeySourceField())) {
+        wSurrogateKeySourceField.setText(dmDimension.getSurrogateKeySourceField());
+      }
+      refreshSurrogateKeyFieldState();
       wNaturalKeys.clearAll();
       for (DmNaturalKeyField naturalKey : dmDimension.getNaturalKeysOrEmpty()) {
         if (naturalKey == null || Utils.isEmpty(naturalKey.getFieldName())) {
@@ -696,6 +1069,8 @@ public class HopGuiDmTableDialog {
       wOutriggers.removeEmptyRows();
       wOutriggers.setRowNums();
       wOutriggers.optWidth(true);
+
+      refreshFieldComboChoices();
     }
 
     if (factLike && input instanceof IDmFactLikeTable factLikeTable) {
@@ -706,16 +1081,18 @@ public class HopGuiDmTableDialog {
         }
         TableItem item = new TableItem(wDimensionRoles.table, SWT.NONE);
         item.setText(1, role.getDimensionTableName());
-        if (!Utils.isEmpty(role.getRoleName())) {
-          item.setText(2, role.getRoleName());
+        if (!Utils.isEmpty(role.getSourceFieldName())) {
+          item.setText(2, role.getSourceFieldName());
         }
         if (!Utils.isEmpty(role.getForeignKeyColumn())) {
           item.setText(3, role.getForeignKeyColumn());
         }
+        item.setText(4, role.isTruncateToDateKey() ? "Y" : "N");
       }
       wDimensionRoles.removeEmptyRows();
       wDimensionRoles.setRowNums();
       wDimensionRoles.optWidth(true);
+      refreshDimensionJoinComboChoices();
 
       if (!factless && wMeasures != null) {
         wMeasures.clearAll();
@@ -730,6 +1107,8 @@ public class HopGuiDmTableDialog {
         wMeasures.removeEmptyRows();
         wMeasures.setRowNums();
         wMeasures.optWidth(true);
+
+        refreshMeasureComboChoices();
       }
     }
   }
@@ -744,6 +1123,19 @@ public class HopGuiDmTableDialog {
     }
 
     if (junk && input instanceof DmJunkDimension junkDimension) {
+      if (wSurrogateKeyStrategy != null) {
+        junkDimension.setSurrogateKeyStrategy(
+            EnumDialogSupport.readCombo(
+                wSurrogateKeyStrategy,
+                DmJunkSurrogateKeyStrategy.class,
+                DmJunkSurrogateKeyStrategy.AUTO_INCREMENT));
+      }
+      if (wSurrogateKeyField != null) {
+        junkDimension.setSurrogateKeyField(wSurrogateKeyField.getText());
+      }
+      if (wSurrogateKeySourceField != null) {
+        junkDimension.setSurrogateKeySourceField(wSurrogateKeySourceField.getText());
+      }
       junkDimension.getKeyFields().clear();
       for (TableItem item : wNaturalKeys.getNonEmptyItems()) {
         String fieldName = item.getText(1);
@@ -765,10 +1157,13 @@ public class HopGuiDmTableDialog {
     }
 
     if (dimensionAlias && input instanceof DmDimensionAlias alias) {
+      if (wReferencedModelFilename != null) {
+        alias.setReferencedModelFilename(wReferencedModelFilename.getText());
+      }
       if (wReferencedDimension != null) {
         alias.setReferencedDimensionName(wReferencedDimension.getText());
       }
-      alias.syncPhysicalTableName(model, variables);
+      alias.syncPhysicalTableName(model, variables, metadataProvider);
       input.setTableName(alias.getTableName());
     }
 
@@ -776,6 +1171,19 @@ public class HopGuiDmTableDialog {
       dmDimension.setScdType(
           EnumDialogSupport.readCombo(
               wScdType, DmDimensionScdType.class, DmDimensionScdType.TYPE1));
+      if (wSurrogateKeyStrategy != null) {
+        dmDimension.setSurrogateKeyStrategy(
+            EnumDialogSupport.readCombo(
+                wSurrogateKeyStrategy,
+                DmSurrogateKeyStrategy.class,
+                DmSurrogateKeyStrategy.AUTO_INCREMENT));
+      }
+      if (wSurrogateKeyField != null) {
+        dmDimension.setSurrogateKeyField(wSurrogateKeyField.getText());
+      }
+      if (wSurrogateKeySourceField != null) {
+        dmDimension.setSurrogateKeySourceField(wSurrogateKeySourceField.getText());
+      }
       dmDimension.getNaturalKeys().clear();
       for (TableItem item : wNaturalKeys.getNonEmptyItems()) {
         String fieldName = item.getText(1);
@@ -807,15 +1215,7 @@ public class HopGuiDmTableDialog {
     if (factLike && input instanceof IDmFactLikeTable factLike) {
       if (factLike instanceof DmFact dmFact) {
         dmFact.getDimensionRoles().clear();
-        for (TableItem item : wDimensionRoles.getNonEmptyItems()) {
-          String dimensionName = item.getText(1);
-          if (Utils.isEmpty(dimensionName)) {
-            continue;
-          }
-          dmFact
-              .getDimensionRoles()
-              .add(new DmFactDimensionRole(dimensionName, item.getText(2), item.getText(3)));
-        }
+        dmFact.getDimensionRoles().addAll(readDimensionRolesFromTable());
         dmFact.getMeasures().clear();
         if (!factless && wMeasures != null) {
           for (TableItem item : wMeasures.getNonEmptyItems()) {
@@ -829,26 +1229,10 @@ public class HopGuiDmTableDialog {
         }
       } else if (factLike instanceof DmFactlessFact factlessFact) {
         factlessFact.getDimensionRoles().clear();
-        for (TableItem item : wDimensionRoles.getNonEmptyItems()) {
-          String dimensionName = item.getText(1);
-          if (Utils.isEmpty(dimensionName)) {
-            continue;
-          }
-          factlessFact
-              .getDimensionRoles()
-              .add(new DmFactDimensionRole(dimensionName, item.getText(2), item.getText(3)));
-        }
+        factlessFact.getDimensionRoles().addAll(readDimensionRolesFromTable());
       } else if (factLike instanceof DmPeriodicSnapshotFact periodicFact) {
         periodicFact.getDimensionRoles().clear();
-        for (TableItem item : wDimensionRoles.getNonEmptyItems()) {
-          String dimensionName = item.getText(1);
-          if (Utils.isEmpty(dimensionName)) {
-            continue;
-          }
-          periodicFact
-              .getDimensionRoles()
-              .add(new DmFactDimensionRole(dimensionName, item.getText(2), item.getText(3)));
-        }
+        periodicFact.getDimensionRoles().addAll(readDimensionRolesFromTable());
         periodicFact.getMeasures().clear();
         if (wMeasures != null) {
           for (TableItem item : wMeasures.getNonEmptyItems()) {
@@ -862,15 +1246,7 @@ public class HopGuiDmTableDialog {
         }
       } else if (factLike instanceof DmAccumulatingSnapshotFact accumulatingFact) {
         accumulatingFact.getDimensionRoles().clear();
-        for (TableItem item : wDimensionRoles.getNonEmptyItems()) {
-          String dimensionName = item.getText(1);
-          if (Utils.isEmpty(dimensionName)) {
-            continue;
-          }
-          accumulatingFact
-              .getDimensionRoles()
-              .add(new DmFactDimensionRole(dimensionName, item.getText(2), item.getText(3)));
-        }
+        accumulatingFact.getDimensionRoles().addAll(readDimensionRolesFromTable());
         accumulatingFact.getMeasures().clear();
         if (wMeasures != null) {
           for (TableItem item : wMeasures.getNonEmptyItems()) {
@@ -884,15 +1260,7 @@ public class HopGuiDmTableDialog {
         }
       } else if (factLike instanceof DmAggregateFact aggregateFact) {
         aggregateFact.getDimensionRoles().clear();
-        for (TableItem item : wDimensionRoles.getNonEmptyItems()) {
-          String dimensionName = item.getText(1);
-          if (Utils.isEmpty(dimensionName)) {
-            continue;
-          }
-          aggregateFact
-              .getDimensionRoles()
-              .add(new DmFactDimensionRole(dimensionName, item.getText(2), item.getText(3)));
-        }
+        aggregateFact.getDimensionRoles().addAll(readDimensionRolesFromTable());
         aggregateFact.getMeasures().clear();
         if (wMeasures != null) {
           for (TableItem item : wMeasures.getNonEmptyItems()) {
@@ -914,5 +1282,256 @@ public class HopGuiDmTableDialog {
   private void cancel() {
     ok = false;
     shell.dispose();
+  }
+
+  private void previewSourceSql() {
+    DmSourceSqlGuiSupport.previewSourceSql(
+        shell,
+        variables,
+        metadataProvider,
+        resolveSourceDatabaseMeta(),
+        wSourceSql.getText());
+  }
+
+  private void getNaturalKeysFromSource() {
+    try {
+      List<String> fieldNames = loadSourceFieldNames();
+      applyFieldNamesToTable(wNaturalKeys, naturalKeyFieldColumn, fieldNames, null);
+    } catch (HopException e) {
+      showSourceFieldError(e);
+    }
+  }
+
+  private void getMeasuresFromSource() {
+    try {
+      List<String> fieldNames = loadSourceFieldNames();
+      applyFieldNamesToTable(wMeasures, measureFieldColumn, fieldNames, "Y");
+    } catch (HopException e) {
+      showSourceFieldError(e);
+    }
+  }
+
+  private void getJoinsFromSource() {
+    try {
+      List<String> fieldNames = loadSourceFieldNames();
+      Set<String> measureFields = new LinkedHashSet<>();
+      if (wMeasures != null) {
+        for (TableItem item : wMeasures.getNonEmptyItems()) {
+          if (!Utils.isEmpty(item.getText(1))) {
+            measureFields.add(item.getText(1));
+          }
+        }
+      }
+      if (dimensionJoinSourceFieldColumn != null) {
+        dimensionJoinSourceFieldColumn.setComboValues(
+            ConstUi.sortFieldNames(fieldNames.toArray(new String[0])));
+      }
+      wDimensionRoles.clearAll();
+      for (String fieldName : fieldNames) {
+        if (Utils.isEmpty(fieldName)
+            || measureFields.contains(fieldName)
+            || fieldName.toLowerCase().endsWith("_key")) {
+          continue;
+        }
+        String dimensionName = inferDimensionNameForSourceField(fieldName);
+        if (!isKnownDimensionName(dimensionName)) {
+          continue;
+        }
+        TableItem item = new TableItem(wDimensionRoles.table, SWT.NONE);
+        item.setText(1, dimensionName);
+        item.setText(2, fieldName);
+        item.setText(3, defaultForeignKeyForDimensionName(dimensionName));
+        item.setText(4, looksLikeDateSourceField(fieldName) ? "Y" : "N");
+      }
+      wDimensionRoles.removeEmptyRows();
+      wDimensionRoles.setRowNums();
+      wDimensionRoles.optWidth(true);
+      refreshDimensionJoinComboChoices();
+    } catch (HopException e) {
+      showSourceFieldError(e);
+    }
+  }
+
+  private void getAttributesFromSource() {
+    try {
+      List<String> fieldNames = loadSourceFieldNames();
+      List<String> naturalKeyNames = readTableFieldNames(wNaturalKeys);
+      List<String> attributeFields = new ArrayList<>();
+      for (String fieldName : fieldNames) {
+        if (!naturalKeyNames.contains(fieldName)) {
+          attributeFields.add(fieldName);
+        }
+      }
+      applyFieldNamesToTable(
+          wAttributes,
+          attributeFieldColumn,
+          attributeFields,
+          EnumDialogSupport.descriptionOf(DmScdUpdatePolicy.TYPE1));
+    } catch (HopException e) {
+      showSourceFieldError(e);
+    }
+  }
+
+  private List<String> loadSourceFieldNames() throws HopException {
+    DatabaseMeta databaseMeta = resolveSourceDatabaseMeta();
+    return DmSourceSqlGuiSupport.resolveFieldNames(
+        variables, databaseMeta, wSourceSql.getText());
+  }
+
+  private void applyFieldNamesToTable(
+      TableView tableView,
+      ColumnInfo fieldColumn,
+      List<String> fieldNames,
+      String defaultSecondColumnValue) {
+    if (fieldColumn != null) {
+      fieldColumn.setComboValues(ConstUi.sortFieldNames(fieldNames.toArray(new String[0])));
+    }
+    tableView.clearAll();
+    for (String fieldName : fieldNames) {
+      if (Utils.isEmpty(fieldName)) {
+        continue;
+      }
+      TableItem item = new TableItem(tableView.table, SWT.NONE);
+      item.setText(1, fieldName);
+      if (!Utils.isEmpty(defaultSecondColumnValue)) {
+        item.setText(2, defaultSecondColumnValue);
+      }
+    }
+    tableView.removeEmptyRows();
+    tableView.setRowNums();
+    tableView.optWidth(true);
+  }
+
+  private static List<String> readTableFieldNames(TableView tableView) {
+    List<String> names = new ArrayList<>();
+    for (TableItem item : tableView.getNonEmptyItems()) {
+      String fieldName = item.getText(1);
+      if (!Utils.isEmpty(fieldName)) {
+        names.add(fieldName);
+      }
+    }
+    return names;
+  }
+
+  private List<DmFactDimensionRole> readDimensionRolesFromTable() {
+    List<DmFactDimensionRole> roles = new ArrayList<>();
+    for (TableItem item : wDimensionRoles.getNonEmptyItems()) {
+      String dimensionName = item.getText(1);
+      if (Utils.isEmpty(dimensionName)) {
+        continue;
+      }
+      DmFactDimensionRole role = new DmFactDimensionRole();
+      role.setDimensionTableName(dimensionName);
+      role.setSourceFieldName(item.getText(2));
+      role.setForeignKeyColumn(item.getText(3));
+      role.setTruncateToDateKey("Y".equalsIgnoreCase(item.getText(4)));
+      roles.add(role);
+    }
+    return roles;
+  }
+
+  private String defaultForeignKeyForDimensionName(String dimensionName) {
+    DmDimension dimension =
+        model != null
+            ? DmDimensionResolutionSupport.resolveDimension(model, dimensionName, variables)
+            : null;
+    DimensionalConfiguration config =
+        model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
+    DmFactDimensionRole tempRole = new DmFactDimensionRole();
+    tempRole.setDimensionTableName(dimensionName);
+    return DmLayoutSupport.defaultFactForeignKeyColumn(dimension, tempRole, config, variables);
+  }
+
+  private boolean isKnownDimensionName(String dimensionName) {
+    if (model == null || Utils.isEmpty(dimensionName)) {
+      return false;
+    }
+    return DmDimensionResolutionSupport.isDimensionLike(model, dimensionName);
+  }
+
+  private static String inferDimensionNameForSourceField(String fieldName) {
+    return "dim_" + fieldName;
+  }
+
+  private static boolean looksLikeDateSourceField(String fieldName) {
+    return fieldName != null && fieldName.toLowerCase().contains("date");
+  }
+
+  private void refreshDimensionJoinComboChoices() {
+    Set<String> choices = new LinkedHashSet<>();
+    try {
+      choices.addAll(loadSourceFieldNames());
+    } catch (HopException ignored) {
+      // Use fields already configured on the table when the source cannot be resolved yet.
+    }
+    if (wDimensionRoles != null) {
+      for (TableItem item : wDimensionRoles.getNonEmptyItems()) {
+        if (!Utils.isEmpty(item.getText(2))) {
+          choices.add(item.getText(2));
+        }
+      }
+    }
+    if (dimensionJoinSourceFieldColumn != null) {
+      dimensionJoinSourceFieldColumn.setComboValues(
+          ConstUi.sortFieldNames(choices.toArray(new String[0])));
+    }
+  }
+
+  private void refreshMeasureComboChoices() {
+    Set<String> choices = new LinkedHashSet<>();
+    try {
+      choices.addAll(loadSourceFieldNames());
+    } catch (HopException ignored) {
+      // Use fields already configured on the table when the source cannot be resolved yet.
+    }
+    if (wMeasures != null) {
+      for (TableItem item : wMeasures.getNonEmptyItems()) {
+        if (!Utils.isEmpty(item.getText(1))) {
+          choices.add(item.getText(1));
+        }
+      }
+    }
+    if (measureFieldColumn != null) {
+      measureFieldColumn.setComboValues(ConstUi.sortFieldNames(choices.toArray(new String[0])));
+    }
+  }
+
+  private void refreshFieldComboChoices() {
+    Set<String> choices = new LinkedHashSet<>();
+    try {
+      choices.addAll(loadSourceFieldNames());
+    } catch (HopException ignored) {
+      // Use fields already configured on the table when the source cannot be resolved yet.
+    }
+    if (wNaturalKeys != null) {
+      for (TableItem item : wNaturalKeys.getNonEmptyItems()) {
+        if (!Utils.isEmpty(item.getText(1))) {
+          choices.add(item.getText(1));
+        }
+      }
+    }
+    if (wAttributes != null) {
+      for (TableItem item : wAttributes.getNonEmptyItems()) {
+        if (!Utils.isEmpty(item.getText(1))) {
+          choices.add(item.getText(1));
+        }
+      }
+    }
+    String[] sorted = ConstUi.sortFieldNames(choices.toArray(new String[0]));
+    if (naturalKeyFieldColumn != null) {
+      naturalKeyFieldColumn.setComboValues(sorted);
+    }
+    if (attributeFieldColumn != null) {
+      attributeFieldColumn.setComboValues(sorted);
+    }
+    refreshDimensionJoinComboChoices();
+  }
+
+  private void showSourceFieldError(HopException exception) {
+    new ErrorDialog(
+        shell,
+        BaseMessages.getString(Props.class, "System.Dialog.Error.Title"),
+        exception.getMessage(),
+        exception);
   }
 }

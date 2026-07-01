@@ -55,6 +55,14 @@ Documentation by audience.
 | [business-vault-configuration.adoc](business-vault-configuration.adoc) | Embedded `.hbv` configuration |
 | [business-vault-update-action.adoc](business-vault-update-action.adoc) | Business Vault Update workflow action |
 
+## Hop projects in this repository
+
+| Folder | Document |
+|--------|----------|
+| [../integration-tests/PROJECT.md](../integration-tests/PROJECT.md) | Plugin regression suites |
+| [../retail-example/README.md](../retail-example/README.md) | Full-stack retail demo (CSV → DV → BV → DM) |
+| [../scripts/README.md](../scripts/README.md) | Shared Docker runners |
+
 ## Pipeline transforms (AsciiDoc)
 
 | Document | Description |
@@ -86,10 +94,10 @@ cd project
 **Local Hop** with the plugin installed:
 
 ```bash
-hop svg -f project/tests/multi-satellite-bv/customer-360.hdv \
+hop svg -f integration-tests/tests//multi-satellite-bv/customer-360.hdv \
         -o docs/images/customer-360-generated.svg --no-notes
-hop svg -s project/tests/multi-satellite-bv -t /tmp/svg-out -r
-hop svg -f project/tests/basic/load1.hpl -o /tmp/load1.svg
+hop svg -s integration-tests/tests//multi-satellite-bv -t /tmp/svg-out -r
+hop svg -f integration-tests/tests//basic/load1.hpl -o /tmp/load1.svg
 ```
 
 Options: `--no-notes`, `--magnification`, `--show-hash-keys` (`.hdv` only), `--project-home`.

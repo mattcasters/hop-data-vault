@@ -49,9 +49,9 @@ import org.w3c.dom.Node;
 class DvIntegrationSupportTest {
 
   private static final Path DV_PATH =
-      Path.of("project/tests/multi-satellite-bv/customer-360.hdv").toAbsolutePath().normalize();
+      Path.of("integration-tests/tests/multi-satellite-bv/customer-360.hdv").toAbsolutePath().normalize();
   private static final Path BV_PATH =
-      Path.of("project/tests/multi-satellite-bv/customer-360.hbv").toAbsolutePath().normalize();
+      Path.of("integration-tests/tests/multi-satellite-bv/customer-360.hbv").toAbsolutePath().normalize();
 
   @BeforeAll
   static void initHop() throws HopException {

@@ -28,6 +28,8 @@ import org.apache.hop.datavault.metadata.dimensional.DmDimensionAttribute;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmScdUpdatePolicy;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
@@ -78,14 +80,9 @@ public final class DmDimensionLookupBuilder {
         !Utils.isEmpty(dimension.getTableName()) ? dimension.getTableName() : dimension.getName());
     lookupMeta.setUpdate(false);
     lookupMeta.setFields(buildLookupOnlyFields(ctx, dimension, role));
+    configureTechnicalKeySource(lookupMeta, dimension, ctx);
 
-    String transformName =
-        "lookup_"
-            + (!Utils.isEmpty(role.getRoleName())
-                ? role.getRoleName()
-                : !Utils.isEmpty(role.getDimensionTableName())
-                    ? role.getDimensionTableName()
-                    : dimension.getName());
+    String transformName = DmFactDimensionJoinBuilder.resolveLookupTransformName(role, dimension);
     TransformMeta tm = new TransformMeta("DimensionLookup", transformName, lookupMeta);
     tm.setLocation(
         predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
@@ -105,6 +102,7 @@ public final class DmDimensionLookupBuilder {
     lookupMeta.setTableName(ctx.targetTableName);
     lookupMeta.setUpdate(true);
     lookupMeta.setFields(buildHybridFields(ctx, dimension));
+    configureTechnicalKeySource(lookupMeta, dimension, ctx);
     lookupMeta.setCommitSize(
         Integer.parseInt(ctx.config.resolveTargetTableCommitSize(ctx.variables)));
 
@@ -123,17 +121,18 @@ public final class DmDimensionLookupBuilder {
       DmDimension dimension,
       DmFactDimensionRole role) {
     DimensionLookupMeta.DLFields dlFields = new DimensionLookupMeta.DLFields();
-    dlFields.setKeys(buildNaturalKeys(dimension, ctx));
+    dlFields.setKeys(DmFactDimensionJoinBuilder.buildFactLookupKeys(dimension, role, ctx));
 
     DimensionalConfiguration config = ctx.config;
-    String dimKeyField = config.resolveDimKeyField(ctx.variables);
+    String dimKeyField =
+        DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, ctx.variables);
     String fkColumn =
         DmLayoutSupport.defaultFactForeignKeyColumn(dimension, role, config, ctx.variables);
 
     DimensionLookupMeta.DLReturn returns = new DimensionLookupMeta.DLReturn();
     returns.setKeyField(dimKeyField);
     returns.setKeyRename(fkColumn);
-    returns.setCreationMethod(DimensionLookupMeta.TechnicalKeyCreationMethod.AUTO_INCREMENT);
+    applySurrogateKeyCreation(returns, dimension);
     dlFields.setReturns(returns);
     return dlFields;
   }
@@ -151,9 +150,10 @@ public final class DmDimensionLookupBuilder {
     dlFields.setDate(date);
 
     DimensionLookupMeta.DLReturn returns = new DimensionLookupMeta.DLReturn();
-    returns.setKeyField(config.resolveDimKeyField(ctx.variables));
+    returns.setKeyField(
+        DmSurrogateKeySupport.resolveSurrogateKeyField(dimension, config, ctx.variables));
     returns.setVersionField(config.resolveVersionField(ctx.variables));
-    returns.setCreationMethod(DimensionLookupMeta.TechnicalKeyCreationMethod.AUTO_INCREMENT);
+    applySurrogateKeyCreation(returns, dimension);
     dlFields.setReturns(returns);
 
     List<DimensionLookupMeta.DLField> attributeFields = new ArrayList<>();
@@ -188,6 +188,24 @@ public final class DmDimensionLookupBuilder {
       keys.add(key);
     }
     return keys;
+  }
+
+  private static void applySurrogateKeyCreation(
+      DimensionLookupMeta.DLReturn returns, DmDimension dimension) {
+    DmSurrogateKeyStrategy strategy = DmSurrogateKeySupport.resolveStrategy(dimension);
+    returns.setCreationMethod(strategy.toDimensionLookupCreationMethod());
+  }
+
+  private static void configureTechnicalKeySource(
+      DimensionLookupMeta lookupMeta,
+      DmDimension dimension,
+      DmPipelineBuilderSupport.BuildContext ctx) {
+    if (DmSurrogateKeySupport.resolveStrategy(dimension) != DmSurrogateKeyStrategy.USE_SOURCE_FIELD) {
+      return;
+    }
+    lookupMeta.setTkSourceField(
+        DmSurrogateKeySupport.resolveSurrogateKeySourceField(
+            dimension, ctx.config, ctx.variables));
   }
 
   private static DimensionLookupMeta.DimensionUpdateType resolveUpdateType(

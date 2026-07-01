@@ -1,0 +1,519 @@
+#!/usr/bin/env python3
+"""Generate retail example CSV source files for initial or incremental loads."""
+
+#  Licensed to the Apache Software Foundation (ASF) under one or more
+#  contributor license agreements.  See the NOTICE file distributed with
+#  this work for additional information regarding copyright ownership.
+#  The ASF licenses this file to You under the Apache License, Version 2.0
+#  (the "License"); you may not use this file except in compliance with
+#  the License.  You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+from __future__ import annotations
+
+import argparse
+import csv
+import os
+import random
+import subprocess
+import sys
+from dataclasses import dataclass
+from datetime import date, timedelta
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_PROJECT_HOME = REPO_ROOT / "retail-example"
+DEFAULT_FILES_DIR = DEFAULT_PROJECT_HOME / "files"
+PERIOD_LABEL_FILE = ".period-label"
+
+SEGMENTS = ("RETAIL", "WHOLESALE", "ONLINE")
+LOYALTY_TIERS = ("BRONZE", "SILVER", "GOLD", "PLATINUM")
+CHANNELS = ("EMAIL", "SMS", "PHONE")
+LANGUAGES = ("en", "fr", "de", "es")
+CATEGORIES = ("Electronics", "Apparel", "Home", "Sports", "Grocery")
+REGIONS = ("North", "South", "East", "West")
+ORDER_STATUSES = ("NEW", "SHIPPED", "DELIVERED", "CANCELLED")
+
+
+@dataclass(frozen=True)
+class Scale:
+    customers: int = 10_000
+    products: int = 1_000
+    orders: int = 100_000
+    warehouses: int = 50
+
+
+@dataclass(frozen=True)
+class LoadContext:
+    progress_date: date
+    period_months: int
+    wave_label: str
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mode", choices=("initial", "update"), required=True)
+    parser.add_argument("--project-home", type=Path, default=DEFAULT_PROJECT_HOME)
+    parser.add_argument("--customers", type=int, default=Scale.customers)
+    parser.add_argument("--products", type=int, default=Scale.products)
+    parser.add_argument("--orders", type=int, default=Scale.orders)
+    parser.add_argument("--warehouses", type=int, default=Scale.warehouses)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--progress-date",
+        type=str,
+        default="",
+        help="Override progress_date for update mode (YYYY-MM-DD)",
+    )
+    return parser.parse_args()
+
+
+def read_load_context(project_home: Path, progress_override: str) -> LoadContext:
+    if progress_override:
+        progress = date.fromisoformat(progress_override)
+        return LoadContext(progress_date=progress, period_months=1, wave_label=_period_label(progress))
+
+    env_date = os.environ.get("RETAIL_PROGRESS_DATE", "").strip()
+    if env_date:
+        progress = date.fromisoformat(env_date)
+        return LoadContext(progress_date=progress, period_months=1, wave_label=_period_label(progress))
+
+    sql_file = project_home / "sql" / "read-load-control.sql"
+    query = sql_file.read_text(encoding="utf-8").strip()
+    command = [
+        "psql",
+        "-h",
+        os.environ.get("DB_HOST", "localhost"),
+        "-p",
+        os.environ.get("DB_PORT", "54320"),
+        "-U",
+        os.environ.get("DB_USER", "test"),
+        "-d",
+        os.environ.get("DB_TARGET_NAME", os.environ.get("DB_NAME", "test_edw")),
+        "-At",
+        "-F",
+        ",",
+        "-c",
+        query,
+    ]
+    env = os.environ.copy()
+    env.setdefault("PGPASSWORD", os.environ.get("DB_PASSWORD", "test"))
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True, env=env)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        progress = date(2024, 2, 1)
+        print("Warning: could not read retail_load_control; using default progress_date 2024-02-01")
+        return LoadContext(progress_date=progress, period_months=1, wave_label=_period_label(progress))
+
+    line = result.stdout.strip().splitlines()[-1]
+    progress_raw, period_raw = line.split(",", 1)
+    progress = date.fromisoformat(progress_raw)
+    period_months = int(period_raw)
+    return LoadContext(
+        progress_date=progress,
+        period_months=period_months,
+        wave_label=_period_label(progress),
+    )
+
+
+def _period_label(progress: date) -> str:
+    return f"{progress.year:04d}-{progress.month:02d}"
+
+
+def write_csv(path: Path, header: list[str], rows: list[list[object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(header)
+        writer.writerows(rows)
+
+
+def customer_hub_rows(scale: Scale, rng: random.Random, load_date: str, subset: range) -> list[list[object]]:
+    return [
+        [customer_id, load_date, "E2E-customer-hub"]
+        for customer_id in subset
+    ]
+
+
+def customer_demo_rows(scale: Scale, rng: random.Random, load_date: str, subset: range) -> list[list[object]]:
+    return [
+        [
+            customer_id,
+            rng.choice(SEGMENTS),
+            rng.choice(LOYALTY_TIERS),
+            rng.randint(40, 99),
+            load_date,
+            "E2E-customer-demo",
+        ]
+        for customer_id in subset
+    ]
+
+
+def customer_contact_rows(scale: Scale, rng: random.Random, load_date: str, subset: range) -> list[list[object]]:
+    return [
+        [
+            customer_id,
+            f"customer{customer_id}@example.com",
+            f"+1-555-{customer_id % 10000:04d}",
+            load_date,
+            "E2E-customer-contact",
+        ]
+        for customer_id in subset
+    ]
+
+
+def customer_address_rows(scale: Scale, rng: random.Random, load_date: str, subset: range) -> list[list[object]]:
+    cities = ("New York", "Chicago", "Phoenix", "Seattle", "Austin")
+    return [
+        [
+            customer_id,
+            f"{100 + (customer_id % 900)} Market Street",
+            rng.choice(cities),
+            f"{10000 + (customer_id % 900)}",
+            load_date,
+            "E2E-customer-address",
+        ]
+        for customer_id in subset
+    ]
+
+
+def customer_prefs_rows(scale: Scale, rng: random.Random, load_date: str, subset: range) -> list[list[object]]:
+    return [
+        [
+            customer_id,
+            rng.choice(("Y", "N")),
+            rng.choice(CHANNELS),
+            rng.choice(LANGUAGES),
+            load_date,
+            "E2E-customer-prefs",
+        ]
+        for customer_id in subset
+    ]
+
+
+def product_rows(scale: Scale, rng: random.Random, load_date: str, subset: range) -> list[list[object]]:
+    return [
+        [
+            f"P{product_id:06d}",
+            f"Product {product_id}",
+            rng.choice(CATEGORIES),
+            round(rng.uniform(5.0, 499.99), 2),
+            load_date,
+            "E2E-product",
+        ]
+        for product_id in subset
+    ]
+
+
+def warehouse_rows(scale: Scale, rng: random.Random, load_date: str, subset: range) -> list[list[object]]:
+    cities = ("New York", "Chicago", "Phoenix", "Seattle", "Austin")
+    return [
+        [
+            warehouse_id,
+            f"Warehouse {warehouse_id}",
+            rng.choice(cities),
+            rng.choice(REGIONS),
+            rng.randint(10_000, 250_000),
+            load_date,
+            "E2E-warehouse",
+        ]
+        for warehouse_id in subset
+    ]
+
+
+def order_header_rows(
+    scale: Scale,
+    rng: random.Random,
+    load_date: str,
+    subset: range,
+    anchor: date,
+) -> list[list[object]]:
+    rows: list[list[object]] = []
+    for order_id in subset:
+        customer_id = rng.randint(1, scale.customers)
+        order_day = anchor + timedelta(days=rng.randint(0, 27))
+        ship_day = order_day + timedelta(days=rng.randint(1, 3))
+        delivery_day = ship_day + timedelta(days=rng.randint(1, 5))
+        rows.append(
+            [
+                f"O{order_id:06d}",
+                customer_id,
+                order_day.isoformat(),
+                ship_day.isoformat(),
+                delivery_day.isoformat(),
+                rng.choice(ORDER_STATUSES),
+                round(rng.uniform(25.0, 2500.0), 2),
+                load_date,
+                "E2E-order-header",
+            ]
+        )
+    return rows
+
+
+def order_line_rows(
+    scale: Scale,
+    rng: random.Random,
+    load_date: str,
+    order_subset: range,
+    anchor: date,
+) -> list[list[object]]:
+    rows: list[list[object]] = []
+    for order_id in order_subset:
+        line_count = rng.randint(1, 4)
+        for line_number in range(1, line_count + 1):
+            product_id = rng.randint(1, scale.products)
+            quantity = rng.randint(1, 5)
+            unit_price = round(rng.uniform(5.0, 499.99), 2)
+            rows.append(
+                [
+                    f"O{order_id:06d}",
+                    f"P{product_id:06d}",
+                    line_number,
+                    quantity,
+                    unit_price,
+                    round(rng.uniform(0.0, 0.25), 2),
+                    load_date,
+                    "E2E-order-line",
+                ]
+            )
+    return rows
+
+
+def warehouse_product_rows(
+    scale: Scale,
+    rng: random.Random,
+    load_date: str,
+    pairs: list[tuple[int, int]],
+) -> list[list[object]]:
+    return [
+        [
+            warehouse_id,
+            f"P{product_id:06d}",
+            rng.randint(0, 5000),
+            rng.randint(50, 500),
+            load_date,
+            "E2E-warehouse-product",
+        ]
+        for warehouse_id, product_id in pairs
+    ]
+
+
+def subset_for_mode(mode: str, full_count: int, rng: random.Random) -> range:
+    if mode == "initial":
+        return range(1, full_count + 1)
+    sample = max(50, full_count // 100)
+    return range(1, sample + 1)
+
+
+def generate_initial(files_dir: Path, scale: Scale, rng: random.Random) -> str:
+    wave = "initial"
+    load_date = "2024-01-01"
+    anchor = date(2024, 1, 1)
+
+    customer_subset = subset_for_mode("initial", scale.customers, rng)
+    product_subset = subset_for_mode("initial", scale.products, rng)
+    order_subset = subset_for_mode("initial", scale.orders, rng)
+    warehouse_subset = subset_for_mode("initial", scale.warehouses, rng)
+
+    write_csv(
+        files_dir / f"customer_hub_{wave}.csv",
+        ["customer_id", "load_date", "record_source"],
+        customer_hub_rows(scale, rng, load_date, customer_subset),
+    )
+    write_csv(
+        files_dir / f"customer_demo_{wave}.csv",
+        ["customer_id", "segment", "loyalty_tier", "demo_score", "load_date", "record_source"],
+        customer_demo_rows(scale, rng, load_date, customer_subset),
+    )
+    write_csv(
+        files_dir / f"customer_contact_{wave}.csv",
+        ["customer_id", "email", "phone", "load_date", "record_source"],
+        customer_contact_rows(scale, rng, load_date, customer_subset),
+    )
+    write_csv(
+        files_dir / f"customer_address_{wave}.csv",
+        ["customer_id", "address_line1", "city", "postal_code", "load_date", "record_source"],
+        customer_address_rows(scale, rng, load_date, customer_subset),
+    )
+    write_csv(
+        files_dir / f"customer_prefs_{wave}.csv",
+        ["customer_id", "newsletter_opt_in", "preferred_channel", "language_code", "load_date", "record_source"],
+        customer_prefs_rows(scale, rng, load_date, customer_subset),
+    )
+    write_csv(
+        files_dir / f"product_{wave}.csv",
+        ["product_id", "product_name", "category", "unit_price", "load_date", "record_source"],
+        product_rows(scale, rng, load_date, product_subset),
+    )
+    write_csv(
+        files_dir / f"warehouse_{wave}.csv",
+        ["warehouse_id", "warehouse_name", "city", "region", "capacity", "load_date", "record_source"],
+        warehouse_rows(scale, rng, load_date, warehouse_subset),
+    )
+    write_csv(
+        files_dir / f"order_header_{wave}.csv",
+        [
+            "order_id",
+            "customer_id",
+            "order_date",
+            "shipping_date",
+            "delivery_date",
+            "order_status",
+            "total_amount",
+            "load_date",
+            "record_source",
+        ],
+        order_header_rows(scale, rng, load_date, order_subset, anchor),
+    )
+    write_csv(
+        files_dir / f"order_line_{wave}.csv",
+        [
+            "order_id",
+            "product_id",
+            "line_number",
+            "quantity",
+            "unit_price",
+            "discount_pct",
+            "load_date",
+            "record_source",
+        ],
+        order_line_rows(scale, rng, load_date, order_subset, anchor),
+    )
+
+    pairs = [
+        (rng.randint(1, scale.warehouses), rng.randint(1, scale.products))
+        for _ in range(min(5_000, scale.warehouses * 20))
+    ]
+    write_csv(
+        files_dir / f"warehouse_product_{wave}.csv",
+        ["warehouse_id", "product_id", "stock_qty", "reorder_point", "load_date", "record_source"],
+        warehouse_product_rows(scale, rng, load_date, pairs),
+    )
+    return wave
+
+
+def generate_update(files_dir: Path, scale: Scale, rng: random.Random, context: LoadContext) -> str:
+    wave = context.wave_label
+    load_date = context.progress_date.isoformat()
+
+    customer_subset = subset_for_mode("update", scale.customers, rng)
+    product_subset = subset_for_mode("update", scale.products, rng)
+    order_subset = subset_for_mode("update", scale.orders, rng)
+    warehouse_subset = subset_for_mode("update", scale.warehouses, rng)
+
+    write_csv(
+        files_dir / f"customer_hub_{wave}.csv",
+        ["customer_id", "load_date", "record_source"],
+        customer_hub_rows(scale, rng, load_date, customer_subset),
+    )
+    write_csv(
+        files_dir / f"customer_demo_{wave}.csv",
+        ["customer_id", "segment", "loyalty_tier", "demo_score", "load_date", "record_source"],
+        customer_demo_rows(scale, rng, load_date, customer_subset),
+    )
+    write_csv(
+        files_dir / f"customer_contact_{wave}.csv",
+        ["customer_id", "email", "phone", "load_date", "record_source"],
+        customer_contact_rows(scale, rng, load_date, customer_subset),
+    )
+    write_csv(
+        files_dir / f"customer_address_{wave}.csv",
+        ["customer_id", "address_line1", "city", "postal_code", "load_date", "record_source"],
+        customer_address_rows(scale, rng, load_date, customer_subset),
+    )
+    write_csv(
+        files_dir / f"customer_prefs_{wave}.csv",
+        ["customer_id", "newsletter_opt_in", "preferred_channel", "language_code", "load_date", "record_source"],
+        customer_prefs_rows(scale, rng, load_date, customer_subset),
+    )
+    write_csv(
+        files_dir / f"product_{wave}.csv",
+        ["product_id", "product_name", "category", "unit_price", "load_date", "record_source"],
+        product_rows(scale, rng, load_date, product_subset),
+    )
+    write_csv(
+        files_dir / f"warehouse_{wave}.csv",
+        ["warehouse_id", "warehouse_name", "city", "region", "capacity", "load_date", "record_source"],
+        warehouse_rows(scale, rng, load_date, warehouse_subset),
+    )
+    write_csv(
+        files_dir / f"order_header_{wave}.csv",
+        [
+            "order_id",
+            "customer_id",
+            "order_date",
+            "shipping_date",
+            "delivery_date",
+            "order_status",
+            "total_amount",
+            "load_date",
+            "record_source",
+        ],
+        order_header_rows(scale, rng, load_date, order_subset, context.progress_date),
+    )
+    write_csv(
+        files_dir / f"order_line_{wave}.csv",
+        [
+            "order_id",
+            "product_id",
+            "line_number",
+            "quantity",
+            "unit_price",
+            "discount_pct",
+            "load_date",
+            "record_source",
+        ],
+        order_line_rows(scale, rng, load_date, order_subset, context.progress_date),
+    )
+
+    pairs = [
+        (rng.randint(1, scale.warehouses), rng.randint(1, scale.products))
+        for _ in range(min(500, scale.warehouses * 5))
+    ]
+    write_csv(
+        files_dir / f"warehouse_product_{wave}.csv",
+        ["warehouse_id", "product_id", "stock_qty", "reorder_point", "load_date", "record_source"],
+        warehouse_product_rows(scale, rng, load_date, pairs),
+    )
+    return wave
+
+
+def main() -> None:
+    args = parse_args()
+    files_dir = args.project_home / "files"
+    scale = Scale(
+        customers=args.customers,
+        products=args.products,
+        orders=args.orders,
+        warehouses=args.warehouses,
+    )
+    rng = random.Random(args.seed)
+
+    if args.mode == "initial":
+        wave = generate_initial(files_dir, scale, rng)
+    else:
+        context = read_load_context(args.project_home, args.progress_date)
+        wave = generate_update(files_dir, scale, rng, context)
+        (files_dir / PERIOD_LABEL_FILE).write_text(wave + "\n", encoding="utf-8")
+        print(f"progress_date={context.progress_date.isoformat()}")
+        print(f"period_months={context.period_months}")
+
+    print(f"Generated retail CSV wave '{wave}' in {files_dir}")
+
+    load_pipeline_script = REPO_ROOT / "scripts" / "end-to-end" / "generate-load-pipeline.py"
+    subprocess.run(
+        [sys.executable, str(load_pipeline_script), "--project-home", str(args.project_home), "--wave", wave],
+        check=True,
+    )
+
+
+if __name__ == "__main__":
+    main()

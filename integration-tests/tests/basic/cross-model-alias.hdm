@@ -1,0 +1,89 @@
+<dimensional-model>
+  <filename>${PROJECT_HOME}/tests/basic/cross-model-alias.hdm</filename>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <description>Subject-area model referencing shared dimensions in another .hdm file</description>
+  <configuration>
+    <targetDatabase>Vault</targetDatabase>
+    <dimKeyField>dim_key</dimKeyField>
+    <versionField>version</versionField>
+    <dateFromField>date_from</dateFromField>
+    <dateToField>date_to</dateToField>
+    <loadDateField>load_dt</loadDateField>
+    <currentFlagField>is_current</currentFlagField>
+    <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
+    <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
+    <targetTableBatchSize>1000</targetTableBatchSize>
+    <targetTableParallelCopies>1</targetTableParallelCopies>
+  </configuration>
+  <tables>
+    <table>
+      <referencedDimensionName>dim_customer</referencedDimensionName>
+      <referencedModelFilename>shared-conformed.hdm</referencedModelFilename>
+      <tableName>d_customer</tableName>
+      <description>Shared customer dimension from conformed model</description>
+      <tableType>DIMENSION_ALIAS</tableType>
+      <xloc>64</xloc>
+      <yloc>64</yloc>
+      <name>dim_customer</name>
+    </table>
+    <table>
+      <referencedDimensionName>dim_product</referencedDimensionName>
+      <referencedModelFilename>shared-conformed.hdm</referencedModelFilename>
+      <tableName>d_product</tableName>
+      <description>Shared product dimension from conformed model</description>
+      <tableType>DIMENSION_ALIAS</tableType>
+      <xloc>64</xloc>
+      <yloc>224</yloc>
+      <name>dim_product</name>
+    </table>
+    <table>
+      <referencedDimensionName>dim_date</referencedDimensionName>
+      <referencedModelFilename>shared-conformed.hdm</referencedModelFilename>
+      <tableName>d_date</tableName>
+      <description>Order date role from shared calendar dimension</description>
+      <tableType>DIMENSION_ALIAS</tableType>
+      <xloc>288</xloc>
+      <yloc>64</yloc>
+      <name>dim_order_date</name>
+    </table>
+    <table>
+      <sourceSql>SELECT customer_id, product_id, order_date, quantity, amount FROM stg_orders</sourceSql>
+      <dimension_roles>
+        <dimension_role>
+          <dimensionTableName>dim_customer</dimensionTableName>
+          <foreignKeyColumn>customer_key</foreignKeyColumn>
+          <sourceFieldName>customer_id</sourceFieldName>
+        </dimension_role>
+        <dimension_role>
+          <dimensionTableName>dim_product</dimensionTableName>
+          <foreignKeyColumn>product_key</foreignKeyColumn>
+          <sourceFieldName>product_id</sourceFieldName>
+        </dimension_role>
+        <dimension_role>
+          <dimensionTableName>dim_order_date</dimensionTableName>
+          <foreignKeyColumn>order_date_key</foreignKeyColumn>
+          <sourceFieldName>order_date</sourceFieldName>
+          <truncateToDateKey>true</truncateToDateKey>
+        </dimension_role>
+      </dimension_roles>
+      <measures>
+        <measure>
+          <fieldName>quantity</fieldName>
+          <additive>Y</additive>
+        </measure>
+        <measure>
+          <fieldName>amount</fieldName>
+          <additive>Y</additive>
+        </measure>
+      </measures>
+      <tableName>f_orders</tableName>
+      <description>Orders fact using externally defined dimensions</description>
+      <tableType>FACT</tableType>
+      <xloc>544</xloc>
+      <yloc>144</yloc>
+      <name>fact_orders</name>
+    </table>
+  </tables>
+  <notes/>
+  <name>cross-model-alias</name>
+</dimensional-model>

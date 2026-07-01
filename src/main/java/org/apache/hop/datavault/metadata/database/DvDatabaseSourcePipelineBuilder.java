@@ -33,6 +33,7 @@ import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.datavault.metadata.DvSourceFieldMappingSupport;
 import org.apache.hop.datavault.metadata.DvSqlSupport;
 import org.apache.hop.datavault.metadata.DvSourcePipelineBuilder;
 import org.apache.hop.datavault.metadata.IDvSource;
@@ -203,22 +204,7 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
   }
 
   protected @NonNull String findTargetSourceFieldName(IDvTable table) throws HopException {
-    String targetSourceFieldName =
-        switch (table.getTableType()) {
-          case HUB -> ((DvHub) table).getRecordSourceFieldName();
-          case SATELLITE -> null; // TODO: should we add a record source column to satellites?
-          case LINK -> ((DvLink) table).getRecordSourceFieldName();
-        };
-    if (StringUtils.isEmpty(targetSourceFieldName)) {
-      // If we didn't find it in the table we need to look in the configuration.
-      targetSourceFieldName = configuration.getRecordSourceField();
-    }
-    if (StringUtils.isEmpty(targetSourceFieldName)) {
-      throw new HopException(
-          "Please specify a source field name in either the table or the configuration for Hub "
-              + table.getName());
-    }
-    return targetSourceFieldName;
+    return DvSourceFieldMappingSupport.findTargetSourceFieldName(configuration, null, table);
   }
 
   protected String calculateTransformName(String prefix, DvDatabaseSource source) {

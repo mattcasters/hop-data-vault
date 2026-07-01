@@ -4,6 +4,9 @@ target/**
 .idea
 **/*.iml
 
+integration-tests/metrics/
+retail-example/metrics/
+
 project/metrics
 project/vault-catalog
 **/TEST-*.json
@@ -12,6 +15,6 @@ project/files/large/syn*.csv
 **/*-test.*
 **/__pycache__/**
 
-
+AGENTS.md
 
 .vscode/

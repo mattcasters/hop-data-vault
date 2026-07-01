@@ -39,6 +39,13 @@ public class DmJunkDimension extends DmTableBase {
   @HopMetadataProperty(key = "key_field", groupKey = "key_fields")
   private List<DmNaturalKeyField> keyFields = new ArrayList<>();
 
+  @HopMetadataProperty private String surrogateKeyField;
+
+  @HopMetadataProperty(storeWithCode = true)
+  private DmJunkSurrogateKeyStrategy surrogateKeyStrategy;
+
+  @HopMetadataProperty private String surrogateKeySourceField;
+
   public DmJunkDimension() {
     super(DmTableType.JUNK_DIMENSION);
   }

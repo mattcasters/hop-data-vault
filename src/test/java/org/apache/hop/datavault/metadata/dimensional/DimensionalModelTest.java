@@ -57,7 +57,7 @@ class DimensionalModelTest {
   @Test
   void checkReportsOkForBasicStarFixture() throws Exception {
     Path fixture =
-        Path.of("project/tests/basic/basic-star.hdm").toAbsolutePath().normalize();
+        Path.of("integration-tests/tests/basic/basic-star.hdm").toAbsolutePath().normalize();
     String xml = Files.readString(fixture);
     Document document = XmlHandler.loadXmlString(xml);
     Node rootNode = XmlHandler.getSubNode(document, HopDimensionalFileType.XML_TAG);

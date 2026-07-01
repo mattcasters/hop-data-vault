@@ -1,0 +1,39 @@
+{
+  "variables" : [
+    {
+      "name" : "DB_HOST",
+      "value" : "localhost",
+      "description" : "Local Docker PostgreSQL (host network from run-hop.sh)"
+    },
+    {
+      "name" : "DB_PORT",
+      "value" : "54320",
+      "description" : "PostgreSQL port (non-default to avoid collision with host PostgreSQL on 5432)"
+    },
+    {
+      "name" : "DB_USER",
+      "value" : "test",
+      "description" : "PostgreSQL username"
+    },
+    {
+      "name" : "DB_PASSWORD",
+      "value" : "test",
+      "description" : "PostgreSQL password"
+    },
+    {
+      "name" : "DB_SOURCE_NAME",
+      "value" : "test_source",
+      "description" : "PostgreSQL database for CRM source landing tables"
+    },
+    {
+      "name" : "DB_TARGET_NAME",
+      "value" : "test_edw",
+      "description" : "PostgreSQL database for Data Vault / Business Vault / dimensional targets"
+    },
+    {
+      "name" : "OUTPUT_COPIES",
+      "value" : "2",
+      "description" : "Number of data load threads"
+    }
+  ]
+}

@@ -102,7 +102,7 @@ class BvPitVault1FixtureTest {
   }
 
   private static BusinessVaultModel loadVault1BusinessVaultModel() throws Exception {
-    Path path = Path.of("project/tests/basic/vault1.hbv").toAbsolutePath().normalize();
+    Path path = Path.of("integration-tests/tests/basic/vault1.hbv").toAbsolutePath().normalize();
     Document document = XmlHandler.loadXmlFile(path.toFile());
     Node rootNode = XmlHandler.getSubNode(document, HopBusinessVaultFileType.XML_TAG);
     BusinessVaultModel model = new BusinessVaultModel();
@@ -111,7 +111,7 @@ class BvPitVault1FixtureTest {
   }
 
   private static DataVaultModel loadVault1DataVaultModel() throws Exception {
-    Path path = Path.of("project/tests/basic/vault1.hdv").toAbsolutePath().normalize();
+    Path path = Path.of("integration-tests/tests/basic/vault1.hdv").toAbsolutePath().normalize();
     Document document = XmlHandler.loadXmlFile(path.toFile());
     Node rootNode = XmlHandler.getSubNode(document, "data-vault-model");
     DataVaultModel model = new DataVaultModel();

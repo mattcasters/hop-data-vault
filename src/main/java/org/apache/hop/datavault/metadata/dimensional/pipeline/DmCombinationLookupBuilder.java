@@ -25,6 +25,7 @@ import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmNaturalKeyField;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
@@ -90,7 +91,8 @@ public final class DmCombinationLookupBuilder {
 
     DimensionalConfiguration config = ctx.config;
     ReturnFields returnFields = new ReturnFields();
-    returnFields.setTechnicalKeyField(config.resolveDimKeyField(ctx.variables));
+    returnFields.setTechnicalKeyField(
+        DmSurrogateKeySupport.resolveJunkSurrogateKeyField(junkDimension, config, ctx.variables));
     returnFields.setUseAutoIncrement(true);
     returnFields.setTechKeyCreation(CombinationLookupMeta.CREATION_METHOD_AUTOINC);
     returnFields.setLastUpdateField(config.resolveLoadDateField(ctx.variables));

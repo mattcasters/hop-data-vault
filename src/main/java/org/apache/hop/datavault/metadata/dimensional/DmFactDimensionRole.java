@@ -22,7 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 
-/** Fact-to-dimension relationship with an optional role name for role-playing dimensions. */
+/** Fact-to-dimension join: target dimension, source stream field, and fact foreign key column. */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,9 +30,14 @@ public class DmFactDimensionRole {
 
   @HopMetadataProperty private String dimensionTableName;
 
+  /** Deprecated: retained for backward-compatible HDM/XML only. */
   @HopMetadataProperty private String roleName;
 
   @HopMetadataProperty private String foreignKeyColumn;
+
+  @HopMetadataProperty private String sourceFieldName;
+
+  @HopMetadataProperty private boolean truncateToDateKey;
 
   public DmFactDimensionRole(String dimensionTableName, String foreignKeyColumn) {
     this.dimensionTableName = dimensionTableName;

@@ -45,6 +45,9 @@ import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.ConnectionAnchors;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
 
@@ -195,8 +198,7 @@ public class DataVaultModelPainter extends BasePainter {
 
     // Raw model coords; transform handles mag + pan
     Point linkBox = calculateTableBoxSize(link);
-    int lx = linkLoc.x + linkBox.x / 2;
-    int ly = linkLoc.y + linkBox.y / 2;
+    Bounds linkBounds = new Bounds(linkLoc.x, linkLoc.y, linkBox.x, linkBox.y);
 
     for (String hubName : link.getHubNames()) {
       IDvTable hub = tableByName.get(hubName);
@@ -205,9 +207,9 @@ public class DataVaultModelPainter extends BasePainter {
         if (hubLoc != null) {
           Point hLoc = real2screen(hubLoc.x, hubLoc.y);
           Point hubBox = calculateTableBoxSize(hub);
-          int hx = hLoc.x + hubBox.x / 2;
-          int hy = hLoc.y + hubBox.y / 2;
-          gc.drawLine(hx, hy, lx, ly);
+          Bounds hubBounds = new Bounds(hLoc.x, hLoc.y, hubBox.x, hubBox.y);
+          ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(hubBounds, linkBounds);
+          gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
         }
       }
     }
@@ -220,8 +222,7 @@ public class DataVaultModelPainter extends BasePainter {
 
     // Raw model coords; transform handles mag + pan
     Point satBox = calculateTableBoxSize(sat);
-    int sx = satLoc.x + satBox.x / 2;
-    int sy = satLoc.y + satBox.y / 2;
+    Bounds satBounds = new Bounds(satLoc.x, satLoc.y, satBox.x, satBox.y);
 
     if (sat instanceof DvSatellite satellite) {
       // Prefer hub, as per standard DV2.0; fall back to link if no hub
@@ -236,9 +237,10 @@ public class DataVaultModelPainter extends BasePainter {
           if (pLocation != null) {
             Point pLoc = real2screen(pLocation.x, pLocation.y);
             Point pBox = calculateTableBoxSize(parent);
-            int px = pLoc.x + pBox.x / 2;
-            int py = pLoc.y + pBox.y / 2;
-            gc.drawLine(px, py, sx, sy);
+            Bounds parentBounds = new Bounds(pLoc.x, pLoc.y, pBox.x, pBox.y);
+            ConnectionAnchors anchors =
+                ModelGraphConnectionGeometry.anchorsBetween(parentBounds, satBounds);
+            gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
           }
         }
       }
@@ -631,40 +633,38 @@ public class DataVaultModelPainter extends BasePainter {
       return;
     }
 
-    // Ensure box size is computed for the source (in case this is before its drawTable call this
-    // frame)
     Point box = calculateTableBoxSize(startRelationshipTable);
-    int tw = box.x;
-    int th = box.y;
-
-    // Start center in LOGICAL coords
-    int cx = loc.x + tw / 2;
-    int cy = loc.y + th / 2;
-
-    // Convert SCREEN drag end to LOGICAL coords (so drawLine uses consistent units under transform)
-    Point logEnd;
-    if (magnification <= 0) {
-      logEnd =
-          new Point(
-              (int) (relationshipDragEndLocation.x - offset.x),
-              (int) (relationshipDragEndLocation.y - offset.y));
-    } else {
-      logEnd =
-          new Point(
-              (int) ((relationshipDragEndLocation.x - offset.x) / magnification),
-              (int) ((relationshipDragEndLocation.y - offset.y) / magnification));
+    Bounds sourceBounds = new Bounds(loc.x, loc.y, box.x, box.y);
+    Point logEnd = screenDragEndToLogical(relationshipDragEndLocation);
+    if (logEnd == null) {
+      return;
     }
 
-    // Save/restore styles like other drawing
-    // (note: we don't change bg)
-    // We can't easily query current, so just set and reset to safe values at end
+    Point lineStart;
+    Point lineEnd;
+    if (candidateRelationshipTarget != null
+        && candidateRelationshipTarget.getLocation() != null
+        && isValidRelationshipPair(startRelationshipTable, candidateRelationshipTarget)) {
+      Point targetLoc = real2screen(
+          candidateRelationshipTarget.getLocation().x,
+          candidateRelationshipTarget.getLocation().y);
+      Point targetBox = calculateTableBoxSize(candidateRelationshipTarget);
+      Bounds targetBounds = new Bounds(targetLoc.x, targetLoc.y, targetBox.x, targetBox.y);
+      ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(sourceBounds, targetBounds);
+      lineStart = anchors.from();
+      lineEnd = anchors.to();
+    } else {
+      lineStart = ModelGraphConnectionGeometry.anchorToward(sourceBounds, ModelGraphConnectionGeometry.pointBounds(logEnd.x, logEnd.y));
+      lineEnd = logEnd;
+    }
+
     try {
       boolean validTarget =
           isValidRelationshipPair(startRelationshipTable, candidateRelationshipTarget);
       gc.setForeground(validTarget ? IGc.EColor.BLUE : IGc.EColor.DARKGRAY);
       gc.setLineWidth(2);
       gc.setLineStyle(IGc.ELineStyle.DASH);
-      gc.drawLine(cx, cy, logEnd.x, logEnd.y);
+      gc.drawLine(lineStart.x, lineStart.y, lineEnd.x, lineEnd.y);
 
       // Small endpoint marker (approx circle using round rect)
       gc.setLineStyle(IGc.ELineStyle.SOLID);

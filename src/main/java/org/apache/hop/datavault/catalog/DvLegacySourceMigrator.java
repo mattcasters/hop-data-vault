@@ -54,7 +54,7 @@ public final class DvLegacySourceMigrator {
 
   /**
    * CLI entry point for one-time migration. Args: {@code [projectHome] [catalogConnection]}.
-   * Invoked from {@code project/tests/catalog/migrate-sources.sh}.
+   * Invoked from {@code integration-tests/tests/catalog/migrate-sources.sh}.
    */
   public static void main(String[] args) throws Exception {
     String projectHome = args.length > 0 ? args[0] : "project";

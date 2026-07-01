@@ -55,6 +55,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmFactMeasure;
 import org.apache.hop.datavault.metadata.dimensional.DmFactlessFact;
 import org.apache.hop.datavault.metadata.dimensional.DmNaturalKeyField;
 import org.apache.hop.datavault.metadata.dimensional.DmScdUpdatePolicy;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.i18n.BaseMessages;
@@ -161,8 +162,38 @@ public final class DvToDimensionalPublish {
     }
 
     dimension.getSourceOrDefault().setSourceSql(draftSourceSql(context, hub.getTableName(), hub.getName()));
+    applyHubSurrogateKeyDefaults(dimension, hub, historized);
     copyLocation(dimension, hub);
     return dimension;
+  }
+
+  private static void applyHubSurrogateKeyDefaults(
+      DmDimension dimension, DvHub hub, boolean historized) {
+    if (!historized || dimension == null || hub == null) {
+      return;
+    }
+    String hashKeyField = resolveHubHashKeyField(hub);
+    if (Utils.isEmpty(hashKeyField)) {
+      return;
+    }
+    dimension.setSurrogateKeyStrategy(DmSurrogateKeyStrategy.USE_SOURCE_FIELD);
+    dimension.setSurrogateKeyField(hashKeyField);
+    dimension.setSurrogateKeySourceField(hashKeyField);
+  }
+
+  private static String resolveHubHashKeyField(DvHub hub) {
+    if (hub == null) {
+      return null;
+    }
+    if (!Utils.isEmpty(hub.getHashKeyFieldName())) {
+      return hub.getHashKeyFieldName();
+    }
+    for (BusinessKey businessKey : hub.getBusinessKeys()) {
+      if (businessKey != null && !Utils.isEmpty(businessKey.getName())) {
+        return businessKey.getName() + "_hk";
+      }
+    }
+    return null;
   }
 
   private static DmFact buildFactFromHubSatellite(PublishContext context, DvSatellite satellite) {
@@ -178,12 +209,7 @@ public final class DvToDimensionalPublish {
             satellite.getHubName()));
 
     if (parentHub != null) {
-      fact.getDimensionRoles()
-          .add(
-              new DmFactDimensionRole(
-                  context.dimensionNameForHub(parentHub.getName()),
-                  context.roleNameForHub(parentHub.getName()),
-                  context.foreignKeyColumnForHub(parentHub.getName())));
+      fact.getDimensionRoles().add(context.dimensionRoleForHub(null, parentHub.getName()));
       context.warn(
           BaseMessages.getString(
               PKG,
@@ -200,12 +226,7 @@ public final class DvToDimensionalPublish {
       if (context.matchesOtherHubBusinessKey(fieldName)) {
         String hubName = context.hubNameForBusinessKey(fieldName);
         if (!Utils.isEmpty(hubName)) {
-          fact.getDimensionRoles()
-              .add(
-                  new DmFactDimensionRole(
-                      context.dimensionNameForHub(hubName),
-                      context.roleNameForHub(hubName),
-                      context.foreignKeyColumnForHub(hubName)));
+          fact.getDimensionRoles().add(context.dimensionRoleForHub(null, hubName));
         }
         continue;
       }
@@ -291,13 +312,7 @@ public final class DvToDimensionalPublish {
             PKG, "DvToDimensionalPublish.Factless.Description", link.getName()));
 
     for (String hubName : hubNames) {
-      factless
-          .getDimensionRoles()
-          .add(
-              new DmFactDimensionRole(
-                  context.dimensionNameForHub(hubName),
-                  context.roleNameForHub(hubName),
-                  context.linkSourceFieldForHub(link, hubName)));
+      factless.getDimensionRoles().add(context.dimensionRoleForHub(link, hubName));
     }
 
     factless.getSourceOrDefault().setSourceSql(draftSourceSql(context, link.getTableName(), link.getName()));
@@ -319,12 +334,7 @@ public final class DvToDimensionalPublish {
 
     if (parentLink != null) {
       for (String hubName : parentLink.getHubNames()) {
-        fact.getDimensionRoles()
-            .add(
-                new DmFactDimensionRole(
-                    context.dimensionNameForHub(hubName),
-                    context.roleNameForHub(hubName),
-                    context.linkSourceFieldForHub(parentLink, hubName)));
+        fact.getDimensionRoles().add(context.dimensionRoleForHub(parentLink, hubName));
       }
     }
 
@@ -656,12 +666,19 @@ public final class DvToDimensionalPublish {
       return "d_" + stripDvPrefix(hub != null ? hub.getName() : "", "hub_");
     }
 
-    private String roleNameForHub(String hubName) {
-      String entity = stripDvPrefix(hubName, "hub_");
-      if (Utils.isEmpty(entity)) {
-        return "Dimension";
+    private DmFactDimensionRole dimensionRoleForHub(DvLink link, String hubName) {
+      DmFactDimensionRole role = new DmFactDimensionRole();
+      role.setDimensionTableName(dimensionNameForHub(hubName));
+      role.setForeignKeyColumn(foreignKeyColumnForHub(hubName));
+      if (link != null) {
+        role.setSourceFieldName(linkSourceFieldForHub(link, hubName));
+      } else {
+        Set<String> businessKeys = businessKeysByHub.getOrDefault(hubName, Set.of());
+        if (!businessKeys.isEmpty()) {
+          role.setSourceFieldName(businessKeys.iterator().next());
+        }
       }
-      return entity.substring(0, 1).toUpperCase(Locale.ROOT) + entity.substring(1);
+      return role;
     }
 
     private String foreignKeyColumnForHub(String hubName) {

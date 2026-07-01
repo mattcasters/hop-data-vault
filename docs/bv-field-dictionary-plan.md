@@ -159,7 +159,7 @@ Phase 1 deliberately builds the dictionary types and catalog service API so Phas
 | Pipeline | `BvScd2PipelineSupport.java`, `BvScd2FieldMappingDialogSupport.java` |
 | Config link | `BusinessVaultConfiguration.java` — optional `fieldDictionaryCatalogConnection` override |
 | UI | `RecordDefinitionDetailsPanel.java`, `HopGuiBusinessVaultModelDialog.java`, i18n properties |
-| Seed | Default JSON under `project/catalog-data/.../field-dictionary.json` for customer-360 exercise |
+| Seed | Default JSON under `integration-tests/catalog-data/.../field-dictionary.json` for customer-360 exercise |
 
 ## Todos
 

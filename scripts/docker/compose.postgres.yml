@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16
+    command: ["postgres", "-c", "port=54321"]
+    ports:
+      - "54321:54321"
+    environment:
+      POSTGRES_USER: ${DB_USER:-test}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-test}
+      POSTGRES_DB: ${DB_NAME:-test}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -p 54321"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - hop-test
+
+  hop:
+    build:
+      context: ../..
+      dockerfile: scripts/docker/Dockerfile
+    image: docker-hop:latest
+    user: root
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOP_LOG_LEVEL: Basic
+      HOP_PROJECT_NAME: hop-data-vault
+      HOP_PROJECT_FOLDER: /workspace/integration-tests
+      HOP_FILE_PATH: /workspace/integration-tests/tests/run-tests.hwf
+      HOP_RUN_CONFIG: local
+      HOP_RUN_PARAMETERS: METRICS_FOLDER=${METRICS_FOLDER:-/workspace/integration-tests/metrics/${DB_TYPE}}
+      HOP_ENVIRONMENT_NAME: test-db
+      HOP_ENVIRONMENT_CONFIG_FILE_NAME_PATHS: /workspace/integration-tests/environments/docker-postgres.json
+      HOP_CUSTOM_ENTRYPOINT_EXTENSION_SHELL_FILE_PATH: /opt/hop-datavault/entrypoint-prepare.sh
+      DB_TYPE: postgres
+      HOST_UID: ${HOST_UID:-0}
+      HOST_GID: ${HOST_GID:-0}
+    volumes:
+      - ../../:/workspace
+    networks:
+      - hop-test
+
+networks:
+  hop-test:

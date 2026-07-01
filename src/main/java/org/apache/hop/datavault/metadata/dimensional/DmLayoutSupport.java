@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.row.RowMeta;
 import org.apache.hop.core.row.value.ValueMetaBoolean;
 import org.apache.hop.core.row.value.ValueMetaInteger;
@@ -34,10 +35,22 @@ import org.apache.hop.core.variables.IVariables;
 /** Target table layout helpers aligned with Hop warehouse transform contracts. */
 public final class DmLayoutSupport {
 
+  /** Hop PostgreSQL DDL maps integer types without length to DOUBLE PRECISION. */
+  static final int DEFAULT_INTEGER_FIELD_LENGTH = 9;
+
   private DmLayoutSupport() {}
 
   public static IRowMeta buildDimensionTargetTableLayout(
       DmDimension dimension, DimensionalConfiguration config, IVariables variables)
+      throws HopException {
+    return buildDimensionTargetTableLayout(dimension, config, variables, null);
+  }
+
+  public static IRowMeta buildDimensionTargetTableLayout(
+      DmDimension dimension,
+      DimensionalConfiguration config,
+      IVariables variables,
+      IRowMeta sourceRowMeta)
       throws HopException {
     if (dimension == null) {
       throw new HopException("Dimension table layout requires a dimension");
@@ -49,9 +62,10 @@ public final class DmLayoutSupport {
     Set<String> added = new HashSet<>();
 
     if (scdType == DmDimensionScdType.TYPE2) {
-      addColumn(rowMeta, added, resolvedConfig.resolveDimKeyField(variables), new ValueMetaInteger());
+      addSurrogateKeyColumn(rowMeta, added, dimension, resolvedConfig, variables);
       for (DmNaturalKeyField naturalKey : dimension.getNaturalKeysOrEmpty()) {
-        addColumn(rowMeta, added, resolveFieldName(naturalKey.getFieldName(), variables));
+        addSourceMappedColumn(
+            rowMeta, added, resolveFieldName(naturalKey.getFieldName(), variables), sourceRowMeta);
       }
       addColumn(rowMeta, added, resolvedConfig.resolveVersionField(variables), new ValueMetaInteger());
       addColumn(
@@ -64,9 +78,10 @@ public final class DmLayoutSupport {
           resolvedConfig.resolveCurrentFlagField(variables),
           new ValueMetaBoolean());
     } else if (scdType == DmDimensionScdType.TYPE3 || dimensionUsesHybridAttributes(dimension)) {
-      addColumn(rowMeta, added, resolvedConfig.resolveDimKeyField(variables), new ValueMetaInteger());
+      addSurrogateKeyColumn(rowMeta, added, dimension, resolvedConfig, variables);
       for (DmNaturalKeyField naturalKey : dimension.getNaturalKeysOrEmpty()) {
-        addColumn(rowMeta, added, resolveFieldName(naturalKey.getFieldName(), variables));
+        addSourceMappedColumn(
+            rowMeta, added, resolveFieldName(naturalKey.getFieldName(), variables), sourceRowMeta);
       }
       addColumn(rowMeta, added, resolvedConfig.resolveVersionField(variables), new ValueMetaInteger());
       addColumn(
@@ -75,12 +90,14 @@ public final class DmLayoutSupport {
           rowMeta, added, resolvedConfig.resolveDateToField(variables), new ValueMetaTimestamp());
     } else {
       for (DmNaturalKeyField naturalKey : dimension.getNaturalKeysOrEmpty()) {
-        addColumn(rowMeta, added, resolveFieldName(naturalKey.getFieldName(), variables));
+        addSourceMappedColumn(
+            rowMeta, added, resolveFieldName(naturalKey.getFieldName(), variables), sourceRowMeta);
       }
     }
 
     for (DmDimensionAttribute attribute : dimension.getAttributesOrEmpty()) {
-      addColumn(rowMeta, added, resolveFieldName(attribute.getFieldName(), variables));
+      addSourceMappedColumn(
+          rowMeta, added, resolveFieldName(attribute.getFieldName(), variables), sourceRowMeta);
       if (attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_PREVIOUS) {
         addColumn(rowMeta, added, resolvePreviousFieldName(attribute, variables));
       }
@@ -137,7 +154,7 @@ public final class DmLayoutSupport {
         config != null ? config : new DimensionalConfiguration();
     RowMeta rowMeta = new RowMeta();
     Set<String> added = new HashSet<>();
-    addColumn(rowMeta, added, resolvedConfig.resolveDimKeyField(variables), new ValueMetaInteger());
+    addJunkSurrogateKeyColumn(rowMeta, added, junkDimension, resolvedConfig, variables);
     for (DmNaturalKeyField keyField : junkDimension.getKeyFieldsOrEmpty()) {
       addColumn(rowMeta, added, resolveFieldName(keyField.getFieldName(), variables));
     }
@@ -270,6 +287,97 @@ public final class DmLayoutSupport {
     return resolveFieldName(config.resolveDimKeyField(variables), variables);
   }
 
+  /**
+   * Warehouse key column used by Dimension Lookup when resolving a fact join to this dimension.
+   * Type 1 dimensions without a generated surrogate use their first natural key (for example
+   * {@code date_key} on calendar dimensions).
+   */
+  public static String resolveDimensionLookupKeyField(
+      DmDimension dimension, DimensionalConfiguration config, IVariables variables) {
+    if (dimension == null) {
+      return resolveFieldName(config.resolveDimKeyField(variables), variables);
+    }
+    if (!DmSurrogateKeySupport.usesSurrogateColumn(dimension)) {
+      for (DmNaturalKeyField naturalKey : dimension.getNaturalKeysOrEmpty()) {
+        String fieldName = resolveFieldName(naturalKey.getFieldName(), variables);
+        if (!Utils.isEmpty(fieldName)) {
+          return fieldName;
+        }
+      }
+    }
+    return DmSurrogateKeySupport.resolveSurrogateKeyField(dimension, config, variables);
+  }
+
+  private static void addSurrogateKeyColumn(
+      RowMeta rowMeta,
+      Set<String> added,
+      DmDimension dimension,
+      DimensionalConfiguration config,
+      IVariables variables)
+      throws HopException {
+    if (!DmSurrogateKeySupport.usesSurrogateColumn(dimension)) {
+      return;
+    }
+    String surrogateField =
+        DmSurrogateKeySupport.resolveSurrogateKeyField(dimension, config, variables);
+    if (Utils.isEmpty(surrogateField)) {
+      return;
+    }
+    if (DmSurrogateKeySupport.usesStringSurrogate(dimension)) {
+      addColumn(rowMeta, added, surrogateField);
+    } else {
+      addColumn(rowMeta, added, surrogateField, new ValueMetaInteger());
+    }
+  }
+
+  private static void addJunkSurrogateKeyColumn(
+      RowMeta rowMeta,
+      Set<String> added,
+      DmJunkDimension junkDimension,
+      DimensionalConfiguration config,
+      IVariables variables)
+      throws HopException {
+    String surrogateField =
+        DmSurrogateKeySupport.resolveJunkSurrogateKeyField(junkDimension, config, variables);
+    if (Utils.isEmpty(surrogateField)) {
+      return;
+    }
+    if (DmSurrogateKeySupport.usesStringSurrogate(junkDimension)) {
+      addColumn(rowMeta, added, surrogateField);
+    } else {
+      addColumn(rowMeta, added, surrogateField, new ValueMetaInteger());
+    }
+  }
+
+  public static Set<String> layoutFieldNames(IRowMeta layout) {
+    Set<String> names = new HashSet<>();
+    if (layout == null) {
+      return names;
+    }
+    for (int i = 0; i < layout.size(); i++) {
+      String name = layout.getValueMeta(i).getName();
+      if (!Utils.isEmpty(name)) {
+        names.add(name);
+      }
+    }
+    return names;
+  }
+
+  private static void addSourceMappedColumn(
+      RowMeta rowMeta, Set<String> added, String fieldName, IRowMeta sourceRowMeta)
+      throws HopException {
+    if (!Utils.isEmpty(fieldName) && sourceRowMeta != null) {
+      IValueMeta sourceMeta = sourceRowMeta.searchValueMeta(fieldName);
+      if (sourceMeta != null) {
+        IValueMeta targetMeta = sourceMeta.clone();
+        targetMeta.setName(fieldName);
+        addColumn(rowMeta, added, targetMeta);
+        return;
+      }
+    }
+    addColumn(rowMeta, added, fieldName);
+  }
+
   private static void addColumn(RowMeta rowMeta, Set<String> added, String fieldName)
       throws HopException {
     addColumn(rowMeta, added, new ValueMetaString(fieldName));
@@ -282,6 +390,8 @@ public final class DmLayoutSupport {
       ValueMetaInteger valueMetaTemplate)
       throws HopException {
     ValueMetaInteger valueMeta = new ValueMetaInteger(fieldName);
+    valueMeta.setLength(DEFAULT_INTEGER_FIELD_LENGTH);
+    valueMeta.setPrecision(0);
     addColumn(rowMeta, added, valueMeta);
   }
 

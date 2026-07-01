@@ -22,6 +22,7 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
 import org.apache.hop.datavault.metrics.DvUpdateMetricsConstants;
@@ -37,6 +38,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.Pipeline;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.engine.IPipelineEngine;
@@ -231,7 +233,51 @@ public final class DvPipelineOrchestratorSupport {
       orchestratorResult = new Result();
     }
     DvUpdateMetricsCollector.applyToResult(orchestratorResult, metricsTotals);
+    applyChildPipelineFailures(engine, orchestratorResult);
     return orchestratorResult;
+  }
+
+  /**
+   * Pipeline Executor does not increment parent transform errors when a child pipeline fails.
+   * Metrics collection covers staged update pipelines; this supplements any remaining active
+   * sub-pipeline errors (for example when metrics were not recorded).
+   */
+  static void applyChildPipelineFailures(
+      IPipelineEngine<PipelineMeta> engine, Result orchestratorResult) {
+    if (engine == null || orchestratorResult == null || orchestratorResult.getNrErrors() > 0) {
+      if (orchestratorResult != null && orchestratorResult.getNrErrors() > 0) {
+        orchestratorResult.setResult(false);
+      }
+      return;
+    }
+
+    long childErrors = sumActiveSubPipelineErrors(engine);
+    if (childErrors > 0) {
+      orchestratorResult.setNrErrors(orchestratorResult.getNrErrors() + childErrors);
+      orchestratorResult.setResult(false);
+    }
+  }
+
+  private static long sumActiveSubPipelineErrors(IPipelineEngine<PipelineMeta> engine) {
+    if (!(engine instanceof Pipeline pipeline)) {
+      return 0;
+    }
+    Map<String, IPipelineEngine> activeSubPipelines = pipeline.getActiveSubPipelines();
+    if (activeSubPipelines == null || activeSubPipelines.isEmpty()) {
+      return 0;
+    }
+    long total = 0;
+    for (IPipelineEngine subPipeline : activeSubPipelines.values()) {
+      if (subPipeline == null) {
+        continue;
+      }
+      total += Math.max(subPipeline.getErrors(), 0);
+      Result subResult = subPipeline.getResult();
+      if (subResult != null) {
+        total += Math.max(subResult.getNrErrors(), 0);
+      }
+    }
+    return total;
   }
 
   private static String resolveOrchestratorModelName(PipelineMeta orchestrator) {
@@ -276,6 +322,9 @@ public final class DvPipelineOrchestratorSupport {
     target.setNrLinesUpdated(target.getNrLinesUpdated() + source.getNrLinesUpdated());
     target.setNrLinesDeleted(target.getNrLinesDeleted() + source.getNrLinesDeleted());
     target.setNrErrors(target.getNrErrors() + source.getNrErrors());
+    if (source.getNrErrors() > 0 || !source.getResult()) {
+      target.setResult(false);
+    }
   }
 
   private static void writePipeline(

@@ -247,7 +247,7 @@ class BvPitSnapshotSpineSupportTest {
   }
 
   private static DataVaultModel loadVault1Model() throws Exception {
-    Path dvPath = Path.of("project/tests/basic/vault1.hdv").toAbsolutePath().normalize();
+    Path dvPath = Path.of("integration-tests/tests/basic/vault1.hdv").toAbsolutePath().normalize();
     Document document = XmlHandler.loadXmlFile(dvPath.toFile());
     Node rootNode = XmlHandler.getSubNode(document, "data-vault-model");
     DataVaultModel model = new DataVaultModel();

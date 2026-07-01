@@ -19,7 +19,7 @@ under the License.
 
 Apache Hop plugin for **Data Vault 2.0** and **Business Vault** modeling, validation, and model-driven loading. Version **0.0.15-SNAPSHOT** targets **Apache Hop 2.18.1** and **Java 21**.
 
-The plugin provides Hop metadata types for hubs, links, satellites, and record sources; visual **`.hdv`** and **`.hbv`** model editors; **Data Vault Update** and **Business Vault Update** workflow actions; integration modes for hybrid warehouses (Hop-managed, external read-only, custom pipelines); optional **AI Help**; and a sample Hop project under `project/` for end-to-end testing.
+The plugin provides Hop metadata types for hubs, links, satellites, and record sources; visual **`.hdv`** and **`.hbv`** model editors; **Data Vault Update** and **Business Vault Update** workflow actions; integration modes for hybrid warehouses (Hop-managed, external read-only, custom pipelines); optional **AI Help**; integration test and retail demo Hop projects under `integration-tests/` and `retail-example/`.
 
 ## Features
 
@@ -183,24 +183,35 @@ Full index: **[docs/README.md](docs/README.md)**
 
 Also: [`docs/ai-advisory.md`](docs/ai-advisory.md), [`docs/datavault-source.adoc`](docs/datavault-source.adoc), [`docs/datavault-source-database.adoc`](docs/datavault-source-database.adoc), [`docs/record-definition-input.adoc`](docs/record-definition-input.adoc), [`docs/date-dimension-generator.adoc`](docs/date-dimension-generator.adoc).
 
-Screenshots are in [`docs/images/`](docs/images/). The sample project guide is **[project/PROJECT.md](project/PROJECT.md)**.
+Screenshots are in [`docs/images/`](docs/images/).
 
-## Sample project
+## Repository layout
 
-The `project/` folder is a self-contained Hop project with metadata, datasets, source CSVs, models, pipelines, and workflows. See **[project/PROJECT.md](project/PROJECT.md)** for prerequisites, layout, test-suite details, and screenshots.
+| Folder | Purpose |
+|--------|---------|
+| [`integration-tests/`](integration-tests/) | Plugin regression suites and golden-dataset tests — see [integration-tests/PROJECT.md](integration-tests/PROJECT.md) |
+| [`retail-example/`](retail-example/) | Full-stack retail demo (CSV → DV → BV → DM) — see [retail-example/README.md](retail-example/README.md) |
+| [`scripts/`](scripts/) | Shared Docker runners (`run-hop.sh`, `run-postgres.sh`) and retail data generators |
 
-**Prerequisites:** register `project/` as a Hop project named `hop-data-vault`, configure **`CRM`** and **`Vault`** database connections (PostgreSQL tested), and install the plugin.
+### Integration tests
 
-**Run all tests** from the command line (adjust the Hop path in `project/run-tests.sh` if needed):
+Register `integration-tests/` as Hop project **`hop-data-vault`**. Configure **`CRM`** and **`Vault`** database connections, install the plugin, then:
 
 ```bash
-project/run-tests.sh
+./scripts/run-postgres.sh up
+./scripts/run-hop.sh integration-tests tests/run-tests.hwf
 ```
 
-That runs `tests/run-tests.hwf`, which executes the full suite (basic vault1, multi-active satellite, link satellite, load end date, status tracking, multi-source hub, hash key tests, and multi-satellite Business Vault). To run one workflow:
+Or from `integration-tests/`: `./run-tests.sh`
+
+### Retail example demo
+
+Register `retail-example/` as Hop project **`retail-example`**, then:
 
 ```bash
-project/run-tests.sh tests/load-end-date/update-load-end-date.hwf
+./scripts/run-postgres.sh up
+./scripts/run-hop.sh retail-example workflows/run-retail-initial.hwf
+./scripts/run-hop.sh retail-example workflows/run-retail-update.hwf   # repeat for monthly batches
 ```
 
 ## Building

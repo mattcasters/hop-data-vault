@@ -24,9 +24,9 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmAccumulatingSnapshotFact;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmFactMeasure;
-import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
@@ -62,8 +62,10 @@ public final class DmAccumulatingSnapshotLoadBuilder {
       if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
         continue;
       }
-      IDmTable dimensionTable = model.findTable(role.getDimensionTableName());
-      if (!(dimensionTable instanceof DmDimension dimension)) {
+      DmDimension dimension =
+          DmDimensionResolutionSupport.resolveDimension(
+              model, role.getDimensionTableName(), ctx.variables, metadataProvider);
+      if (dimension == null) {
         throw new HopException(
             "Accumulating snapshot "
                 + fact.getName()
@@ -71,7 +73,7 @@ public final class DmAccumulatingSnapshotLoadBuilder {
                 + role.getDimensionTableName());
       }
       predecessor =
-          DmDimensionLookupBuilder.addFactDimensionLookup(
+          DmFactDimensionJoinBuilder.addFactDimensionJoin(
               ctx, pipelineMeta, predecessor, dimension, role);
     }
 

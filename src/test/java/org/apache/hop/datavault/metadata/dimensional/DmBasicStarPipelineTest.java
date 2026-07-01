@@ -162,7 +162,7 @@ class DmBasicStarPipelineTest {
   }
 
   private static DimensionalModel loadBasicStarModel() throws Exception {
-    Path fixture = Path.of("project/tests/basic/basic-star.hdm").toAbsolutePath().normalize();
+    Path fixture = Path.of("integration-tests/tests/basic/basic-star.hdm").toAbsolutePath().normalize();
     Document document = XmlHandler.loadXmlFile(fixture.toFile());
     Node rootNode = XmlHandler.getSubNode(document, HopDimensionalFileType.XML_TAG);
     DimensionalModel model = new DimensionalModel();

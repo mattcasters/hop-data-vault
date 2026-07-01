@@ -37,6 +37,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmDimensionScdType;
 import org.apache.hop.datavault.metadata.dimensional.DmFact;
 import org.apache.hop.datavault.metadata.dimensional.DmFactlessFact;
 import org.apache.hop.datavault.metadata.dimensional.DmScdUpdatePolicy;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
 import org.apache.hop.datavault.metadata.dimensional.DmTableType;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.junit.jupiter.api.BeforeAll;
@@ -71,6 +72,9 @@ class DvToDimensionalPublishTest {
     DmDimension dimCustomer = findDimension(published, "dim_customer");
     assertEquals("d_customer", dimCustomer.getTableName());
     assertEquals(DmDimensionScdType.TYPE2, dimCustomer.getScdTypeOrDefault());
+    assertEquals(DmSurrogateKeyStrategy.USE_SOURCE_FIELD, dimCustomer.getSurrogateKeyStrategy());
+    assertEquals("customer_hk", dimCustomer.getSurrogateKeyField());
+    assertEquals("customer_hk", dimCustomer.getSurrogateKeySourceField());
     assertEquals(List.of("customer_id"), naturalKeyNames(dimCustomer));
     assertEquals(
         Set.of("name", "email", "address", "city"),
@@ -96,9 +100,9 @@ class DvToDimensionalPublishTest {
     assertEquals("f_order", factOrder.getTableName());
     assertEquals(DmTableType.FACT, factOrder.getTableType());
     assertEquals(
-        Set.of("Order", "Customer", "Product"),
+        Set.of("dim_order", "dim_customer", "dim_product"),
         factOrder.getDimensionRolesOrEmpty().stream()
-            .map(role -> role.getRoleName())
+            .map(role -> role.getDimensionTableName())
             .collect(Collectors.toSet()));
     assertEquals(
         Set.of("quantity", "unit_price"),
@@ -139,7 +143,7 @@ class DvToDimensionalPublishTest {
   }
 
   private static DataVaultModel loadVault1Model() throws Exception {
-    Path fixture = Path.of("project/tests/basic/vault1.hdv").toAbsolutePath().normalize();
+    Path fixture = Path.of("integration-tests/tests/basic/vault1.hdv").toAbsolutePath().normalize();
     return DvPublishModelSupport.loadDataVaultModel(fixture.toString(), new Variables(), null);
   }
 

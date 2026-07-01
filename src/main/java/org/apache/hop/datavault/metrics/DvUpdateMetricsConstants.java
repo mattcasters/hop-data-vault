@@ -31,6 +31,9 @@ public final class DvUpdateMetricsConstants {
 
   public static final String SOURCE_TRANSFORM_PREFIX = "source ";
 
+  /** Dimensional model pipelines use {@code source_<tableName>} table inputs. */
+  public static final String DIMENSIONAL_SOURCE_TRANSFORM_PREFIX = "source_";
+
   public static final String TARGET_TRANSFORM_PREFIX = "target_";
 
   public static final String TARGET_TRANSFORM_DB_PREFIX = "target ";

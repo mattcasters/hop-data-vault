@@ -1,0 +1,103 @@
+<dimensional-model>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-dim-customer.hdm</filename>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <description>Retail warehouse star schema with date role-playing and extended catalog tables</description>
+  <configuration>
+    <targetDatabase>Vault</targetDatabase>
+    <dimKeyField>dim_key</dimKeyField>
+    <versionField>version</versionField>
+    <dateFromField>date_from</dateFromField>
+    <dateToField>date_to</dateToField>
+    <loadDateField>load_dt</loadDateField>
+    <currentFlagField>is_current</currentFlagField>
+    <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
+    <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
+    <targetTableBatchSize>1000</targetTableBatchSize>
+    <targetTableParallelCopies>1</targetTableParallelCopies>
+    <target_load_mode>Table Output</target_load_mode>
+    <bulkLoadStagingFolder>${java.io.tmpdir}/dv2/bulk/</bulkLoadStagingFolder>
+    <bulkLoadDelimiter>,</bulkLoadDelimiter>
+    <bulkLoadEnclosure>"</bulkLoadEnclosure>
+    <bulkLoadEncoding>UTF-8</bulkLoadEncoding>
+    <bulkLoadLocalFileRequired>N</bulkLoadLocalFileRequired>
+    <dimensionPipelineNamePrefix>dm-dim-</dimensionPipelineNamePrefix>
+    <junkDimensionPipelineNamePrefix>dm-junk-</junkDimensionPipelineNamePrefix>
+    <bridgePipelineNamePrefix>dm-bridge-</bridgePipelineNamePrefix>
+    <factPipelineNamePrefix>dm-fact-</factPipelineNamePrefix>
+    <generatedWorkflowNamePrefix>DM Bulk Update - </generatedWorkflowNamePrefix>
+  </configuration>
+  <tables>
+    <table>
+      <scdType>TYPE2</scdType>
+      <natural_keys>
+        <natural_key>
+          <fieldName>customer_id</fieldName>
+        </natural_key>
+      </natural_keys>
+      <attributes>
+        <attribute>
+          <fieldName>cust_segment</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>cust_loyalty_tier</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>cust_demo_score</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>cust_email</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>cust_phone</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>cust_address</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>cust_city</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>cust_postal_code</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>cust_newsletter</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>cust_channel</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>cust_language</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+      </attributes>
+      <outriggers/>
+      <surrogateKeyField>customer_hk</surrogateKeyField>
+      <surrogateKeyStrategy>USE_SOURCE_FIELD</surrogateKeyStrategy>
+      <surrogateKeySourceField>customer_hk</surrogateKeySourceField>
+      <tableName>d_customer</tableName>
+      <description/>
+      <tableType>DIMENSION</tableType>
+      <sourceConnection>Vault</sourceConnection>
+      <sourceSql>SELECT hc.customer_id, sc.*
+FROM   hub_customer hc 
+JOIN   customer_360_bv sc
+  ON   hc.customer_hk = sc.customer_hk</sourceSql>
+      <xloc>96</xloc>
+      <yloc>80</yloc>
+      <name>d_customer</name>
+    </table>
+  </tables>
+  <conformed_dimensions/>
+  <notes/>
+  <name>retail-dim-customer</name>
+</dimensional-model>

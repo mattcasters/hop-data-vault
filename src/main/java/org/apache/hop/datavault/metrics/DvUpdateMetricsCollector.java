@@ -105,7 +105,11 @@ public final class DvUpdateMetricsCollector {
     result.setNrLinesOutput(totals.getTargetRowsInserted());
     result.setNrLinesRead(0);
     result.setNrLinesWritten(0);
-    result.setNrErrors(totals.getErrors());
+    long metricsErrors = totals.getErrors();
+    if (metricsErrors > 0) {
+      result.setNrErrors(result.getNrErrors() + metricsErrors);
+      result.setResult(false);
+    }
   }
 
   /**

@@ -1048,7 +1048,9 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       return;
     }
     graph.markUndoPoint();
-    dmModel.getTables().removeIf(t -> t != null && table.getName().equals(t.getName()));
+    String tableName = table.getName();
+    dmModel.getTables().removeIf(t -> t != null && tableName.equals(t.getName()));
+    dmModel.removeConformedDimensionRefsForTable(tableName);
     graph.setChanged();
     graph.redraw();
   }
@@ -1752,6 +1754,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     markUndoPoint();
     boolean modelChanged = false;
     if (model.getTables().removeAll(tablesToDelete)) {
+      model.removeConformedDimensionRefsForTables(tablesToDelete);
       modelChanged = true;
     }
     if (model.getNotes().removeAll(notesToDelete)) {

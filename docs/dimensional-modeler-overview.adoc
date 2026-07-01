@@ -19,7 +19,8 @@ The plugins share infrastructure (graph shell, ELK layout, orchestrator, workflo
 
 A dimensional model contains:
 
-* **Configuration** — target database, standard column names (`dim_key`, `date_from`, `date_to`, …), pipeline naming
+* **Configuration** — target database, default standard column names (`dim_key`, `date_from`, `date_to`, …), pipeline naming
+* **Per-dimension surrogate keys** — optional override of strategy (none, auto-increment, source field such as a DV hash key) and column name; fact foreign key columns remain per join
 * **Tables** — dimensions, facts, junk dimensions, bridges, factless facts, snapshot facts, aggregates
 * **Conformed dimension registry** — logical name → physical dimension table
 * **Notes** — canvas documentation only
@@ -77,14 +78,14 @@ Production loads use the **Dimensional Update** workflow action (`DIMENSIONAL_UP
 
 Fixture workflows:
 
-* `project/tests/basic/update-dm-basic-star.hwf` — basic star schema
-* `project/tests/basic/update-dm-extended-catalog.hwf` — full Kimball catalog (pipeline/DDL only)
+* `integration-tests/tests//basic/update-dm-basic-star.hwf` — basic star schema
+* `integration-tests/tests//basic/update-dm-extended-catalog.hwf` — full Kimball catalog (pipeline/DDL only)
 
 === Dimensional Publish
 
 **Dimensional Publish** (`DIMENSIONAL_PUBLISH`) converts a `.hdv` Data Vault model into a **draft** `.hdm` for human review. It does not run ETL.
 
-Fixture: `project/tests/basic/publish-vault1-draft.hwf`
+Fixture: `integration-tests/tests//basic/publish-vault1-draft.hwf`
 
 Mapping rules (starting point):
 
@@ -155,13 +156,13 @@ Imported tables are **draft** metadata — review grains, roles, and source SQL 
 |===
 |Fixture |Purpose
 
-|`project/tests/basic/basic-star.hdm`
+|`integration-tests/tests//basic/basic-star.hdm`
 |Minimal customer/product/sales star (SCD1 dims + transaction fact)
 
-|`project/tests/basic/extended-catalog.hdm`
+|`integration-tests/tests//basic/extended-catalog.hdm`
 |Full Phase C catalog: SCD3, junk, bridge, factless, snapshots, aggregate
 
-|`project/tests/basic/vault1.hdv` + publish
+|`integration-tests/tests//basic/vault1.hdv` + publish
 |DV → draft dimensional publish golden path
 |===
 

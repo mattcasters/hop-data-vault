@@ -46,7 +46,7 @@ import org.w3c.dom.Node;
 /**
  * Smoke runner for catalog publishing from a Data Vault model (same path as {@code
  * ActionDataVaultUpdate} with update data catalog enabled). Invoked from {@code
- * project/tests/catalog/publish-vault1-catalog.sh}.
+ * integration-tests/tests/catalog/publish-vault1-catalog.sh}.
  */
 public final class DvCatalogPublishSmoke {
 
@@ -68,7 +68,7 @@ public final class DvCatalogPublishSmoke {
         new JsonMetadataProvider(null, projectHome + "/metadata", variables);
 
     Path catalogRoot =
-        Path.of(projectHome, "vault-catalog", "hop", "project", "models", "vault1");
+        Path.of(projectHome, "vault-catalog", "hop", "integration-tests", "models", "vault1");
     if (Files.exists(catalogRoot)) {
       Files.walk(catalogRoot)
           .sorted(java.util.Comparator.reverseOrder())

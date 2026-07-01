@@ -20,9 +20,14 @@ package org.apache.hop.datavault.metadata;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.i18n.BaseMessages;
 
 /** Shared helpers for mapping source columns to Data Vault target field names. */
 public final class DvSourceFieldMappingSupport {
+
+  private static final Class<?> PKG = DvSourceFieldMappingSupport.class;
 
   private DvSourceFieldMappingSupport() {}
 
@@ -40,12 +45,32 @@ public final class DvSourceFieldMappingSupport {
     }
     if (StringUtils.isEmpty(targetSourceFieldName)) {
       throw new HopException(
-          "Please specify a source field name in either the table or the configuration for "
-              + table.getTableType()
-              + " "
-              + table.getName());
+          BaseMessages.getString(
+              PKG,
+              "DvSourceFieldMapping.MissingRecordSourceFieldName",
+              table.getTableType(),
+              table.getName()));
     }
     return targetSourceFieldName;
+  }
+
+  /** Resolves the in-stream / target record source column name for hub and link tables. */
+  public static String resolveRecordSourceFieldName(
+      DataVaultConfiguration configuration, IDvTable table, IVariables variables)
+      throws HopException {
+    String fieldName = findTargetSourceFieldName(configuration, null, table);
+    if (variables != null && !Utils.isEmpty(fieldName)) {
+      fieldName = variables.resolve(fieldName);
+    }
+    if (Utils.isEmpty(fieldName)) {
+      throw new HopException(
+          BaseMessages.getString(
+              PKG,
+              "DvSourceFieldMapping.MissingRecordSourceFieldName",
+              table.getTableType(),
+              table.getName()));
+    }
+    return fieldName;
   }
 
   public static String resolveRecordSourceValue(DataVaultSource recordSource) throws HopException {

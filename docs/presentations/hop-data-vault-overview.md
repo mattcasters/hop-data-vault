@@ -181,7 +181,7 @@ One metadata chain from staging to consumption.
 
 # Sample project highlights
 
-Under `project/tests/`:
+Under `integration-tests/tests//`:
 
 - **vault1** — classic hub / link / satellite
 - **customer-phone** — multi-active satellite

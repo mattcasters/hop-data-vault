@@ -1,0 +1,21 @@
+services:
+  hop:
+    build:
+      context: ../..
+      dockerfile: scripts/docker/Dockerfile
+    image: docker-hop:latest
+    user: root
+    network_mode: host
+    environment:
+      HOP_LOG_LEVEL: Basic
+      HOP_PROJECT_NAME: ${HOP_PROJECT_NAME:-hop-data-vault}
+      HOP_PROJECT_FOLDER: ${HOP_PROJECT_FOLDER:-/workspace/integration-tests}
+      HOP_FILE_PATH: ${HOP_FILE_PATH:-/workspace/integration-tests/tests/run-tests.hwf}
+      HOP_RUN_CONFIG: local
+      HOP_RUN_PARAMETERS: METRICS_FOLDER=${METRICS_FOLDER:-/workspace/integration-tests/metrics/local}
+      HOP_ENVIRONMENT_NAME: ${HOP_ENVIRONMENT_NAME:-local-docker-postgres}
+      HOP_ENVIRONMENT_CONFIG_FILE_NAME_PATHS: ${HOP_ENVIRONMENT_CONFIG_FILE_NAME_PATHS:-/workspace/integration-tests/environments/local-docker-postgres.json}
+      HOST_UID: ${HOST_UID:-0}
+      HOST_GID: ${HOST_GID:-0}
+    volumes:
+      - ../..:/workspace

@@ -115,7 +115,7 @@ class DmDatabaseTableImportTest {
     assertEquals("fact_sales", fact.getName());
     assertEquals(1, fact.getDimensionRolesOrEmpty().size());
     assertEquals("dim_customer", fact.getDimensionRolesOrEmpty().get(0).getDimensionTableName());
-    assertEquals("Customer", fact.getDimensionRolesOrEmpty().get(0).getRoleName());
+    assertEquals("customer", fact.getDimensionRolesOrEmpty().get(0).getSourceFieldName());
     assertEquals(
         Set.of("quantity", "amount"),
         fact.getMeasuresOrEmpty().stream()

@@ -160,6 +160,26 @@ public class DimensionalModel extends HopMetadataBase
     return null;
   }
 
+  /** Removes conformed dimension registry entries that point at a deleted physical table. */
+  public void removeConformedDimensionRefsForTable(String tableName) {
+    if (Utils.isEmpty(tableName)) {
+      return;
+    }
+    getConformedDimensions()
+        .removeIf(ref -> ref != null && tableName.equals(ref.getDimensionTableName()));
+  }
+
+  public void removeConformedDimensionRefsForTables(Iterable<? extends IDmTable> tables) {
+    if (tables == null) {
+      return;
+    }
+    for (IDmTable table : tables) {
+      if (table != null && !Utils.isEmpty(table.getName())) {
+        removeConformedDimensionRefsForTable(table.getName());
+      }
+    }
+  }
+
   private void ensureLists() {
     setTables(tables);
     setConformedDimensions(conformedDimensions);

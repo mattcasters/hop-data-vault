@@ -122,6 +122,19 @@ public abstract class BasePainter {
     return new Point(Math.round(p.x * magnification), Math.round(p.y * magnification));
   }
 
+  /** Converts a screen-space point to logical draw coordinates under the active graph transform. */
+  protected Point screenDragEndToLogical(Point screenEnd) {
+    if (screenEnd == null) {
+      return null;
+    }
+    if (magnification <= 0) {
+      return new Point((int) (screenEnd.x - offset.x), (int) (screenEnd.y - offset.y));
+    }
+    return new Point(
+        (int) ((screenEnd.x - offset.x) / magnification),
+        (int) ((screenEnd.y - offset.y) / magnification));
+  }
+
   protected void drawRect(Rectangle rect) {
     if (rect == null) {
       return;

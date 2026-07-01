@@ -17,8 +17,10 @@
 
 package org.apache.hop.datavault.metadata.dimensional;
 
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /** Resolves dimension aliases and conformed names to physical {@link DmDimension} tables. */
 public final class DmDimensionResolutionSupport {
@@ -26,11 +28,19 @@ public final class DmDimensionResolutionSupport {
   private DmDimensionResolutionSupport() {}
 
   public static DmDimension resolveDimension(DimensionalModel model, String tableName) {
-    return resolveDimension(model, tableName, null);
+    return resolveDimension(model, tableName, null, null);
   }
 
   public static DmDimension resolveDimension(
       DimensionalModel model, String tableName, IVariables variables) {
+    return resolveDimension(model, tableName, variables, null);
+  }
+
+  public static DmDimension resolveDimension(
+      DimensionalModel model,
+      String tableName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
     if (model == null || Utils.isEmpty(tableName)) {
       return null;
     }
@@ -40,19 +50,44 @@ public final class DmDimensionResolutionSupport {
       return dimension;
     }
     if (table instanceof DmDimensionAlias alias) {
-      return resolveAliasTarget(model, alias, variables);
+      return resolveAliasTarget(model, alias, variables, metadataProvider);
     }
     return model.findConformedDimension(resolvedName);
   }
 
   public static DmDimension resolveAliasTarget(
       DimensionalModel model, DmDimensionAlias alias, IVariables variables) {
+    return resolveAliasTarget(model, alias, variables, null);
+  }
+
+  public static DmDimension resolveAliasTarget(
+      DimensionalModel model,
+      DmDimensionAlias alias,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
     if (model == null || alias == null) {
       return null;
     }
     String referencedName = resolve(alias.getReferencedDimensionName(), variables);
     if (Utils.isEmpty(referencedName)) {
       return null;
+    }
+    if (!Utils.isEmpty(alias.getReferencedModelFilename())) {
+      try {
+        DimensionalModel externalModel =
+            DmModelLoadSupport.loadDimensionalModel(
+                alias.getReferencedModelFilename(),
+                model.getFilename(),
+                variables,
+                metadataProvider);
+        IDmTable referenced = externalModel.findTable(referencedName);
+        if (referenced instanceof DmDimension dimension) {
+          return dimension;
+        }
+        return null;
+      } catch (HopException ignored) {
+        return null;
+      }
     }
     IDmTable referenced = model.findTable(referencedName);
     if (referenced instanceof DmDimension dimension) {
@@ -63,7 +98,15 @@ public final class DmDimensionResolutionSupport {
 
   public static String resolvePhysicalTableName(
       DimensionalModel model, String tableName, IVariables variables) {
-    DmDimension dimension = resolveDimension(model, tableName, variables);
+    return resolvePhysicalTableName(model, tableName, variables, null);
+  }
+
+  public static String resolvePhysicalTableName(
+      DimensionalModel model,
+      String tableName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    DmDimension dimension = resolveDimension(model, tableName, variables, metadataProvider);
     if (dimension == null) {
       return null;
     }
@@ -79,6 +122,10 @@ public final class DmDimensionResolutionSupport {
     }
     IDmTable table = model.findTable(tableName);
     return table instanceof DmDimensionAlias;
+  }
+
+  public static boolean isExternalDimensionAlias(DmDimensionAlias alias) {
+    return alias != null && !Utils.isEmpty(alias.getReferencedModelFilename());
   }
 
   public static boolean isDimensionLike(DimensionalModel model, String tableName) {

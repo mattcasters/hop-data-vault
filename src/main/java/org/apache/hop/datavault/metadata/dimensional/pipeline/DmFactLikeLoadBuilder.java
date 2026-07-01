@@ -60,7 +60,7 @@ public final class DmFactLikeLoadBuilder {
       }
       DmDimension dimension =
           DmDimensionResolutionSupport.resolveDimension(
-              model, role.getDimensionTableName(), ctx.variables);
+              model, role.getDimensionTableName(), ctx.variables, metadataProvider);
       if (dimension == null) {
         throw new HopException(
             "Table "
@@ -69,7 +69,7 @@ public final class DmFactLikeLoadBuilder {
                 + role.getDimensionTableName());
       }
       predecessor =
-          DmDimensionLookupBuilder.addFactDimensionLookup(
+          DmFactDimensionJoinBuilder.addFactDimensionJoin(
               ctx, pipelineMeta, predecessor, dimension, role);
     }
 

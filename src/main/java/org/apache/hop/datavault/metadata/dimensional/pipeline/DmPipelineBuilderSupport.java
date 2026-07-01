@@ -20,6 +20,7 @@ package org.apache.hop.datavault.metadata.dimensional.pipeline;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.Point;
@@ -30,7 +31,10 @@ import org.apache.hop.datavault.metadata.DvSqlSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadSupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmSourceConfiguration;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.DmTableType;
 import org.apache.hop.datavault.metadata.dimensional.DmTargetDatabaseSupport;
@@ -48,6 +52,7 @@ public final class DmPipelineBuilderSupport {
   public static final int SPACING_WIDTH = 200;
   public static final Point LOCATION_START = new Point(100, 100);
   public static final String PREVIOUS_VERSION_FIELD = "dm_prev_version";
+  public static final String PREVIOUS_VERSION_NUM_FIELD = "dm_prev_version_num";
 
   private DmPipelineBuilderSupport() {}
 
@@ -153,7 +158,18 @@ public final class DmPipelineBuilderSupport {
       TransformMeta predecessor,
       boolean truncate)
       throws HopException {
-    return addTargetLoad(ctx, pipelineMeta, targetLayout, predecessor, truncate);
+    return addTableOutput(ctx, pipelineMeta, targetLayout, predecessor, truncate, Collections.emptySet());
+  }
+
+  public static TransformMeta addTableOutput(
+      BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      IRowMeta targetLayout,
+      TransformMeta predecessor,
+      boolean truncate,
+      Set<String> excludeFields)
+      throws HopException {
+    return addTargetLoad(ctx, pipelineMeta, targetLayout, predecessor, truncate, excludeFields);
   }
 
   public static TransformMeta addTargetLoad(
@@ -162,6 +178,17 @@ public final class DmPipelineBuilderSupport {
       IRowMeta targetLayout,
       TransformMeta predecessor,
       boolean truncate)
+      throws HopException {
+    return addTargetLoad(ctx, pipelineMeta, targetLayout, predecessor, truncate, Collections.emptySet());
+  }
+
+  public static TransformMeta addTargetLoad(
+      BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      IRowMeta targetLayout,
+      TransformMeta predecessor,
+      boolean truncate,
+      Set<String> excludeFields)
       throws HopException {
     if (predecessor == null) {
       return null;
@@ -179,13 +206,15 @@ public final class DmPipelineBuilderSupport {
             predecessor.getLocation().x + SPACING_WIDTH,
             predecessor.getLocation().y);
 
+    Set<String> resolvedExcludeFields =
+        excludeFields != null ? excludeFields : Collections.emptySet();
     DvTargetLoadSupport.TargetLoadResult result =
         DvTargetLoadSupport.addTargetLoad(
             targetCtx,
             pipelineMeta,
             targetLayout,
             predecessor,
-            Collections.emptySet(),
+            resolvedExcludeFields,
             truncate);
     return result.transformMeta;
   }
@@ -294,5 +323,37 @@ public final class DmPipelineBuilderSupport {
       names.add(field);
     }
     return names;
+  }
+
+  /** Field names and order required on both Merge Rows inputs for SCD2 dimensions. */
+  public static List<String> scd2MergeRowFieldNames(BuildContext ctx, DmDimension dimension) {
+    List<String> fields = new ArrayList<>();
+    if (DmSurrogateKeySupport.resolveStrategy(dimension) == DmSurrogateKeyStrategy.USE_SOURCE_FIELD) {
+      String surrogateField =
+          DmSurrogateKeySupport.resolveSurrogateKeyField(dimension, ctx.config, ctx.variables);
+      if (!Utils.isEmpty(surrogateField)) {
+        fields.add(surrogateField);
+      }
+    }
+    fields.addAll(scd2AttributeFieldNames(dimension, ctx.variables));
+    fields.addAll(naturalKeyFieldNames(dimension, ctx.variables));
+    fields.add(ctx.config.resolveVersionField(ctx.variables));
+    fields.add(ctx.config.resolveDateFromField(ctx.variables));
+    fields.add(ctx.config.resolveDateToField(ctx.variables));
+    return fields;
+  }
+
+  /** Source stream column name on the compare branch for a merge-layout target field. */
+  public static String scd2MergeCompareSourceFieldName(
+      BuildContext ctx, DmDimension dimension, String targetFieldName) {
+    if (DmSurrogateKeySupport.resolveStrategy(dimension) == DmSurrogateKeyStrategy.USE_SOURCE_FIELD) {
+      String surrogateTarget =
+          DmSurrogateKeySupport.resolveSurrogateKeyField(dimension, ctx.config, ctx.variables);
+      if (!Utils.isEmpty(surrogateTarget) && surrogateTarget.equals(targetFieldName)) {
+        return DmSurrogateKeySupport.resolveSurrogateKeySourceField(
+            dimension, ctx.config, ctx.variables);
+      }
+    }
+    return targetFieldName;
   }
 }

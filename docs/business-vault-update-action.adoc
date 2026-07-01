@@ -101,5 +101,5 @@ SCD2 and PIT read independent data paths (PIT does not consume SCD2 output). Ord
 
 Sample workflows:
 
-* `project/tests/multi-satellite-bv/update-customer-360.hwf` — multi-satellite SCD2
-* `project/tests/basic/update-vault1.hwf` — SCD2 + PIT on the introductory vault1 model
+* `integration-tests/tests//multi-satellite-bv/update-customer-360.hwf` — multi-satellite SCD2
+* `integration-tests/tests//basic/update-vault1.hwf` — SCD2 + PIT on the introductory vault1 model

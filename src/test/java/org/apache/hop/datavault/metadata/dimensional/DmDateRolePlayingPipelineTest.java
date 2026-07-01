@@ -19,6 +19,7 @@ package org.apache.hop.datavault.metadata.dimensional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.Date;
@@ -35,6 +36,7 @@ import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
+import org.apache.hop.pipeline.transforms.calculator.CalculatorMeta;
 import org.apache.hop.pipeline.transforms.dimensionlookup.DimensionLookupMeta;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -59,26 +61,57 @@ class DmDateRolePlayingPipelineTest {
 
     assertEquals(1, pipelines.size());
     PipelineMeta pipelineMeta = pipelines.get(0);
-    assertEquals(4, pipelineMeta.getTransforms().size());
+    assertEquals(6, pipelineMeta.getTransforms().size());
+
+    TransformMeta orderCalculator =
+        pipelineMeta.getTransforms().stream()
+            .filter(t -> "date_key_dim_order_date".equals(t.getName()))
+            .findFirst()
+            .orElseThrow();
+    assertTrue(orderCalculator.getTransform() instanceof CalculatorMeta);
 
     TransformMeta orderLookup =
         pipelineMeta.getTransforms().stream()
-            .filter(t -> "lookup_OrderDate".equals(t.getName()))
+            .filter(t -> "lookup_dim_order_date".equals(t.getName()))
             .findFirst()
             .orElseThrow();
     DimensionLookupMeta orderLookupMeta = (DimensionLookupMeta) orderLookup.getTransform();
     assertEquals("d_date", orderLookupMeta.getTableName());
     assertEquals("order_date_key", orderLookupMeta.getFields().getReturns().getKeyRename());
+    assertEquals("date_key", orderLookupMeta.getFields().getReturns().getKeyField());
+    assertEquals("date_key", orderLookupMeta.getFields().getKeys().get(0).getName());
+
+    TransformMeta shipmentCalculator =
+        pipelineMeta.getTransforms().stream()
+            .filter(t -> "date_key_dim_shipment_date".equals(t.getName()))
+            .findFirst()
+            .orElseThrow();
+    assertTrue(shipmentCalculator.getTransform() instanceof CalculatorMeta);
 
     TransformMeta shipmentLookup =
         pipelineMeta.getTransforms().stream()
-            .filter(t -> "lookup_ShipmentDate".equals(t.getName()))
+            .filter(t -> "lookup_dim_shipment_date".equals(t.getName()))
             .findFirst()
             .orElseThrow();
     DimensionLookupMeta shipmentLookupMeta = (DimensionLookupMeta) shipmentLookup.getTransform();
     assertEquals("d_date", shipmentLookupMeta.getTableName());
     assertEquals("shipment_date_key", shipmentLookupMeta.getFields().getReturns().getKeyRename());
+    assertEquals("date_key", shipmentLookupMeta.getFields().getKeys().get(0).getName());
     assertFalse(shipmentLookupMeta.isUpdate());
+  }
+
+  @Test
+  void legacyRoleNameStillNamesLookupTransform() throws Exception {
+    DimensionalModel model = loadDateRolePlayingModel();
+    DmFact fact = (DmFact) model.findTable("fact_orders");
+    fact.getDimensionRoles().get(0).setRoleName("OrderDate");
+
+    List<PipelineMeta> pipelines =
+        fact.generateUpdatePipelines(testMetadataProvider(), new Variables(), model, new Date());
+
+    assertTrue(
+        pipelines.get(0).getTransforms().stream()
+            .anyMatch(t -> "lookup_OrderDate".equals(t.getName())));
   }
 
   @Test
@@ -99,7 +132,8 @@ class DmDateRolePlayingPipelineTest {
   }
 
   private static DimensionalModel loadDateRolePlayingModel() throws Exception {
-    Path fixture = Path.of("project/tests/basic/date-role-playing.hdm").toAbsolutePath().normalize();
+    Path fixture =
+        Path.of("integration-tests/tests/basic/date-role-playing.hdm").toAbsolutePath().normalize();
     Document document = XmlHandler.loadXmlFile(fixture.toFile());
     Node rootNode = XmlHandler.getSubNode(document, HopDimensionalFileType.XML_TAG);
     DimensionalModel model = new DimensionalModel();

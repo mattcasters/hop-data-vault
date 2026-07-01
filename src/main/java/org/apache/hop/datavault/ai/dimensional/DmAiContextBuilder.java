@@ -32,6 +32,8 @@ import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAttribute;
 import org.apache.hop.datavault.metadata.dimensional.DmFact;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
@@ -109,6 +111,20 @@ public final class DmAiContextBuilder {
       if (table instanceof DmDimension dimension) {
         json.append(",\"scdType\":")
             .append(DvAiContextBuilder.jsonString(String.valueOf(dimension.getScdTypeOrDefault())));
+        DmSurrogateKeyStrategy strategy = DmSurrogateKeySupport.resolveStrategy(dimension);
+        json.append(",\"surrogateKeyStrategy\":")
+            .append(DvAiContextBuilder.jsonString(String.valueOf(strategy)));
+        String surrogateField =
+            DmSurrogateKeySupport.resolveSurrogateKeyField(
+                dimension, model != null ? model.getConfigurationOrDefault() : null, null);
+        if (!Utils.isEmpty(surrogateField)) {
+          json.append(",\"surrogateKeyField\":")
+              .append(DvAiContextBuilder.jsonString(surrogateField));
+        }
+        if (!Utils.isEmpty(dimension.getSurrogateKeySourceField())) {
+          json.append(",\"surrogateKeySourceField\":")
+              .append(DvAiContextBuilder.jsonString(dimension.getSurrogateKeySourceField()));
+        }
         json.append(",\"naturalKeys\":[");
         appendNaturalKeys(json, dimension.getNaturalKeys());
         json.append("],\"attributes\":[");
@@ -117,6 +133,11 @@ public final class DmAiContextBuilder {
       } else if (table instanceof DmDimensionAlias alias) {
         json.append(",\"referencedDimension\":")
             .append(DvAiContextBuilder.jsonString(alias.getReferencedDimensionName()));
+        if (!Utils.isEmpty(alias.getReferencedModelFilename())) {
+          json.append(",\"referencedModelFilename\":")
+              .append(DvAiContextBuilder.jsonString(alias.getReferencedModelFilename()));
+          json.append(",\"external\":true");
+        }
         json.append(",\"physicalTable\":")
             .append(
                 DvAiContextBuilder.jsonString(

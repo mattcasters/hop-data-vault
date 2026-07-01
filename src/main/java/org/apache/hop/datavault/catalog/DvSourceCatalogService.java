@@ -74,20 +74,16 @@ public final class DvSourceCatalogService {
     }
     String connectionName =
         resolvePreferredCatalogConnection(catalogConnectionName, variables, metadataProvider);
+    String namespace = projectSourcesNamespace(variables);
     RecordDefinition definition =
         RecordDefinitionRegistry.getInstance()
             .read(
                 connectionName,
-                new RecordDefinitionKey(projectSourcesNamespace(variables), resolvedName),
+                new RecordDefinitionKey(namespace, resolvedName),
                 variables,
                 metadataProvider);
     if (definition == null) {
-      throw new HopException(
-          "Data Vault source '"
-              + resolvedName
-              + "' was not found in data catalog connection '"
-              + connectionName
-              + "'");
+      throw new HopException(sourceNotFoundMessage(resolvedName, connectionName, namespace));
     }
     return CatalogDvSourceMapper.toDataVaultSource(definition, variables);
   }
@@ -287,6 +283,17 @@ public final class DvSourceCatalogService {
 
   public static String projectSourcesNamespace(IVariables variables) {
     return DvCatalogNamespaces.projectSourcesNamespace(variables);
+  }
+
+  static String sourceNotFoundMessage(
+      String sourceName, String catalogConnectionName, String namespace) {
+    return "Data Vault source '"
+        + sourceName
+        + "' was not found in data catalog connection '"
+        + catalogConnectionName
+        + "' in namespace '"
+        + namespace
+        + "'";
   }
 
   public static String uniqueSourceName(

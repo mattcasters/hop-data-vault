@@ -142,7 +142,7 @@ The sample project uses **Record Definition Input** together with the **DDL** tr
 
 === Orchestrator pipeline
 
-`project/tests/shared/create-source-tables-from-data-catalog.hpl` runs at the start of `project/tests/run-tests.hwf`:
+`integration-tests/tests//shared/create-source-tables-from-data-catalog.hpl` runs at the start of `integration-tests/tests//run-tests.hwf`:
 
 1. **Record Definition Input** — catalog connection `local-catalog`, no input selection, no namespace/name filter (all definitions), denormalized output off.
 2. **Filter rows** — keeps definitions in namespace `hop/project/sources` whose name starts with `CRM`.
@@ -151,7 +151,7 @@ The sample project uses **Record Definition Input** together with the **DDL** tr
 
 === Per-table DDL pipeline
 
-`project/tests/shared/create-source-table-from-data-catalog.hpl` creates one source table from a single catalog entry:
+`integration-tests/tests//shared/create-source-table-from-data-catalog.hpl` creates one source table from a single catalog entry:
 
 1. **Get variables** — supplies `CATALOG_NAMESPACE` and `CATALOG_NAME` from pipeline parameters.
 2. **Record Definition Input** — **Select from previous transform input?** enabled; reads namespace and name from input; **Output fields metadata** enabled so each column becomes its own row.

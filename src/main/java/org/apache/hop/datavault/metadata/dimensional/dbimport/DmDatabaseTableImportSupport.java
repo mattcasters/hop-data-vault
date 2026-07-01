@@ -276,9 +276,9 @@ public final class DmDatabaseTableImportSupport {
       sourceColumns.add(fieldName);
       if (isForeignKeyColumn(fieldName, valueMeta)) {
         String dimensionName = resolveDimensionNameForForeignKey(fieldName, model);
-        String roleName = toRoleName(fieldName);
-        fact.getDimensionRoles()
-            .add(new DmFactDimensionRole(dimensionName, roleName, fieldName));
+        DmFactDimensionRole role = new DmFactDimensionRole(dimensionName, fieldName);
+        role.setSourceFieldName(sourceFieldNameForForeignKey(fieldName));
+        fact.getDimensionRoles().add(role);
       } else if (isMeasureColumn(valueMeta)) {
         fact.getMeasures().add(new DmFactMeasure(fieldName, true));
       }
@@ -306,10 +306,9 @@ public final class DmDatabaseTableImportSupport {
       sourceColumns.add(fieldName);
       if (isForeignKeyColumn(fieldName, valueMeta)) {
         String dimensionName = resolveDimensionNameForForeignKey(fieldName, model);
-        String roleName = toRoleName(fieldName);
-        factless
-            .getDimensionRoles()
-            .add(new DmFactDimensionRole(dimensionName, roleName, fieldName));
+        DmFactDimensionRole role = new DmFactDimensionRole(dimensionName, fieldName);
+        role.setSourceFieldName(sourceFieldNameForForeignKey(fieldName));
+        factless.getDimensionRoles().add(role);
       }
     }
 
@@ -428,15 +427,12 @@ public final class DmDatabaseTableImportSupport {
     return candidate;
   }
 
-  private static String toRoleName(String foreignKeyColumn) {
+  private static String sourceFieldNameForForeignKey(String foreignKeyColumn) {
     String stem = foreignKeyColumn;
     if (stem.toLowerCase(Locale.ROOT).endsWith("_key")) {
       stem = stem.substring(0, stem.length() - 4);
     }
-    if (Utils.isEmpty(stem)) {
-      return "Dimension";
-    }
-    return stem.substring(0, 1).toUpperCase(Locale.ROOT) + stem.substring(1);
+    return stem;
   }
 
   private static String buildSelectSql(List<String> columns, String tableName) {

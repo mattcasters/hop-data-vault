@@ -111,7 +111,7 @@ Therefore **external read-only** satellites work in Business Vault models as lon
 * Satellite tables exist in that database with the modeled layout
 * Field mappings reference valid attribute names
 
-See `project/tests/multi-satellite-bv/customer-360-external.hdv` and `customer-360-external.hbv`.
+See `integration-tests/tests//multi-satellite-bv/customer-360-external.hdv` and `customer-360-external.hbv`.
 
 == Custom pipeline paths
 

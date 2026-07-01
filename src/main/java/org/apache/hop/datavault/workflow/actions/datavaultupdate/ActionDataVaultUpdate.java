@@ -599,13 +599,24 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                   PKG, "ActionDataVaultUpdate.Log.GeneratingForTable", table.getName()));
         }
 
-        List<PipelineMeta> pipelineMetas =
-            table.generateUpdatePipelines(
-                getMetadataProvider(),
-                getVariables(),
-                model,
-                batchLoadDate,
-                realRecordSourceGroup);
+        List<PipelineMeta> pipelineMetas;
+        try {
+          pipelineMetas =
+              table.generateUpdatePipelines(
+                  getMetadataProvider(),
+                  getVariables(),
+                  model,
+                  batchLoadDate,
+                  realRecordSourceGroup);
+        } catch (HopException e) {
+          logError(
+              BaseMessages.getString(
+                  PKG, "ActionDataVaultUpdate.Error.GenerateFailed", table.getName()),
+              e);
+          totalErrors++;
+          success = false;
+          continue;
+        }
 
         if (pipelineMetas == null || pipelineMetas.isEmpty()) {
           if (!Utils.isEmpty(realRecordSourceGroup)) {
@@ -626,7 +637,12 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           } else {
             logError(
                 BaseMessages.getString(
-                    PKG, "ActionDataVaultUpdate.Error.GenerateFailed", table.getName()));
+                    PKG, "ActionDataVaultUpdate.Error.GenerateFailed", table.getName()),
+                new HopException(
+                    BaseMessages.getString(
+                        PKG,
+                        "ActionDataVaultUpdate.Error.GenerateFailedEmpty",
+                        table.getName())));
           }
           totalErrors++;
           success = false;
@@ -637,7 +653,12 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
           if (pipelineMeta == null) {
             logError(
                 BaseMessages.getString(
-                    PKG, "ActionDataVaultUpdate.Error.GenerateFailed", table.getName()));
+                    PKG, "ActionDataVaultUpdate.Error.GenerateFailed", table.getName()),
+                new HopException(
+                    BaseMessages.getString(
+                        PKG,
+                        "ActionDataVaultUpdate.Error.GenerateFailedEmpty",
+                        table.getName())));
             totalErrors++;
             success = false;
             continue;

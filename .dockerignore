@@ -5,4 +5,4 @@ docs
 project/datasets
 project/files
 project/images
-project/catalog-data
+integration-tests/catalog-data

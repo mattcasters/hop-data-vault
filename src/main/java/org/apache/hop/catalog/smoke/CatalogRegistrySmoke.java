@@ -41,7 +41,7 @@ import org.apache.hop.core.variables.Variables;
 import org.apache.hop.metadata.serializer.json.JsonMetadataProvider;
 
 /**
- * Manual smoke runner for catalog CRUD. Invoked from {@code project/tests/catalog/smoke-catalog.sh}.
+ * Manual smoke runner for catalog CRUD. Invoked from {@code integration-tests/tests/catalog/smoke-catalog.sh}.
  */
 public final class CatalogRegistrySmoke {
 

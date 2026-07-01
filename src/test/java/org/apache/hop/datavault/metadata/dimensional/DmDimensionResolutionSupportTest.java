@@ -82,6 +82,31 @@ class DmDimensionResolutionSupportTest {
   }
 
   @Test
+  void resolvesExternalDimensionAlias() throws Exception {
+    DmModelLoadSupport.clearCache();
+    DimensionalModel model = loadCrossModelAliasFixture();
+    model.setFilename(
+        Path.of("integration-tests/tests/basic/cross-model-alias.hdm").toAbsolutePath().normalize().toString());
+
+    DmDimension customer =
+        DmDimensionResolutionSupport.resolveDimension(model, "dim_customer", new Variables());
+    assertNotNull(customer);
+    assertEquals("dim_customer", customer.getName());
+    assertEquals("d_customer", customer.getTableName());
+
+    DmDimension orderDate =
+        DmDimensionResolutionSupport.resolveDimension(model, "dim_order_date", new Variables());
+    assertNotNull(orderDate);
+    assertEquals("dim_date", orderDate.getName());
+    assertEquals("d_date", orderDate.getTableName());
+
+    assertEquals(
+        "d_product",
+        DmDimensionResolutionSupport.resolvePhysicalTableName(
+            model, "dim_product", new Variables()));
+  }
+
+  @Test
   void dateTemplateCreatesExpectedAttributes() {
     DmDimension dateDimension = DmDateDimensionTemplate.createDateDimension(null);
     assertEquals("dim_date", dateDimension.getName());
@@ -92,7 +117,15 @@ class DmDimensionResolutionSupportTest {
   }
 
   private static DimensionalModel loadDateRolePlayingModel() throws Exception {
-    Path fixture = Path.of("project/tests/basic/date-role-playing.hdm").toAbsolutePath().normalize();
+    return loadFixture("integration-tests/tests/basic/date-role-playing.hdm");
+  }
+
+  private static DimensionalModel loadCrossModelAliasFixture() throws Exception {
+    return loadFixture("integration-tests/tests/basic/cross-model-alias.hdm");
+  }
+
+  private static DimensionalModel loadFixture(String relativePath) throws Exception {
+    Path fixture = Path.of(relativePath).toAbsolutePath().normalize();
     Document document = XmlHandler.loadXmlFile(fixture.toFile());
     Node rootNode = XmlHandler.getSubNode(document, HopDimensionalFileType.XML_TAG);
     DimensionalModel model = new DimensionalModel();

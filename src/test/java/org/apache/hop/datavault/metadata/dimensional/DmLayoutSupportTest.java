@@ -22,6 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.row.RowMeta;
+import org.apache.hop.core.row.value.ValueMetaInteger;
 import org.apache.hop.core.variables.Variables;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -64,11 +68,94 @@ class DmLayoutSupportTest {
     assertTrue(layout.indexOfValue("dim_key") >= 0);
     assertTrue(layout.indexOfValue("customer_id") >= 0);
     assertTrue(layout.indexOfValue("version") >= 0);
+    assertEquals(
+        DmLayoutSupport.DEFAULT_INTEGER_FIELD_LENGTH,
+        layout.searchValueMeta("version").getLength());
+    assertEquals(IValueMeta.TYPE_INTEGER, layout.searchValueMeta("version").getType());
     assertTrue(layout.indexOfValue("date_from") >= 0);
     assertTrue(layout.indexOfValue("date_to") >= 0);
     assertTrue(layout.indexOfValue("is_current") >= 0);
     assertTrue(layout.indexOfValue("customer_name") >= 0);
     assertTrue(layout.indexOfValue("load_dt") >= 0);
+  }
+
+  @Test
+  void type1DateDimensionLayoutUsesSourceIntegerTypeForNaturalKey() throws HopException {
+    DmDimension dimension = new DmDimension();
+    dimension.setName("dim_date");
+    dimension.setScdType(DmDimensionScdType.TYPE1);
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("date_key"));
+    dimension.getAttributes().add(new DmDimensionAttribute("full_date", DmScdUpdatePolicy.TYPE1));
+
+    IRowMeta sourceRowMeta = new RowMeta();
+    sourceRowMeta.addValueMeta(new ValueMetaInteger("date_key"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    IRowMeta layout =
+        DmLayoutSupport.buildDimensionTargetTableLayout(
+            dimension, config, new Variables(), sourceRowMeta);
+
+    assertEquals(IValueMeta.TYPE_INTEGER, layout.searchValueMeta("date_key").getType());
+  }
+
+  @Test
+  void type1DateDimensionUsesNaturalKeyForLookup() {
+    DmDimension dimension = new DmDimension();
+    dimension.setName("dim_date");
+    dimension.setScdType(DmDimensionScdType.TYPE1);
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("date_key"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    assertEquals(
+        "date_key",
+        DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, new Variables()));
+  }
+
+  @Test
+  void type2DimensionUsesConfiguredSurrogateKeyForLookup() {
+    DmDimension dimension = new DmDimension();
+    dimension.setName("dim_customer");
+    dimension.setScdType(DmDimensionScdType.TYPE2);
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("customer_id"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    assertEquals(
+        "dim_key",
+        DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, new Variables()));
+  }
+
+  @Test
+  void type2DimensionWithCustomSurrogateFieldUsesConfiguredColumn() throws HopException {
+    DmDimension dimension = new DmDimension();
+    dimension.setName("dim_customer");
+    dimension.setScdType(DmDimensionScdType.TYPE2);
+    dimension.setSurrogateKeyField("customer_key");
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("customer_id"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    var layout = DmLayoutSupport.buildDimensionTargetTableLayout(dimension, config, new Variables());
+
+    assertTrue(layout.indexOfValue("customer_key") >= 0);
+    assertEquals("customer_key", DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, new Variables()));
+  }
+
+  @Test
+  void useSourceFieldSurrogateUsesStringColumnInLayout() throws HopException {
+    DmDimension dimension = new DmDimension();
+    dimension.setName("dim_customer");
+    dimension.setScdType(DmDimensionScdType.TYPE2);
+    dimension.setSurrogateKeyStrategy(DmSurrogateKeyStrategy.USE_SOURCE_FIELD);
+    dimension.setSurrogateKeyField("customer_hk");
+    dimension.setSurrogateKeySourceField("customer_hk");
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("customer_id"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    var layout = DmLayoutSupport.buildDimensionTargetTableLayout(dimension, config, new Variables());
+
+    assertTrue(layout.indexOfValue("customer_hk") >= 0);
+    assertEquals(
+        org.apache.hop.core.row.IValueMeta.TYPE_STRING,
+        layout.searchValueMeta("customer_hk").getType());
   }
 
   @Test

@@ -169,7 +169,7 @@ public final class DvIntegrationSupport {
       default ->
           remarks.add(
               new CheckResult(
-                  ICheckResult.TYPE_RESULT_COMMENT,
+                  ICheckResult.TYPE_RESULT_OK,
                   BaseMessages.getString(PKG, "DvIntegrationSupport.CheckResult.HopManaged"),
                   table));
     }

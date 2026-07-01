@@ -263,6 +263,80 @@ public final class DvFieldMappingValidationSupport {
     }
   }
 
+  public static void validateLinkRecordSourceFields(
+      DvLink link,
+      DataVaultModel model,
+      DvModelCheckOptions options,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    if (link == null || model == null || link.getLinkHubSources() == null) {
+      return;
+    }
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
+    try {
+      DvSourceFieldMappingSupport.resolveRecordSourceFieldName(config, link, variables);
+    } catch (HopException e) {
+      remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+      return;
+    }
+
+    for (DvLink.DvLinkHubSource linkHubSource : link.getLinkHubSources()) {
+      if (linkHubSource == null || Utils.isEmpty(linkHubSource.getSourceName())) {
+        continue;
+      }
+      DataVaultSource recordSource;
+      try {
+        recordSource = linkHubSource.resolveSource(variables, metadataProvider, model);
+      } catch (HopException e) {
+        remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+        continue;
+      }
+      if (recordSource == null) {
+        continue;
+      }
+
+      String indicatorField = resolveName(recordSource.getSourceIndicatorField(), variables);
+      String staticIndicator = recordSource.getSourceIndicator();
+      if (Utils.isEmpty(indicatorField) && Utils.isEmpty(staticIndicator)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DvSourceFieldMapping.MissingSourceIndicator",
+                    recordSource.getName(),
+                    DvTableType.LINK,
+                    link.getName()),
+                checkSource));
+        continue;
+      }
+
+      if (!Utils.isEmpty(indicatorField)) {
+        ResolvedSourceFields resolved =
+            resolveSourceFields(
+                recordSource, options, metadataProvider, variables, checkSource, remarks);
+        if (resolved == null) {
+          continue;
+        }
+        if (!resolved.fields.containsKey(indicatorField)) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG,
+                      "DvSourceFieldMapping.SourceIndicatorFieldMissing",
+                      indicatorField,
+                      recordSource.getName(),
+                      DvTableType.LINK,
+                      link.getName()),
+                  checkSource));
+        }
+      }
+    }
+  }
+
   public static void validateLinkHubKeyFields(
       DvLink link,
       DataVaultModel model,

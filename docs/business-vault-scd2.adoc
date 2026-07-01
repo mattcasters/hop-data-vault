@@ -29,7 +29,7 @@ The simplest case: one DV satellite derivative → one BV table.
 * Configure **functional timestamp** (per table, or model default, or load-date fallback)
 * Attribute columns pass through with DV names unless you add field mappings
 
-Example: `project/tests/basic/vault1.hbv` builds `sat_customer_hb` from `sat_customer`.
+Example: `integration-tests/tests//basic/vault1.hbv` builds `sat_customer_hb` from `sat_customer`.
 
 == Multi-satellite SCD2
 
@@ -45,7 +45,7 @@ Validation enforces:
 * No duplicate BV target column from different sources
 * Explicit mappings when multiple satellites are present
 
-Example: `project/tests/multi-satellite-bv/customer-360.hbv` → table `customer_360_bv` with 11 field mappings across 4 satellites.
+Example: `integration-tests/tests//multi-satellite-bv/customer-360.hbv` → table `customer_360_bv` with 11 field mappings across 4 satellites.
 
 image::images/business-vault-model-customer-360.png[Customer 360 Business Vault model on the canvas,align="center"]
 
@@ -124,7 +124,7 @@ Satellites marked **External read-only** in the `.hdv` model are skipped by Data
 * Attribute lists describe actual columns
 * The vault database connection can read those tables
 
-See `project/tests/multi-satellite-bv/customer-360-external.hdv` and `.hbv` for a working example.
+See `integration-tests/tests//multi-satellite-bv/customer-360-external.hdv` and `.hbv` for a working example.
 
 image::images/data-vault-model-customer-360-external.png[External read-only satellites on the Customer 360 Data Vault canvas,align="center"]
 

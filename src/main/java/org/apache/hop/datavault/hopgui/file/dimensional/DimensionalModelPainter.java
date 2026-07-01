@@ -32,11 +32,15 @@ import org.apache.hop.core.gui.IGc.ELineStyle;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.ConnectionAnchors;
 import org.apache.hop.datavault.hopgui.file.vault.BasePainter;
 import org.apache.hop.datavault.metadata.dimensional.DmBridge;
 import org.apache.hop.datavault.metadata.dimensional.DmBridgeDimensionRef;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
@@ -151,11 +155,13 @@ public class DimensionalModelPainter extends BasePainter {
     if (referenced == null || referenced.getLocation() == null || alias.getLocation() == null) {
       return;
     }
-    Point aliasCenter = boxCenter(alias, alias.getLocation());
-    Point referencedCenter = boxCenter(referenced, referenced.getLocation());
+    Bounds aliasBounds = tableBounds(alias, alias.getLocation());
+    Bounds referencedBounds = tableBounds(referenced, referenced.getLocation());
+    ConnectionAnchors anchors =
+        ModelGraphConnectionGeometry.anchorsBetween(aliasBounds, referencedBounds);
     gc.setLineStyle(ELineStyle.DOT);
     gc.setForeground(EColor.DARKGRAY);
-    gc.drawLine(aliasCenter.x, aliasCenter.y, referencedCenter.x, referencedCenter.y);
+    gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
     gc.setLineStyle(ELineStyle.SOLID);
     gc.setForeground(EColor.BLACK);
   }
@@ -165,7 +171,7 @@ public class DimensionalModelPainter extends BasePainter {
     if (factLocation == null) {
       return;
     }
-    Point factCenter = boxCenter(fact, factLocation);
+    Bounds factBounds = tableBounds(fact, factLocation);
     for (DmFactDimensionRole role : fact.getDimensionRolesOrEmpty()) {
       if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
         continue;
@@ -174,8 +180,10 @@ public class DimensionalModelPainter extends BasePainter {
       if (dimension == null || dimension.getLocation() == null) {
         continue;
       }
-      Point dimensionCenter = boxCenter(dimension, dimension.getLocation());
-      gc.drawLine(dimensionCenter.x, dimensionCenter.y, factCenter.x, factCenter.y);
+      Bounds dimensionBounds = tableBounds(dimension, dimension.getLocation());
+      ConnectionAnchors anchors =
+          ModelGraphConnectionGeometry.anchorsBetween(dimensionBounds, factBounds);
+      gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
     }
   }
 
@@ -184,7 +192,7 @@ public class DimensionalModelPainter extends BasePainter {
     if (bridgeLocation == null) {
       return;
     }
-    Point bridgeCenter = boxCenter(bridge, bridgeLocation);
+    Bounds bridgeBounds = tableBounds(bridge, bridgeLocation);
     for (DmBridgeDimensionRef ref : bridge.getDimensionRefsOrEmpty()) {
       if (ref == null || Utils.isEmpty(ref.getDimensionTableName())) {
         continue;
@@ -193,8 +201,10 @@ public class DimensionalModelPainter extends BasePainter {
       if (dimension == null || dimension.getLocation() == null) {
         continue;
       }
-      Point dimensionCenter = boxCenter(dimension, dimension.getLocation());
-      gc.drawLine(dimensionCenter.x, dimensionCenter.y, bridgeCenter.x, bridgeCenter.y);
+      Bounds dimensionBounds = tableBounds(dimension, dimension.getLocation());
+      ConnectionAnchors anchors =
+          ModelGraphConnectionGeometry.anchorsBetween(dimensionBounds, bridgeBounds);
+      gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
     }
   }
 
@@ -203,7 +213,7 @@ public class DimensionalModelPainter extends BasePainter {
     if (dimensionLocation == null) {
       return;
     }
-    Point dimensionCenter = boxCenter(dimension, dimensionLocation);
+    Bounds dimensionBounds = tableBounds(dimension, dimensionLocation);
     for (DmDimensionOutriggerRef outrigger : dimension.getOutriggersOrEmpty()) {
       if (outrigger == null || Utils.isEmpty(outrigger.getDimensionTableName())) {
         continue;
@@ -212,8 +222,10 @@ public class DimensionalModelPainter extends BasePainter {
       if (outriggerTable == null || outriggerTable.getLocation() == null) {
         continue;
       }
-      Point outriggerCenter = boxCenter(outriggerTable, outriggerTable.getLocation());
-      gc.drawLine(dimensionCenter.x, dimensionCenter.y, outriggerCenter.x, outriggerCenter.y);
+      Bounds outriggerBounds = tableBounds(outriggerTable, outriggerTable.getLocation());
+      ConnectionAnchors anchors =
+          ModelGraphConnectionGeometry.anchorsBetween(dimensionBounds, outriggerBounds);
+      gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
     }
   }
 
@@ -221,17 +233,39 @@ public class DimensionalModelPainter extends BasePainter {
     if (startRelationshipTable == null || relationshipDragEndLocation == null) {
       return;
     }
-    Point startCenter = boxCenter(startRelationshipTable, startRelationshipTable.getLocation());
-    if (startCenter == null) {
+    Bounds sourceBounds = tableBounds(startRelationshipTable, startRelationshipTable.getLocation());
+    if (sourceBounds == null) {
       return;
     }
     Point logEnd = screenDragEndToLogical(relationshipDragEndLocation);
+    if (logEnd == null) {
+      return;
+    }
+
+    Point lineStart;
+    Point lineEnd;
+    if (candidateRelationshipTarget != null
+        && candidateRelationshipTarget.getLocation() != null
+        && isValidRelationshipPair(startRelationshipTable, candidateRelationshipTarget)) {
+      Bounds targetBounds =
+          tableBounds(candidateRelationshipTarget, candidateRelationshipTarget.getLocation());
+      ConnectionAnchors anchors =
+          ModelGraphConnectionGeometry.anchorsBetween(sourceBounds, targetBounds);
+      lineStart = anchors.from();
+      lineEnd = anchors.to();
+    } else {
+      lineStart =
+          ModelGraphConnectionGeometry.anchorToward(
+              sourceBounds, ModelGraphConnectionGeometry.pointBounds(logEnd.x, logEnd.y));
+      lineEnd = logEnd;
+    }
+
     boolean validTarget = isValidRelationshipPair(startRelationshipTable, candidateRelationshipTarget);
     try {
       gc.setForeground(validTarget ? EColor.BLUE : EColor.DARKGRAY);
       gc.setLineWidth(2);
       gc.setLineStyle(ELineStyle.DASH);
-      gc.drawLine(startCenter.x, startCenter.y, logEnd.x, logEnd.y);
+      gc.drawLine(lineStart.x, lineStart.y, lineEnd.x, lineEnd.y);
       gc.setLineStyle(ELineStyle.SOLID);
       int marker = 4;
       gc.fillRoundRectangle(logEnd.x - marker, logEnd.y - marker, marker * 2, marker * 2, marker * 2, marker * 2);
@@ -240,16 +274,6 @@ public class DimensionalModelPainter extends BasePainter {
       gc.setLineStyle(ELineStyle.SOLID);
       gc.setForeground(EColor.BLACK);
     }
-  }
-
-  private Point screenDragEndToLogical(Point screenEnd) {
-    if (magnification <= 0) {
-      return new Point(
-          (int) (screenEnd.x - offset.x), (int) (screenEnd.y - offset.y));
-    }
-    return new Point(
-        (int) ((screenEnd.x - offset.x) / magnification),
-        (int) ((screenEnd.y - offset.y) / magnification));
   }
 
   private static boolean isDimensionLike(IDmTable table) {
@@ -283,7 +307,7 @@ public class DimensionalModelPainter extends BasePainter {
     return a instanceof DmDimension && b instanceof DmDimension;
   }
 
-  private Point boxCenter(IDmTable table, Point location) {
+  private Bounds tableBounds(IDmTable table, Point location) {
     if (location == null) {
       return null;
     }
@@ -294,7 +318,7 @@ public class DimensionalModelPainter extends BasePainter {
       boxHeight = Math.max(70, base.getDrawnBoxHeight());
     }
     Point screenLoc = real2screen(location.x, location.y);
-    return new Point(screenLoc.x + boxWidth / 2, screenLoc.y + boxHeight / 2);
+    return new Bounds(screenLoc.x, screenLoc.y, boxWidth, boxHeight);
   }
 
   @Override
@@ -355,7 +379,7 @@ public class DimensionalModelPainter extends BasePainter {
       }
 
       gc.setFont(EFont.SMALL);
-      gc.drawText(tableTypeLabel(base.getTableType()), x + 8, y + 28, true);
+      gc.drawText(tableSubtitle(base), x + 8, y + 28, true);
 
       if (areaOwners != null) {
         areaOwners.add(
@@ -391,6 +415,14 @@ public class DimensionalModelPainter extends BasePainter {
       return "";
     }
     return tableType.getDescription();
+  }
+
+  private static String tableSubtitle(DmTableBase base) {
+    if (base instanceof DmDimensionAlias alias
+        && DmDimensionResolutionSupport.isExternalDimensionAlias(alias)) {
+      return "external";
+    }
+    return tableTypeLabel(base.getTableType());
   }
 
   private static int[] tableTypeColor(DmTableType tableType) {

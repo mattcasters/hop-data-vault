@@ -197,7 +197,7 @@ class DmCatalogPipelineTest {
   }
 
   private static DimensionalModel loadExtendedCatalogModel() throws Exception {
-    Path fixture = Path.of("project/tests/basic/extended-catalog.hdm").toAbsolutePath().normalize();
+    Path fixture = Path.of("integration-tests/tests/basic/extended-catalog.hdm").toAbsolutePath().normalize();
     Document document = XmlHandler.loadXmlFile(fixture.toFile());
     Node rootNode = XmlHandler.getSubNode(document, HopDimensionalFileType.XML_TAG);
     DimensionalModel model = new DimensionalModel();

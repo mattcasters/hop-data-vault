@@ -353,7 +353,7 @@ public class DvSatellite extends DvTableBase
     if (!hasDrivingKey()) {
       remarks.add(
           new CheckResult(
-              ICheckResult.TYPE_RESULT_COMMENT,
+              ICheckResult.TYPE_RESULT_OK,
               BaseMessages.getString(PKG, "DvSatellite.CheckResult.NoDrivingKey"),
               this));
     } else {

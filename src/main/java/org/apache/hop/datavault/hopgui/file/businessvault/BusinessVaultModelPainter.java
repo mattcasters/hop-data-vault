@@ -34,6 +34,9 @@ import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.svg.SvgFile;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.ConnectionAnchors;
 import org.apache.hop.datavault.hopgui.file.vault.BasePainter;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
@@ -153,19 +156,28 @@ public class BusinessVaultModelPainter extends BasePainter {
         if (target == null || target.getLocation() == null) {
           continue;
         }
-        int bx = (int) (graphX + (bvLoc.x + Math.max(1, base.getDrawnBoxWidth()) / 2.0) * scaleX);
-        int by = (int) (graphY + (bvLoc.y + Math.max(1, base.getDrawnBoxHeight()) / 2.0) * scaleY);
-        int dx =
-            (int)
-                (graphX
-                    + (target.getLocation().x + Math.max(1, target.getDrawnBoxWidth()) / 2.0)
-                        * scaleX);
-        int dy =
-            (int)
-                (graphY
-                    + (target.getLocation().y + Math.max(1, target.getDrawnBoxHeight()) / 2.0)
-                        * scaleY);
-        gc.drawLine(bx, by, dx, dy);
+        Bounds bvBounds =
+            navigationBounds(
+                graphX,
+                graphY,
+                scaleX,
+                scaleY,
+                bvLoc,
+                base.getDrawnBoxWidth(),
+                base.getDrawnBoxHeight(),
+                minSize);
+        Bounds dvBounds =
+            navigationBounds(
+                graphX,
+                graphY,
+                scaleX,
+                scaleY,
+                target.getLocation(),
+                target.getDrawnBoxWidth(),
+                target.getDrawnBoxHeight(),
+                minSize);
+        ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(bvBounds, dvBounds);
+        gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
       }
     }
 
@@ -225,29 +237,21 @@ public class BusinessVaultModelPainter extends BasePainter {
       if (!(bvTable instanceof BvTableBase base)) {
         continue;
       }
-      Point bvLoc = base.getLocation();
-      if (bvLoc == null) {
+      if (base.getLocation() == null) {
         continue;
       }
-      Point bvScreen = real2screen(bvLoc.x, bvLoc.y);
-      int bx = bvScreen.x + Math.max(1, base.getDrawnBoxWidth()) / 2;
-      int by = bvScreen.y + Math.max(1, base.getDrawnBoxHeight()) / 2;
+      Bounds bvBounds = getBvTableBounds(base);
       for (BvDerivativeRef derivative : base.getDerivatives()) {
         if (derivative == null || Utils.isEmpty(derivative.getDvTableName())) {
           continue;
         }
         BvDvTableReference target = dvRefByName.get(derivative.getDvTableName());
-        if (target == null) {
+        if (target == null || target.getLocation() == null) {
           continue;
         }
-        Point dvLoc = target.getLocation();
-        if (dvLoc == null) {
-          continue;
-        }
-        Point dvScreen = real2screen(dvLoc.x, dvLoc.y);
-        int dx = dvScreen.x + Math.max(1, target.getDrawnBoxWidth()) / 2;
-        int dy = dvScreen.y + Math.max(1, target.getDrawnBoxHeight()) / 2;
-        gc.drawLine(bx, by, dx, dy);
+        Bounds dvBounds = getDvReferenceBounds(target);
+        ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(bvBounds, dvBounds);
+        gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
       }
     }
     gc.setLineStyle(ELineStyle.SOLID);
@@ -259,61 +263,101 @@ public class BusinessVaultModelPainter extends BasePainter {
         || (startRelationshipBvTable == null && startRelationshipDvReference == null)) {
       return;
     }
-    Point startCenter = getRelationshipStartCenter();
-    if (startCenter == null) {
+    Bounds sourceBounds = getRelationshipStartBounds();
+    if (sourceBounds == null) {
       return;
     }
     Point logEnd = screenDragEndToLogical(relationshipDragEndLocation);
+    if (logEnd == null) {
+      return;
+    }
+
+    Point lineStart;
+    Point lineEnd;
+    if (isCandidateRelationshipValid()) {
+      Bounds targetBounds = getCandidateTargetBounds();
+      if (targetBounds != null) {
+        ConnectionAnchors anchors =
+            ModelGraphConnectionGeometry.anchorsBetween(sourceBounds, targetBounds);
+        lineStart = anchors.from();
+        lineEnd = anchors.to();
+      } else {
+        lineStart =
+            ModelGraphConnectionGeometry.anchorToward(
+                sourceBounds, ModelGraphConnectionGeometry.pointBounds(logEnd.x, logEnd.y));
+        lineEnd = logEnd;
+      }
+    } else {
+      lineStart =
+          ModelGraphConnectionGeometry.anchorToward(
+              sourceBounds, ModelGraphConnectionGeometry.pointBounds(logEnd.x, logEnd.y));
+      lineEnd = logEnd;
+    }
+
     boolean validTarget = isCandidateRelationshipValid();
     gc.setForeground(validTarget ? EColor.BLUE : EColor.DARKGRAY);
     gc.setLineWidth(2);
     gc.setLineStyle(ELineStyle.DASH);
-    gc.drawLine(startCenter.x, startCenter.y, logEnd.x, logEnd.y);
+    gc.drawLine(lineStart.x, lineStart.y, lineEnd.x, lineEnd.y);
     gc.setLineStyle(ELineStyle.SOLID);
     gc.setLineWidth(1);
     gc.setForeground(EColor.BLACK);
   }
 
-  private Point getRelationshipStartCenter() {
+  private Bounds getRelationshipStartBounds() {
     if (startRelationshipBvTable instanceof BvTableBase bvTable) {
-      return getBvTableCenter(bvTable);
+      return getBvTableBounds(bvTable);
     }
     if (startRelationshipDvReference != null) {
-      return getDvReferenceCenter(startRelationshipDvReference);
+      return getDvReferenceBounds(startRelationshipDvReference);
     }
     return null;
   }
 
-  private Point getBvTableCenter(BvTableBase table) {
+  private Bounds getCandidateTargetBounds() {
+    if (candidateRelationshipBvTable instanceof BvTableBase bvTable) {
+      return getBvTableBounds(bvTable);
+    }
+    if (candidateRelationshipDvReference != null) {
+      return getDvReferenceBounds(candidateRelationshipDvReference);
+    }
+    return null;
+  }
+
+  private Bounds getBvTableBounds(BvTableBase table) {
     Point loc = table.getLocation();
     if (loc == null) {
       return null;
     }
     Point screenLoc = real2screen(loc.x, loc.y);
-    int width = Math.max(1, table.getDrawnBoxWidth());
-    int height = Math.max(1, table.getDrawnBoxHeight());
-    return new Point(screenLoc.x + width / 2, screenLoc.y + height / 2);
+    return new Bounds(
+        screenLoc.x, screenLoc.y, table.getDrawnBoxWidth(), table.getDrawnBoxHeight());
   }
 
-  private Point getDvReferenceCenter(BvDvTableReference reference) {
+  private Bounds getDvReferenceBounds(BvDvTableReference reference) {
     Point loc = reference.getLocation();
     if (loc == null) {
       return null;
     }
     Point screenLoc = real2screen(loc.x, loc.y);
-    int width = Math.max(1, reference.getDrawnBoxWidth());
-    int height = Math.max(1, reference.getDrawnBoxHeight());
-    return new Point(screenLoc.x + width / 2, screenLoc.y + height / 2);
+    return new Bounds(
+        screenLoc.x, screenLoc.y, reference.getDrawnBoxWidth(), reference.getDrawnBoxHeight());
   }
 
-  private Point screenDragEndToLogical(Point screenEnd) {
-    if (magnification <= 0) {
-      return new Point(
-          (int) (screenEnd.x - offset.x), (int) (screenEnd.y - offset.y));
-    }
-    return new Point(
-        (int) ((screenEnd.x - offset.x) / magnification),
-        (int) ((screenEnd.y - offset.y) / magnification));
+  private static Bounds navigationBounds(
+      double graphX,
+      double graphY,
+      double scaleX,
+      double scaleY,
+      Point loc,
+      int boxWidth,
+      int boxHeight,
+      int minSize) {
+    int w = Math.max(minSize, (int) Math.ceil(Math.max(1, boxWidth) * scaleX));
+    int h = Math.max(minSize, (int) Math.ceil(Math.max(1, boxHeight) * scaleY));
+    int x = (int) (graphX + loc.x * scaleX);
+    int y = (int) (graphY + loc.y * scaleY);
+    return new Bounds(x, y, w, h);
   }
 
   private boolean isCandidateRelationshipValid() {

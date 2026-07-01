@@ -51,6 +51,13 @@ public class DmDimension extends DmTableBase {
   @HopMetadataProperty(key = "outrigger", groupKey = "outriggers")
   private List<DmDimensionOutriggerRef> outriggers = new ArrayList<>();
 
+  @HopMetadataProperty private String surrogateKeyField;
+
+  @HopMetadataProperty(storeWithCode = true)
+  private DmSurrogateKeyStrategy surrogateKeyStrategy;
+
+  @HopMetadataProperty private String surrogateKeySourceField;
+
   public DmDimension() {
     super(DmTableType.DIMENSION);
   }
@@ -103,7 +110,11 @@ public class DmDimension extends DmTableBase {
       throws HopException {
     DimensionalConfiguration config =
         model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
-    return DmLayoutSupport.buildDimensionTargetTableLayout(this, config, variables);
+    IRowMeta sourceRowMeta =
+        DmSourceFieldResolutionSupport.tryResolveSourceRowMeta(
+            metadataProvider, variables, model, this);
+    return DmLayoutSupport.buildDimensionTargetTableLayout(
+        this, config, variables, sourceRowMeta);
   }
 
   @Override

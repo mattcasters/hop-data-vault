@@ -82,7 +82,11 @@ public final class DvUpdateMetricsExtractor {
   }
 
   private static boolean isSourceTransform(String name) {
-    return name != null && name.startsWith(DvUpdateMetricsConstants.SOURCE_TRANSFORM_PREFIX);
+    if (name == null) {
+      return false;
+    }
+    return name.startsWith(DvUpdateMetricsConstants.SOURCE_TRANSFORM_PREFIX)
+        || name.startsWith(DvUpdateMetricsConstants.DIMENSIONAL_SOURCE_TRANSFORM_PREFIX);
   }
 
   private static boolean isTargetTransform(String name, String tableName) {

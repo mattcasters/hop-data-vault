@@ -60,7 +60,7 @@ class BusinessVaultModelTest {
     BusinessVaultModel original = new BusinessVaultModel();
     original.setName("customer-bv");
     original.setDescription("Customer business vault");
-    original.setDataVaultModelPath("project/tests/basic/vault1.hdv");
+    original.setDataVaultModelPath("integration-tests/tests/basic/vault1.hdv");
     original.getConfigurationOrDefault().setTargetDatabase("Vault");
     original.getTables().add(new BvScd2Table());
     original.getDvReferences().add(new BvDvTableReference("hub_customer", DvTableType.HUB));
@@ -90,7 +90,7 @@ class BusinessVaultModelTest {
   @Test
   void resolverLoadsReferencedDataVaultModel() throws Exception {
     Path dvPath =
-        Path.of("project/tests/basic/vault1.hdv").toAbsolutePath().normalize();
+        Path.of("integration-tests/tests/basic/vault1.hdv").toAbsolutePath().normalize();
     BusinessVaultModel model = new BusinessVaultModel();
     model.setDataVaultModelPath(dvPath.toString());
 

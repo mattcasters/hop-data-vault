@@ -476,7 +476,7 @@ class BvScd2PipelineSupportTest {
   }
 
   private static DataVaultModel loadVault1ModelWithDemoSatellite() throws Exception {
-    Path dvPath = Path.of("project/tests/basic/vault1.hdv").toAbsolutePath().normalize();
+    Path dvPath = Path.of("integration-tests/tests/basic/vault1.hdv").toAbsolutePath().normalize();
     Document document = XmlHandler.loadXmlFile(dvPath.toFile());
     Node rootNode = XmlHandler.getSubNode(document, "data-vault-model");
     DataVaultModel model = new DataVaultModel();

@@ -146,7 +146,7 @@ class BvScd2FieldMappingDialogSupportTest {
 
   private static DataVaultModel loadCustomer360DvModel() throws Exception {
     Path dvPath =
-        Path.of("project/tests/multi-satellite-bv/customer-360.hdv").toAbsolutePath().normalize();
+        Path.of("integration-tests/tests/multi-satellite-bv/customer-360.hdv").toAbsolutePath().normalize();
     Document document = XmlHandler.loadXmlFile(dvPath.toFile());
     Node rootNode = XmlHandler.getSubNode(document, "data-vault-model");
     DataVaultModel model = new DataVaultModel();

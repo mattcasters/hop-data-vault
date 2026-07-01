@@ -217,7 +217,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     if (Utils.isEmpty(drivingKeyNames)) {
       remarks.add(
           new CheckResult(
-              ICheckResult.TYPE_RESULT_COMMENT,
+              ICheckResult.TYPE_RESULT_OK,
               BaseMessages.getString(PKG, "DvLink.CheckResult.NoDrivingKeys"),
               this));
     } else {
@@ -256,13 +256,33 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     }
 
     // Hub record source validation
+    if (!DvIntegrationSupport.relaxesSourceValidation(this)
+        && !DvIntegrationSupport.isCustomPipelines(this)) {
+      if (linkHubSources == null || linkHubSources.isEmpty()) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(PKG, "DvLink.CheckResult.NoLinkHubSources"),
+                this));
+      } else {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_OK,
+                BaseMessages.getString(
+                    PKG, "DvLink.CheckResult.HasLinkHubSources", linkHubSources.size()),
+                this));
+        for (DvLinkHubSource ls : linkHubSources) {
+          if (ls == null || Utils.isEmpty(ls.getSourceName())) {
+            remarks.add(
+                new CheckResult(
+                    ICheckResult.TYPE_RESULT_ERROR,
+                    BaseMessages.getString(PKG, "DvLink.CheckResult.LinkHubSourceNoName"),
+                    this));
+          }
+        }
+      }
+    }
     if (linkHubSources != null && !linkHubSources.isEmpty()) {
-      remarks.add(
-          new CheckResult(
-              ICheckResult.TYPE_RESULT_OK,
-              BaseMessages.getString(
-                  PKG, "DvLink.CheckResult.HasLinkHubSources", linkHubSources.size()),
-              this));
       for (DvLinkHubSource ls : linkHubSources) {
         if (ls != null && !Utils.isEmpty(ls.getSourceName())) {
           DataVaultSource source;
@@ -445,11 +465,28 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       }
     }
 
+    if (Utils.isEmpty(recordSourceFieldName)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_COMMENT,
+              BaseMessages.getString(PKG, "DvLink.CheckResult.NoRecordSourceFieldName"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(
+                  PKG, "DvLink.CheckResult.HasRecordSourceFieldName", recordSourceFieldName),
+              this));
+    }
+
     if (!DvIntegrationSupport.relaxesSourceValidation(this)
         && metadataProvider != null
         && options != null
         && model != null) {
       DvFieldMappingValidationSupport.validateLinkHubKeyFields(
+          this, model, options, metadataProvider, variables, this, remarks);
+      DvFieldMappingValidationSupport.validateLinkRecordSourceFields(
           this, model, options, metadataProvider, variables, this, remarks);
     }
   }
@@ -472,6 +509,14 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       }
       if (DvIntegrationSupport.isCustomPipelines(this)) {
         return DvIntegrationSupport.loadCustomUpdatePipelines(this, metadataProvider, variables);
+      }
+
+      if (linkHubSources == null || linkHubSources.isEmpty()) {
+        if (!Utils.isEmpty(recordSourceGroup)) {
+          return Collections.emptyList();
+        }
+        throw new HopException(
+            BaseMessages.getString(PKG, "DvLink.Error.NoLinkHubSources", getName()));
       }
 
       List<PipelineMeta> result = new ArrayList<>();
@@ -559,6 +604,11 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         result.add(pipelineMeta);
       }
 
+      if (result.isEmpty() && Utils.isEmpty(recordSourceGroup)) {
+        throw new HopException(
+            BaseMessages.getString(PKG, "DvLink.Error.NoLinkHubSources", getName()));
+      }
+
       DvGeneratedPipelineSupport.applyLayout(result);
       return result;
     } catch (Exception e) {
@@ -633,13 +683,9 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         rowMeta.addValueMeta(hubHashMeta);
       }
 
-      // 3. Record source
-      String rsFieldName = "RECORD_SOURCE";
-      if (!Utils.isEmpty(config.getRecordSourceField())) {
-        rsFieldName = config.getRecordSourceField();
-      }
-      rsFieldName = variables.resolve(rsFieldName);
-      if (Utils.isEmpty(rsFieldName)) rsFieldName = "RECORD_SOURCE";
+      // 3. Record source (per-link name if specified, else from config; supports variables)
+      String rsFieldName =
+          DvSourceFieldMappingSupport.resolveRecordSourceFieldName(config, this, variables);
       String lengthString =
           !Utils.isEmpty(config.getRecordSourceFieldLength())
               ? config.getRecordSourceFieldLength()
@@ -843,17 +889,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
   }
 
   private @NonNull String findRecordSourceFieldName(LinkUpdateContext ctx) throws HopException {
-    String rsFieldName = recordSourceFieldName;
-    if (StringUtils.isEmpty(rsFieldName)) {
-      rsFieldName = ctx.variables.resolve(ctx.config.getRecordSourceField());
-    }
-    if (StringUtils.isEmpty(rsFieldName)) {
-      throw new HopException(
-          "Please specify a field to contain the record source in Link "
-              + getName()
-              + " or in the data vault configuration.");
-    }
-    return rsFieldName;
+    return DvSourceFieldMappingSupport.resolveRecordSourceFieldName(
+        ctx.config, this, ctx.variables);
   }
 
   private TransformMeta addMergeRows(

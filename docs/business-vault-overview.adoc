@@ -87,7 +87,7 @@ See link:dv-integration-modes.adoc[Data Vault integration modes].
 
 == Sample models
 
-The `project/tests/` folder includes:
+The `integration-tests/tests//` folder includes:
 
 * `basic/vault1.hbv` — introductory SCD2 (`sat_customer_hb`) and PIT (`pit_customer`) from one hub and satellite
 * `multi-satellite-bv/customer-360.hdv` / `customer-360.hbv` — four satellites merged into `customer_360_bv`

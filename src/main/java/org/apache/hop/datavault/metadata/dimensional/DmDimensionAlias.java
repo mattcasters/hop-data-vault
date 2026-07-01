@@ -45,12 +45,21 @@ public class DmDimensionAlias extends DmTableBase {
 
   @HopMetadataProperty private String referencedDimensionName;
 
+  /** Optional path to another .hdm file containing the referenced dimension. */
+  @HopMetadataProperty private String referencedModelFilename;
+
   public DmDimensionAlias() {
     super(DmTableType.DIMENSION_ALIAS);
   }
 
   public void syncPhysicalTableName(DimensionalModel model, IVariables variables) {
-    DmDimension target = DmDimensionResolutionSupport.resolveAliasTarget(model, this, variables);
+    syncPhysicalTableName(model, variables, null);
+  }
+
+  public void syncPhysicalTableName(
+      DimensionalModel model, IVariables variables, IHopMetadataProvider metadataProvider) {
+    DmDimension target =
+        DmDimensionResolutionSupport.resolveAliasTarget(model, this, variables, metadataProvider);
     if (target != null && !Utils.isEmpty(target.getTableName())) {
       setTableName(target.getTableName());
     } else if (target != null && !Utils.isEmpty(target.getName())) {
@@ -71,15 +80,16 @@ public class DmDimensionAlias extends DmTableBase {
               BaseMessages.getString(PKG, "DmTableBase.CheckResult.MissingName"),
               this));
     }
-    syncPhysicalTableName(model, variables);
-    DmValidationSupport.validateDimensionAlias(remarks, this, model, variables);
+    syncPhysicalTableName(model, variables, metadataProvider);
+    DmValidationSupport.validateDimensionAlias(remarks, this, model, metadataProvider, variables);
   }
 
   @Override
   public IRowMeta getTargetTableLayout(
       IHopMetadataProvider metadataProvider, IVariables variables, DimensionalModel model)
       throws HopException {
-    DmDimension target = DmDimensionResolutionSupport.resolveAliasTarget(model, this, variables);
+    DmDimension target =
+        DmDimensionResolutionSupport.resolveAliasTarget(model, this, variables, metadataProvider);
     if (target == null) {
       throw new HopException("Dimension alias '" + getName() + "' has no resolvable target dimension");
     }

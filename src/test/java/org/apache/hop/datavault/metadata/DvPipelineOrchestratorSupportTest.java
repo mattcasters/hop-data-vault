@@ -19,7 +19,10 @@
 package org.apache.hop.datavault.metadata;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.hop.core.Result;
 import org.junit.jupiter.api.Test;
 
 class DvPipelineOrchestratorSupportTest {
@@ -35,5 +38,20 @@ class DvPipelineOrchestratorSupportTest {
     assertEquals(
         "hub-customer.hpl",
         DvPipelineOrchestratorSupport.buildStagedPipelineFilename("hub-customer", 1, false));
+  }
+
+  @Test
+  void mergeResultPropagatesFailureFlag() {
+    Result target = new Result();
+    target.setResult(true);
+
+    Result source = new Result();
+    source.setResult(false);
+    source.setNrErrors(3);
+
+    DvPipelineOrchestratorSupport.mergeResult(target, source);
+
+    assertEquals(3, target.getNrErrors());
+    assertFalse(target.getResult());
   }
 }

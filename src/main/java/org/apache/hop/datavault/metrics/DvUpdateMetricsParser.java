@@ -26,6 +26,13 @@ public final class DvUpdateMetricsParser {
 
   private static final String[] TABLE_TYPE_PREFIXES = {"hub-", "link-", "sat-", "sts-"};
 
+  private static final String[][] DIMENSIONAL_TYPE_PREFIXES = {
+    {"dm-dim-", "dimension"},
+    {"dm-junk-", "junk_dimension"},
+    {"dm-bridge-", "bridge"},
+    {"dm-fact-", "fact"},
+  };
+
   private DvUpdateMetricsParser() {}
 
   public static Optional<ParsedPipeline> parse(String pipelineName) {
@@ -34,6 +41,11 @@ public final class DvUpdateMetricsParser {
     }
     if (pipelineName.startsWith(DvUpdateMetricsConstants.ORCHESTRATOR_NAME_PREFIX)) {
       return Optional.empty();
+    }
+
+    Optional<ParsedPipeline> dimensional = parseDimensionalPipeline(pipelineName);
+    if (dimensional.isPresent()) {
+      return dimensional;
     }
 
     String tableType = null;
@@ -59,6 +71,21 @@ public final class DvUpdateMetricsParser {
     String sourceName = resolveSourceName(sourcePart);
 
     return Optional.of(new ParsedPipeline(tableType, tableName, sourceName));
+  }
+
+  private static Optional<ParsedPipeline> parseDimensionalPipeline(String pipelineName) {
+    for (String[] prefixAndType : DIMENSIONAL_TYPE_PREFIXES) {
+      String prefix = prefixAndType[0];
+      String tableType = prefixAndType[1];
+      if (pipelineName.startsWith(prefix)) {
+        String tableName = pipelineName.substring(prefix.length());
+        if (Utils.isEmpty(tableName)) {
+          return Optional.empty();
+        }
+        return Optional.of(new ParsedPipeline(tableType, tableName, ""));
+      }
+    }
+    return Optional.empty();
   }
 
   private static String resolveSourceName(String sourcePart) {

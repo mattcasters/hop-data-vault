@@ -50,14 +50,14 @@ class DmGoldenFixtureTest {
 
   @Test
   void basicStarFixtureChecksClean() throws Exception {
-    DimensionalModel model = loadFixture("project/tests/basic/basic-star.hdm");
+    DimensionalModel model = loadFixture("integration-tests/tests/basic/basic-star.hdm");
     assertEquals(3, model.getTables().size());
     assertModelChecksWithoutErrors(model);
   }
 
   @Test
   void extendedCatalogFixtureChecksClean() throws Exception {
-    DimensionalModel model = loadFixture("project/tests/basic/extended-catalog.hdm");
+    DimensionalModel model = loadFixture("integration-tests/tests/basic/extended-catalog.hdm");
     assertEquals(9, model.getTables().size());
     assertEquals("Customer", model.getConformedDimensionsOrEmpty().get(0).getLogicalName());
     assertModelChecksWithoutErrors(model);
@@ -67,7 +67,7 @@ class DmGoldenFixtureTest {
   void vault1PublishProducesStableDraftShape() throws Exception {
     DataVaultModel dvModel =
         DvPublishModelSupport.loadDataVaultModel(
-            Path.of("project/tests/basic/vault1.hdv").toAbsolutePath().normalize().toString(),
+            Path.of("integration-tests/tests/basic/vault1.hdv").toAbsolutePath().normalize().toString(),
             new Variables(),
             null);
     DimensionalModel published = DvToDimensionalPublish.publish(dvModel).getDimensionalModel();
