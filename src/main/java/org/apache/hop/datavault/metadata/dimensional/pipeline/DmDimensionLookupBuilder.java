@@ -80,6 +80,7 @@ public final class DmDimensionLookupBuilder {
     lookupMeta.setTableName(
         !Utils.isEmpty(dimension.getTableName()) ? dimension.getTableName() : dimension.getName());
     lookupMeta.setUpdate(false);
+    lookupMeta.setPreloadingCache(role.isPreloadLookupCache());
     lookupMeta.setFields(buildLookupOnlyFields(ctx, dimension, role));
     configureTechnicalKeySource(lookupMeta, dimension, ctx);
 
@@ -135,7 +136,27 @@ public final class DmDimensionLookupBuilder {
     returns.setKeyRename(fkColumn);
     applySurrogateKeyCreation(returns, dimension);
     dlFields.setReturns(returns);
+    configureFactLookupDate(dlFields, ctx, dimension);
     return dlFields;
+  }
+
+  private static void configureFactLookupDate(
+      DimensionLookupMeta.DLFields dlFields,
+      DmPipelineBuilderSupport.BuildContext ctx,
+      DmDimension dimension) {
+    if (ctx == null || ctx.table == null || dimension == null) {
+      return;
+    }
+    String lookupDateField = DmPipelineBuilderSupport.resolveFactDimensionLookupDateField(ctx);
+    if (Utils.isEmpty(lookupDateField)
+        || !DmLayoutSupport.dimensionUsesEffectivityLookup(dimension)) {
+      return;
+    }
+    DimensionLookupMeta.DLDate date = new DimensionLookupMeta.DLDate();
+    date.setName(lookupDateField);
+    date.setFrom(ctx.config.resolveDateFromField(ctx.variables));
+    date.setTo(ctx.config.resolveDateToField(ctx.variables));
+    dlFields.setDate(date);
   }
 
   private static DimensionLookupMeta.DLFields buildHybridFields(

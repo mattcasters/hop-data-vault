@@ -19,8 +19,10 @@
 package org.apache.hop.datavault.hopgui.file.modelgraph;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.hop.core.gui.Point;
+import org.apache.hop.datavault.config.DataVaultConfig;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.ConnectionAnchors;
 import org.junit.jupiter.api.Test;
@@ -75,5 +77,64 @@ class ModelGraphConnectionGeometryTest {
     ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(BOX_A, overlap);
     assertEquals(new Point(50, 50), anchors.from());
     assertEquals(new Point(70, 10), anchors.to());
+  }
+
+  @Test
+  void splinePolylineHasExpectedVertexCount() {
+    Bounds below = new Bounds(10, 120, 80, 40);
+    ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(BOX_A, below);
+    int segments = 12;
+    int[] polyline =
+        ModelGraphConnectionGeometry.splinePolyline(
+            anchors.from(), anchors.to(), BOX_A, below, segments);
+    assertEquals((segments + 1) * 2, polyline.length);
+  }
+
+  @Test
+  void splinePolylineStartsAndEndsAtAnchors() {
+    Bounds right = new Bounds(200, 5, 80, 40);
+    ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(BOX_A, right);
+    int[] polyline =
+        ModelGraphConnectionGeometry.splinePolyline(
+            anchors.from(), anchors.to(), BOX_A, right, 20);
+    assertEquals(anchors.from().x, polyline[0]);
+    assertEquals(anchors.from().y, polyline[1]);
+    int last = polyline.length - 2;
+    assertEquals(anchors.to().x, polyline[last]);
+    assertEquals(anchors.to().y, polyline[last + 1]);
+  }
+
+  @Test
+  void controlLengthClampsForShortAndLongConnections() {
+    assertEquals(3.5, ModelGraphConnectionGeometry.controlLength(new Point(0, 0), new Point(10, 0)), 0.01);
+    assertEquals(70, ModelGraphConnectionGeometry.controlLength(new Point(0, 0), new Point(200, 0)), 0.01);
+    assertEquals(150, ModelGraphConnectionGeometry.controlLength(new Point(0, 0), new Point(500, 0)), 0.01);
+  }
+
+  @Test
+  void effectiveSegmentCountScalesWithScreenLength() {
+    assertEquals(20, ModelGraphConnectionGeometry.effectiveSegmentCount(120, 20));
+    assertEquals(38, ModelGraphConnectionGeometry.effectiveSegmentCount(300, 20));
+    assertEquals(38, ModelGraphConnectionGeometry.effectiveSegmentCount(300, 30));
+    assertEquals(200, ModelGraphConnectionGeometry.effectiveSegmentCount(5000, 20));
+  }
+
+  @Test
+  void splineLeavesBoxPerpendicularToBottomEdge() {
+    Bounds below = new Bounds(10, 120, 80, 40);
+    ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(BOX_A, below);
+    int[] polyline =
+        ModelGraphConnectionGeometry.splinePolyline(
+            anchors.from(), anchors.to(), BOX_A, below, 20);
+    assertTrue(polyline[3] > polyline[1], "first segment should continue downward from bottom edge");
+  }
+
+  @Test
+  void splineSegmentsReadsConfiguredValue() {
+    DataVaultConfig config = new DataVaultConfig();
+    config.setModelGraphSplineSegments(8);
+    assertEquals(8, config.getModelGraphSplineSegments());
+    config.setModelGraphSplineSegments(0);
+    assertEquals(DataVaultConfig.DEFAULT_MODEL_GRAPH_SPLINE_SEGMENTS, config.getModelGraphSplineSegments());
   }
 }

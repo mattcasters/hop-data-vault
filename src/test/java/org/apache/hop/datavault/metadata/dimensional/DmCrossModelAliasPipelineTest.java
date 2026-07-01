@@ -36,6 +36,7 @@ import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.dimensionlookup.DimensionLookupMeta;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -88,17 +89,22 @@ class DmCrossModelAliasPipelineTest {
     DimensionLookupMeta productLookupMeta = (DimensionLookupMeta) productLookup.getTransform();
     assertEquals("d_product", productLookupMeta.getTableName());
 
-    TransformMeta orderDateLookup =
-        pipelineMeta.getTransforms().stream()
-            .filter(t -> "lookup_dim_order_date".equals(t.getName()))
-            .findFirst()
-            .orElseThrow();
-    DimensionLookupMeta orderDateLookupMeta = (DimensionLookupMeta) orderDateLookup.getTransform();
-    assertEquals("d_date", orderDateLookupMeta.getTableName());
-    assertEquals("order_date_key", orderDateLookupMeta.getFields().getReturns().getKeyRename());
     assertTrue(
         pipelineMeta.getTransforms().stream()
-            .anyMatch(t -> "date_key_dim_order_date".equals(t.getName())));
+            .anyMatch(t -> "date_keys_format".equals(t.getName())));
+    assertTrue(
+        pipelineMeta.getTransforms().stream()
+            .anyMatch(t -> "date_keys_int".equals(t.getName())));
+    assertEquals(
+        2,
+        pipelineMeta.getTransforms().stream()
+            .filter(t -> t.getTransform() instanceof SelectValuesMeta)
+            .count());
+    assertEquals(
+        2,
+        pipelineMeta.getTransforms().stream()
+            .filter(t -> t.getTransform() instanceof DimensionLookupMeta)
+            .count());
   }
 
   private static IHopMetadataProvider testMetadataProvider() throws HopException {

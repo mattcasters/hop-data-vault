@@ -1,0 +1,188 @@
+<dimensional-model>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-f-order-lines.hdm</filename>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <description/>
+  <configuration>
+    <targetDatabase>Vault</targetDatabase>
+    <sourceDatabase>Vault</sourceDatabase>
+    <standardColumnsFolder/>
+    <dimKeyField>dim_key</dimKeyField>
+    <versionField>version</versionField>
+    <dateFromField>date_from</dateFromField>
+    <dateToField>date_to</dateToField>
+    <loadDateField>load_dt</loadDateField>
+    <currentFlagField>is_current</currentFlagField>
+    <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
+    <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
+    <targetTableBatchSize>1000</targetTableBatchSize>
+    <targetTableParallelCopies>2</targetTableParallelCopies>
+    <target_load_mode>Table Output</target_load_mode>
+    <bulkLoadStagingFolder>${java.io.tmpdir}/dv2/bulk/</bulkLoadStagingFolder>
+    <bulkLoadDelimiter>,</bulkLoadDelimiter>
+    <bulkLoadEnclosure>"</bulkLoadEnclosure>
+    <bulkLoadEncoding>UTF-8</bulkLoadEncoding>
+    <bulkLoadLocalFileRequired>Y</bulkLoadLocalFileRequired>
+    <generatedPipelineFolder/>
+    <dimensionPipelineNamePrefix>dm-dim-</dimensionPipelineNamePrefix>
+    <junkDimensionPipelineNamePrefix>dm-junk-</junkDimensionPipelineNamePrefix>
+    <bridgePipelineNamePrefix>dm-bridge-</bridgePipelineNamePrefix>
+    <factPipelineNamePrefix>dm-fact-</factPipelineNamePrefix>
+    <generatedWorkflowNamePrefix>DM Bulk Update - </generatedWorkflowNamePrefix>
+  </configuration>
+  <tables>
+    <table>
+      <referencedDimensionName>d_order</referencedDimensionName>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-order.hdm</referencedModelFilename>
+      <tableName>d_order</tableName>
+      <description/>
+      <tableType>DIMENSION_ALIAS</tableType>
+      <xloc>128</xloc>
+      <yloc>256</yloc>
+      <name>d_order</name>
+    </table>
+    <table>
+      <dimension_roles>
+        <dimension_role>
+          <dimensionTableName>d_order</dimensionTableName>
+          <foreignKeyColumn>order_hk</foreignKeyColumn>
+          <sourceFieldName>order_id</sourceFieldName>
+          <truncateToDateKey>N</truncateToDateKey>
+          <preloadLookupCache>Y</preloadLookupCache>
+        </dimension_role>
+        <dimension_role>
+          <dimensionTableName>d_product</dimensionTableName>
+          <foreignKeyColumn>product_hk</foreignKeyColumn>
+          <sourceFieldName>product_id</sourceFieldName>
+          <truncateToDateKey>N</truncateToDateKey>
+          <preloadLookupCache>Y</preloadLookupCache>
+        </dimension_role>
+        <dimension_role>
+          <dimensionTableName>d_order_date</dimensionTableName>
+          <foreignKeyColumn>order_date_key</foreignKeyColumn>
+          <sourceFieldName>order_date</sourceFieldName>
+          <truncateToDateKey>Y</truncateToDateKey>
+          <preloadLookupCache>N</preloadLookupCache>
+        </dimension_role>
+        <dimension_role>
+          <dimensionTableName>d_shipping_date</dimensionTableName>
+          <foreignKeyColumn>shipping_date_key</foreignKeyColumn>
+          <sourceFieldName>shipping_date</sourceFieldName>
+          <truncateToDateKey>Y</truncateToDateKey>
+          <preloadLookupCache>N</preloadLookupCache>
+        </dimension_role>
+        <dimension_role>
+          <dimensionTableName>d_delivery_date</dimensionTableName>
+          <foreignKeyColumn>delivery_date_key</foreignKeyColumn>
+          <sourceFieldName>delivery_date</sourceFieldName>
+          <truncateToDateKey>Y</truncateToDateKey>
+          <preloadLookupCache>N</preloadLookupCache>
+        </dimension_role>
+      </dimension_roles>
+      <measures>
+        <measure>
+          <fieldName>discount_pct</fieldName>
+          <additive>N</additive>
+        </measure>
+        <measure>
+          <fieldName>line_number</fieldName>
+          <additive>N</additive>
+        </measure>
+        <measure>
+          <fieldName>quantity</fieldName>
+          <additive>Y</additive>
+        </measure>
+        <measure>
+          <fieldName>unit_price</fieldName>
+          <additive>Y</additive>
+        </measure>
+      </measures>
+      <tableName>f_order_lines</tableName>
+      <description/>
+      <tableType>FACT</tableType>
+      <sourceConnection>Vault</sourceConnection>
+      <sourceSql>SELECT lol.order_hk,
+       ho.order_id,
+       lol.product_hk,
+       hp.product_id,
+       so.order_date,
+       so.delivery_date,
+       so.shipping_date,
+       slol.discount_pct,
+       slol.line_number,
+       slol.quantity,
+       slol.unit_price
+FROM   lnk_order_line lol
+JOIN   (
+         SELECT *
+         FROM (
+           SELECT so.*,
+                  ROW_NUMBER() OVER (PARTITION BY order_hk ORDER BY x_load_ts DESC) AS rn
+           FROM   sat_order so
+         ) x
+         WHERE  rn = 1
+       ) so ON lol.order_hk = so.order_hk
+JOIN   hub_order ho ON lol.order_hk = ho.order_hk
+JOIN   hub_product hp ON lol.product_hk = hp.product_hk
+JOIN   (
+         SELECT *
+         FROM (
+           SELECT slol.*,
+                  ROW_NUMBER() OVER (
+                    PARTITION BY lnk_order_line_hk, line_number
+                    ORDER BY x_load_ts DESC
+                  ) AS rn
+           FROM   sat_lnk_order_line slol
+         ) x
+         WHERE  rn = 1
+       ) slol ON lol.lnk_order_line_hk = slol.lnk_order_line_hk;
+</sourceSql>
+      <dimensionLookupDateField>order_date</dimensionLookupDateField>
+      <xloc>384</xloc>
+      <yloc>256</yloc>
+      <name>f_order_lines</name>
+    </table>
+    <table>
+      <referencedDimensionName>d_product</referencedDimensionName>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-product.hdm</referencedModelFilename>
+      <tableName>d_product</tableName>
+      <description/>
+      <tableType>DIMENSION_ALIAS</tableType>
+      <xloc>384</xloc>
+      <yloc>416</yloc>
+      <name>d_product</name>
+    </table>
+    <table>
+      <referencedDimensionName>d_date</referencedDimensionName>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-date.hdm</referencedModelFilename>
+      <tableName>d_date</tableName>
+      <description/>
+      <tableType>DIMENSION_ALIAS</tableType>
+      <xloc>672</xloc>
+      <yloc>176</yloc>
+      <name>d_order_date</name>
+    </table>
+    <table>
+      <referencedDimensionName>d_date</referencedDimensionName>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-date.hdm</referencedModelFilename>
+      <tableName>d_date</tableName>
+      <description/>
+      <tableType>DIMENSION_ALIAS</tableType>
+      <xloc>672</xloc>
+      <yloc>256</yloc>
+      <name>d_shipping_date</name>
+    </table>
+    <table>
+      <referencedDimensionName>d_date</referencedDimensionName>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-date.hdm</referencedModelFilename>
+      <tableName>d_date</tableName>
+      <description/>
+      <tableType>DIMENSION_ALIAS</tableType>
+      <xloc>672</xloc>
+      <yloc>336</yloc>
+      <name>d_delivery_date</name>
+    </table>
+  </tables>
+  <conformed_dimensions/>
+  <notes/>
+  <name>retail-f-order-lines</name>
+</dimensional-model>

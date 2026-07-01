@@ -40,6 +40,11 @@ public class DmFactDimensionRole {
 
   @HopMetadataProperty private boolean truncateToDateKey;
 
+  /**
+   * When true, generated fact pipelines enable Dimension Lookup preloading cache for this join.
+   */
+  @HopMetadataProperty private boolean preloadLookupCache;
+
   public DmFactDimensionRole(String dimensionTableName, String foreignKeyColumn) {
     this.dimensionTableName = dimensionTableName;
     this.foreignKeyColumn = foreignKeyColumn;

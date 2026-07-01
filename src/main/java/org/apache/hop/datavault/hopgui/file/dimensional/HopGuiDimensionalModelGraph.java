@@ -25,9 +25,12 @@ import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.DbCache;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.action.GuiContextAction;
+import org.apache.hop.core.action.GuiContextActionFilter;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.IGc;
@@ -51,6 +54,7 @@ import org.apache.hop.datavault.hopgui.file.modelgraph.HopGuiModelGraphBase;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphHit;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphMouseInteractions;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphSnapshotUndo;
+import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
@@ -82,6 +86,7 @@ import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.PropsUi;
+import org.apache.hop.ui.core.database.dialog.SqlEditor;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.CheckResultDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
@@ -144,6 +149,8 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       "HopGuiDimensionalModelGraph-ToolBar-10065-AI-Help";
   public static final String TOOLBAR_ITEM_DEBUG =
       "HopGuiDimensionalModelGraph-ToolBar-10070-Debug";
+  public static final String TOOLBAR_ITEM_GENERATE_DDL =
+      "HopGuiDimensionalModelGraph-ToolBar-10080-Generate-Ddl";
   public static final String TOOLBAR_ITEM_SELECT_ALL =
       "HopGuiDimensionalModelGraph-ToolBar-20010-Select-All";
   public static final String TOOLBAR_ITEM_UNSELECT_ALL =
@@ -1015,6 +1022,9 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     }
   }
 
+  private static final String ACTION_ID_GO_TO_ALIASED_DIMENSION =
+      "dm-graph-go-to-aliased-dimension";
+
   @GuiContextAction(
       id = "dm-graph-edit-table",
       parentId = HopGuiDimensionalTableContext.CONTEXT_ID,
@@ -1032,6 +1042,49 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = ACTION_ID_GO_TO_ALIASED_DIMENSION,
+      parentId = HopGuiDimensionalTableContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.GoToAliasedDimension.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.GoToAliasedDimension.Tooltip",
+      image = "ui/images/location.svg",
+      category = "Dimensional",
+      categoryOrder = "2")
+  public void goToAliasedDimensionAction(HopGuiDimensionalTableContext context) {
+    IDmTable table = context.getTable();
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    DimensionalModel dmModel = context.getModel();
+    if (!(table instanceof DmDimensionAlias alias) || graph == null || dmModel == null) {
+      return;
+    }
+    try {
+      DmDimensionAliasNavigationSupport.navigateToSourceDimension(
+          hopGui, dmModel, graph, alias, getVariables(), hopGui.getMetadataProvider());
+    } catch (HopException e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(
+              PKG, "HopGuiDimensionalModelGraph.GoToAliasedDimension.Error.Title"),
+          e.getMessage(),
+          e);
+    }
+  }
+
+  @GuiContextActionFilter(parentId = HopGuiDimensionalTableContext.CONTEXT_ID)
+  public boolean filterTableContextActions(
+      String contextActionId, HopGuiDimensionalTableContext context) {
+    if (ACTION_ID_GO_TO_ALIASED_DIMENSION.equals(contextActionId)) {
+      IDmTable table = context.getTable();
+      if (!(table instanceof DmDimensionAlias alias)) {
+        return false;
+      }
+      return DmDimensionAliasNavigationSupport.canNavigateToSourceDimension(
+          context.getModel(), alias, getVariables(), hopGui.getMetadataProvider());
+    }
+    return true;
+  }
+
+  @GuiContextAction(
       id = "dm-graph-delete-table",
       parentId = HopGuiDimensionalTableContext.CONTEXT_ID,
       type = GuiActionType.Delete,
@@ -1039,7 +1092,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.DeleteTable.Tooltip",
       image = "ui/images/delete.svg",
       category = "Dimensional",
-      categoryOrder = "2")
+      categoryOrder = "3")
   public void deleteTable(HopGuiDimensionalTableContext context) {
     IDmTable table = context.getTable();
     HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
@@ -1063,7 +1116,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.ShowUpdatePipeline.Tooltip",
       image = "ui/images/debug.svg",
       category = "Dimensional",
-      categoryOrder = "3")
+      categoryOrder = "4")
   public void showUpdatePipelineAction(HopGuiDimensionalTableContext context) {
     IDmTable table = context.getTable();
     HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
@@ -1127,6 +1180,65 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
               enableUndoToolbarItems();
             })
         .open();
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_GENERATE_DDL,
+      toolTip = "i18n::HopGuiDimensionalModelGraph.Toolbar.GenerateDdl.Tooltip",
+      image = "ui/images/database.svg")
+  public void generateModelDdl() {
+    if (model == null) {
+      return;
+    }
+
+    List<String> ddlStatements = new ArrayList<>();
+    for (IDmTable table : model.getTables()) {
+      if (table == null) {
+        continue;
+      }
+      try {
+        for (String ddl :
+            table.generateBuildDdl(hopGui.getMetadataProvider(), hopGui.getVariables(), model)) {
+          if (!Utils.isEmpty(ddl)) {
+            ddlStatements.add(ddl);
+          }
+        }
+      } catch (Exception e) {
+        String tableName =
+            !Utils.isEmpty(table.getTableName()) ? table.getTableName() : table.getName();
+        new ErrorDialog(
+            hopGui.getShell(), "Error", "Error generating DDL for table '" + tableName + "'", e);
+      }
+    }
+
+    ddlStatements = DvDdlSupport.deduplicateCreateTableDdl(ddlStatements);
+    if (!ddlStatements.isEmpty()) {
+      try {
+        DatabaseMeta dbMeta =
+            DmTargetDatabaseSupport.loadTargetDatabase(
+                hopGui.getMetadataProvider(), model.getConfigurationOrDefault());
+        if (dbMeta != null) {
+          String sql = String.join("\n", ddlStatements);
+          SqlEditor sqlEditor =
+              new SqlEditor(
+                  hopGui.getShell(),
+                  SWT.NONE,
+                  hopGui.getVariables(),
+                  dbMeta,
+                  DbCache.getInstance(),
+                  sql);
+          sqlEditor.open();
+        }
+      } catch (Exception e) {
+        new ErrorDialog(hopGui.getShell(), "Error", "Error opening DDL SQL editor", e);
+      }
+    } else {
+      MessageBox box = new MessageBox(hopGui.getShell(), SWT.OK | SWT.ICON_INFORMATION);
+      box.setText(BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.NoDdlNeeded.Title"));
+      box.setMessage(BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.NoDdlNeeded.Message"));
+      box.open();
+    }
   }
 
   @GuiToolbarElement(
@@ -1574,6 +1686,11 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
 
   @Override
   protected void navigateToNoteLinkTable(String tableName) {
+    navigateToTable(tableName);
+  }
+
+  /** Selects and centers a table on this graph canvas. */
+  public void navigateToTable(String tableName) {
     if (model == null || Utils.isEmpty(tableName)) {
       return;
     }

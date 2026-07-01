@@ -82,7 +82,7 @@ public class DmAccumulatingSnapshotFact extends DmTableBase implements IDmFactLi
     DimensionalConfiguration config =
         model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
     return DmLayoutSupport.buildAccumulatingSnapshotFactTargetTableLayout(
-        this, model, config, variables);
+        this, model, config, variables, metadataProvider);
   }
 
   @Override

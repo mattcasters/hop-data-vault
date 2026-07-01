@@ -58,6 +58,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DmTableType;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
@@ -112,6 +113,7 @@ public class HopGuiDmTableDialog {
   private ColumnInfo attributeFieldColumn;
   private TableView wOutriggers;
   private TableView wDimensionRoles;
+  private Combo wDimensionLookupDateField;
   private ColumnInfo dimensionJoinSourceFieldColumn;
   private TableView wMeasures;
   private ColumnInfo measureFieldColumn;
@@ -441,12 +443,6 @@ public class HopGuiDmTableDialog {
     wlReferencedModelFilename.setLayoutData(
         new FormDataBuilder().left().top(0, margin).right(middle, -margin).result());
 
-    wReferencedModelFilename = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wReferencedModelFilename);
-    wReferencedModelFilename.addListener(SWT.Modify, e -> refreshReferencedDimensionChoices());
-    wReferencedModelFilename.setLayoutData(
-        new FormDataBuilder().left(middle, 0).top(0, margin).right(100, -margin).result());
-
     Button wBrowseReferencedModel = new Button(comp, SWT.PUSH);
     wBrowseReferencedModel.setText(
         BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedModelFilename.Browse.Label"));
@@ -454,7 +450,7 @@ public class HopGuiDmTableDialog {
         BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedModelFilename.Browse.ToolTip"));
     PropsUi.setLook(wBrowseReferencedModel);
     wBrowseReferencedModel.setLayoutData(
-        new FormDataBuilder().right().top(0, margin).width(100).result());
+        new FormDataBuilder().right().top(0, margin).result());
     wBrowseReferencedModel.addListener(SWT.Selection, e -> browseReferencedModelFilename());
 
     Label wlReferencedDimension = new Label(comp, SWT.RIGHT);
@@ -467,6 +463,12 @@ public class HopGuiDmTableDialog {
             .top(wReferencedModelFilename, margin)
             .right(middle, -margin)
             .result());
+
+    wReferencedModelFilename = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wReferencedModelFilename);
+    wReferencedModelFilename.addListener(SWT.Modify, e -> refreshReferencedDimensionChoices());
+    wReferencedModelFilename.setLayoutData(
+            new FormDataBuilder().left(middle, 0).top(0, margin).right(wBrowseReferencedModel, -margin).result());
 
     wReferencedDimension = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
     PropsUi.setLook(wReferencedDimension);
@@ -816,6 +818,16 @@ public class HopGuiDmTableDialog {
             false);
     factKeyColumn.setToolTip(
         BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.Column.ForeignKey.ToolTip"));
+    ColumnInfo preloadCacheColumn =
+        new ColumnInfo(
+            BaseMessages.getString(
+                PKG, "HopGuiDmTableDialog.DimensionRoles.Column.PreloadCache"),
+            ColumnInfo.COLUMN_TYPE_CCOMBO,
+            new String[] {"N", "Y"},
+            true);
+    preloadCacheColumn.setToolTip(
+        BaseMessages.getString(
+            PKG, "HopGuiDmTableDialog.DimensionRoles.Column.PreloadCache.ToolTip"));
     ColumnInfo[] roleColumns =
         new ColumnInfo[] {
           new ColumnInfo(
@@ -830,8 +842,24 @@ public class HopGuiDmTableDialog {
                   PKG, "HopGuiDmTableDialog.DimensionRoles.Column.TruncateToDate"),
               ColumnInfo.COLUMN_TYPE_CCOMBO,
               new String[] {"N", "Y"},
-              true)
+              true),
+          preloadCacheColumn
         };
+
+    Label wlDimensionLookupDate = new Label(comp, SWT.RIGHT);
+    wlDimensionLookupDate.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.LookupDateField.Label"));
+    PropsUi.setLook(wlDimensionLookupDate);
+    wlDimensionLookupDate.setLayoutData(
+        new FormDataBuilder().left().top(0, margin).right(middle, -margin).result());
+    wlDimensionLookupDate.setToolTipText(
+        BaseMessages.getString(
+            PKG, "HopGuiDmTableDialog.DimensionRoles.LookupDateField.ToolTip"));
+
+    wDimensionLookupDateField = new Combo(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wDimensionLookupDateField);
+    wDimensionLookupDateField.setLayoutData(
+        new FormDataBuilder().left(middle, 0).top(0, margin).right().result());
 
     Button wGetJoins = new Button(comp, SWT.PUSH);
     wGetJoins.setText(
@@ -854,7 +882,7 @@ public class HopGuiDmTableDialog {
     wDimensionRoles.setLayoutData(
         new FormDataBuilder()
             .left()
-            .top(0, margin)
+            .top(wDimensionLookupDateField, margin)
             .right()
             .bottom(wGetJoins, -margin)
             .result());
@@ -1074,6 +1102,12 @@ public class HopGuiDmTableDialog {
     }
 
     if (factLike && input instanceof IDmFactLikeTable factLikeTable) {
+      if (wDimensionLookupDateField != null && input instanceof DmTableBase table) {
+        refreshDimensionLookupDateComboChoices();
+        if (!Utils.isEmpty(table.getDimensionLookupDateField())) {
+          wDimensionLookupDateField.setText(table.getDimensionLookupDateField());
+        }
+      }
       wDimensionRoles.clearAll();
       for (DmFactDimensionRole role : factLikeTable.getDimensionRolesOrEmpty()) {
         if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
@@ -1088,6 +1122,7 @@ public class HopGuiDmTableDialog {
           item.setText(3, role.getForeignKeyColumn());
         }
         item.setText(4, role.isTruncateToDateKey() ? "Y" : "N");
+        item.setText(5, role.isPreloadLookupCache() ? "Y" : "N");
       }
       wDimensionRoles.removeEmptyRows();
       wDimensionRoles.setRowNums();
@@ -1209,6 +1244,12 @@ public class HopGuiDmTableDialog {
           continue;
         }
         dmDimension.getOutriggers().add(new DmDimensionOutriggerRef(dimensionName, item.getText(2)));
+      }
+    }
+
+    if (factLike && input instanceof DmTableBase table) {
+      if (wDimensionLookupDateField != null) {
+        table.setDimensionLookupDateField(wDimensionLookupDateField.getText());
       }
     }
 
@@ -1342,6 +1383,7 @@ public class HopGuiDmTableDialog {
         item.setText(2, fieldName);
         item.setText(3, defaultForeignKeyForDimensionName(dimensionName));
         item.setText(4, looksLikeDateSourceField(fieldName) ? "Y" : "N");
+        item.setText(5, "N");
       }
       wDimensionRoles.removeEmptyRows();
       wDimensionRoles.setRowNums();
@@ -1425,6 +1467,7 @@ public class HopGuiDmTableDialog {
       role.setSourceFieldName(item.getText(2));
       role.setForeignKeyColumn(item.getText(3));
       role.setTruncateToDateKey("Y".equalsIgnoreCase(item.getText(4)));
+      role.setPreloadLookupCache("Y".equalsIgnoreCase(item.getText(5)));
       roles.add(role);
     }
     return roles;
@@ -1474,6 +1517,32 @@ public class HopGuiDmTableDialog {
     if (dimensionJoinSourceFieldColumn != null) {
       dimensionJoinSourceFieldColumn.setComboValues(
           ConstUi.sortFieldNames(choices.toArray(new String[0])));
+    }
+    refreshDimensionLookupDateComboChoices(choices);
+  }
+
+  private void refreshDimensionLookupDateComboChoices() {
+    Set<String> choices = new LinkedHashSet<>();
+    try {
+      choices.addAll(loadSourceFieldNames());
+    } catch (HopException ignored) {
+      // Use fields already configured on the table when the source cannot be resolved yet.
+    }
+    refreshDimensionLookupDateComboChoices(choices);
+  }
+
+  private void refreshDimensionLookupDateComboChoices(Set<String> choices) {
+    if (wDimensionLookupDateField == null) {
+      return;
+    }
+    if (input instanceof DmTableBase table
+        && !Utils.isEmpty(table.getDimensionLookupDateField())) {
+      choices.add(table.getDimensionLookupDateField());
+    }
+    String current = wDimensionLookupDateField.getText();
+    wDimensionLookupDateField.setItems(ConstUi.sortFieldNames(choices.toArray(new String[0])));
+    if (!Utils.isEmpty(current)) {
+      wDimensionLookupDateField.setText(current);
     }
   }
 

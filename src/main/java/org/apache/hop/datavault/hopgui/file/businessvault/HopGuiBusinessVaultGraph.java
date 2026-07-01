@@ -28,8 +28,10 @@ import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.DbCache;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.exception.HopException;
@@ -63,6 +65,7 @@ import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
 import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
@@ -83,6 +86,7 @@ import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.PropsUi;
+import org.apache.hop.ui.core.database.dialog.SqlEditor;
 import org.apache.hop.ui.hopgui.context.GuiContextUtil;
 import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
 import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
@@ -146,6 +150,8 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       "HopGuiBusinessVaultGraph-ToolBar-10070-Reload-Dv";
   public static final String TOOLBAR_ITEM_DEBUG =
       "HopGuiBusinessVaultGraph-ToolBar-10080-Debug";
+  public static final String TOOLBAR_ITEM_GENERATE_DDL =
+      "HopGuiBusinessVaultGraph-ToolBar-10085-Generate-Ddl";
   public static final String TOOLBAR_ITEM_SELECT_ALL =
       "HopGuiBusinessVaultGraph-ToolBar-20010-Select-All";
   public static final String TOOLBAR_ITEM_UNSELECT_ALL =
@@ -1317,6 +1323,69 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     }
     showCheckResultsDialog(remarks);
     return false;
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_GENERATE_DDL,
+      toolTip = "i18n::HopGuiBusinessVaultGraph.Toolbar.GenerateDdl.Tooltip",
+      image = "ui/images/database.svg")
+  public void generateModelDdl() {
+    if (model == null) {
+      return;
+    }
+    if (!ensureDataVaultModelLoaded()) {
+      return;
+    }
+
+    List<String> ddlStatements = new ArrayList<>();
+    for (IBvTable table : model.getTables()) {
+      if (table == null) {
+        continue;
+      }
+      try {
+        for (String ddl :
+            table.generateBuildDdl(
+                hopGui.getMetadataProvider(), hopGui.getVariables(), model, dataVaultModel)) {
+          if (!Utils.isEmpty(ddl)) {
+            ddlStatements.add(ddl);
+          }
+        }
+      } catch (Exception e) {
+        String tableName =
+            !Utils.isEmpty(table.getTableName()) ? table.getTableName() : table.getName();
+        new ErrorDialog(
+            hopGui.getShell(), "Error", "Error generating DDL for table '" + tableName + "'", e);
+      }
+    }
+
+    ddlStatements = DvDdlSupport.deduplicateCreateTableDdl(ddlStatements);
+    if (!ddlStatements.isEmpty()) {
+      try {
+        DatabaseMeta dbMeta =
+            BvTargetDatabaseSupport.loadTargetDatabase(
+                hopGui.getMetadataProvider(), model.getConfigurationOrDefault());
+        if (dbMeta != null) {
+          String sql = String.join("\n", ddlStatements);
+          SqlEditor sqlEditor =
+              new SqlEditor(
+                  hopGui.getShell(),
+                  SWT.NONE,
+                  hopGui.getVariables(),
+                  dbMeta,
+                  DbCache.getInstance(),
+                  sql);
+          sqlEditor.open();
+        }
+      } catch (Exception e) {
+        new ErrorDialog(hopGui.getShell(), "Error", "Error opening DDL SQL editor", e);
+      }
+    } else {
+      MessageBox box = new MessageBox(hopGui.getShell(), SWT.OK | SWT.ICON_INFORMATION);
+      box.setText(BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.NoDdlNeeded.Title"));
+      box.setMessage(BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.NoDdlNeeded.Message"));
+      box.open();
+    }
   }
 
   @GuiToolbarElement(

@@ -70,7 +70,8 @@ public class DmFactlessFact extends DmTableBase implements IDmFactLikeTable {
       throws HopException {
     DimensionalConfiguration config =
         model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
-    return DmLayoutSupport.buildFactlessFactTargetTableLayout(this, model, config, variables);
+    return DmLayoutSupport.buildFactlessFactTargetTableLayout(
+        this, model, config, variables, metadataProvider);
   }
 
   @Override

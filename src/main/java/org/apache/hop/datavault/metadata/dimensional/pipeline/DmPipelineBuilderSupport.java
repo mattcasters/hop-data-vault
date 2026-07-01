@@ -141,6 +141,17 @@ public final class DmPipelineBuilderSupport {
     }
   }
 
+  public static String resolveFactDimensionLookupDateField(BuildContext ctx) {
+    if (ctx == null || ctx.table == null) {
+      return null;
+    }
+    String lookupDateField = ctx.table.getDimensionLookupDateField();
+    if (ctx.variables != null) {
+      lookupDateField = ctx.variables.resolve(lookupDateField);
+    }
+    return lookupDateField;
+  }
+
   public static TransformMeta addSourceTableInput(BuildContext ctx, PipelineMeta pipelineMeta) {
     TableInputMeta tableInputMeta = new TableInputMeta();
     tableInputMeta.setConnection(ctx.sourceDbName);

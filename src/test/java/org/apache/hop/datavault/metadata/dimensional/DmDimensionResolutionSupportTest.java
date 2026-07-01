@@ -108,6 +108,25 @@ class DmDimensionResolutionSupportTest {
   }
 
   @Test
+  void resolvesAliasSourceModelDisplayNameForExternalAndLocalAliases() throws Exception {
+    DimensionalModel crossModel = loadCrossModelAliasFixture();
+    DmDimensionAlias externalCustomer =
+        (DmDimensionAlias) crossModel.findTable("dim_customer");
+    assertEquals(
+        "shared-conformed",
+        DmDimensionResolutionSupport.resolveAliasSourceModelDisplayName(
+            crossModel, externalCustomer, new Variables()));
+
+    DimensionalModel localModel = loadDateRolePlayingModel();
+    DmDimensionAlias localOrderDate =
+        (DmDimensionAlias) localModel.findTable("dim_order_date");
+    assertEquals(
+        "date-role-playing",
+        DmDimensionResolutionSupport.resolveAliasSourceModelDisplayName(
+            localModel, localOrderDate, new Variables()));
+  }
+
+  @Test
   void dateTemplateCreatesExpectedAttributes() {
     DmDimension dateDimension = DmDateDimensionTemplate.createDateDimension(null);
     assertEquals("dim_date", dateDimension.getName());

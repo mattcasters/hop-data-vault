@@ -1,0 +1,79 @@
+<dimensional-model>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-order.hdm</filename>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <description>Retail warehouse star schema with date role-playing and extended catalog tables</description>
+  <configuration>
+    <targetDatabase>Vault</targetDatabase>
+    <dimKeyField>dim_key</dimKeyField>
+    <versionField>version</versionField>
+    <dateFromField>date_from</dateFromField>
+    <dateToField>date_to</dateToField>
+    <loadDateField>load_dt</loadDateField>
+    <currentFlagField>is_current</currentFlagField>
+    <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
+    <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
+    <targetTableBatchSize>1000</targetTableBatchSize>
+    <targetTableParallelCopies>1</targetTableParallelCopies>
+    <target_load_mode>Table Output</target_load_mode>
+    <bulkLoadStagingFolder>${java.io.tmpdir}/dv2/bulk/</bulkLoadStagingFolder>
+    <bulkLoadDelimiter>,</bulkLoadDelimiter>
+    <bulkLoadEnclosure>"</bulkLoadEnclosure>
+    <bulkLoadEncoding>UTF-8</bulkLoadEncoding>
+    <bulkLoadLocalFileRequired>N</bulkLoadLocalFileRequired>
+    <dimensionPipelineNamePrefix>dm-dim-</dimensionPipelineNamePrefix>
+    <junkDimensionPipelineNamePrefix>dm-junk-</junkDimensionPipelineNamePrefix>
+    <bridgePipelineNamePrefix>dm-bridge-</bridgePipelineNamePrefix>
+    <factPipelineNamePrefix>dm-fact-</factPipelineNamePrefix>
+    <generatedWorkflowNamePrefix>DM Bulk Update - </generatedWorkflowNamePrefix>
+  </configuration>
+  <tables>
+    <table>
+      <scdType>TYPE2</scdType>
+      <natural_keys>
+        <natural_key>
+          <fieldName>order_id</fieldName>
+        </natural_key>
+      </natural_keys>
+      <attributes>
+        <attribute>
+          <fieldName>order_date</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>shipping_date</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>delivery_date</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>order_status</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>total_amount</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+      </attributes>
+      <outriggers/>
+      <surrogateKeyField>order_hk</surrogateKeyField>
+      <surrogateKeyStrategy>USE_SOURCE_FIELD</surrogateKeyStrategy>
+      <surrogateKeySourceField>order_hk</surrogateKeySourceField>
+      <tableName>d_order</tableName>
+      <description/>
+      <tableType>DIMENSION</tableType>
+      <sourceConnection>Vault</sourceConnection>
+      <sourceSql>SELECT ho.order_id, so.* 
+FROM   sat_order so
+JOIN   hub_order ho
+  ON   so.order_hk = ho.order_hk</sourceSql>
+      <xloc>48</xloc>
+      <yloc>32</yloc>
+      <name>d_order</name>
+    </table>
+  </tables>
+  <conformed_dimensions/>
+  <notes/>
+  <name>retail-d-order</name>
+</dimensional-model>

@@ -20,13 +20,9 @@ package org.apache.hop.datavault.metadata.dimensional.pipeline;
 
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.row.IRowMeta;
-import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
-import org.apache.hop.datavault.metadata.dimensional.DmDimension;
-import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.IDmFactLikeTable;
-import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
@@ -55,23 +51,18 @@ public final class DmFactLikeLoadBuilder {
     pipelineMeta.setName(ctx.pipelineName);
 
     TransformMeta predecessor = DmPipelineBuilderSupport.addSourceTableInput(ctx, pipelineMeta);
-    for (DmFactDimensionRole role : factLike.getDimensionRolesOrEmpty()) {
-      if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
-        continue;
-      }
-      DmDimension dimension =
-          DmDimensionResolutionSupport.resolveDimension(
-              model, role.getDimensionTableName(), ctx.variables, metadataProvider);
-      if (dimension == null) {
-        throw new HopException(
-            "Table "
-                + factLike.getName()
-                + " references unknown dimension "
-                + role.getDimensionTableName());
-      }
+    try {
       predecessor =
-          DmFactDimensionJoinBuilder.addFactDimensionJoin(
-              ctx, pipelineMeta, predecessor, dimension, role);
+          DmFactDimensionJoinBuilder.wireDimensionRoles(
+              ctx,
+              pipelineMeta,
+              predecessor,
+              model,
+              metadataProvider,
+              factLike.getDimensionRolesOrEmpty());
+    } catch (HopException e) {
+      throw new HopException(
+          "Table " + factLike.getName() + ": " + e.getMessage(), e);
     }
 
     IRowMeta targetLayout = factLike.getTargetTableLayout(metadataProvider, variables, model);

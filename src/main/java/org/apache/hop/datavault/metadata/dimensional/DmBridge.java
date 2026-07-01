@@ -66,7 +66,8 @@ public class DmBridge extends DmTableBase {
       throws HopException {
     DimensionalConfiguration config =
         model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
-    return DmLayoutSupport.buildBridgeTargetTableLayout(this, model, config, variables);
+    return DmLayoutSupport.buildBridgeTargetTableLayout(
+        this, model, config, variables, metadataProvider);
   }
 
   @Override

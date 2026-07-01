@@ -24,8 +24,6 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmAccumulatingSnapshotFact;
-import org.apache.hop.datavault.metadata.dimensional.DmDimension;
-import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmFactMeasure;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
@@ -59,23 +57,18 @@ public final class DmAccumulatingSnapshotLoadBuilder {
     pipelineMeta.setName(ctx.pipelineName);
 
     TransformMeta predecessor = DmPipelineBuilderSupport.addSourceTableInput(ctx, pipelineMeta);
-    for (DmFactDimensionRole role : fact.getDimensionRolesOrEmpty()) {
-      if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
-        continue;
-      }
-      DmDimension dimension =
-          DmDimensionResolutionSupport.resolveDimension(
-              model, role.getDimensionTableName(), ctx.variables, metadataProvider);
-      if (dimension == null) {
-        throw new HopException(
-            "Accumulating snapshot "
-                + fact.getName()
-                + " references unknown dimension "
-                + role.getDimensionTableName());
-      }
+    try {
       predecessor =
-          DmFactDimensionJoinBuilder.addFactDimensionJoin(
-              ctx, pipelineMeta, predecessor, dimension, role);
+          DmFactDimensionJoinBuilder.wireDimensionRoles(
+              ctx,
+              pipelineMeta,
+              predecessor,
+              model,
+              metadataProvider,
+              fact.getDimensionRolesOrEmpty());
+    } catch (HopException e) {
+      throw new HopException(
+          "Accumulating snapshot " + fact.getName() + ": " + e.getMessage(), e);
     }
 
     addInsertUpdate(ctx, pipelineMeta, predecessor, fact);

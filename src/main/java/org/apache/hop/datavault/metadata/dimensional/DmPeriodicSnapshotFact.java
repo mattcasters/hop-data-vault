@@ -75,7 +75,8 @@ public class DmPeriodicSnapshotFact extends DmTableBase implements IDmFactLikeTa
       throws HopException {
     DimensionalConfiguration config =
         model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
-    return DmLayoutSupport.buildPeriodicSnapshotFactTargetTableLayout(this, model, config, variables);
+    return DmLayoutSupport.buildPeriodicSnapshotFactTargetTableLayout(
+        this, model, config, variables, metadataProvider);
   }
 
   @Override

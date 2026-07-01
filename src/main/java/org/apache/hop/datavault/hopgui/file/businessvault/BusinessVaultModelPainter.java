@@ -36,7 +36,8 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
-import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.ConnectionAnchors;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphTableNameHitArea;
+
 import org.apache.hop.datavault.hopgui.file.vault.BasePainter;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
@@ -176,8 +177,7 @@ public class BusinessVaultModelPainter extends BasePainter {
                 target.getDrawnBoxWidth(),
                 target.getDrawnBoxHeight(),
                 minSize);
-        ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(bvBounds, dvBounds);
-        gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
+        ModelGraphConnectionGeometry.drawConnectionSpline(gc, bvBounds, dvBounds);
       }
     }
 
@@ -250,8 +250,7 @@ public class BusinessVaultModelPainter extends BasePainter {
           continue;
         }
         Bounds dvBounds = getDvReferenceBounds(target);
-        ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(bvBounds, dvBounds);
-        gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
+        ModelGraphConnectionGeometry.drawConnectionSpline(gc, bvBounds, dvBounds);
       }
     }
     gc.setLineStyle(ELineStyle.SOLID);
@@ -272,33 +271,19 @@ public class BusinessVaultModelPainter extends BasePainter {
       return;
     }
 
-    Point lineStart;
-    Point lineEnd;
-    if (isCandidateRelationshipValid()) {
-      Bounds targetBounds = getCandidateTargetBounds();
-      if (targetBounds != null) {
-        ConnectionAnchors anchors =
-            ModelGraphConnectionGeometry.anchorsBetween(sourceBounds, targetBounds);
-        lineStart = anchors.from();
-        lineEnd = anchors.to();
-      } else {
-        lineStart =
-            ModelGraphConnectionGeometry.anchorToward(
-                sourceBounds, ModelGraphConnectionGeometry.pointBounds(logEnd.x, logEnd.y));
-        lineEnd = logEnd;
-      }
-    } else {
-      lineStart =
-          ModelGraphConnectionGeometry.anchorToward(
-              sourceBounds, ModelGraphConnectionGeometry.pointBounds(logEnd.x, logEnd.y));
-      lineEnd = logEnd;
-    }
-
     boolean validTarget = isCandidateRelationshipValid();
     gc.setForeground(validTarget ? EColor.BLUE : EColor.DARKGRAY);
     gc.setLineWidth(2);
     gc.setLineStyle(ELineStyle.DASH);
-    gc.drawLine(lineStart.x, lineStart.y, lineEnd.x, lineEnd.y);
+    Bounds targetBounds = validTarget ? getCandidateTargetBounds() : null;
+    if (targetBounds != null) {
+      ModelGraphConnectionGeometry.drawConnectionSpline(gc, sourceBounds, targetBounds);
+    } else {
+      Bounds cursorBounds = ModelGraphConnectionGeometry.pointBounds(logEnd.x, logEnd.y);
+      Point lineStart = ModelGraphConnectionGeometry.anchorToward(sourceBounds, cursorBounds);
+      ModelGraphConnectionGeometry.drawConnectionSpline(
+          gc, lineStart, logEnd, sourceBounds, cursorBounds);
+    }
     gc.setLineStyle(ELineStyle.SOLID);
     gc.setLineWidth(1);
     gc.setForeground(EColor.BLACK);
@@ -470,13 +455,15 @@ public class BusinessVaultModelPainter extends BasePainter {
                 reference,
                 name));
         Point nameExtent = gc.textExtent(name);
+        ModelGraphTableNameHitArea.Bounds nameHit =
+            ModelGraphTableNameHitArea.bounds(nameX, nameY, nameExtent);
         areaOwners.add(
             new AreaOwner(
                 AreaType.TRANSFORM_NAME,
-                nameX,
-                nameY,
-                Math.max(1, nameExtent.x),
-                Math.max(1, nameExtent.y),
+                nameHit.x(),
+                nameHit.y(),
+                nameHit.width(),
+                nameHit.height(),
                 offset,
                 reference,
                 name));
@@ -551,13 +538,15 @@ public class BusinessVaultModelPainter extends BasePainter {
             new AreaOwner(
                 AreaType.TRANSFORM_ICON, x, y, boxWidth, boxHeight, offset, table, label));
         Point nameExtent = gc.textExtent(label);
+        ModelGraphTableNameHitArea.Bounds nameHit =
+            ModelGraphTableNameHitArea.bounds(x + 8, y + 8, nameExtent);
         areaOwners.add(
             new AreaOwner(
                 AreaType.TRANSFORM_NAME,
-                x + 8,
-                y + 8,
-                Math.max(1, nameExtent.x),
-                Math.max(1, nameExtent.y),
+                nameHit.x(),
+                nameHit.y(),
+                nameHit.width(),
+                nameHit.height(),
                 offset,
                 table,
                 label));

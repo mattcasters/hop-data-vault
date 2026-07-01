@@ -28,9 +28,11 @@ public class DataVaultConfig {
 
   public static final String HOP_CONFIG_DATA_VAULT_CONFIG_KEY = "dataVaultConfig";
   public static final int DEFAULT_MAX_UNDO_OPERATIONS = 200;
+  public static final int DEFAULT_MODEL_GRAPH_SPLINE_SEGMENTS = 20;
 
   private boolean drawingHashKeysInModel;
   private int maxUndoOperations = DEFAULT_MAX_UNDO_OPERATIONS;
+  private int modelGraphSplineSegments = DEFAULT_MODEL_GRAPH_SPLINE_SEGMENTS;
   private ElkLayout elkLayout = ElkLayout.createDefault();
   private boolean suppressLocalCatalogOffer;
 
@@ -67,6 +69,7 @@ public class DataVaultConfig {
     aiModelName = config.aiModelName;
     aiTemperature = config.aiTemperature;
     setMaxUndoOperations(config.maxUndoOperations);
+    setModelGraphSplineSegments(config.modelGraphSplineSegments);
     setElkLayout(new ElkLayout(config.getElkLayout()));
   }
 
@@ -85,5 +88,18 @@ public class DataVaultConfig {
 
   public void setElkLayout(ElkLayout elkLayout) {
     this.elkLayout = elkLayout != null ? elkLayout : ElkLayout.createDefault();
+  }
+
+  public int getModelGraphSplineSegments() {
+    return modelGraphSplineSegments > 0
+        ? modelGraphSplineSegments
+        : DEFAULT_MODEL_GRAPH_SPLINE_SEGMENTS;
+  }
+
+  public void setModelGraphSplineSegments(int modelGraphSplineSegments) {
+    this.modelGraphSplineSegments =
+        modelGraphSplineSegments > 0
+            ? modelGraphSplineSegments
+            : DEFAULT_MODEL_GRAPH_SPLINE_SEGMENTS;
   }
 }

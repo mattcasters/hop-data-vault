@@ -231,8 +231,8 @@
       <tableType>SATELLITE</tableType>
       <integrationMode>HOP_MANAGED</integrationMode>
       <customUpdatePipelinePaths/>
-      <xloc>64</xloc>
-      <yloc>240</yloc>
+      <xloc>112</xloc>
+      <yloc>304</yloc>
       <name>sat_customer_prefs</name>
       <virtualPath/>
     </table>
@@ -531,8 +531,8 @@
       <tableType>HUB</tableType>
       <integrationMode>HOP_MANAGED</integrationMode>
       <customUpdatePipelinePaths/>
-      <xloc>592</xloc>
-      <yloc>512</yloc>
+      <xloc>544</xloc>
+      <yloc>448</yloc>
       <name>hub_warehouse</name>
       <virtualPath/>
     </table>
@@ -582,8 +582,8 @@
       <tableType>SATELLITE</tableType>
       <integrationMode>HOP_MANAGED</integrationMode>
       <customUpdatePipelinePaths/>
-      <xloc>832</xloc>
-      <yloc>512</yloc>
+      <xloc>784</xloc>
+      <yloc>448</yloc>
       <name>sat_warehouse</name>
       <virtualPath/>
     </table>
@@ -648,8 +648,8 @@
       <tableType>LINK</tableType>
       <integrationMode>HOP_MANAGED</integrationMode>
       <customUpdatePipelinePaths/>
-      <xloc>560</xloc>
-      <yloc>672</yloc>
+      <xloc>512</xloc>
+      <yloc>608</yloc>
       <name>lnk_warehouse_product</name>
       <virtualPath/>
     </table>
@@ -684,8 +684,8 @@
       <tableType>SATELLITE</tableType>
       <integrationMode>HOP_MANAGED</integrationMode>
       <customUpdatePipelinePaths/>
-      <xloc>816</xloc>
-      <yloc>672</yloc>
+      <xloc>768</xloc>
+      <yloc>608</yloc>
       <name>sat_lnk_warehouse_product</name>
       <virtualPath/>
     </table>
@@ -729,21 +729,12 @@
       <tableType>LINK</tableType>
       <integrationMode>HOP_MANAGED</integrationMode>
       <customUpdatePipelinePaths/>
-      <xloc>608</xloc>
+      <xloc>592</xloc>
       <yloc>64</yloc>
       <name>lnk_order</name>
       <virtualPath/>
     </table>
   </tables>
-  <notes>
-    <note>
-      <text>Visit [hop.apache.org](https://hop.apache.org)!</text>
-      <noteType>GENERAL</noteType>
-      <xloc>896</xloc>
-      <yloc>48</yloc>
-      <width>32</width>
-      <height>32</height>
-    </note>
-  </notes>
+  <notes/>
   <name>retail-360</name>
 </data-vault-model>

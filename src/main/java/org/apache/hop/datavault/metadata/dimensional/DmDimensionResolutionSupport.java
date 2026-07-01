@@ -129,6 +129,29 @@ public final class DmDimensionResolutionSupport {
     return alias != null && !Utils.isEmpty(alias.getReferencedModelFilename());
   }
 
+  /** Label for the model that owns the alias target dimension (external path basename or this model). */
+  public static String resolveAliasSourceModelDisplayName(
+      DimensionalModel model, DmDimensionAlias alias, IVariables variables) {
+    if (alias == null) {
+      return "";
+    }
+    if (isExternalDimensionAlias(alias)) {
+      return modelBasename(resolve(alias.getReferencedModelFilename(), variables));
+    }
+    return resolveModelDisplayName(model, variables);
+  }
+
+  public static String resolveModelDisplayName(DimensionalModel model, IVariables variables) {
+    if (model == null) {
+      return "";
+    }
+    String name = resolve(model.getName(), variables);
+    if (!Utils.isEmpty(name)) {
+      return name;
+    }
+    return modelBasename(resolve(model.getFilename(), variables));
+  }
+
   public static boolean isDimensionLike(DimensionalModel model, String tableName) {
     if (model == null || Utils.isEmpty(tableName)) {
       return false;
@@ -144,5 +167,20 @@ public final class DmDimensionResolutionSupport {
       return null;
     }
     return variables != null ? variables.resolve(value) : value;
+  }
+
+  private static String modelBasename(String path) {
+    if (Utils.isEmpty(path)) {
+      return "";
+    }
+    String normalized = path.replace('\\', '/');
+    int slash = normalized.lastIndexOf('/');
+    if (slash >= 0) {
+      normalized = normalized.substring(slash + 1);
+    }
+    if (normalized.endsWith(".hdm")) {
+      normalized = normalized.substring(0, normalized.length() - 4);
+    }
+    return normalized;
   }
 }

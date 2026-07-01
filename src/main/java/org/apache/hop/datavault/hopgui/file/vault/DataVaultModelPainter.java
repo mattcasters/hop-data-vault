@@ -47,7 +47,8 @@ import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
-import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.ConnectionAnchors;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphTableNameHitArea;
+
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
 
@@ -208,8 +209,7 @@ public class DataVaultModelPainter extends BasePainter {
           Point hLoc = real2screen(hubLoc.x, hubLoc.y);
           Point hubBox = calculateTableBoxSize(hub);
           Bounds hubBounds = new Bounds(hLoc.x, hLoc.y, hubBox.x, hubBox.y);
-          ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(hubBounds, linkBounds);
-          gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
+          ModelGraphConnectionGeometry.drawConnectionSpline(gc, hubBounds, linkBounds);
         }
       }
     }
@@ -238,9 +238,7 @@ public class DataVaultModelPainter extends BasePainter {
             Point pLoc = real2screen(pLocation.x, pLocation.y);
             Point pBox = calculateTableBoxSize(parent);
             Bounds parentBounds = new Bounds(pLoc.x, pLoc.y, pBox.x, pBox.y);
-            ConnectionAnchors anchors =
-                ModelGraphConnectionGeometry.anchorsBetween(parentBounds, satBounds);
-            gc.drawLine(anchors.from().x, anchors.from().y, anchors.to().x, anchors.to().y);
+            ModelGraphConnectionGeometry.drawConnectionSpline(gc, parentBounds, satBounds);
           }
         }
       }
@@ -377,19 +375,18 @@ public class DataVaultModelPainter extends BasePainter {
     // Register AreaOwners for sub-hit detection (screen coords, using 0 offset so contains works
     // with screen mouse)
     if (areaOwners != null) {
-      // Name sub-area (slightly padded) for underline hover + click-to-edit
-      //
-      int nsx = nameLogX;
-      int nsy = nameLogY;
-      int nsw = nameExtent.x;
-      int nsh = nameExtent.y;
-      // padding to make clickable
-      nsx -= 1;
-      nsy -= 1;
-      nsw += 2;
-      nsh += 2;
+      ModelGraphTableNameHitArea.Bounds nameHit =
+          ModelGraphTableNameHitArea.bounds(nameLogX, nameLogY, nameExtent);
       areaOwners.add(
-          new AreaOwner(AreaType.TRANSFORM_NAME, nsx, nsy, nsw, nsh, offset, table, name));
+          new AreaOwner(
+              AreaType.TRANSFORM_NAME,
+              nameHit.x(),
+              nameHit.y(),
+              nameHit.width(),
+              nameHit.height(),
+              offset,
+              table,
+              name));
     }
     return nameExtent;
   }
@@ -640,31 +637,28 @@ public class DataVaultModelPainter extends BasePainter {
       return;
     }
 
-    Point lineStart;
-    Point lineEnd;
-    if (candidateRelationshipTarget != null
-        && candidateRelationshipTarget.getLocation() != null
-        && isValidRelationshipPair(startRelationshipTable, candidateRelationshipTarget)) {
-      Point targetLoc = real2screen(
-          candidateRelationshipTarget.getLocation().x,
-          candidateRelationshipTarget.getLocation().y);
-      Point targetBox = calculateTableBoxSize(candidateRelationshipTarget);
-      Bounds targetBounds = new Bounds(targetLoc.x, targetLoc.y, targetBox.x, targetBox.y);
-      ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(sourceBounds, targetBounds);
-      lineStart = anchors.from();
-      lineEnd = anchors.to();
-    } else {
-      lineStart = ModelGraphConnectionGeometry.anchorToward(sourceBounds, ModelGraphConnectionGeometry.pointBounds(logEnd.x, logEnd.y));
-      lineEnd = logEnd;
-    }
-
     try {
       boolean validTarget =
           isValidRelationshipPair(startRelationshipTable, candidateRelationshipTarget);
       gc.setForeground(validTarget ? IGc.EColor.BLUE : IGc.EColor.DARKGRAY);
       gc.setLineWidth(2);
       gc.setLineStyle(IGc.ELineStyle.DASH);
-      gc.drawLine(lineStart.x, lineStart.y, lineEnd.x, lineEnd.y);
+      if (candidateRelationshipTarget != null
+          && candidateRelationshipTarget.getLocation() != null
+          && validTarget) {
+        Point targetLoc =
+            real2screen(
+                candidateRelationshipTarget.getLocation().x,
+                candidateRelationshipTarget.getLocation().y);
+        Point targetBox = calculateTableBoxSize(candidateRelationshipTarget);
+        Bounds targetBounds = new Bounds(targetLoc.x, targetLoc.y, targetBox.x, targetBox.y);
+        ModelGraphConnectionGeometry.drawConnectionSpline(gc, sourceBounds, targetBounds);
+      } else {
+        Bounds cursorBounds = ModelGraphConnectionGeometry.pointBounds(logEnd.x, logEnd.y);
+        Point lineStart = ModelGraphConnectionGeometry.anchorToward(sourceBounds, cursorBounds);
+        ModelGraphConnectionGeometry.drawConnectionSpline(
+            gc, lineStart, logEnd, sourceBounds, cursorBounds);
+      }
 
       // Small endpoint marker (approx circle using round rect)
       gc.setLineStyle(IGc.ELineStyle.SOLID);

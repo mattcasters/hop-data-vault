@@ -26,11 +26,13 @@ import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
 import org.apache.hop.core.HopEnvironment;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.hopgui.file.dimensional.HopDimensionalFileType;
+import org.apache.hop.datavault.metadata.dimensional.DmPeriodicSnapshotFact;
 import org.apache.hop.datavault.metadata.dimensional.pipeline.DmUpdateExecutionSupport;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
@@ -131,6 +133,8 @@ class DmBasicStarPipelineTest {
     assertEquals("d_customer", customerLookupMeta.getTableName());
     assertEquals(
         "customer_key", customerLookupMeta.getFields().getReturns().getKeyRename());
+    assertFalse(customerLookupMeta.isPreloadingCache());
+    assertTrue(Utils.isEmpty(customerLookupMeta.getFields().getDate().getName()));
 
     TransformMeta tableOutput =
         pipelineMeta.getTransforms().stream()
@@ -140,6 +144,68 @@ class DmBasicStarPipelineTest {
     TableOutputMeta tableOutputMeta = (TableOutputMeta) tableOutput.getTransform();
     assertEquals("f_sales", tableOutputMeta.getTableName());
     assertFalse(tableOutputMeta.isTruncateTable());
+  }
+
+  @Test
+  void factDimensionLookupPreloadingCacheEnabledWhenConfigured() throws Exception {
+    DimensionalModel model = loadBasicStarModel();
+    DmFact fact = (DmFact) model.findTable("fact_sales");
+    fact.getDimensionRoles().get(0).setPreloadLookupCache(true);
+    IHopMetadataProvider metadataProvider = testMetadataProvider();
+
+    PipelineMeta pipelineMeta =
+        fact.generateUpdatePipelines(metadataProvider, new Variables(), model, new Date()).get(0);
+
+    DimensionLookupMeta customerLookupMeta =
+        (DimensionLookupMeta)
+            pipelineMeta.getTransforms().stream()
+                .filter(t -> "lookup_Customer".equals(t.getName()))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+    DimensionLookupMeta productLookupMeta =
+        (DimensionLookupMeta)
+            pipelineMeta.getTransforms().stream()
+                .filter(t -> "lookup_Product".equals(t.getName()))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+
+    assertTrue(customerLookupMeta.isPreloadingCache());
+    assertFalse(productLookupMeta.isPreloadingCache());
+  }
+
+  @Test
+  void factDimensionLookupDateConfiguredForEffectivityDimensionsOnly() throws Exception {
+    DimensionalModel model = loadExtendedCatalogModel();
+    DmPeriodicSnapshotFact fact =
+        (DmPeriodicSnapshotFact) model.findTable("fact_daily_balance");
+    fact.setDimensionLookupDateField("snapshot_date");
+    IHopMetadataProvider metadataProvider = testMetadataProvider();
+
+    PipelineMeta pipelineMeta =
+        fact.generateUpdatePipelines(metadataProvider, new Variables(), model, new Date()).get(0);
+
+    DimensionLookupMeta customerLookupMeta =
+        (DimensionLookupMeta)
+            pipelineMeta.getTransforms().stream()
+                .filter(t -> "lookup_Customer".equals(t.getName()))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+    DimensionLookupMeta productLookupMeta =
+        (DimensionLookupMeta)
+            pipelineMeta.getTransforms().stream()
+                .filter(t -> "lookup_Product".equals(t.getName()))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+
+    assertFalse(Utils.isEmpty(customerLookupMeta.getFields().getDate().getName()));
+    assertEquals("snapshot_date", customerLookupMeta.getFields().getDate().getName());
+    assertEquals("date_from", customerLookupMeta.getFields().getDate().getFrom());
+    assertEquals("date_to", customerLookupMeta.getFields().getDate().getTo());
+    assertTrue(Utils.isEmpty(productLookupMeta.getFields().getDate().getName()));
   }
 
   @Test
@@ -162,7 +228,15 @@ class DmBasicStarPipelineTest {
   }
 
   private static DimensionalModel loadBasicStarModel() throws Exception {
-    Path fixture = Path.of("integration-tests/tests/basic/basic-star.hdm").toAbsolutePath().normalize();
+    return loadDimensionalModel("integration-tests/tests/basic/basic-star.hdm");
+  }
+
+  private static DimensionalModel loadExtendedCatalogModel() throws Exception {
+    return loadDimensionalModel("integration-tests/tests/basic/extended-catalog.hdm");
+  }
+
+  private static DimensionalModel loadDimensionalModel(String relativePath) throws Exception {
+    Path fixture = Path.of(relativePath).toAbsolutePath().normalize();
     Document document = XmlHandler.loadXmlFile(fixture.toFile());
     Node rootNode = XmlHandler.getSubNode(document, HopDimensionalFileType.XML_TAG);
     DimensionalModel model = new DimensionalModel();

@@ -20,23 +20,82 @@ package org.apache.hop.datavault.metadata.dimensional.pipeline;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.core.row.value.ValueMetaFactory;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
+import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionJoinValidationSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
+import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
+import org.apache.hop.datavault.transform.datedimensiongenerator.DateDimensionGeneratorLogic;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
-import org.apache.hop.pipeline.transforms.calculator.CalculationType;
-import org.apache.hop.pipeline.transforms.calculator.CalculatorMeta;
-import org.apache.hop.pipeline.transforms.calculator.CalculatorMetaFunction;
 import org.apache.hop.pipeline.transforms.dimensionlookup.DimensionLookupMeta;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectMetadataChange;
+import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 
 /** Prepares fact stream fields and dimension lookups for fact-to-dimension joins. */
 public final class DmFactDimensionJoinBuilder {
 
+  public static final int DATE_KEY_INTEGER_LENGTH = 8;
+
+  private static final String DATE_KEYS_FORMAT_TRANSFORM = "date_keys_format";
+  private static final String DATE_KEYS_INT_TRANSFORM = "date_keys_int";
+
   private DmFactDimensionJoinBuilder() {}
+
+  public static TransformMeta wireDimensionRoles(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      DimensionalModel model,
+      IHopMetadataProvider metadataProvider,
+      List<DmFactDimensionRole> roles)
+      throws HopException {
+    if (predecessor == null || roles == null || roles.isEmpty()) {
+      return predecessor;
+    }
+
+    List<DmFactDimensionRole> dateRoles = new ArrayList<>();
+    List<DmFactDimensionRole> lookupRoles = new ArrayList<>();
+    for (DmFactDimensionRole role : roles) {
+      if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
+        continue;
+      }
+      if (role.isTruncateToDateKey()) {
+        dateRoles.add(role);
+      } else {
+        lookupRoles.add(role);
+      }
+    }
+
+    if (!dateRoles.isEmpty()) {
+      predecessor =
+          addBatchedDateKeySelectValues(
+              ctx, pipelineMeta, predecessor, model, metadataProvider, dateRoles);
+    }
+
+    for (DmFactDimensionRole role : lookupRoles) {
+      DmDimension dimension =
+          DmDimensionResolutionSupport.resolveDimension(
+              model, role.getDimensionTableName(), ctx.variables, metadataProvider);
+      if (dimension == null) {
+        throw new HopException(
+            "references unknown dimension " + role.getDimensionTableName());
+      }
+      predecessor =
+          DmDimensionLookupBuilder.addFactDimensionLookup(
+              ctx, pipelineMeta, predecessor, dimension, role);
+    }
+    return predecessor;
+  }
 
   public static TransformMeta addFactDimensionJoin(
       DmPipelineBuilderSupport.BuildContext ctx,
@@ -44,12 +103,64 @@ public final class DmFactDimensionJoinBuilder {
       TransformMeta predecessor,
       DmDimension dimension,
       DmFactDimensionRole role) {
-    if (predecessor == null || dimension == null || role == null) {
-      return null;
+    if (predecessor == null || dimension == null || role == null || role.isTruncateToDateKey()) {
+      return predecessor;
     }
-    predecessor = addDateKeyCalculatorIfNeeded(ctx, pipelineMeta, predecessor, dimension, role);
     return DmDimensionLookupBuilder.addFactDimensionLookup(
         ctx, pipelineMeta, predecessor, dimension, role);
+  }
+
+  public static TransformMeta addBatchedDateKeySelectValues(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      DimensionalModel model,
+      IHopMetadataProvider metadataProvider,
+      List<DmFactDimensionRole> dateRoles) {
+    if (predecessor == null || dateRoles == null || dateRoles.isEmpty()) {
+      return predecessor;
+    }
+
+    List<DateKeyMapping> mappings = new ArrayList<>();
+    for (DmFactDimensionRole role : dateRoles) {
+      if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
+        continue;
+      }
+      DmDimension dimension =
+          DmDimensionResolutionSupport.resolveDimension(
+              model, role.getDimensionTableName(), ctx.variables, metadataProvider);
+      if (dimension == null) {
+        continue;
+      }
+      List<String> naturalKeys =
+          DmPipelineBuilderSupport.naturalKeyFieldNames(dimension, ctx.variables);
+      if (naturalKeys.isEmpty()) {
+        continue;
+      }
+      String naturalKey = naturalKeys.get(0);
+      String sourceField =
+          DmFactDimensionJoinValidationSupport.resolveSourceFieldName(
+              role, naturalKey, ctx.variables);
+      if (Utils.isEmpty(sourceField)) {
+        continue;
+      }
+      String fkColumn = resolveFieldName(role.getForeignKeyColumn(), ctx.variables);
+      if (Utils.isEmpty(fkColumn)) {
+        fkColumn =
+            DmLayoutSupport.defaultFactForeignKeyColumn(dimension, role, ctx.config, ctx.variables);
+      }
+      if (Utils.isEmpty(fkColumn)) {
+        continue;
+      }
+      mappings.add(new DateKeyMapping(sourceField, fkColumn));
+    }
+
+    if (mappings.isEmpty()) {
+      return predecessor;
+    }
+
+    predecessor = addDateKeyFormatSelectValues(ctx, pipelineMeta, predecessor, mappings);
+    return addDateKeyIntegerSelectValues(ctx, pipelineMeta, predecessor, mappings);
   }
 
   public static List<DimensionLookupMeta.DLKey> buildFactLookupKeys(
@@ -60,7 +171,9 @@ public final class DmFactDimensionJoinBuilder {
     for (String naturalKey : naturalKeys) {
       DimensionLookupMeta.DLKey key = new DimensionLookupMeta.DLKey();
       key.setLookup(naturalKey);
-      key.setName(resolveStreamKeyField(role, naturalKey, ctx.variables));
+      key.setName(
+          DmFactDimensionJoinValidationSupport.resolveStreamKeyField(
+              role, naturalKey, ctx.variables));
       keys.add(key);
     }
     return keys;
@@ -76,63 +189,45 @@ public final class DmFactDimensionJoinBuilder {
     return "lookup_" + sanitizeTransformToken(dimension.getName());
   }
 
-  private static TransformMeta addDateKeyCalculatorIfNeeded(
+  private static void addDimensionLookupDatePassthrough(
+      DmPipelineBuilderSupport.BuildContext ctx, List<SelectField> selectFields) {
+    String lookupDateField = DmPipelineBuilderSupport.resolveFactDimensionLookupDateField(ctx);
+    if (Utils.isEmpty(lookupDateField)) {
+      return;
+    }
+    SelectField passthrough = new SelectField();
+    passthrough.setName(lookupDateField);
+    selectFields.add(passthrough);
+  }
+
+  private static TransformMeta addDateKeyFormatSelectValues(
       DmPipelineBuilderSupport.BuildContext ctx,
       PipelineMeta pipelineMeta,
       TransformMeta predecessor,
-      DmDimension dimension,
-      DmFactDimensionRole role) {
-    if (!role.isTruncateToDateKey()) {
-      return predecessor;
-    }
-    List<String> naturalKeys =
-        DmPipelineBuilderSupport.naturalKeyFieldNames(dimension, ctx.variables);
-    if (naturalKeys.isEmpty()) {
-      return predecessor;
-    }
-    String naturalKey = naturalKeys.get(0);
-    String sourceField = resolveSourceFieldName(role, naturalKey, ctx.variables);
-    if (Utils.isEmpty(sourceField)) {
-      return predecessor;
-    }
+      List<DateKeyMapping> mappings) {
+    SelectValuesMeta selectMeta = new SelectValuesMeta();
+    selectMeta.getSelectOption().setSelectingAndSortingUnspecifiedFields(true);
+    List<SelectField> selectFields = selectMeta.getSelectOption().getSelectFields();
+    List<SelectMetadataChange> metaChanges = selectMeta.getSelectOption().getMeta();
 
-    String token = sanitizeTransformToken(role.getDimensionTableName());
-    String tempYear = "_dm_" + token + "_y";
-    String tempMonth = "_dm_" + token + "_m";
-    String tempDay = "_dm_" + token + "_d";
-    String tempYearScaled = "_dm_" + token + "_y_scaled";
-    String tempMonthScaled = "_dm_" + token + "_m_scaled";
-    String tempYearMonth = "_dm_" + token + "_ym";
-    String constTenThousand = "_dm_" + token + "_c10000";
-    String constHundred = "_dm_" + token + "_c100";
+    for (DateKeyMapping mapping : mappings) {
+      SelectField selectField = new SelectField();
+      selectField.setName(mapping.sourceField());
+      if (!mapping.sourceField().equals(mapping.fkColumn())) {
+        selectField.setRename(mapping.fkColumn());
+      }
+      selectFields.add(selectField);
 
-    String integerType = IValueMeta.getTypeDescription(IValueMeta.TYPE_INTEGER);
-    CalculatorMeta calculatorMeta = new CalculatorMeta();
-    List<CalculatorMetaFunction> functions = new ArrayList<>();
-    functions.add(
-        tempFunction(tempYear, CalculationType.YEAR_OF_DATE, sourceField, integerType));
-    functions.add(
-        tempFunction(tempMonth, CalculationType.MONTH_OF_DATE, sourceField, integerType));
-    functions.add(
-        tempFunction(tempDay, CalculationType.DAY_OF_MONTH, sourceField, integerType));
-    functions.add(
-        tempFunction(constTenThousand, CalculationType.CONSTANT, "10000", integerType));
-    functions.add(tempFunction(constHundred, CalculationType.CONSTANT, "100", integerType));
-    functions.add(
-        tempFunction(
-            tempYearScaled, CalculationType.MULTIPLY, tempYear, constTenThousand, integerType));
-    functions.add(
-        tempFunction(
-            tempMonthScaled, CalculationType.MULTIPLY, tempMonth, constHundred, integerType));
-    functions.add(
-        tempFunction(
-            tempYearMonth, CalculationType.ADD, tempYearScaled, tempMonthScaled, integerType));
-    functions.add(
-        outputFunction(naturalKey, CalculationType.ADD, tempYearMonth, tempDay, integerType));
-    calculatorMeta.setFunctions(functions);
+      SelectMetadataChange metaChange = new SelectMetadataChange();
+      metaChange.setName(mapping.fkColumn());
+      metaChange.setType(ValueMetaFactory.getValueMetaName(IValueMeta.TYPE_STRING));
+      metaChange.setConversionMask(DateDimensionGeneratorLogic.MASK_DATE_KEY);
+      metaChanges.add(metaChange);
+    }
+    addDimensionLookupDatePassthrough(ctx, selectFields);
 
-    String transformName = "date_key_" + token;
-    TransformMeta tm = new TransformMeta("Calculator", transformName, calculatorMeta);
+    TransformMeta tm =
+        new TransformMeta("SelectValues", DATE_KEYS_FORMAT_TRANSFORM, selectMeta);
     tm.setLocation(
         predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
         predecessor.getLocation().y);
@@ -141,67 +236,32 @@ public final class DmFactDimensionJoinBuilder {
     return tm;
   }
 
-  private static CalculatorMetaFunction tempFunction(
-      String fieldName, CalculationType calcType, String fieldA, String valueType) {
-    return calculatorFunction(fieldName, calcType, fieldA, null, valueType, true);
-  }
+  private static TransformMeta addDateKeyIntegerSelectValues(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      List<DateKeyMapping> mappings) {
+    SelectValuesMeta selectMeta = new SelectValuesMeta();
+    selectMeta.getSelectOption().setSelectingAndSortingUnspecifiedFields(true);
+    List<SelectMetadataChange> metaChanges = selectMeta.getSelectOption().getMeta();
 
-  private static CalculatorMetaFunction tempFunction(
-      String fieldName,
-      CalculationType calcType,
-      String fieldA,
-      String fieldB,
-      String valueType) {
-    return calculatorFunction(fieldName, calcType, fieldA, fieldB, valueType, true);
-  }
-
-  private static CalculatorMetaFunction outputFunction(
-      String fieldName,
-      CalculationType calcType,
-      String fieldA,
-      String fieldB,
-      String valueType) {
-    return calculatorFunction(fieldName, calcType, fieldA, fieldB, valueType, false);
-  }
-
-  private static CalculatorMetaFunction calculatorFunction(
-      String fieldName,
-      CalculationType calcType,
-      String fieldA,
-      String fieldB,
-      String valueType,
-      boolean removedFromResult) {
-    CalculatorMetaFunction function = new CalculatorMetaFunction();
-    function.setFieldName(fieldName);
-    function.setCalcType(calcType);
-    function.setFieldA(fieldA);
-    if (!Utils.isEmpty(fieldB)) {
-      function.setFieldB(fieldB);
+    for (DateKeyMapping mapping : mappings) {
+      SelectMetadataChange metaChange = new SelectMetadataChange();
+      metaChange.setName(mapping.fkColumn());
+      metaChange.setType(ValueMetaFactory.getValueMetaName(IValueMeta.TYPE_INTEGER));
+      metaChange.setLength(DATE_KEY_INTEGER_LENGTH);
+      metaChange.setPrecision(0);
+      metaChange.setConversionMask("0");
+      metaChanges.add(metaChange);
     }
-    function.setValueType(valueType);
-    function.setRemovedFromResult(removedFromResult);
-    return function;
-  }
 
-  static String resolveStreamKeyField(
-      DmFactDimensionRole role, String naturalKey, IVariables variables) {
-    if (role.isTruncateToDateKey()) {
-      return resolve(naturalKey, variables);
-    }
-    String sourceField = resolveSourceFieldName(role, naturalKey, variables);
-    if (!Utils.isEmpty(sourceField)) {
-      return sourceField;
-    }
-    return resolve(naturalKey, variables);
-  }
-
-  static String resolveSourceFieldName(
-      DmFactDimensionRole role, String naturalKey, IVariables variables) {
-    String sourceField = resolve(role.getSourceFieldName(), variables);
-    if (!Utils.isEmpty(sourceField)) {
-      return sourceField;
-    }
-    return resolve(naturalKey, variables);
+    TransformMeta tm = new TransformMeta("SelectValues", DATE_KEYS_INT_TRANSFORM, selectMeta);
+    tm.setLocation(
+        predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
+        predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
   }
 
   private static String sanitizeTransformToken(String value) {
@@ -211,10 +271,12 @@ public final class DmFactDimensionJoinBuilder {
     return value.replaceAll("[^A-Za-z0-9_]+", "_");
   }
 
-  private static String resolve(String value, IVariables variables) {
-    if (value == null) {
-      return null;
+  private static String resolveFieldName(String fieldName, IVariables variables) {
+    if (variables != null) {
+      fieldName = variables.resolve(fieldName);
     }
-    return variables != null ? variables.resolve(value) : value;
+    return fieldName;
   }
+
+  private record DateKeyMapping(String sourceField, String fkColumn) {}
 }

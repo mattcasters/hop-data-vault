@@ -57,6 +57,13 @@ public abstract class DmTableBase extends HopMetadataBase implements IHopMetadat
   @HopMetadataProperty(inline = true)
   private DmSourceConfiguration source = new DmSourceConfiguration();
 
+  /**
+   * Optional source stream date/timestamp used as the lookup effective date for fact dimension
+   * joins (Dimension Lookup {@code DLDate.name}). When empty, generated lookups use the current
+   * time.
+   */
+  @HopMetadataProperty private String dimensionLookupDateField;
+
   @HopMetadataProperty(inline = true)
   private Point location = new Point(0, 0);
 

@@ -27,6 +27,7 @@ import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.row.RowMeta;
 import org.apache.hop.core.row.value.ValueMetaInteger;
+import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.variables.Variables;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -157,6 +158,80 @@ class DmLayoutSupportTest {
     assertEquals(
         org.apache.hop.core.row.IValueMeta.TYPE_STRING,
         layout.searchValueMeta("customer_hk").getType());
+  }
+
+  @Test
+  void factForeignKeyUsesStringTypeForUseSourceFieldDimension() throws HopException {
+    DimensionalModel model = new DimensionalModel();
+    DmDimension order = new DmDimension();
+    order.setName("d_order");
+    order.setScdType(DmDimensionScdType.TYPE2);
+    order.setSurrogateKeyStrategy(DmSurrogateKeyStrategy.USE_SOURCE_FIELD);
+    order.setSurrogateKeyField("order_hk");
+    order.setSurrogateKeySourceField("order_hk");
+    order.getNaturalKeys().add(new DmNaturalKeyField("order_id"));
+    model.getTables().add(order);
+
+    DmFact fact = new DmFact();
+    fact.setName("f_orders");
+    fact.getDimensionRoles().add(new DmFactDimensionRole("d_order", "order_hk"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    IRowMeta layout =
+        DmLayoutSupport.buildFactTargetTableLayout(fact, model, config, new Variables());
+
+    assertEquals(IValueMeta.TYPE_STRING, layout.searchValueMeta("order_hk").getType());
+  }
+
+  @Test
+  void factForeignKeyUsesIntegerTypeForAutoIncrementDimension() throws HopException {
+    DimensionalModel model = new DimensionalModel();
+    DmDimension customer = new DmDimension();
+    customer.setName("dim_customer");
+    customer.setScdType(DmDimensionScdType.TYPE2);
+    customer.getNaturalKeys().add(new DmNaturalKeyField("customer_id"));
+    model.getTables().add(customer);
+
+    DmFact fact = new DmFact();
+    fact.setName("fact_sales");
+    fact.getDimensionRoles().add(new DmFactDimensionRole("dim_customer", "customer_key"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    IRowMeta layout =
+        DmLayoutSupport.buildFactTargetTableLayout(fact, model, config, new Variables());
+
+    assertEquals(IValueMeta.TYPE_INTEGER, layout.searchValueMeta("customer_key").getType());
+  }
+
+  @Test
+  void factForeignKeyUsesIntegerTypeForDateRolePlaying() throws HopException {
+    DimensionalModel model = new DimensionalModel();
+    DmDimension date = new DmDimension();
+    date.setName("d_date");
+    date.setScdType(DmDimensionScdType.TYPE1);
+    date.getNaturalKeys().add(new DmNaturalKeyField("date_key"));
+    model.getTables().add(date);
+
+    DmFact fact = new DmFact();
+    fact.setName("f_orders");
+    DmFactDimensionRole role = new DmFactDimensionRole("d_order_date", "order_date_key");
+    role.setTruncateToDateKey(true);
+    role.setSourceFieldName("order_date");
+    fact.getDimensionRoles().add(role);
+
+    DmDimensionAlias alias = new DmDimensionAlias();
+    alias.setName("d_order_date");
+    alias.setReferencedDimensionName("d_date");
+    model.getTables().add(alias);
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    IRowMeta layout =
+        DmLayoutSupport.buildFactTargetTableLayout(fact, model, config, new Variables());
+
+    assertEquals(IValueMeta.TYPE_INTEGER, layout.searchValueMeta("order_date_key").getType());
+    assertEquals(
+        DmLayoutSupport.DATE_KEY_FIELD_LENGTH,
+        layout.searchValueMeta("order_date_key").getLength());
   }
 
   @Test

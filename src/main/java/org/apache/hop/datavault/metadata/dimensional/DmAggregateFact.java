@@ -75,7 +75,8 @@ public class DmAggregateFact extends DmTableBase implements IDmFactLikeTable {
       throws HopException {
     DimensionalConfiguration config =
         model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
-    return DmLayoutSupport.buildAggregateFactTargetTableLayout(this, model, config, variables);
+    return DmLayoutSupport.buildAggregateFactTargetTableLayout(
+        this, model, config, variables, metadataProvider);
   }
 
   @Override

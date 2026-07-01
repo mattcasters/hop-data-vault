@@ -32,12 +32,16 @@ import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.row.value.ValueMetaTimestamp;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /** Target table layout helpers aligned with Hop warehouse transform contracts. */
 public final class DmLayoutSupport {
 
   /** Hop PostgreSQL DDL maps integer types without length to DOUBLE PRECISION. */
   static final int DEFAULT_INTEGER_FIELD_LENGTH = 9;
+
+  /** Integer length for yyyyMMdd date-role foreign keys. */
+  static final int DATE_KEY_FIELD_LENGTH = 8;
 
   private DmLayoutSupport() {}
 
@@ -115,27 +119,26 @@ public final class DmLayoutSupport {
   public static IRowMeta buildFactTargetTableLayout(
       DmFact fact, DimensionalModel model, DimensionalConfiguration config, IVariables variables)
       throws HopException {
+    return buildFactTargetTableLayout(fact, model, config, variables, null);
+  }
+
+  public static IRowMeta buildFactTargetTableLayout(
+      DmFact fact,
+      DimensionalModel model,
+      DimensionalConfiguration config,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
     if (fact == null) {
       throw new HopException("Fact table layout requires a fact table");
     }
     RowMeta rowMeta = new RowMeta();
     Set<String> added = new HashSet<>();
+    DimensionalConfiguration resolvedConfig =
+        config != null ? config : new DimensionalConfiguration();
 
     for (DmFactDimensionRole role : fact.getDimensionRolesOrEmpty()) {
-      String fkColumn = resolveFieldName(role.getForeignKeyColumn(), variables);
-      if (Utils.isEmpty(fkColumn)) {
-        String dimensionName = role.getDimensionTableName();
-        if (!Utils.isEmpty(dimensionName) && model != null) {
-          DmDimension dmDimension =
-              DmDimensionResolutionSupport.resolveDimension(model, dimensionName, variables);
-          if (dmDimension != null) {
-            DimensionalConfiguration resolvedConfig =
-                config != null ? config : new DimensionalConfiguration();
-            fkColumn = defaultFactForeignKeyColumn(dmDimension, role, resolvedConfig, variables);
-          }
-        }
-      }
-      addColumn(rowMeta, added, fkColumn, new ValueMetaInteger());
+      addFactForeignKeyColumn(rowMeta, added, role, model, resolvedConfig, variables, metadataProvider);
     }
 
     for (DmFactMeasure measure : fact.getMeasuresOrEmpty()) {
@@ -166,8 +169,18 @@ public final class DmLayoutSupport {
   public static IRowMeta buildFactlessFactTargetTableLayout(
       DmFactlessFact fact, DimensionalModel model, DimensionalConfiguration config, IVariables variables)
       throws HopException {
+    return buildFactlessFactTargetTableLayout(fact, model, config, variables, null);
+  }
+
+  public static IRowMeta buildFactlessFactTargetTableLayout(
+      DmFactlessFact fact,
+      DimensionalModel model,
+      DimensionalConfiguration config,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
     return buildFactLikeTargetTableLayout(
-        fact.getDimensionRolesOrEmpty(), List.of(), model, config, variables);
+        fact.getDimensionRolesOrEmpty(), List.of(), model, config, variables, metadataProvider);
   }
 
   public static IRowMeta buildPeriodicSnapshotFactTargetTableLayout(
@@ -182,7 +195,40 @@ public final class DmLayoutSupport {
     RowMeta rowMeta = new RowMeta();
     Set<String> added = new HashSet<>();
     addColumn(rowMeta, added, resolveFieldName(fact.getSnapshotDateField(), variables), new ValueMetaTimestamp());
-    appendFactLikeColumns(rowMeta, added, fact.getDimensionRolesOrEmpty(), fact.getMeasuresOrEmpty(), model, config, variables);
+    appendFactLikeColumns(
+        rowMeta,
+        added,
+        fact.getDimensionRolesOrEmpty(),
+        fact.getMeasuresOrEmpty(),
+        model,
+        config,
+        variables,
+        null);
+    return rowMeta;
+  }
+
+  public static IRowMeta buildPeriodicSnapshotFactTargetTableLayout(
+      DmPeriodicSnapshotFact fact,
+      DimensionalModel model,
+      DimensionalConfiguration config,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
+    if (fact == null) {
+      throw new HopException("Periodic snapshot layout requires a fact table");
+    }
+    RowMeta rowMeta = new RowMeta();
+    Set<String> added = new HashSet<>();
+    addColumn(rowMeta, added, resolveFieldName(fact.getSnapshotDateField(), variables), new ValueMetaTimestamp());
+    appendFactLikeColumns(
+        rowMeta,
+        added,
+        fact.getDimensionRolesOrEmpty(),
+        fact.getMeasuresOrEmpty(),
+        model,
+        config,
+        variables,
+        metadataProvider);
     return rowMeta;
   }
 
@@ -200,34 +246,69 @@ public final class DmLayoutSupport {
     for (DmNaturalKeyField grainKey : fact.getGrainKeysOrEmpty()) {
       addColumn(rowMeta, added, resolveFieldName(grainKey.getFieldName(), variables));
     }
-    appendFactLikeColumns(rowMeta, added, fact.getDimensionRolesOrEmpty(), fact.getMeasuresOrEmpty(), model, config, variables);
+    appendFactLikeColumns(
+        rowMeta,
+        added,
+        fact.getDimensionRolesOrEmpty(),
+        fact.getMeasuresOrEmpty(),
+        model,
+        config,
+        variables,
+        null);
+    return rowMeta;
+  }
+
+  public static IRowMeta buildAccumulatingSnapshotFactTargetTableLayout(
+      DmAccumulatingSnapshotFact fact,
+      DimensionalModel model,
+      DimensionalConfiguration config,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
+    if (fact == null) {
+      throw new HopException("Accumulating snapshot layout requires a fact table");
+    }
+    RowMeta rowMeta = new RowMeta();
+    Set<String> added = new HashSet<>();
+    for (DmNaturalKeyField grainKey : fact.getGrainKeysOrEmpty()) {
+      addColumn(rowMeta, added, resolveFieldName(grainKey.getFieldName(), variables));
+    }
+    appendFactLikeColumns(
+        rowMeta,
+        added,
+        fact.getDimensionRolesOrEmpty(),
+        fact.getMeasuresOrEmpty(),
+        model,
+        config,
+        variables,
+        metadataProvider);
     return rowMeta;
   }
 
   public static IRowMeta buildBridgeTargetTableLayout(
       DmBridge bridge, DimensionalModel model, DimensionalConfiguration config, IVariables variables)
       throws HopException {
+    return buildBridgeTargetTableLayout(bridge, model, config, variables, null);
+  }
+
+  public static IRowMeta buildBridgeTargetTableLayout(
+      DmBridge bridge,
+      DimensionalModel model,
+      DimensionalConfiguration config,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
     if (bridge == null) {
       throw new HopException("Bridge layout requires a bridge table");
     }
     RowMeta rowMeta = new RowMeta();
     Set<String> added = new HashSet<>();
+    DimensionalConfiguration resolvedConfig =
+        config != null ? config : new DimensionalConfiguration();
     for (DmBridgeDimensionRef ref : bridge.getDimensionRefsOrEmpty()) {
-      String fkColumn = resolveFieldName(ref.getForeignKeyColumn(), variables);
-      if (Utils.isEmpty(fkColumn) && model != null && !Utils.isEmpty(ref.getDimensionTableName())) {
-        IDmTable dimension = model.findTable(ref.getDimensionTableName());
-        if (dimension instanceof DmDimension dmDimension) {
-          DimensionalConfiguration resolvedConfig =
-              config != null ? config : new DimensionalConfiguration();
-          fkColumn =
-              defaultFactForeignKeyColumn(
-                  dmDimension,
-                  new DmFactDimensionRole(ref.getDimensionTableName(), ref.getForeignKeyColumn()),
-                  resolvedConfig,
-                  variables);
-        }
-      }
-      addColumn(rowMeta, added, fkColumn, new ValueMetaInteger());
+      DmFactDimensionRole role =
+          new DmFactDimensionRole(ref.getDimensionTableName(), ref.getForeignKeyColumn());
+      addFactForeignKeyColumn(rowMeta, added, role, model, resolvedConfig, variables, metadataProvider);
     }
     if (!Utils.isEmpty(bridge.getWeightField())) {
       addColumn(rowMeta, added, resolveFieldName(bridge.getWeightField(), variables), new ValueMetaNumber());
@@ -238,8 +319,23 @@ public final class DmLayoutSupport {
   public static IRowMeta buildAggregateFactTargetTableLayout(
       DmAggregateFact fact, DimensionalModel model, DimensionalConfiguration config, IVariables variables)
       throws HopException {
+    return buildAggregateFactTargetTableLayout(fact, model, config, variables, null);
+  }
+
+  public static IRowMeta buildAggregateFactTargetTableLayout(
+      DmAggregateFact fact,
+      DimensionalModel model,
+      DimensionalConfiguration config,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
     return buildFactLikeTargetTableLayout(
-        fact.getDimensionRolesOrEmpty(), fact.getMeasuresOrEmpty(), model, config, variables);
+        fact.getDimensionRolesOrEmpty(),
+        fact.getMeasuresOrEmpty(),
+        model,
+        config,
+        variables,
+        metadataProvider);
   }
 
   public static String resolvePreviousFieldName(DmDimensionAttribute attribute, IVariables variables) {
@@ -444,11 +540,13 @@ public final class DmLayoutSupport {
       List<DmFactMeasure> measures,
       DimensionalModel model,
       DimensionalConfiguration config,
-      IVariables variables)
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
       throws HopException {
     RowMeta rowMeta = new RowMeta();
     Set<String> added = new HashSet<>();
-    appendFactLikeColumns(rowMeta, added, dimensionRoles, measures, model, config, variables);
+    appendFactLikeColumns(
+        rowMeta, added, dimensionRoles, measures, model, config, variables, metadataProvider);
     return rowMeta;
   }
 
@@ -459,27 +557,136 @@ public final class DmLayoutSupport {
       List<DmFactMeasure> measures,
       DimensionalModel model,
       DimensionalConfiguration config,
-      IVariables variables)
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
       throws HopException {
+    DimensionalConfiguration resolvedConfig =
+        config != null ? config : new DimensionalConfiguration();
     for (DmFactDimensionRole role : dimensionRoles) {
-      String fkColumn = resolveFieldName(role.getForeignKeyColumn(), variables);
-      if (Utils.isEmpty(fkColumn)) {
-        String dimensionName = role.getDimensionTableName();
-        if (!Utils.isEmpty(dimensionName) && model != null) {
-          DmDimension dmDimension =
-              DmDimensionResolutionSupport.resolveDimension(model, dimensionName, variables);
-          if (dmDimension != null) {
-            DimensionalConfiguration resolvedConfig =
-                config != null ? config : new DimensionalConfiguration();
-            fkColumn = defaultFactForeignKeyColumn(dmDimension, role, resolvedConfig, variables);
-          }
-        }
-      }
-      addColumn(rowMeta, added, fkColumn, new ValueMetaInteger());
+      addFactForeignKeyColumn(
+          rowMeta, added, role, model, resolvedConfig, variables, metadataProvider);
     }
     for (DmFactMeasure measure : measures) {
       addColumn(rowMeta, added, resolveFieldName(measure.getFieldName(), variables), new ValueMetaNumber());
     }
+  }
+
+  private static void addFactForeignKeyColumn(
+      RowMeta rowMeta,
+      Set<String> added,
+      DmFactDimensionRole role,
+      DimensionalModel model,
+      DimensionalConfiguration config,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
+    if (role == null) {
+      return;
+    }
+    String fkColumn = resolveFieldName(role.getForeignKeyColumn(), variables);
+    DmDimension dimension = null;
+    String dimensionName = role.getDimensionTableName();
+    if (!Utils.isEmpty(dimensionName) && model != null) {
+      dimension =
+          DmDimensionResolutionSupport.resolveDimension(
+              model, dimensionName, variables, metadataProvider);
+    }
+    if (Utils.isEmpty(fkColumn) && dimension != null) {
+      fkColumn = defaultFactForeignKeyColumn(dimension, role, config, variables);
+    }
+    addColumn(
+        rowMeta,
+        added,
+        resolveFactForeignKeyValueMeta(
+            role, dimension, config, model, metadataProvider, variables, fkColumn));
+  }
+
+  private static IValueMeta resolveFactForeignKeyValueMeta(
+      DmFactDimensionRole role,
+      DmDimension dimension,
+      DimensionalConfiguration config,
+      DimensionalModel model,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      String fkColumn)
+      throws HopException {
+    if (Utils.isEmpty(fkColumn)) {
+      return createIntegerValueMeta(fkColumn);
+    }
+    if (role != null && role.isTruncateToDateKey()) {
+      return createIntegerValueMeta(fkColumn, DATE_KEY_FIELD_LENGTH);
+    }
+    if (dimension == null) {
+      return createIntegerValueMeta(fkColumn);
+    }
+
+    DimensionalConfiguration resolvedConfig =
+        config != null ? config : new DimensionalConfiguration();
+    String lookupKeyField = resolveDimensionLookupKeyField(dimension, resolvedConfig, variables);
+    String sourceFieldForType = lookupKeyField;
+    if (DmSurrogateKeySupport.usesStringSurrogate(dimension)) {
+      String sourceField =
+          DmSurrogateKeySupport.resolveSurrogateKeySourceField(dimension, resolvedConfig, variables);
+      if (!Utils.isEmpty(sourceField)) {
+        sourceFieldForType = sourceField;
+      }
+    }
+
+    if (metadataProvider != null && model != null) {
+      IRowMeta sourceRowMeta =
+          DmSourceFieldResolutionSupport.tryResolveSourceRowMeta(
+              metadataProvider, variables, model, dimension);
+      if (sourceRowMeta != null) {
+        IValueMeta sourceMeta = sourceRowMeta.searchValueMeta(sourceFieldForType);
+        if (sourceMeta != null) {
+          IValueMeta targetMeta = sourceMeta.clone();
+          targetMeta.setName(fkColumn);
+          return targetMeta;
+        }
+      }
+    }
+
+    if (metadataProvider != null && model != null) {
+      try {
+        IRowMeta dimensionLayout =
+            dimension.getTargetTableLayout(metadataProvider, variables, model);
+        IValueMeta layoutMeta = dimensionLayout.searchValueMeta(lookupKeyField);
+        if (layoutMeta != null) {
+          IValueMeta targetMeta = layoutMeta.clone();
+          targetMeta.setName(fkColumn);
+          return targetMeta;
+        }
+      } catch (HopException ignored) {
+        // Fall through to defaults.
+      }
+    }
+
+    if (DmSurrogateKeySupport.usesStringSurrogate(dimension)) {
+      return new ValueMetaString(fkColumn);
+    }
+    return createIntegerValueMeta(fkColumn);
+  }
+
+  private static ValueMetaInteger createIntegerValueMeta(String fieldName) {
+    return createIntegerValueMeta(fieldName, DEFAULT_INTEGER_FIELD_LENGTH);
+  }
+
+  private static ValueMetaInteger createIntegerValueMeta(String fieldName, int length) {
+    ValueMetaInteger valueMeta = new ValueMetaInteger(fieldName);
+    valueMeta.setLength(length);
+    valueMeta.setPrecision(0);
+    return valueMeta;
+  }
+
+  /** Whether fact dimension lookups need effectivity date columns (TYPE2, TYPE3, or hybrid). */
+  public static boolean dimensionUsesEffectivityLookup(DmDimension dimension) {
+    if (dimension == null) {
+      return false;
+    }
+    DmDimensionScdType scdType = dimension.getScdTypeOrDefault();
+    return scdType == DmDimensionScdType.TYPE2
+        || scdType == DmDimensionScdType.TYPE3
+        || dimensionUsesHybridAttributes(dimension);
   }
 
   private static boolean dimensionUsesHybridAttributes(DmDimension dimension) {
