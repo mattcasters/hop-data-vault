@@ -176,6 +176,11 @@
       "category": "Lookups Joins"
     },
     {
+      "name": "MergeRowsPlus",
+      "xmlType": "MergeRowsPlus",
+      "category": "Lookups Joins"
+    },
+    {
       "name": "MultiwayMergeJoin",
       "xmlType": "MultiwayMergeJoin",
       "category": "Lookups Joins"
