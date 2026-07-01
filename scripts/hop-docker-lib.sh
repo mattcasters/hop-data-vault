@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+#
 
 # Shared helpers for running Apache Hop in Docker across Hop projects in this repo.
 # Source after setting SCRIPT_DIR to the scripts/ directory.

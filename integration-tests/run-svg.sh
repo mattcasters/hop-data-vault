@@ -16,19 +16,6 @@
 # limitations under the License.
 #
 #
-# Run hop svg inside the project Docker image (apache/hop + hop-datavault plugin).
-# Host paths in -f/-o/-s/-t/--project-home are translated to /workspace/... in the container.
-#
-# Examples (from project/):
-#   ./run-svg.sh -f tests/multi-satellite-bv/customer-360.hdv \
-#                -o ../docs/images/data-vault-model-customer-360.svg --no-notes
-#
-#   HOP_COMMAND_PARAMETERS="-f tests/multi-satellite-bv/customer-360.hbv \
-#     -o ../docs/images/business-vault-model-customer-360.svg --no-notes" ./run-svg.sh
-#
-#   ./run-svg.sh -s tests/multi-satellite-bv -t ../docs/images/generated -r --no-notes
-#
-# Optional: HOP_IMAGE_VERSION=2.18.1 to rebuild against a specific apache/hop tag.
 
 set -eu
 
