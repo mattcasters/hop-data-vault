@@ -179,6 +179,32 @@ class DmLayoutSupportTest {
   }
 
   @Test
+  void factLayoutIncludesDegenerateDimensionFields() throws HopException {
+    DimensionalModel model = new DimensionalModel();
+    DmDimension customer = new DmDimension();
+    customer.setName("dim_customer");
+    customer.setScdType(DmDimensionScdType.TYPE1);
+    customer.getNaturalKeys().add(new DmNaturalKeyField("customer_id"));
+    model.getTables().add(customer);
+
+    DmFact fact = new DmFact();
+    fact.setName("fact_sales");
+    fact.getDimensionRoles().add(new DmFactDimensionRole("dim_customer", "customer_key"));
+    fact.getMeasures().add(new DmFactMeasure("amount", true));
+    fact.getDegenerateDimensions().add(new DmFactDegenerateDimension("order_number"));
+    fact.getDegenerateDimensions().add(new DmFactDegenerateDimension("invoice_number"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    IRowMeta layout =
+        DmLayoutSupport.buildFactTargetTableLayout(fact, model, config, new Variables());
+
+    assertTrue(layout.indexOfValue("order_number") >= 0);
+    assertTrue(layout.indexOfValue("invoice_number") >= 0);
+    assertTrue(layout.indexOfValue("amount") >= 0);
+    assertTrue(layout.indexOfValue("customer_key") >= 0);
+  }
+
+  @Test
   void factForeignKeyUsesStringTypeForUseSourceFieldDimension() throws HopException {
     DimensionalModel model = new DimensionalModel();
     DmDimension order = new DmDimension();

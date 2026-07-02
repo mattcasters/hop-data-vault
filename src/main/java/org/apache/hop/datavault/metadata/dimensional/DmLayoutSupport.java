@@ -140,13 +140,17 @@ public final class DmLayoutSupport {
     DimensionalConfiguration resolvedConfig =
         config != null ? config : new DimensionalConfiguration();
 
-    for (DmFactDimensionRole role : fact.getDimensionRolesOrEmpty()) {
-      addFactForeignKeyColumn(rowMeta, added, role, model, resolvedConfig, variables, metadataProvider);
-    }
-
-    for (DmFactMeasure measure : fact.getMeasuresOrEmpty()) {
-      addColumn(rowMeta, added, resolveFieldName(measure.getFieldName(), variables), new ValueMetaNumber());
-    }
+    appendFactLikeColumns(
+        rowMeta,
+        added,
+        fact.getDimensionRolesOrEmpty(),
+        fact.getDegenerateDimensionsOrEmpty(),
+        fact.getMeasuresOrEmpty(),
+        model,
+        resolvedConfig,
+        variables,
+        metadataProvider,
+        fact);
 
     return rowMeta;
   }
@@ -183,7 +187,14 @@ public final class DmLayoutSupport {
       IHopMetadataProvider metadataProvider)
       throws HopException {
     return buildFactLikeTargetTableLayout(
-        fact.getDimensionRolesOrEmpty(), List.of(), model, config, variables, metadataProvider);
+        fact.getDimensionRolesOrEmpty(),
+        fact.getDegenerateDimensionsOrEmpty(),
+        List.of(),
+        model,
+        config,
+        variables,
+        metadataProvider,
+        fact);
   }
 
   public static IRowMeta buildPeriodicSnapshotFactTargetTableLayout(
@@ -202,11 +213,13 @@ public final class DmLayoutSupport {
         rowMeta,
         added,
         fact.getDimensionRolesOrEmpty(),
+        fact.getDegenerateDimensionsOrEmpty(),
         fact.getMeasuresOrEmpty(),
         model,
         config,
         variables,
-        null);
+        null,
+        fact);
     return rowMeta;
   }
 
@@ -227,11 +240,13 @@ public final class DmLayoutSupport {
         rowMeta,
         added,
         fact.getDimensionRolesOrEmpty(),
+        fact.getDegenerateDimensionsOrEmpty(),
         fact.getMeasuresOrEmpty(),
         model,
         config,
         variables,
-        metadataProvider);
+        metadataProvider,
+        fact);
     return rowMeta;
   }
 
@@ -253,11 +268,13 @@ public final class DmLayoutSupport {
         rowMeta,
         added,
         fact.getDimensionRolesOrEmpty(),
+        fact.getDegenerateDimensionsOrEmpty(),
         fact.getMeasuresOrEmpty(),
         model,
         config,
         variables,
-        null);
+        null,
+        fact);
     return rowMeta;
   }
 
@@ -280,11 +297,13 @@ public final class DmLayoutSupport {
         rowMeta,
         added,
         fact.getDimensionRolesOrEmpty(),
+        fact.getDegenerateDimensionsOrEmpty(),
         fact.getMeasuresOrEmpty(),
         model,
         config,
         variables,
-        metadataProvider);
+        metadataProvider,
+        fact);
     return rowMeta;
   }
 
@@ -334,11 +353,13 @@ public final class DmLayoutSupport {
       throws HopException {
     return buildFactLikeTargetTableLayout(
         fact.getDimensionRolesOrEmpty(),
+        fact.getDegenerateDimensionsOrEmpty(),
         fact.getMeasuresOrEmpty(),
         model,
         config,
         variables,
-        metadataProvider);
+        metadataProvider,
+        fact);
   }
 
   public static String resolvePreviousFieldName(DmDimensionAttribute attribute, IVariables variables) {
@@ -553,16 +574,27 @@ public final class DmLayoutSupport {
 
   private static IRowMeta buildFactLikeTargetTableLayout(
       List<DmFactDimensionRole> dimensionRoles,
+      List<DmFactDegenerateDimension> degenerateDimensions,
       List<DmFactMeasure> measures,
       DimensionalModel model,
       DimensionalConfiguration config,
       IVariables variables,
-      IHopMetadataProvider metadataProvider)
+      IHopMetadataProvider metadataProvider,
+      DmTableBase fact)
       throws HopException {
     RowMeta rowMeta = new RowMeta();
     Set<String> added = new HashSet<>();
     appendFactLikeColumns(
-        rowMeta, added, dimensionRoles, measures, model, config, variables, metadataProvider);
+        rowMeta,
+        added,
+        dimensionRoles,
+        degenerateDimensions,
+        measures,
+        model,
+        config,
+        variables,
+        metadataProvider,
+        fact);
     return rowMeta;
   }
 
@@ -570,21 +602,46 @@ public final class DmLayoutSupport {
       RowMeta rowMeta,
       Set<String> added,
       List<DmFactDimensionRole> dimensionRoles,
+      List<DmFactDegenerateDimension> degenerateDimensions,
       List<DmFactMeasure> measures,
       DimensionalModel model,
       DimensionalConfiguration config,
       IVariables variables,
-      IHopMetadataProvider metadataProvider)
+      IHopMetadataProvider metadataProvider,
+      DmTableBase fact)
       throws HopException {
     DimensionalConfiguration resolvedConfig =
         config != null ? config : new DimensionalConfiguration();
+    IRowMeta sourceRowMeta = resolveFactSourceRowMeta(metadataProvider, variables, model, fact);
     for (DmFactDimensionRole role : dimensionRoles) {
       addFactForeignKeyColumn(
           rowMeta, added, role, model, resolvedConfig, variables, metadataProvider);
     }
+    for (DmFactDegenerateDimension degenerateDimension : degenerateDimensions) {
+      if (degenerateDimension == null) {
+        continue;
+      }
+      addSourceMappedColumn(
+          rowMeta,
+          added,
+          resolveFieldName(degenerateDimension.getFieldName(), variables),
+          sourceRowMeta);
+    }
     for (DmFactMeasure measure : measures) {
       addColumn(rowMeta, added, resolveFieldName(measure.getFieldName(), variables), new ValueMetaNumber());
     }
+  }
+
+  private static IRowMeta resolveFactSourceRowMeta(
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DimensionalModel model,
+      DmTableBase fact) {
+    if (metadataProvider == null || model == null || fact == null) {
+      return null;
+    }
+    return DmSourceFieldResolutionSupport.tryResolveSourceRowMeta(
+        metadataProvider, variables, model, fact);
   }
 
   private static void addFactForeignKeyColumn(

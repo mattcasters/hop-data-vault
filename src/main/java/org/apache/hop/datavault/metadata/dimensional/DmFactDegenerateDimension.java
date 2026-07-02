@@ -18,14 +18,20 @@
 
 package org.apache.hop.datavault.metadata.dimensional;
 
-import java.util.List;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.apache.hop.metadata.api.HopMetadataProperty;
 
-/** Fact tables and Kimball fact variants that resolve dimension roles on a load stream. */
-public interface IDmFactLikeTable extends IDmTable {
+/** Descriptive dimension attribute stored directly on the fact table grain. */
+@Getter
+@Setter
+@NoArgsConstructor
+public class DmFactDegenerateDimension {
 
-  List<DmFactDimensionRole> getDimensionRolesOrEmpty();
+  @HopMetadataProperty private String fieldName;
 
-  List<DmFactMeasure> getMeasuresOrEmpty();
-
-  List<DmFactDegenerateDimension> getDegenerateDimensionsOrEmpty();
+  public DmFactDegenerateDimension(String fieldName) {
+    this.fieldName = fieldName;
+  }
 }

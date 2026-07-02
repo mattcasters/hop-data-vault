@@ -41,6 +41,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmDimensionAttribute;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionScdType;
 import org.apache.hop.datavault.metadata.dimensional.DmFact;
+import org.apache.hop.datavault.metadata.dimensional.DmFactDegenerateDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmFactlessFact;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmPeriodicSnapshotFact;
@@ -146,6 +147,8 @@ public class HopGuiDmTableDialog {
   private ColumnInfo dimensionJoinSourceFieldColumn;
   private TableView wMeasures;
   private ColumnInfo measureFieldColumn;
+  private TableView wDegenerateDimensions;
+  private ColumnInfo degenerateDimensionFieldColumn;
   private Text wReferencedModelFilename;
   private Button wValidateReferencedModel;
   private Combo wReferencedDimension;
@@ -229,6 +232,7 @@ public class HopGuiDmTableDialog {
       if (!factless) {
         addMeasuresTab();
       }
+      addDegenerateDimensionsTab();
     }
 
     wTabFolder.setSelection(0);
@@ -1441,6 +1445,49 @@ public class HopGuiDmTableDialog {
         new FormDataBuilder().left().top(0, margin).right().bottom(wGetMeasures, -margin).result());
   }
 
+  private void addDegenerateDimensionsTab() {
+    Composite comp =
+        HopGuiDimensionalModelDialog.createTabComposite(
+            wTabFolder,
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.DegenerateDimensions.Label"),
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.DegenerateDimensions.ToolTip"));
+
+    degenerateDimensionFieldColumn =
+        new ColumnInfo(
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.DegenerateDimensions.Column.Field"),
+            ColumnInfo.COLUMN_TYPE_CCOMBO,
+            new String[] {""},
+            false);
+
+    Button wGetDegenerateDimensions = new Button(comp, SWT.PUSH);
+    wGetDegenerateDimensions.setText(
+        BaseMessages.getString(
+            PKG, "HopGuiDmTableDialog.DegenerateDimensions.GetDegenerateDimensions.Label"));
+    wGetDegenerateDimensions.setToolTipText(
+        BaseMessages.getString(
+            PKG, "HopGuiDmTableDialog.DegenerateDimensions.GetDegenerateDimensions.ToolTip"));
+    PropsUi.setLook(wGetDegenerateDimensions);
+    wGetDegenerateDimensions.setLayoutData(new FormDataBuilder().left().bottom().result());
+    wGetDegenerateDimensions.addListener(SWT.Selection, e -> getDegenerateDimensionsFromSource());
+
+    wDegenerateDimensions =
+        new TableView(
+            variables,
+            comp,
+            SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
+            new ColumnInfo[] {degenerateDimensionFieldColumn},
+            1,
+            null,
+            PropsUi.getInstance());
+    wDegenerateDimensions.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(0, margin)
+            .right()
+            .bottom(wGetDegenerateDimensions, -margin)
+            .result());
+  }
+
   private String[] listDimensionNames() {
     List<String> names = new ArrayList<>();
     if (model != null) {
@@ -1688,6 +1735,22 @@ public class HopGuiDmTableDialog {
 
         refreshMeasureComboChoices();
       }
+
+      if (wDegenerateDimensions != null) {
+        wDegenerateDimensions.clearAll();
+        for (DmFactDegenerateDimension degenerateDimension :
+            factLikeTable.getDegenerateDimensionsOrEmpty()) {
+          if (degenerateDimension == null || Utils.isEmpty(degenerateDimension.getFieldName())) {
+            continue;
+          }
+          TableItem item = new TableItem(wDegenerateDimensions.table, SWT.NONE);
+          item.setText(1, degenerateDimension.getFieldName());
+        }
+        wDegenerateDimensions.removeEmptyRows();
+        wDegenerateDimensions.setRowNums();
+        wDegenerateDimensions.optWidth(true);
+        refreshDegenerateDimensionComboChoices();
+      }
     }
   }
 
@@ -1809,65 +1872,42 @@ public class HopGuiDmTableDialog {
     }
 
     if (factLike && input instanceof IDmFactLikeTable factLike) {
+      List<DmFactDimensionRole> dimensionRoles = readDimensionRolesFromTable();
+      List<DmFactMeasure> measures = readMeasuresFromTable();
+      List<DmFactDegenerateDimension> degenerateDimensions = readDegenerateDimensionsFromTable();
       if (factLike instanceof DmFact dmFact) {
         dmFact.getDimensionRoles().clear();
-        dmFact.getDimensionRoles().addAll(readDimensionRolesFromTable());
+        dmFact.getDimensionRoles().addAll(dimensionRoles);
         dmFact.getMeasures().clear();
-        if (!factless && wMeasures != null) {
-          for (TableItem item : wMeasures.getNonEmptyItems()) {
-            String fieldName = item.getText(1);
-            if (Utils.isEmpty(fieldName)) {
-              continue;
-            }
-            boolean additive = !"N".equalsIgnoreCase(item.getText(2));
-            dmFact.getMeasures().add(new DmFactMeasure(fieldName, additive));
-          }
-        }
+        dmFact.getMeasures().addAll(measures);
+        dmFact.getDegenerateDimensions().clear();
+        dmFact.getDegenerateDimensions().addAll(degenerateDimensions);
       } else if (factLike instanceof DmFactlessFact factlessFact) {
         factlessFact.getDimensionRoles().clear();
-        factlessFact.getDimensionRoles().addAll(readDimensionRolesFromTable());
+        factlessFact.getDimensionRoles().addAll(dimensionRoles);
+        factlessFact.getDegenerateDimensions().clear();
+        factlessFact.getDegenerateDimensions().addAll(degenerateDimensions);
       } else if (factLike instanceof DmPeriodicSnapshotFact periodicFact) {
         periodicFact.getDimensionRoles().clear();
-        periodicFact.getDimensionRoles().addAll(readDimensionRolesFromTable());
+        periodicFact.getDimensionRoles().addAll(dimensionRoles);
         periodicFact.getMeasures().clear();
-        if (wMeasures != null) {
-          for (TableItem item : wMeasures.getNonEmptyItems()) {
-            String fieldName = item.getText(1);
-            if (Utils.isEmpty(fieldName)) {
-              continue;
-            }
-            boolean additive = !"N".equalsIgnoreCase(item.getText(2));
-            periodicFact.getMeasures().add(new DmFactMeasure(fieldName, additive));
-          }
-        }
+        periodicFact.getMeasures().addAll(measures);
+        periodicFact.getDegenerateDimensions().clear();
+        periodicFact.getDegenerateDimensions().addAll(degenerateDimensions);
       } else if (factLike instanceof DmAccumulatingSnapshotFact accumulatingFact) {
         accumulatingFact.getDimensionRoles().clear();
-        accumulatingFact.getDimensionRoles().addAll(readDimensionRolesFromTable());
+        accumulatingFact.getDimensionRoles().addAll(dimensionRoles);
         accumulatingFact.getMeasures().clear();
-        if (wMeasures != null) {
-          for (TableItem item : wMeasures.getNonEmptyItems()) {
-            String fieldName = item.getText(1);
-            if (Utils.isEmpty(fieldName)) {
-              continue;
-            }
-            boolean additive = !"N".equalsIgnoreCase(item.getText(2));
-            accumulatingFact.getMeasures().add(new DmFactMeasure(fieldName, additive));
-          }
-        }
+        accumulatingFact.getMeasures().addAll(measures);
+        accumulatingFact.getDegenerateDimensions().clear();
+        accumulatingFact.getDegenerateDimensions().addAll(degenerateDimensions);
       } else if (factLike instanceof DmAggregateFact aggregateFact) {
         aggregateFact.getDimensionRoles().clear();
-        aggregateFact.getDimensionRoles().addAll(readDimensionRolesFromTable());
+        aggregateFact.getDimensionRoles().addAll(dimensionRoles);
         aggregateFact.getMeasures().clear();
-        if (wMeasures != null) {
-          for (TableItem item : wMeasures.getNonEmptyItems()) {
-            String fieldName = item.getText(1);
-            if (Utils.isEmpty(fieldName)) {
-              continue;
-            }
-            boolean additive = !"N".equalsIgnoreCase(item.getText(2));
-            aggregateFact.getMeasures().add(new DmFactMeasure(fieldName, additive));
-          }
-        }
+        aggregateFact.getMeasures().addAll(measures);
+        aggregateFact.getDegenerateDimensions().clear();
+        aggregateFact.getDegenerateDimensions().addAll(degenerateDimensions);
       }
     }
 
@@ -1913,6 +1953,89 @@ public class HopGuiDmTableDialog {
     } catch (HopException e) {
       showSourceFieldError(e);
     }
+  }
+
+  private void getDegenerateDimensionsFromSource() {
+    try {
+      List<String> fieldNames = loadSourceFieldNames();
+      Set<String> reserved = collectReservedDegenerateDimensionSourceFields();
+      List<String> degenerateFields = new ArrayList<>();
+      for (String fieldName : fieldNames) {
+        if (!Utils.isEmpty(fieldName) && !reserved.contains(fieldName)) {
+          degenerateFields.add(fieldName);
+        }
+      }
+      applyFieldNamesToTable(wDegenerateDimensions, degenerateDimensionFieldColumn, degenerateFields, null);
+    } catch (HopException e) {
+      showSourceFieldError(e);
+    }
+  }
+
+  private Set<String> collectReservedDegenerateDimensionSourceFields() {
+    Set<String> reserved = new LinkedHashSet<>();
+    if (wMeasures != null) {
+      for (TableItem item : wMeasures.getNonEmptyItems()) {
+        if (!Utils.isEmpty(item.getText(1))) {
+          reserved.add(item.getText(1));
+        }
+      }
+    }
+    if (wDimensionRoles != null) {
+      for (TableItem item : wDimensionRoles.getNonEmptyItems()) {
+        if (!Utils.isEmpty(item.getText(2))) {
+          reserved.add(item.getText(2));
+        }
+        if (!Utils.isEmpty(item.getText(3))) {
+          reserved.add(item.getText(3));
+        }
+      }
+    }
+    if (input instanceof DmPeriodicSnapshotFact periodicSnapshotFact
+        && !Utils.isEmpty(periodicSnapshotFact.getSnapshotDateField())) {
+      reserved.add(periodicSnapshotFact.getSnapshotDateField());
+    }
+    if (input instanceof DmAccumulatingSnapshotFact accumulatingSnapshotFact) {
+      for (DmNaturalKeyField grainKey : accumulatingSnapshotFact.getGrainKeysOrEmpty()) {
+        if (grainKey != null && !Utils.isEmpty(grainKey.getFieldName())) {
+          reserved.add(grainKey.getFieldName());
+        }
+      }
+    }
+    if (input instanceof DmTableBase table && !Utils.isEmpty(table.getDimensionLookupDateField())) {
+      reserved.add(table.getDimensionLookupDateField());
+    }
+    return reserved;
+  }
+
+  private List<DmFactMeasure> readMeasuresFromTable() {
+    List<DmFactMeasure> measures = new ArrayList<>();
+    if (factless || wMeasures == null) {
+      return measures;
+    }
+    for (TableItem item : wMeasures.getNonEmptyItems()) {
+      String fieldName = item.getText(1);
+      if (Utils.isEmpty(fieldName)) {
+        continue;
+      }
+      boolean additive = !"N".equalsIgnoreCase(item.getText(2));
+      measures.add(new DmFactMeasure(fieldName, additive));
+    }
+    return measures;
+  }
+
+  private List<DmFactDegenerateDimension> readDegenerateDimensionsFromTable() {
+    List<DmFactDegenerateDimension> degenerateDimensions = new ArrayList<>();
+    if (wDegenerateDimensions == null) {
+      return degenerateDimensions;
+    }
+    for (TableItem item : wDegenerateDimensions.getNonEmptyItems()) {
+      String fieldName = item.getText(1);
+      if (Utils.isEmpty(fieldName)) {
+        continue;
+      }
+      degenerateDimensions.add(new DmFactDegenerateDimension(fieldName));
+    }
+    return degenerateDimensions;
   }
 
   private void getJoinsFromSource() {
@@ -2171,6 +2294,26 @@ public class HopGuiDmTableDialog {
     wDimensionLookupDateField.setItems(ConstUi.sortFieldNames(choices.toArray(new String[0])));
     if (!Utils.isEmpty(current)) {
       wDimensionLookupDateField.setText(current);
+    }
+  }
+
+  private void refreshDegenerateDimensionComboChoices() {
+    Set<String> choices = new LinkedHashSet<>();
+    try {
+      choices.addAll(loadSourceFieldNames());
+    } catch (HopException ignored) {
+      // Use fields already configured on the table when the source cannot be resolved yet.
+    }
+    if (wDegenerateDimensions != null) {
+      for (TableItem item : wDegenerateDimensions.getNonEmptyItems()) {
+        if (!Utils.isEmpty(item.getText(1))) {
+          choices.add(item.getText(1));
+        }
+      }
+    }
+    if (degenerateDimensionFieldColumn != null) {
+      degenerateDimensionFieldColumn.setComboValues(
+          ConstUi.sortFieldNames(choices.toArray(new String[0])));
     }
   }
 

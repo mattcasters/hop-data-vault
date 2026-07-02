@@ -45,6 +45,9 @@ public class DmPeriodicSnapshotFact extends DmTableBase implements IDmFactLikeTa
   @HopMetadataProperty(key = "measure", groupKey = "measures")
   private List<DmFactMeasure> measures = new ArrayList<>();
 
+  @HopMetadataProperty(key = "degenerate_dimension", groupKey = "degenerate_dimensions")
+  private List<DmFactDegenerateDimension> degenerateDimensions = new ArrayList<>();
+
   public DmPeriodicSnapshotFact() {
     super(DmTableType.PERIODIC_SNAPSHOT_FACT);
   }
@@ -57,6 +60,11 @@ public class DmPeriodicSnapshotFact extends DmTableBase implements IDmFactLikeTa
   @Override
   public List<DmFactMeasure> getMeasuresOrEmpty() {
     return measures != null ? measures : List.of();
+  }
+
+  @Override
+  public List<DmFactDegenerateDimension> getDegenerateDimensionsOrEmpty() {
+    return degenerateDimensions != null ? degenerateDimensions : List.of();
   }
 
   @Override

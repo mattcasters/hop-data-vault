@@ -39,6 +39,8 @@
           <sourceFieldName>order_id</sourceFieldName>
           <truncateToDateKey>N</truncateToDateKey>
           <preloadLookupCache>Y</preloadLookupCache>
+          <skipDimensionLookup>N</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
         <dimension_role>
           <dimensionTableName>d_customer</dimensionTableName>
@@ -46,6 +48,8 @@
           <sourceFieldName>customer_id</sourceFieldName>
           <truncateToDateKey>N</truncateToDateKey>
           <preloadLookupCache>Y</preloadLookupCache>
+          <skipDimensionLookup>N</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
         <dimension_role>
           <dimensionTableName>d_order_date</dimensionTableName>
@@ -53,6 +57,8 @@
           <sourceFieldName>order_date</sourceFieldName>
           <truncateToDateKey>Y</truncateToDateKey>
           <preloadLookupCache>N</preloadLookupCache>
+          <skipDimensionLookup>N</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
         <dimension_role>
           <dimensionTableName>d_shipping_date</dimensionTableName>
@@ -60,6 +66,8 @@
           <sourceFieldName>shipping_date</sourceFieldName>
           <truncateToDateKey>Y</truncateToDateKey>
           <preloadLookupCache>N</preloadLookupCache>
+          <skipDimensionLookup>N</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
         <dimension_role>
           <dimensionTableName>d_delivery_date</dimensionTableName>
@@ -67,6 +75,8 @@
           <sourceFieldName>delivery_date</sourceFieldName>
           <truncateToDateKey>Y</truncateToDateKey>
           <preloadLookupCache>N</preloadLookupCache>
+          <skipDimensionLookup>N</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
       </dimension_roles>
       <measures>
@@ -75,12 +85,17 @@
           <additive>Y</additive>
         </measure>
       </measures>
+      <degenerate_dimensions>
+        <degenerate_dimension>
+          <fieldName>degenerate_info</fieldName>
+        </degenerate_dimension>
+      </degenerate_dimensions>
       <tableName>f_orders</tableName>
       <description/>
       <tableType>FACT</tableType>
       <sourceType>SQL</sourceType>
       <sourceConnection>Vault</sourceConnection>
-      <sourceSql>SELECT lo.customer_hk, ho.order_id, hc.customer_id, lo.order_hk, so.order_date, so.shipping_date, so.delivery_date, so.total_amount 
+      <sourceSql>SELECT lo.customer_hk, ho.order_id, hc.customer_id, lo.order_hk, so.order_date, so.shipping_date, so.delivery_date, so.total_amount, 'abcd' as degenerate_info 
 FROM lnk_order lo 
 JOIN sat_order so 
   ON lo.order_hk = so.order_hk 
@@ -101,7 +116,7 @@ JOIN hub_customer hc
     </table>
     <table>
       <referencedDimensionName>d_order</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_order</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
@@ -112,7 +127,7 @@ JOIN hub_customer hc
     </table>
     <table>
       <referencedDimensionName>d_customer</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_customer</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
@@ -123,7 +138,7 @@ JOIN hub_customer hc
     </table>
     <table>
       <referencedDimensionName>d_date</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_date</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
@@ -134,7 +149,7 @@ JOIN hub_customer hc
     </table>
     <table>
       <referencedDimensionName>d_date</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_date</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
@@ -145,7 +160,7 @@ JOIN hub_customer hc
     </table>
     <table>
       <referencedDimensionName>d_date</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_date</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>

@@ -98,6 +98,7 @@ public final class DmValidationSupport {
     validateDimensionRoles(remarks, fact.getName(), fact.getDimensionRolesOrEmpty(), model, variables, fact);
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
+    validateDegenerateDimensions(remarks, fact, model, metadataProvider, variables);
     validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
@@ -123,6 +124,7 @@ public final class DmValidationSupport {
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
+    validateDegenerateDimensions(remarks, fact, model, metadataProvider, variables);
     validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
@@ -148,6 +150,7 @@ public final class DmValidationSupport {
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
+    validateDegenerateDimensions(remarks, fact, model, metadataProvider, variables);
     validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
@@ -248,6 +251,7 @@ public final class DmValidationSupport {
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
+    validateDegenerateDimensions(remarks, fact, model, metadataProvider, variables);
     validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
@@ -592,6 +596,7 @@ public final class DmValidationSupport {
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
+    validateDegenerateDimensions(remarks, fact, model, metadataProvider, variables);
     validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateFactSourceFields(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
@@ -890,6 +895,143 @@ public final class DmValidationSupport {
                 source));
       }
     }
+  }
+
+  private static void validateDegenerateDimensions(
+      List<ICheckResult> remarks,
+      IDmFactLikeTable factLike,
+      DimensionalModel model,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables) {
+    if (remarks == null || factLike == null) {
+      return;
+    }
+    Set<String> names = new HashSet<>();
+    Set<String> measureNames = new HashSet<>();
+    for (DmFactMeasure measure : factLike.getMeasuresOrEmpty()) {
+      String fieldName = resolve(measure != null ? measure.getFieldName() : null, variables);
+      if (!Utils.isEmpty(fieldName)) {
+        measureNames.add(fieldName);
+      }
+    }
+    Set<String> roleSourceFields = new HashSet<>();
+    Set<String> roleForeignKeys = new HashSet<>();
+    for (DmFactDimensionRole role : factLike.getDimensionRolesOrEmpty()) {
+      String sourceField = resolve(role != null ? role.getSourceFieldName() : null, variables);
+      if (!Utils.isEmpty(sourceField)) {
+        roleSourceFields.add(sourceField);
+      }
+      String foreignKey = resolve(role != null ? role.getForeignKeyColumn() : null, variables);
+      if (!Utils.isEmpty(foreignKey)) {
+        roleForeignKeys.add(foreignKey);
+      }
+    }
+    Set<String> reservedFields = collectReservedDegenerateDimensionFields(factLike, variables);
+    Set<String> available = new HashSet<>();
+    if (factLike instanceof DmTableBase factTable) {
+      IRowMeta sourceRowMeta =
+          DmSourceFieldResolutionSupport.tryResolveSourceRowMeta(
+              metadataProvider, variables, model, factTable);
+      if (sourceRowMeta != null) {
+        available.addAll(sourceRowMeta.getValueMetaList().stream().map(IValueMeta::getName).toList());
+      }
+    }
+    for (DmFactDegenerateDimension degenerateDimension : factLike.getDegenerateDimensionsOrEmpty()) {
+      String fieldName =
+          resolve(
+              degenerateDimension != null ? degenerateDimension.getFieldName() : null, variables);
+      if (Utils.isEmpty(fieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.EmptyDegenerateDimensionField",
+                    factLike.getName()),
+                factLike));
+        continue;
+      }
+      if (!names.add(fieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.DuplicateDegenerateDimensionField",
+                    factLike.getName(),
+                    fieldName),
+                factLike));
+      }
+      if (measureNames.contains(fieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.DegenerateDimensionOverlapsMeasure",
+                    factLike.getName(),
+                    fieldName),
+                factLike));
+      }
+      if (roleSourceFields.contains(fieldName) || roleForeignKeys.contains(fieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.DegenerateDimensionOverlapsDimensionRole",
+                    factLike.getName(),
+                    fieldName),
+                factLike));
+      }
+      if (reservedFields.contains(fieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.DegenerateDimensionOverlapsReservedField",
+                    factLike.getName(),
+                    fieldName),
+                factLike));
+      }
+      if (!available.isEmpty() && !available.contains(fieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.DegenerateDimensionMissingFromFactSource",
+                    factLike.getName(),
+                    fieldName),
+                factLike));
+      }
+    }
+  }
+
+  private static Set<String> collectReservedDegenerateDimensionFields(
+      IDmFactLikeTable factLike, IVariables variables) {
+    Set<String> reserved = new HashSet<>();
+    if (factLike instanceof DmPeriodicSnapshotFact periodicSnapshotFact) {
+      String snapshotDateField =
+          resolve(periodicSnapshotFact.getSnapshotDateField(), variables);
+      if (!Utils.isEmpty(snapshotDateField)) {
+        reserved.add(snapshotDateField);
+      }
+    }
+    if (factLike instanceof DmAccumulatingSnapshotFact accumulatingSnapshotFact) {
+      for (DmNaturalKeyField grainKey : accumulatingSnapshotFact.getGrainKeysOrEmpty()) {
+        String fieldName = resolve(grainKey != null ? grainKey.getFieldName() : null, variables);
+        if (!Utils.isEmpty(fieldName)) {
+          reserved.add(fieldName);
+        }
+      }
+    }
+    if (factLike instanceof DmTableBase table
+        && !Utils.isEmpty(resolve(table.getDimensionLookupDateField(), variables))) {
+      reserved.add(resolve(table.getDimensionLookupDateField(), variables));
+    }
+    return reserved;
   }
 
   private static void validateMeasures(
@@ -1213,6 +1355,20 @@ public final class DmValidationSupport {
             targetLayout,
             fieldName,
             "Fact '" + factName + "' measure '" + fieldName + "'",
+            fact);
+      }
+    }
+    for (DmFactDegenerateDimension degenerateDimension : fact.getDegenerateDimensionsOrEmpty()) {
+      String fieldName =
+          resolve(
+              degenerateDimension != null ? degenerateDimension.getFieldName() : null, variables);
+      if (!Utils.isEmpty(fieldName)) {
+        DmSourceTargetTypeValidationSupport.validateMappedField(
+            remarks,
+            sourceRowMeta,
+            targetLayout,
+            fieldName,
+            "Fact '" + factName + "' degenerate dimension '" + fieldName + "'",
             fact);
       }
     }
