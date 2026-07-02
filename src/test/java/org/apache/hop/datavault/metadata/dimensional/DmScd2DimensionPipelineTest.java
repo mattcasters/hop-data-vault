@@ -23,11 +23,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.hop.catalog.impl.file.FileDataCatalog;
+import org.apache.hop.catalog.metadata.DataCatalogMeta;
+import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
+import org.apache.hop.catalog.xp.RegisterDataCatalogMetadataExtensionPoint;
 import org.apache.hop.core.HopEnvironment;
+import org.apache.hop.core.logging.LogChannel;
+import org.apache.hop.core.plugins.PluginRegistry;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
@@ -40,6 +47,8 @@ import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.calculator.CalculatorMeta;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
+import org.apache.hop.datavault.transform.mergerowsplus.MergeRowsPlusMeta;
+import org.apache.hop.pipeline.transforms.metainject.MetaInjectMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
 import org.apache.hop.pipeline.transforms.update.UpdateMeta;
@@ -51,6 +60,87 @@ class DmScd2DimensionPipelineTest {
   @BeforeAll
   static void initHop() throws HopException {
     HopEnvironment.init();
+    new RegisterDataCatalogMetadataExtensionPoint()
+        .callExtensionPoint(LogChannel.GENERAL, new Variables(), PluginRegistry.getInstance());
+  }
+
+  @Test
+  void recordDefinitionSourceBuildsPhysicalInputInsteadOfSqlTableInput() throws Exception {
+    DimensionalModel model = new DimensionalModel();
+    model.getConfigurationOrDefault().setTargetDatabase("Vault");
+    model.getConfigurationOrDefault().setDataCatalogConnection("local-catalog");
+
+    DmDimension dimension = new DmDimension();
+    dimension.setName("d_orders");
+    dimension.setTableName("d_orders");
+    dimension.setScdType(DmDimensionScdType.TYPE1);
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("order_id"));
+    dimension.getSourceOrDefault().setSourceType(DmSourceType.RECORD_DEFINITION);
+    dimension.getSourceOrDefault().setSourceCatalogConnection("local-catalog");
+    dimension
+        .getSourceOrDefault()
+        .setSourceRecordNamespace("hop/retail-example/sources");
+    dimension.getSourceOrDefault().setSourceRecordName("E2E-order-header");
+    model.getTables().add(dimension);
+
+    Variables variables = retailExampleVariables();
+    IHopMetadataProvider metadataProvider = retailExampleMetadataProvider(variables);
+
+    PipelineMeta pipeline =
+        dimension
+            .generateUpdatePipelines(metadataProvider, variables, model, new Date())
+            .get(0);
+
+    TransformMeta sourceTransform =
+        pipeline.getTransforms().stream()
+            .filter(t -> t.getName().startsWith("source_d_orders"))
+            .findFirst()
+            .orElseThrow();
+    assertTrue(
+        sourceTransform.getTransform() instanceof TableInputMeta
+            || pipeline.getTransforms().stream()
+                .anyMatch(t -> t.getTransform() instanceof TableInputMeta));
+  }
+
+  @Test
+  void pipelineSourceBuildsMetaInjectInsteadOfTableInput() throws Exception {
+    DimensionalModel model = new DimensionalModel();
+    model.getConfigurationOrDefault().setTargetDatabase("Vault");
+
+    DmDimension dimension = new DmDimension();
+    dimension.setName("d_stream");
+    dimension.setTableName("d_stream");
+    dimension.setScdType(DmDimensionScdType.TYPE1);
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("id"));
+    dimension.getSourceOrDefault().setSourceType(DmSourceType.PIPELINE);
+    dimension
+        .getSourceOrDefault()
+        .setSourcePipelineFile(
+            java.nio.file.Path.of("retail-example", "test", "streaming-source.hpl")
+                .toAbsolutePath()
+                .toString());
+    dimension.getSourceOrDefault().setSourcePipelineTransform("id");
+    model.getTables().add(dimension);
+
+    PipelineMeta pipeline =
+        dimension
+            .generateUpdatePipelines(testMetadataProvider(), new Variables(), model, new Date())
+            .get(0);
+
+    TransformMeta sourceTransform =
+        pipeline.getTransforms().stream()
+            .filter(t -> t.getName().equals("source_d_stream"))
+            .findFirst()
+            .orElseThrow();
+    assertTrue(sourceTransform.getTransform() instanceof MetaInjectMeta);
+    MetaInjectMeta metaInjectMeta = (MetaInjectMeta) sourceTransform.getTransform();
+    assertEquals("id", metaInjectMeta.getSourceTransformName());
+    assertFalse(
+        pipeline.getTransforms().stream()
+            .anyMatch(
+                t ->
+                    t.getName().equals("source_d_stream")
+                        && t.getTransform() instanceof TableInputMeta));
   }
 
   @Test
@@ -93,6 +183,15 @@ class DmScd2DimensionPipelineTest {
     assertTrue(
         pipeline.getTransforms().stream()
             .anyMatch(t -> t.getName().equals("select_merge_reference")));
+    assertTrue(
+        pipeline.getTransforms().stream()
+            .anyMatch(
+                t ->
+                    t.getName().equals("merge_diff")
+                        && t.getTransform() instanceof MergeRowsPlusMeta));
+    assertFalse(
+        pipeline.getTransforms().stream()
+            .anyMatch(t -> t.getName().equals("merge_reference") || t.getName().equals("merge_compare")));
 
     ConstantMeta effectiveDates =
         (ConstantMeta)
@@ -192,6 +291,36 @@ class DmScd2DimensionPipelineTest {
     DatabaseMeta databaseMeta = new DatabaseMeta();
     databaseMeta.setName("Vault");
     metadataProvider.getSerializer(DatabaseMeta.class).save(databaseMeta);
+    return metadataProvider;
+  }
+
+  private static Variables retailExampleVariables() {
+    Variables variables = new Variables();
+    variables.setVariable(
+        "PROJECT_HOME",
+        Path.of("retail-example").toAbsolutePath().toString().replace('\\', '/'));
+    return variables;
+  }
+
+  private static IHopMetadataProvider retailExampleMetadataProvider(Variables variables)
+      throws HopException {
+    MemoryMetadataProvider metadataProvider = new MemoryMetadataProvider();
+    DatabaseMeta vault = new DatabaseMeta();
+    vault.setName("Vault");
+    metadataProvider.getSerializer(DatabaseMeta.class).save(vault);
+    DatabaseMeta crm = new DatabaseMeta();
+    crm.setName("CRM");
+    metadataProvider.getSerializer(DatabaseMeta.class).save(crm);
+
+    DataCatalogMeta catalogMeta = new DataCatalogMeta();
+    catalogMeta.setName("local-catalog");
+    catalogMeta.setEnabled(true);
+    FileDataCatalog fileCatalog = new FileDataCatalog();
+    fileCatalog.setStorageDirectory("${PROJECT_HOME}/catalog-data");
+    catalogMeta.setCatalog(fileCatalog);
+    metadataProvider.getSerializer(DataCatalogMeta.class).save(catalogMeta);
+
+    RecordDefinitionRegistry.getInstance().invalidate();
     return metadataProvider;
   }
 }

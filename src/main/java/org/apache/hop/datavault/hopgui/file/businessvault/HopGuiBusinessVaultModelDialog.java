@@ -31,6 +31,7 @@ import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgetsAdapter;
 import org.apache.hop.ui.core.gui.GuiResource;
+import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.eclipse.swt.SWT;
@@ -81,8 +82,6 @@ public class HopGuiBusinessVaultModelDialog {
     PropsUi.setLook(shell);
     shell.setText(
         BaseMessages.getString(PKG, "HopGuiBusinessVaultModelDialog.Title", input.getName()));
-    shell.setSize(650, 500);
-
     FormLayout formLayout = new FormLayout();
     formLayout.marginWidth = PropsUi.getFormMargin();
     formLayout.marginHeight = PropsUi.getFormMargin();
@@ -227,6 +226,7 @@ public class HopGuiBusinessVaultModelDialog {
           }
         });
 
+    BaseTransformDialog.setSize(shell, 650, 500);
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
     return ok;
   }
@@ -314,6 +314,10 @@ public class HopGuiBusinessVaultModelDialog {
   }
 
   private void dispose() {
-    shell.dispose();
+    if (shell != null && !shell.isDisposed()) {
+      WindowProperty winProp = new WindowProperty(shell);
+      PropsUi.getInstance().setSessionScreen(winProp);
+      shell.dispose();
+    }
   }
 }

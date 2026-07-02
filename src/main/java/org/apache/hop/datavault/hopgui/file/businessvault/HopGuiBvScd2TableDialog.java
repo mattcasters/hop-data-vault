@@ -41,6 +41,7 @@ import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
+import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.gui.GuiResource;
@@ -113,8 +114,6 @@ public class HopGuiBvScd2TableDialog {
     shell.setText(
         BaseMessages.getString(
             PKG, "HopGuiBvScd2TableDialog.Title", Const.NVL(input.getName(), input.getName())));
-    shell.setSize(720, 620);
-
     FormLayout formLayout = new FormLayout();
     formLayout.marginWidth = PropsUi.getFormMargin();
     formLayout.marginHeight = PropsUi.getFormMargin();
@@ -174,6 +173,7 @@ public class HopGuiBvScd2TableDialog {
     getData();
     updateMappingsHint();
 
+    BaseTransformDialog.setSize(shell, 720, 620);
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
     return ok;
   }
@@ -763,12 +763,20 @@ public class HopGuiBvScd2TableDialog {
     }
 
     ok = true;
-    shell.dispose();
+    dispose();
   }
 
   private void cancel() {
     ok = false;
-    shell.dispose();
+    dispose();
+  }
+
+  private void dispose() {
+    if (shell != null && !shell.isDisposed()) {
+      WindowProperty winProp = new WindowProperty(shell);
+      PropsUi.getInstance().setSessionScreen(winProp);
+      shell.dispose();
+    }
   }
 
   private void applyScd2FieldTooltips() {

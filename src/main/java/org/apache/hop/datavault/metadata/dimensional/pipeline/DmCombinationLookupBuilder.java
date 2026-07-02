@@ -57,7 +57,7 @@ public final class DmCombinationLookupBuilder {
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
 
-    TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceTableInput(ctx, pipelineMeta);
+    TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     addCombinationLookup(ctx, pipelineMeta, sourceTransform, junkDimension);
 
     DmGeneratedPipelineSupport.applyLayout(pipelineMeta);

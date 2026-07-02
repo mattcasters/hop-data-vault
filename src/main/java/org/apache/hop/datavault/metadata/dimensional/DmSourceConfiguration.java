@@ -29,11 +29,50 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
 @Setter
 public class DmSourceConfiguration {
 
+  public static final String DEFAULT_PIPELINE_RUN_CONFIGURATION = "local";
+
+  /** How staging rows are obtained for generated load pipelines. */
+  @HopMetadataProperty private DmSourceType sourceType = DmSourceType.SQL;
+
   /** Optional database connection override; defaults to model source or target database. */
   @HopMetadataProperty private String sourceConnection;
 
   /** SQL executed by the generated source {@code TableInput}. */
   @HopMetadataProperty private String sourceSql;
+
+  /** Hop pipeline file providing staging rows when {@link DmSourceType#PIPELINE} is selected. */
+  @HopMetadataProperty private String sourcePipelineFile;
+
+  /** Transform in {@link #sourcePipelineFile} whose output rows feed the generated pipeline. */
+  @HopMetadataProperty private String sourcePipelineTransform;
+
+  /** Run configuration for generated {@code MetaInject} transforms; defaults to {@code local}. */
+  @HopMetadataProperty private String sourcePipelineRunConfiguration;
+
+  /** Data catalog connection when {@link DmSourceType#RECORD_DEFINITION} is selected. */
+  @HopMetadataProperty private String sourceCatalogConnection;
+
+  /** Catalog namespace of the staging record definition. */
+  @HopMetadataProperty private String sourceRecordNamespace;
+
+  /** Catalog name of the staging record definition. */
+  @HopMetadataProperty private String sourceRecordName;
+
+  public DmSourceType resolveSourceType() {
+    return sourceType != null ? sourceType : DmSourceType.SQL;
+  }
+
+  public boolean isSqlSource() {
+    return resolveSourceType() == DmSourceType.SQL;
+  }
+
+  public boolean isPipelineSource() {
+    return resolveSourceType() == DmSourceType.PIPELINE;
+  }
+
+  public boolean isRecordDefinitionSource() {
+    return resolveSourceType() == DmSourceType.RECORD_DEFINITION;
+  }
 
   public String resolveSourceConnection(
       DimensionalConfiguration config, IVariables variables) {
@@ -65,5 +104,56 @@ public class DmSourceConfiguration {
       sql = variables.resolve(sql);
     }
     return sql;
+  }
+
+  public String resolveSourcePipelineFile(IVariables variables) {
+    String filename = sourcePipelineFile;
+    if (variables != null) {
+      filename = variables.resolve(filename);
+    }
+    return filename;
+  }
+
+  public String resolveSourcePipelineTransform(IVariables variables) {
+    String transform = sourcePipelineTransform;
+    if (variables != null) {
+      transform = variables.resolve(transform);
+    }
+    return transform;
+  }
+
+  public String resolveSourcePipelineRunConfiguration(IVariables variables) {
+    String runConfiguration = sourcePipelineRunConfiguration;
+    if (variables != null) {
+      runConfiguration = variables.resolve(runConfiguration);
+    }
+    if (Utils.isEmpty(runConfiguration)) {
+      return DEFAULT_PIPELINE_RUN_CONFIGURATION;
+    }
+    return runConfiguration;
+  }
+
+  public String resolveSourceCatalogConnection(IVariables variables) {
+    String connection = sourceCatalogConnection;
+    if (variables != null) {
+      connection = variables.resolve(connection);
+    }
+    return connection;
+  }
+
+  public String resolveSourceRecordNamespace(IVariables variables) {
+    String namespace = sourceRecordNamespace;
+    if (variables != null) {
+      namespace = variables.resolve(namespace);
+    }
+    return namespace;
+  }
+
+  public String resolveSourceRecordName(IVariables variables) {
+    String name = sourceRecordName;
+    if (variables != null) {
+      name = variables.resolve(name);
+    }
+    return name;
   }
 }

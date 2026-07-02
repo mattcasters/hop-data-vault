@@ -76,7 +76,7 @@ import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
 import org.apache.hop.pipeline.transforms.groupby.Aggregation;
 import org.apache.hop.pipeline.transforms.groupby.GroupByMeta;
 import org.apache.hop.pipeline.transforms.groupby.GroupingField;
-import org.apache.hop.pipeline.transforms.mergerows.MergeRowsMeta;
+import org.apache.hop.datavault.transform.mergerowsplus.MergeRowsPlusMeta;
 import org.apache.hop.pipeline.transforms.mergerows.PassThroughField;
 import org.apache.hop.pipeline.transforms.update.UpdateField;
 import org.apache.hop.pipeline.transforms.update.UpdateKeyField;
@@ -1277,7 +1277,7 @@ public class DvSatellite extends DvTableBase
     String loadDateField = determineTargetLoadDateField(ctx);
     String quotedLoadDate = ctx.targetDatabaseMeta.quoteField(loadDateField);
 
-    // Select the hash key + all satellite attributes from the target so that MergeRows can
+    // Select the hash key + all satellite attributes from the target so that MergeRowsPlus can
     // compare attribute *values* (not just presence of the hub key).
     // We ORDER BY hash + load_date so the following GroupBy (LAST_INCL_NULL) selects the last
     // (most recent) version of each satellite record.
@@ -1418,9 +1418,7 @@ public class DvSatellite extends DvTableBase
     }
 
     boolean loadEndDate = useLoadEndDate(ctx);
-    int referenceDummyX =
-        LOCATION_START_LINE_3.x + (loadEndDate ? 3 : 2) * SPACING_WIDTH;
-    int mergeX = LOCATION_START_LINE_3.x + (loadEndDate ? 5 : 3) * SPACING_WIDTH;
+    int mergeX = LOCATION_START_LINE_3.x + (loadEndDate ? 4 : 2) * SPACING_WIDTH;
 
     TransformMeta referenceMergeTransform = referenceTransform;
 
@@ -1432,27 +1430,9 @@ public class DvSatellite extends DvTableBase
           addReferenceLoadDateTypeSelectValues(ctx, pipelineMeta, referenceMergeTransform);
     }
 
-    // A bug in hop requires an extra dummy to read from both reference and compare transforms
-    //
-    referenceMergeTransform =
-            addDummyTransform(
-                    pipelineMeta,
-                    referenceMergeTransform,
-                    "Merge reference",
-                    referenceDummyX,
-                    LOCATION_START_LINE_3.y);
-
-    TransformMeta compareDummyTransform =
-        addDummyTransform(
-            pipelineMeta,
-            compareTransform,
-            "Merge compare",
-            compareTransform.getLocation().x + SPACING_WIDTH,
-            compareTransform.getLocation().y);
-
-    MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
+    MergeRowsPlusMeta mergeRowsMeta = new MergeRowsPlusMeta();
     mergeRowsMeta.setReferenceTransform(referenceMergeTransform.getName());
-    mergeRowsMeta.setCompareTransform(compareDummyTransform.getName());
+    mergeRowsMeta.setCompareTransform(compareTransform.getName());
     mergeRowsMeta.setFlagField("flag");
 
     List<String> keyFields = new ArrayList<>();
@@ -1462,7 +1442,7 @@ public class DvSatellite extends DvTableBase
     }
     mergeRowsMeta.setKeyFields(keyFields);
 
-    // Value fields: the satellite attributes. MergeRows will compare these (when keys/hash match)
+    // Value fields: the satellite attributes. MergeRowsPlus compares these (when keys/hash match)
     // to decide between 'identical' and 'changed'.
     for (SatelliteAttribute attribute : attributes) {
       if (attribute.isIncludeInChangeDataCapture()) {
@@ -1477,11 +1457,11 @@ public class DvSatellite extends DvTableBase
           .add(new PassThroughField(loadDateField, PREVIOUS_LOAD_DATE_FIELD, true));
     }
 
-    TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
+    TransformMeta tm = new TransformMeta("MergeRowsPlus", "merge_diff", mergeRowsMeta);
     tm.setLocation(mergeX, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceMergeTransform, tm));
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareDummyTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareTransform, tm));
 
     return tm;
   }
@@ -1979,24 +1959,9 @@ public class DvSatellite extends DvTableBase
       PipelineMeta pipelineMeta,
       TransformMeta compareTransform,
       TransformMeta referenceTransform) {
-    TransformMeta compareDummy =
-        addDummyTransform(
-            pipelineMeta,
-            compareTransform,
-            "STS merge compare",
-            compareTransform.getLocation().x + SPACING_WIDTH,
-            compareTransform.getLocation().y);
-    TransformMeta referenceDummy =
-        addDummyTransform(
-            pipelineMeta,
-            referenceTransform,
-            "STS merge reference",
-            referenceTransform.getLocation().x + SPACING_WIDTH,
-            referenceTransform.getLocation().y);
-
-    MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
-    mergeRowsMeta.setReferenceTransform(referenceDummy.getName());
-    mergeRowsMeta.setCompareTransform(compareDummy.getName());
+    MergeRowsPlusMeta mergeRowsMeta = new MergeRowsPlusMeta();
+    mergeRowsMeta.setReferenceTransform(referenceTransform.getName());
+    mergeRowsMeta.setCompareTransform(compareTransform.getName());
     mergeRowsMeta.setFlagField("flag");
 
     List<String> keyFields = new ArrayList<>();
@@ -2006,11 +1971,11 @@ public class DvSatellite extends DvTableBase
     }
     mergeRowsMeta.setKeyFields(keyFields);
 
-    TransformMeta tm = new TransformMeta("MergeRows", "sts_deletion_merge", mergeRowsMeta);
-    tm.setLocation(LOCATION_STS_LINE_3.x + 4 * SPACING_WIDTH, LOCATION_STS_LINE_3.y);
+    TransformMeta tm = new TransformMeta("MergeRowsPlus", "sts_deletion_merge", mergeRowsMeta);
+    tm.setLocation(LOCATION_STS_LINE_3.x + 3 * SPACING_WIDTH, LOCATION_STS_LINE_3.y);
     pipelineMeta.addTransform(tm);
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceDummy, tm));
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareDummy, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareTransform, tm));
     return tm;
   }
 

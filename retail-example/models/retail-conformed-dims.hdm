@@ -31,51 +31,6 @@
       <scdType>TYPE2</scdType>
       <natural_keys>
         <natural_key>
-          <fieldName>order_id</fieldName>
-        </natural_key>
-      </natural_keys>
-      <attributes>
-        <attribute>
-          <fieldName>order_date</fieldName>
-          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
-        </attribute>
-        <attribute>
-          <fieldName>shipping_date</fieldName>
-          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
-        </attribute>
-        <attribute>
-          <fieldName>delivery_date</fieldName>
-          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
-        </attribute>
-        <attribute>
-          <fieldName>order_status</fieldName>
-          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
-        </attribute>
-        <attribute>
-          <fieldName>total_amount</fieldName>
-          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
-        </attribute>
-      </attributes>
-      <outriggers/>
-      <surrogateKeyField>order_hk</surrogateKeyField>
-      <surrogateKeyStrategy>USE_SOURCE_FIELD</surrogateKeyStrategy>
-      <surrogateKeySourceField>order_hk</surrogateKeySourceField>
-      <tableName>d_order</tableName>
-      <description/>
-      <tableType>DIMENSION</tableType>
-      <sourceConnection>Vault</sourceConnection>
-      <sourceSql>SELECT ho.order_id, so.* 
-FROM   sat_order so
-JOIN   hub_order ho
-  ON   so.order_hk = ho.order_hk</sourceSql>
-      <xloc>96</xloc>
-      <yloc>192</yloc>
-      <name>d_order</name>
-    </table>
-    <table>
-      <scdType>TYPE2</scdType>
-      <natural_keys>
-        <natural_key>
           <fieldName>customer_id</fieldName>
         </natural_key>
       </natural_keys>
@@ -132,14 +87,167 @@ JOIN   hub_order ho
       <tableName>d_customer</tableName>
       <description/>
       <tableType>DIMENSION</tableType>
+      <sourceType>SQL</sourceType>
       <sourceConnection>Vault</sourceConnection>
       <sourceSql>SELECT hc.customer_id, sc.*
 FROM   hub_customer hc 
 JOIN   customer_360_bv sc
   ON   hc.customer_hk = sc.customer_hk</sourceSql>
-      <xloc>96</xloc>
-      <yloc>80</yloc>
+      <xloc>128</xloc>
+      <yloc>176</yloc>
       <name>d_customer</name>
+    </table>
+    <table>
+      <scdType>TYPE2</scdType>
+      <natural_keys>
+        <natural_key>
+          <fieldName>order_id</fieldName>
+        </natural_key>
+      </natural_keys>
+      <attributes>
+        <attribute>
+          <fieldName>order_date</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>shipping_date</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>delivery_date</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>order_status</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>total_amount</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+      </attributes>
+      <outriggers/>
+      <surrogateKeyField>order_hk</surrogateKeyField>
+      <surrogateKeyStrategy>USE_SOURCE_FIELD</surrogateKeyStrategy>
+      <surrogateKeySourceField>order_hk</surrogateKeySourceField>
+      <tableName>d_order</tableName>
+      <description/>
+      <tableType>DIMENSION</tableType>
+      <sourceType>SQL</sourceType>
+      <sourceConnection>Vault</sourceConnection>
+      <sourceSql>SELECT ho.order_id, so.* 
+FROM   sat_order so
+JOIN   hub_order ho
+  ON   so.order_hk = ho.order_hk</sourceSql>
+      <xloc>128</xloc>
+      <yloc>272</yloc>
+      <name>d_order</name>
+    </table>
+    <table>
+      <scdType>TYPE2</scdType>
+      <natural_keys>
+        <natural_key>
+          <fieldName>product_id</fieldName>
+        </natural_key>
+      </natural_keys>
+      <attributes>
+        <attribute>
+          <fieldName>product_name</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>category</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>unit_price</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+      </attributes>
+      <outriggers/>
+      <surrogateKeyField>product_hk</surrogateKeyField>
+      <surrogateKeyStrategy>USE_SOURCE_FIELD</surrogateKeyStrategy>
+      <surrogateKeySourceField>product_hk</surrogateKeySourceField>
+      <tableName>d_product</tableName>
+      <description/>
+      <tableType>DIMENSION</tableType>
+      <sourceType>SQL</sourceType>
+      <sourceConnection>Vault</sourceConnection>
+      <sourceSql>SELECT hp.product_id, sp.product_hk, sp.product_name, sp.category, sp.unit_price 
+FROM hub_product hp 
+JOIN sat_product sp ON hp.product_hk = sp.product_hk</sourceSql>
+      <xloc>128</xloc>
+      <yloc>368</yloc>
+      <name>d_product</name>
+    </table>
+    <table>
+      <scdType>TYPE1</scdType>
+      <natural_keys>
+        <natural_key>
+          <fieldName>date_key</fieldName>
+        </natural_key>
+      </natural_keys>
+      <attributes>
+        <attribute>
+          <fieldName>full_date</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>day_of_week</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>day_of_month</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>day_of_year</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>week_of_year</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>month</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>month_name</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>quarter</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>year</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>is_weekend</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+      </attributes>
+      <outriggers/>
+      <surrogateKeyField/>
+      <surrogateKeyStrategy>NONE</surrogateKeyStrategy>
+      <surrogateKeySourceField/>
+      <tableName>d_date</tableName>
+      <description>Calendar date dimension</description>
+      <tableType>DIMENSION</tableType>
+      <sourceType>PIPELINE</sourceType>
+      <sourceConnection>Vault</sourceConnection>
+      <sourceSql>SELECT date_key, full_date, year, CURRENT_TIMESTAMP AS load_dt FROM stg_e2e_date</sourceSql>
+      <sourcePipelineFile>/home/matt/git/mattcasters/hop-data-vault/retail-example/pipelines/generate-date-dimension-data.hpl</sourcePipelineFile>
+      <sourcePipelineTransform>OUTPUT</sourcePipelineTransform>
+      <sourcePipelineRunConfiguration>local</sourcePipelineRunConfiguration>
+      <sourceCatalogConnection/>
+      <sourceRecordNamespace/>
+      <sourceRecordName/>
+      <xloc>128</xloc>
+      <yloc>80</yloc>
+      <name>d_date</name>
     </table>
   </tables>
   <conformed_dimensions/>

@@ -52,7 +52,7 @@ public final class DmInsertUpdateBuilder {
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
 
-    TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceTableInput(ctx, pipelineMeta);
+    TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     TransformMeta insertUpdateTransform = addInsertUpdate(ctx, pipelineMeta, sourceTransform, dimension);
 
     DmGeneratedPipelineSupport.applyLayout(pipelineMeta);

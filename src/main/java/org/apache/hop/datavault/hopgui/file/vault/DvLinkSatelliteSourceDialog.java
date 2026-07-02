@@ -30,6 +30,7 @@ import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.PropsUi;
+import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.EnterSelectionDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
@@ -184,6 +185,7 @@ public class DvLinkSatelliteSourceDialog {
 
     getData();
 
+    BaseTransformDialog.setSize(shell, 600, 450);
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
     return ok;
@@ -375,7 +377,9 @@ public class DvLinkSatelliteSourceDialog {
   }
 
   private void dispose() {
-    if (!shell.isDisposed()) {
+    if (shell != null && !shell.isDisposed()) {
+      WindowProperty winProp = new WindowProperty(shell);
+      PropsUi.getInstance().setSessionScreen(winProp);
       shell.dispose();
     }
   }

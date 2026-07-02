@@ -25,6 +25,7 @@ import java.util.Set;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.Props;
 
+import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
@@ -53,6 +54,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmNaturalKeyField;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkSurrogateKeyStrategy;
 import org.apache.hop.datavault.metadata.dimensional.DmScdUpdatePolicy;
+import org.apache.hop.datavault.metadata.dimensional.DmSourceType;
 import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
 import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
@@ -62,10 +64,13 @@ import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.pipeline.config.PipelineRunConfiguration;
 import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
+import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.core.dialog.BaseDialog;
+import org.apache.hop.ui.core.dialog.EnterSelectionDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.widget.ColumnInfo;
 import org.apache.hop.ui.core.widget.MetaSelectionLine;
@@ -73,6 +78,7 @@ import org.apache.hop.ui.core.widget.SQLStyledTextComp;
 import org.apache.hop.ui.core.widget.StyledTextComp;
 import org.apache.hop.ui.core.widget.TableView;
 import org.apache.hop.ui.core.widget.TextComposite;
+import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.apache.hop.ui.util.EnvironmentUtils;
 import org.eclipse.swt.SWT;
@@ -101,8 +107,28 @@ public class HopGuiDmTableDialog {
   private Text wName;
   private Text wTableName;
   private Text wDescription;
+  private Combo wSourceType;
   private MetaSelectionLine<DatabaseMeta> wSourceConnection;
+  private Label wlSourceSql;
   private TextComposite wSourceSql;
+  private Button wSourcePreview;
+  private Label wlSourcePipelineFile;
+  private Text wSourcePipelineFile;
+  private Button wBrowseSourcePipeline;
+  private Button wOpenSourcePipeline;
+  private Label wlSourcePipelineTransform;
+  private Combo wSourcePipelineTransform;
+  private MetaSelectionLine<PipelineRunConfiguration> wSourcePipelineRunConfiguration;
+  private Button wSourcePipelinePreviewData;
+  private Button wSourcePipelinePreview;
+  private MetaSelectionLine<DataCatalogMeta> wSourceCatalogConnection;
+  private Label wlSourceRecordNamespace;
+  private Text wSourceRecordNamespace;
+  private Label wlSourceRecordName;
+  private Text wSourceRecordName;
+  private Button wSelectSourceRecord;
+  private Button wSourceRecordPreviewData;
+  private Button wSourceRecordPreviewFields;
   private Combo wScdType;
   private Combo wSurrogateKeyStrategy;
   private Text wSurrogateKeyField;
@@ -159,10 +185,6 @@ public class HopGuiDmTableDialog {
             PKG,
             "HopGuiDmTableDialog.Title",
             Const.NVL(input.getName(), input.getTableType().name())));
-    shell.setSize(
-        620,
-        dimensionAlias ? 360 : dimension ? 620 : junk ? 480 : bridge ? 520 : factless ? 520 : 580);
-
     FormLayout formLayout = new FormLayout();
     formLayout.marginWidth = PropsUi.getFormMargin();
     formLayout.marginHeight = PropsUi.getFormMargin();
@@ -210,6 +232,10 @@ public class HopGuiDmTableDialog {
 
     getData();
 
+    BaseTransformDialog.setSize(
+        shell,
+        620,
+        dimensionAlias ? 360 : dimension ? 620 : junk ? 480 : bridge ? 520 : factless ? 520 : 580);
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
     return ok;
@@ -544,6 +570,18 @@ public class HopGuiDmTableDialog {
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.Source.Label"),
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.Tab.Source.ToolTip"));
 
+    Label wlSourceType = new Label(comp, SWT.RIGHT);
+    wlSourceType.setText(BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceType.Label"));
+    wlSourceType.setToolTipText(BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceType.ToolTip"));
+    PropsUi.setLook(wlSourceType);
+    wlSourceType.setLayoutData(new FormDataBuilder().left().top(0, margin).right(middle, -margin).result());
+
+    wSourceType = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
+    PropsUi.setLook(wSourceType);
+    EnumDialogSupport.populateCombo(wSourceType, DmSourceType.class);
+    wSourceType.addListener(SWT.Selection, e -> refreshSourcePanelVisibility());
+    wSourceType.setLayoutData(new FormDataBuilder().left(middle, 0).top(0, margin).right().result());
+
     wSourceConnection =
         new MetaSelectionLine<>(
             variables,
@@ -554,14 +592,14 @@ public class HopGuiDmTableDialog {
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceConnection.Label"),
             BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceConnection.ToolTip"));
     wSourceConnection.setLayoutData(
-        new FormDataBuilder().left().top(0, margin).right().result());
+        new FormDataBuilder().left().top(wSourceType, margin).right().result());
     try {
       wSourceConnection.fillItems();
     } catch (HopException e) {
       // best effort
     }
 
-    Label wlSourceSql = new Label(comp, SWT.RIGHT | SWT.TOP);
+    wlSourceSql = new Label(comp, SWT.RIGHT | SWT.TOP);
     wlSourceSql.setText(BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceSql.Label"));
     PropsUi.setLook(wlSourceSql);
     wlSourceSql.setLayoutData(
@@ -576,7 +614,7 @@ public class HopGuiDmTableDialog {
     }
     PropsUi.setLook(wSourceSql, Props.WIDGET_STYLE_FIXED);
 
-    Button wSourcePreview = new Button(comp, SWT.PUSH);
+    wSourcePreview = new Button(comp, SWT.PUSH);
     wSourcePreview.setText(BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePreview.Label"));
     wSourcePreview.setToolTipText(
         BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePreview.ToolTip"));
@@ -591,6 +629,415 @@ public class HopGuiDmTableDialog {
             .right()
             .bottom(wSourcePreview, -margin)
             .result());
+
+    wlSourcePipelineFile = new Label(comp, SWT.RIGHT);
+    wlSourcePipelineFile.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelineFile.Label"));
+    wlSourcePipelineFile.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelineFile.ToolTip"));
+    PropsUi.setLook(wlSourcePipelineFile);
+    wlSourcePipelineFile.setLayoutData(
+        new FormDataBuilder().left().top(wSourceType, margin).right(middle, -margin).result());
+
+    wOpenSourcePipeline = new Button(comp, SWT.PUSH);
+    wOpenSourcePipeline.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelineFile.Open.Label"));
+    wOpenSourcePipeline.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelineFile.Open.ToolTip"));
+    PropsUi.setLook(wOpenSourcePipeline);
+    wOpenSourcePipeline.setLayoutData(new FormDataBuilder().right().top(wSourceType, margin).result());
+    wOpenSourcePipeline.addListener(SWT.Selection, e -> openSourcePipelineFile());
+
+    wBrowseSourcePipeline = new Button(comp, SWT.PUSH);
+    wBrowseSourcePipeline.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelineFile.Browse.Label"));
+    wBrowseSourcePipeline.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelineFile.Browse.ToolTip"));
+    PropsUi.setLook(wBrowseSourcePipeline);
+    wBrowseSourcePipeline.setLayoutData(
+        new FormDataBuilder().right(wOpenSourcePipeline, -margin).top(wSourceType, margin).result());
+    wBrowseSourcePipeline.addListener(SWT.Selection, e -> browseSourcePipelineFile());
+
+    wSourcePipelineFile = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wSourcePipelineFile);
+    wSourcePipelineFile.addListener(
+        SWT.Modify,
+        e -> {
+          refreshSourcePipelineTransformChoices();
+          refreshOpenSourcePipelineButtonState();
+        });
+    wSourcePipelineFile.setLayoutData(
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(wSourceType, margin)
+            .right(wBrowseSourcePipeline, -margin)
+            .result());
+
+    wlSourcePipelineTransform = new Label(comp, SWT.RIGHT);
+    wlSourcePipelineTransform.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelineTransform.Label"));
+    wlSourcePipelineTransform.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelineTransform.ToolTip"));
+    PropsUi.setLook(wlSourcePipelineTransform);
+    wlSourcePipelineTransform.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wSourcePipelineFile, margin)
+            .right(middle, -margin)
+            .result());
+
+    wSourcePipelineTransform = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
+    PropsUi.setLook(wSourcePipelineTransform);
+    wSourcePipelineTransform.setLayoutData(
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(wSourcePipelineFile, margin)
+            .right()
+            .result());
+
+    wSourcePipelineRunConfiguration =
+        new MetaSelectionLine<>(
+            variables,
+            metadataProvider,
+            PipelineRunConfiguration.class,
+            comp,
+            SWT.SINGLE | SWT.LEFT | SWT.BORDER,
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelineRunConfiguration.Label"),
+            BaseMessages.getString(
+                PKG, "HopGuiDmTableDialog.SourcePipelineRunConfiguration.ToolTip"));
+    wSourcePipelineRunConfiguration.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wSourcePipelineTransform, margin)
+            .right()
+            .result());
+    try {
+      wSourcePipelineRunConfiguration.fillItems();
+    } catch (HopException e) {
+      // best effort
+    }
+
+    wSourcePipelinePreviewData = new Button(comp, SWT.PUSH);
+    wSourcePipelinePreviewData.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelinePreviewData.Label"));
+    wSourcePipelinePreviewData.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelinePreviewData.ToolTip"));
+    PropsUi.setLook(wSourcePipelinePreviewData);
+    wSourcePipelinePreviewData.setLayoutData(
+        new FormDataBuilder().left(middle, 0).bottom().result());
+    wSourcePipelinePreviewData.addListener(SWT.Selection, e -> previewSourcePipelineData());
+
+    wSourcePipelinePreview = new Button(comp, SWT.PUSH);
+    wSourcePipelinePreview.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelinePreview.Label"));
+    wSourcePipelinePreview.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourcePipelinePreview.ToolTip"));
+    PropsUi.setLook(wSourcePipelinePreview);
+    wSourcePipelinePreview.setLayoutData(
+        new FormDataBuilder().left(wSourcePipelinePreviewData, margin).bottom().result());
+    wSourcePipelinePreview.addListener(SWT.Selection, e -> previewSourcePipelineFields());
+
+    wSourceCatalogConnection =
+        new MetaSelectionLine<>(
+            variables,
+            metadataProvider,
+            DataCatalogMeta.class,
+            comp,
+            SWT.SINGLE | SWT.LEFT | SWT.BORDER,
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceCatalogConnection.Label"),
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceCatalogConnection.ToolTip"));
+    wSourceCatalogConnection.setLayoutData(
+        new FormDataBuilder().left().top(wSourceType, margin).right().result());
+    try {
+      wSourceCatalogConnection.fillItems();
+    } catch (HopException e) {
+      // best effort
+    }
+
+    wlSourceRecordNamespace = new Label(comp, SWT.RIGHT);
+    wlSourceRecordNamespace.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordNamespace.Label"));
+    wlSourceRecordNamespace.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordNamespace.ToolTip"));
+    PropsUi.setLook(wlSourceRecordNamespace);
+    wlSourceRecordNamespace.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wSourceCatalogConnection, margin)
+            .right(middle, -margin)
+            .result());
+
+    wSourceRecordNamespace = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wSourceRecordNamespace);
+    wSourceRecordNamespace.setLayoutData(
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(wSourceCatalogConnection, margin)
+            .right()
+            .result());
+
+    wlSourceRecordName = new Label(comp, SWT.RIGHT);
+    wlSourceRecordName.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordName.Label"));
+    wlSourceRecordName.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordName.ToolTip"));
+    PropsUi.setLook(wlSourceRecordName);
+    wlSourceRecordName.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wSourceRecordNamespace, margin)
+            .right(middle, -margin)
+            .result());
+
+    wSelectSourceRecord = new Button(comp, SWT.PUSH);
+    wSelectSourceRecord.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordSelect.Label"));
+    wSelectSourceRecord.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordSelect.ToolTip"));
+    PropsUi.setLook(wSelectSourceRecord);
+    wSelectSourceRecord.setLayoutData(
+        new FormDataBuilder().right().top(wSourceCatalogConnection, margin).result());
+    wSelectSourceRecord.addListener(SWT.Selection, e -> selectSourceRecordDefinition());
+
+    wSourceRecordName = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    PropsUi.setLook(wSourceRecordName);
+    wSourceRecordName.setLayoutData(
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(wSourceRecordNamespace, margin)
+            .right(wSelectSourceRecord, -margin)
+            .result());
+
+    wSourceRecordPreviewData = new Button(comp, SWT.PUSH);
+    wSourceRecordPreviewData.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordPreviewData.Label"));
+    wSourceRecordPreviewData.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordPreviewData.ToolTip"));
+    PropsUi.setLook(wSourceRecordPreviewData);
+    wSourceRecordPreviewData.setLayoutData(
+        new FormDataBuilder().left(middle, 0).bottom().result());
+    wSourceRecordPreviewData.addListener(SWT.Selection, e -> previewSourceRecordData());
+
+    wSourceRecordPreviewFields = new Button(comp, SWT.PUSH);
+    wSourceRecordPreviewFields.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordPreviewFields.Label"));
+    wSourceRecordPreviewFields.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordPreviewFields.ToolTip"));
+    PropsUi.setLook(wSourceRecordPreviewFields);
+    wSourceRecordPreviewFields.setLayoutData(
+        new FormDataBuilder().left(wSourceRecordPreviewData, margin).bottom().result());
+    wSourceRecordPreviewFields.addListener(SWT.Selection, e -> previewSourceRecordFields());
+
+    refreshSourcePanelVisibility();
+  }
+
+  private void refreshOpenSourcePipelineButtonState() {
+    if (wOpenSourcePipeline == null || wOpenSourcePipeline.isDisposed()) {
+      return;
+    }
+    boolean enabled =
+        isPipelineSourceSelected()
+            && DmSourcePipelineOpenSupport.canOpenSourcePipeline(
+                variables, wSourcePipelineFile.getText(), true);
+    wOpenSourcePipeline.setEnabled(enabled);
+  }
+
+  private void openSourcePipelineFile() {
+    HopGui hopGui = HopGui.getInstance();
+    if (hopGui == null) {
+      return;
+    }
+    DmSourcePipelineOpenSupport.openSourcePipelineFile(
+        hopGui, shell, variables, wSourcePipelineFile.getText());
+  }
+
+  private void browseSourcePipelineFile() {
+    String selectedFile =
+        BaseDialog.presentFileDialog(
+            false, shell, new String[] {"*.hpl"}, new String[] {"Hop pipeline files"}, false);
+    if (Utils.isEmpty(selectedFile)) {
+      return;
+    }
+    wSourcePipelineFile.setText(variables.resolve(selectedFile));
+    refreshSourcePipelineTransformChoices();
+    refreshOpenSourcePipelineButtonState();
+  }
+
+  private void refreshSourcePipelineTransformChoices() {
+    if (wSourcePipelineTransform == null || wSourcePipelineTransform.isDisposed()) {
+      return;
+    }
+    String previousSelection = wSourcePipelineTransform.getText();
+    try {
+      List<String> transforms =
+          DmSourcePipelineGuiSupport.listTransformNames(
+              variables, metadataProvider, wSourcePipelineFile.getText());
+      wSourcePipelineTransform.setItems(transforms.toArray(new String[0]));
+      if (!Utils.isEmpty(previousSelection)) {
+        int index = wSourcePipelineTransform.indexOf(previousSelection);
+        if (index >= 0) {
+          wSourcePipelineTransform.select(index);
+        }
+      }
+    } catch (HopException e) {
+      wSourcePipelineTransform.setItems(new String[0]);
+    }
+  }
+
+  private void refreshSourcePanelVisibility() {
+    boolean pipelineSource = isPipelineSourceSelected();
+    boolean recordDefinitionSource = isRecordDefinitionSourceSelected();
+    boolean sqlSource = !pipelineSource && !recordDefinitionSource;
+    setSourceWidgetVisible(wSourceConnection, sqlSource);
+    setSourceWidgetVisible(wlSourceSql, sqlSource);
+    setSourceWidgetVisible(wSourceSql, sqlSource);
+    setSourceWidgetVisible(wSourcePreview, sqlSource);
+    setSourceWidgetVisible(wlSourcePipelineFile, pipelineSource);
+    setSourceWidgetVisible(wSourcePipelineFile, pipelineSource);
+    setSourceWidgetVisible(wBrowseSourcePipeline, pipelineSource);
+    setSourceWidgetVisible(wOpenSourcePipeline, pipelineSource);
+    refreshOpenSourcePipelineButtonState();
+    setSourceWidgetVisible(wlSourcePipelineTransform, pipelineSource);
+    setSourceWidgetVisible(wSourcePipelineTransform, pipelineSource);
+    setSourceWidgetVisible(wSourcePipelineRunConfiguration, pipelineSource);
+    setSourceWidgetVisible(wSourcePipelinePreviewData, pipelineSource);
+    setSourceWidgetVisible(wSourcePipelinePreview, pipelineSource);
+    setSourceWidgetVisible(wSourceCatalogConnection, recordDefinitionSource);
+    setSourceWidgetVisible(wlSourceRecordNamespace, recordDefinitionSource);
+    setSourceWidgetVisible(wSourceRecordNamespace, recordDefinitionSource);
+    setSourceWidgetVisible(wlSourceRecordName, recordDefinitionSource);
+    setSourceWidgetVisible(wSourceRecordName, recordDefinitionSource);
+    setSourceWidgetVisible(wSelectSourceRecord, recordDefinitionSource);
+    setSourceWidgetVisible(wSourceRecordPreviewData, recordDefinitionSource);
+    setSourceWidgetVisible(wSourceRecordPreviewFields, recordDefinitionSource);
+  }
+
+  private void previewSourcePipelineData() {
+    DmSourcePipelineGuiSupport.previewSourcePipelineData(
+        shell,
+        variables,
+        metadataProvider,
+        wSourcePipelineFile.getText(),
+        wSourcePipelineTransform.getText());
+  }
+
+  private boolean isPipelineSourceSelected() {
+    return resolveSelectedSourceType() == DmSourceType.PIPELINE;
+  }
+
+  private boolean isRecordDefinitionSourceSelected() {
+    return resolveSelectedSourceType() == DmSourceType.RECORD_DEFINITION;
+  }
+
+  private DmSourceType resolveSelectedSourceType() {
+    if (wSourceType == null || wSourceType.isDisposed()) {
+      return DmSourceType.SQL;
+    }
+    return EnumDialogSupport.readCombo(wSourceType, DmSourceType.class, DmSourceType.SQL);
+  }
+
+  private String resolveSourceCatalogConnectionText() {
+    String connection = wSourceCatalogConnection != null ? wSourceCatalogConnection.getText() : null;
+    if (!Utils.isEmpty(connection)) {
+      return connection;
+    }
+    DimensionalConfiguration config = model.getConfigurationOrDefault();
+    return config.getDataCatalogConnection();
+  }
+
+  private void selectSourceRecordDefinition() {
+    try {
+      String catalogConnection = resolveSourceCatalogConnectionText();
+      if (Utils.isEmpty(catalogConnection)) {
+        throw new HopException(
+            BaseMessages.getString(
+                PKG, "DmSourceRecordDefinitionGuiSupport.Error.MissingCatalogConnection"));
+      }
+      List<DmSourceRecordDefinitionGuiSupport.PreviewableRecordRef> records =
+          DmSourceRecordDefinitionGuiSupport.listPreviewableRecordDefinitions(
+              catalogConnection, variables, metadataProvider);
+      if (records.isEmpty()) {
+        throw new HopException(
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordSelect.Message"));
+      }
+      String[] choices = records.stream().map(r -> r.label()).toArray(String[]::new);
+      EnterSelectionDialog dialog =
+          new EnterSelectionDialog(
+              shell,
+              choices,
+              BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordSelect.Title"),
+              BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordSelect.Message"));
+      if (dialog.open() == null) {
+        return;
+      }
+      int[] indices = dialog.getSelectionIndeces();
+      if (indices == null || indices.length == 0 || indices[0] < 0 || indices[0] >= records.size()) {
+        return;
+      }
+      DmSourceRecordDefinitionGuiSupport.PreviewableRecordRef selected = records.get(indices[0]);
+      wSourceRecordNamespace.setText(selected.namespace());
+      wSourceRecordName.setText(selected.name());
+    } catch (Exception e) {
+      new ErrorDialog(
+          shell,
+          BaseMessages.getString(PKG, "HopGuiDmTableDialog.SourceRecordSelect.Title"),
+          e.getMessage(),
+          e instanceof HopException ? e : new HopException(e));
+    }
+  }
+
+  private void previewSourceRecordFields() {
+    DmSourceRecordDefinitionGuiSupport.previewFields(
+        shell,
+        model.getConfigurationOrDefault(),
+        variables,
+        metadataProvider,
+        resolveSourceCatalogConnectionText(),
+        wSourceRecordNamespace.getText(),
+        wSourceRecordName.getText());
+  }
+
+  private void previewSourceRecordData() {
+    DmSourceRecordDefinitionGuiSupport.previewData(
+        shell,
+        model.getConfigurationOrDefault(),
+        variables,
+        metadataProvider,
+        resolveSourceCatalogConnectionText(),
+        wSourceRecordNamespace.getText(),
+        wSourceRecordName.getText());
+  }
+
+  private void setSourceWidgetVisible(Object widget, boolean visible) {
+    if (widget == null) {
+      return;
+    }
+    if (widget instanceof org.eclipse.swt.widgets.Control control && !control.isDisposed()) {
+      control.setVisible(visible);
+      Object layoutData = control.getLayoutData();
+      if (layoutData instanceof org.eclipse.swt.layout.FormData formData) {
+        if (visible) {
+          formData.width = SWT.DEFAULT;
+          formData.height = SWT.DEFAULT;
+        } else {
+          formData.width = 0;
+          formData.height = 0;
+        }
+      }
+      Composite parent = control.getParent();
+      if (parent != null && !parent.isDisposed()) {
+        parent.layout(true, true);
+      }
+    }
+  }
+
+  private void previewSourcePipelineFields() {
+    DmSourcePipelineGuiSupport.previewSourcePipelineFields(
+        shell,
+        variables,
+        metadataProvider,
+        wSourcePipelineFile.getText(),
+        wSourcePipelineTransform.getText());
   }
 
   private List<String> getSqlReservedWords() {
@@ -973,12 +1420,46 @@ public class HopGuiDmTableDialog {
       wDescription.setText(input.getDescription());
     }
     if (!dimensionAlias) {
+      EnumDialogSupport.selectCombo(
+          wSourceType, input.getSourceOrDefault().resolveSourceType());
       if (!Utils.isEmpty(input.getSourceOrDefault().getSourceConnection())) {
         wSourceConnection.setText(input.getSourceOrDefault().getSourceConnection());
       }
       if (!Utils.isEmpty(input.getSourceOrDefault().getSourceSql())) {
         wSourceSql.setText(input.getSourceOrDefault().getSourceSql());
       }
+      if (!Utils.isEmpty(input.getSourceOrDefault().getSourcePipelineFile())) {
+        wSourcePipelineFile.setText(input.getSourceOrDefault().getSourcePipelineFile());
+      }
+      refreshSourcePipelineTransformChoices();
+      if (!Utils.isEmpty(input.getSourceOrDefault().getSourcePipelineTransform())) {
+        int index =
+            wSourcePipelineTransform.indexOf(
+                input.getSourceOrDefault().getSourcePipelineTransform());
+        if (index >= 0) {
+          wSourcePipelineTransform.select(index);
+        } else {
+          wSourcePipelineTransform.setText(
+              input.getSourceOrDefault().getSourcePipelineTransform());
+        }
+      }
+      if (!Utils.isEmpty(input.getSourceOrDefault().getSourcePipelineRunConfiguration())) {
+        wSourcePipelineRunConfiguration.setText(
+            input.getSourceOrDefault().getSourcePipelineRunConfiguration());
+      }
+      if (!Utils.isEmpty(input.getSourceOrDefault().getSourceCatalogConnection())) {
+        wSourceCatalogConnection.setText(input.getSourceOrDefault().getSourceCatalogConnection());
+      } else if (!Utils.isEmpty(model.getConfigurationOrDefault().getDataCatalogConnection())) {
+        wSourceCatalogConnection.setText(model.getConfigurationOrDefault().getDataCatalogConnection());
+      }
+      if (!Utils.isEmpty(input.getSourceOrDefault().getSourceRecordNamespace())) {
+        wSourceRecordNamespace.setText(input.getSourceOrDefault().getSourceRecordNamespace());
+      }
+      if (!Utils.isEmpty(input.getSourceOrDefault().getSourceRecordName())) {
+        wSourceRecordName.setText(input.getSourceOrDefault().getSourceRecordName());
+      }
+      refreshSourcePanelVisibility();
+      refreshOpenSourcePipelineButtonState();
     }
 
     if (junk && input instanceof DmJunkDimension junkDimension) {
@@ -1153,8 +1634,20 @@ public class HopGuiDmTableDialog {
     input.setDescription(wDescription.getText());
     if (!dimensionAlias) {
       input.setTableName(wTableName.getText());
+      input
+          .getSourceOrDefault()
+          .setSourceType(
+              EnumDialogSupport.readCombo(wSourceType, DmSourceType.class, DmSourceType.SQL));
       input.getSourceOrDefault().setSourceConnection(wSourceConnection.getText());
       input.getSourceOrDefault().setSourceSql(wSourceSql.getText());
+      input.getSourceOrDefault().setSourcePipelineFile(wSourcePipelineFile.getText());
+      input.getSourceOrDefault().setSourcePipelineTransform(wSourcePipelineTransform.getText());
+      input
+          .getSourceOrDefault()
+          .setSourcePipelineRunConfiguration(wSourcePipelineRunConfiguration.getText());
+      input.getSourceOrDefault().setSourceCatalogConnection(wSourceCatalogConnection.getText());
+      input.getSourceOrDefault().setSourceRecordNamespace(wSourceRecordNamespace.getText());
+      input.getSourceOrDefault().setSourceRecordName(wSourceRecordName.getText());
     }
 
     if (junk && input instanceof DmJunkDimension junkDimension) {
@@ -1317,12 +1810,20 @@ public class HopGuiDmTableDialog {
     }
 
     ok = true;
-    shell.dispose();
+    dispose();
   }
 
   private void cancel() {
     ok = false;
-    shell.dispose();
+    dispose();
+  }
+
+  private void dispose() {
+    if (shell != null && !shell.isDisposed()) {
+      WindowProperty winProp = new WindowProperty(shell);
+      PropsUi.getInstance().setSessionScreen(winProp);
+      shell.dispose();
+    }
   }
 
   private void previewSourceSql() {
@@ -1415,6 +1916,13 @@ public class HopGuiDmTableDialog {
   }
 
   private List<String> loadSourceFieldNames() throws HopException {
+    if (isPipelineSourceSelected()) {
+      return DmSourcePipelineGuiSupport.resolveFieldNames(
+          variables,
+          metadataProvider,
+          wSourcePipelineFile.getText(),
+          wSourcePipelineTransform.getText());
+    }
     DatabaseMeta databaseMeta = resolveSourceDatabaseMeta();
     return DmSourceSqlGuiSupport.resolveFieldNames(
         variables, databaseMeta, wSourceSql.getText());

@@ -54,7 +54,7 @@ public final class DmBridgeLoadBuilder {
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
 
-    TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceTableInput(ctx, pipelineMeta);
+    TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     addInsertUpdate(ctx, pipelineMeta, sourceTransform, bridge);
 
     DmGeneratedPipelineSupport.applyLayout(pipelineMeta);

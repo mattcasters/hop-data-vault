@@ -29,7 +29,7 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
-/** Resolves field names produced by dimensional source SQL for validation. */
+/** Resolves field names produced by dimensional staging sources for validation. */
 public final class DmSourceFieldResolutionSupport {
 
   private DmSourceFieldResolutionSupport() {}
@@ -61,7 +61,21 @@ public final class DmSourceFieldResolutionSupport {
     if (metadataProvider == null || model == null || table == null) {
       return null;
     }
-    String sourceSql = table.getSourceOrDefault().resolveSourceSql(variables);
+    DmSourceConfiguration source = table.getSourceOrDefault();
+    DimensionalConfiguration config = model.getConfigurationOrDefault();
+    if (source.isPipelineSource()) {
+      try {
+        return DmSourcePipelineSupport.resolveSourceRowMeta(source, variables, metadataProvider);
+      } catch (HopException ignored) {
+        return null;
+      }
+    }
+    if (source.isRecordDefinitionSource()) {
+      return DmSourceRecordDefinitionSupport.tryResolveSourceRowMeta(
+          source, config, variables, metadataProvider);
+    }
+
+    String sourceSql = source.resolveSourceSql(variables);
     if (Utils.isEmpty(sourceSql)) {
       return null;
     }

@@ -42,6 +42,7 @@ import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.dialog.MessageBox;
 import org.apache.hop.ui.core.gui.GuiResource;
+import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.core.widget.ColumnInfo;
 
 import org.apache.hop.ui.core.widget.TableView;
@@ -184,6 +185,7 @@ public class DvSatelliteDialog {
     getData();
     updateStsFieldsEnabled();
 
+    BaseTransformDialog.setSize(shell, 700, 550);
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
     return ok;
@@ -688,7 +690,9 @@ public class DvSatelliteDialog {
   }
 
   private void dispose() {
-    if (!shell.isDisposed()) {
+    if (shell != null && !shell.isDisposed()) {
+      WindowProperty winProp = new WindowProperty(shell);
+      PropsUi.getInstance().setSessionScreen(winProp);
       shell.dispose();
     }
   }

@@ -67,7 +67,12 @@ import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
+import org.apache.hop.datavault.hopgui.ModelTableLayoutPreviewSupport;
+import org.apache.hop.datavault.hopgui.ModelUpdateActionAuditSupport;
+import org.apache.hop.datavault.hopgui.ModelUpdateWorkflowClipboardSupport;
 import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
+import org.apache.hop.datavault.workflow.actions.businessvaultupdate.ActionBusinessVaultUpdate;
+import org.apache.hop.workflow.action.ActionMeta;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultUpdateExecutionSupport;
@@ -162,6 +167,9 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   public static final String TOOLBAR_ITEM_DELETE = "HopGuiBusinessVaultGraph-ToolBar-20060-Delete";
   public static final String TOOLBAR_ITEM_UNDO = "HopGuiBusinessVaultGraph-ToolBar-20070-Undo";
   public static final String TOOLBAR_ITEM_REDO = "HopGuiBusinessVaultGraph-ToolBar-20080-Redo";
+
+  private static final String BUSINESS_VAULT_UPDATE_AUDIT_GROUP = "BusinessVault";
+  private static final String BUSINESS_VAULT_UPDATE_AUDIT_TYPE = "BusinessVaultUpdateAction";
 
   private final HopBusinessVaultFileType fileType;
   private final HopGuiBusinessVaultClipboardDelegate clipboardDelegate;
@@ -1124,6 +1132,22 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = "bv-graph-copy-update-action",
+      parentId = HopGuiBusinessVaultContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiBusinessVaultGraph.Context.CopyUpdateAction.Name",
+      tooltip = "i18n::HopGuiBusinessVaultGraph.Context.CopyUpdateAction.Tooltip",
+      image = "ui/images/copy.svg",
+      category = "Workflow",
+      categoryOrder = "1")
+  public void copyUpdateActionToClipboard(HopGuiBusinessVaultContext context) {
+    HopGuiBusinessVaultGraph graph = context.getBusinessVaultGraph();
+    if (graph != null) {
+      graph.copyBusinessVaultUpdateActionToClipboard();
+    }
+  }
+
+  @GuiContextAction(
       id = "bv-graph-edit-table",
       parentId = HopGuiBusinessVaultTableContext.CONTEXT_ID,
       type = GuiActionType.Modify,
@@ -1176,6 +1200,25 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     if ((table instanceof BvScd2Table || table instanceof BvPitTable) && graph != null) {
       graph.openBuildPipeline(table);
     }
+  }
+
+  @GuiContextAction(
+      id = "bv-graph-preview-target-layout",
+      parentId = HopGuiBusinessVaultTableContext.CONTEXT_ID,
+      type = GuiActionType.Info,
+      name = "i18n::HopGuiBusinessVaultGraph.Context.PreviewTargetLayout.Name",
+      tooltip = "i18n::HopGuiBusinessVaultGraph.Context.PreviewTargetLayout.Tooltip",
+      image = "ui/images/preview.svg",
+      category = "Business Vault",
+      categoryOrder = "4")
+  public void previewTargetLayoutAction(HopGuiBusinessVaultTableContext context) {
+    IBvTable table = context.getTable();
+    BusinessVaultModel bvModel = context.getModel();
+    if (table == null) {
+      return;
+    }
+    ModelTableLayoutPreviewSupport.previewBvTableLayout(
+        hopGui.getShell(), getVariables(), hopGui.getMetadataProvider(), bvModel, table);
   }
 
   @GuiToolbarElement(
@@ -1981,6 +2024,85 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     mouseInteractions().unselectAllOnCanvas();
     clearSelectionRegion();
     redraw();
+  }
+
+  public void copyBusinessVaultUpdateActionToClipboard() {
+    if (model == null) {
+      return;
+    }
+    if (!ensureModelSavedBeforeClipboard()) {
+      return;
+    }
+    try {
+      ActionBusinessVaultUpdate updateAction = loadStoredBusinessVaultUpdateAction();
+      updateAction.setBusinessVaultModelFile(getFilename());
+      ModelUpdateWorkflowClipboardSupport.copyUpdateWorkflowToClipboard(
+          hopGui, updateAction, getVariables(), getFilename());
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.CopyUpdateAction.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.CopyUpdateAction.Error.Message"),
+          e);
+    }
+  }
+
+  private ActionBusinessVaultUpdate loadStoredBusinessVaultUpdateAction() throws HopException {
+    String actionXml =
+        ModelUpdateActionAuditSupport.retrieveActionXml(
+            BUSINESS_VAULT_UPDATE_AUDIT_GROUP, BUSINESS_VAULT_UPDATE_AUDIT_TYPE, getFilename());
+    if (!Utils.isEmpty(actionXml)) {
+      Node actionNode = XmlHandler.loadXmlString(actionXml, ActionMeta.XML_TAG);
+      ActionMeta actionMeta =
+          new ActionMeta(actionNode, hopGui.getMetadataProvider(), getVariables());
+      if (actionMeta.getAction() instanceof ActionBusinessVaultUpdate storedAction) {
+        return storedAction;
+      }
+    }
+    return new ActionBusinessVaultUpdate();
+  }
+
+  private boolean ensureModelSavedBeforeClipboard() {
+    if (!hasChanged()) {
+      return true;
+    }
+
+    MessageBox messageDialog =
+        new MessageBox(hopShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO | SWT.CANCEL);
+    messageDialog.setText(
+        BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.CopyUpdateAction.Save.Dialog.Header"));
+    messageDialog.setMessage(
+        BaseMessages.getString(
+            PKG, "HopGuiBusinessVaultGraph.CopyUpdateAction.Save.Dialog.Message", buildTabName()));
+    int answer = messageDialog.open();
+    if ((answer & SWT.YES) != 0) {
+      try {
+        if (Utils.isEmpty(getFilename())) {
+          String chosenFilename =
+              BaseDialog.presentFileDialog(
+                  true,
+                  hopGui.getActiveShell(),
+                  fileType.getFilterExtensions(),
+                  fileType.getFilterNames(),
+                  true);
+          if (chosenFilename == null) {
+            return false;
+          }
+          saveAs(hopGui.getVariables().resolve(chosenFilename));
+        } else {
+          save();
+        }
+        return true;
+      } catch (Exception e) {
+        new ErrorDialog(
+            hopShell(),
+            BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.SaveFile.Error.Header"),
+            BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.SaveFile.Error.Message"),
+            e);
+        return false;
+      }
+    }
+    return (answer & SWT.NO) != 0;
   }
 
   @GuiToolbarElement(

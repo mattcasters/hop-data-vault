@@ -112,7 +112,7 @@ public final class DmLayoutSupport {
       addColumn(rowMeta, added, resolveFieldName(outrigger.getForeignKeyColumn(), variables));
     }
 
-    addColumn(rowMeta, added, resolvedConfig.resolveLoadDateField(variables), new ValueMetaTimestamp());
+    addLoadDateColumnIfAbsent(rowMeta, added, resolvedConfig, variables);
     return rowMeta;
   }
 
@@ -162,7 +162,7 @@ public final class DmLayoutSupport {
     for (DmNaturalKeyField keyField : junkDimension.getKeyFieldsOrEmpty()) {
       addColumn(rowMeta, added, resolveFieldName(keyField.getFieldName(), variables));
     }
-    addColumn(rowMeta, added, resolvedConfig.resolveLoadDateField(variables), new ValueMetaTimestamp());
+    addLoadDateColumnIfAbsent(rowMeta, added, resolvedConfig, variables);
     return rowMeta;
   }
 
@@ -520,6 +520,19 @@ public final class DmLayoutSupport {
       throws HopException {
     ValueMetaNumber valueMeta = new ValueMetaNumber(fieldName);
     addColumn(rowMeta, added, valueMeta);
+  }
+
+  private static void addLoadDateColumnIfAbsent(
+      RowMeta rowMeta,
+      Set<String> added,
+      DimensionalConfiguration config,
+      IVariables variables)
+      throws HopException {
+    String loadDateField = resolveFieldName(config.resolveLoadDateField(variables), variables);
+    if (Utils.isEmpty(loadDateField) || added.contains(loadDateField)) {
+      return;
+    }
+    addColumn(rowMeta, added, loadDateField, new ValueMetaTimestamp());
   }
 
   private static void addColumn(

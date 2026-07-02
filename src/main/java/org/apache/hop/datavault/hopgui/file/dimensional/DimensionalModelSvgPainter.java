@@ -65,6 +65,7 @@ public final class DimensionalModelSvgPainter {
       painter.setIconSize(ICON_SIZE);
       painter.setGridSize(1);
       painter.setShowingNavigationView(false);
+      painter.setShowEmptyModelHint(false);
       painter.setDrawNotes(renderOptions.isIncludeNotes());
       painter.setMaximum(
           ModelBoundsSupport.getMaximum(model, renderOptions.isIncludeNotes()));

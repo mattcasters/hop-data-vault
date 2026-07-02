@@ -49,7 +49,7 @@ import org.apache.hop.pipeline.transforms.calculator.CalculatorMetaFunction;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
-import org.apache.hop.pipeline.transforms.mergerows.MergeRowsMeta;
+import org.apache.hop.datavault.transform.mergerowsplus.MergeRowsPlusMeta;
 import org.apache.hop.pipeline.transforms.mergerows.PassThroughField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectMetadataChange;
@@ -62,7 +62,7 @@ import org.apache.hop.pipeline.transforms.update.UpdateKeyField;
 import org.apache.hop.pipeline.transforms.update.UpdateLookupField;
 import org.apache.hop.pipeline.transforms.update.UpdateMeta;
 
-/** Generates SCD Type 2 dimension pipelines using the proven satellite MergeRows pattern. */
+/** Generates SCD Type 2 dimension pipelines using the proven satellite MergeRowsPlus pattern. */
 public final class DmScd2DimensionBuilder {
 
   private static final Point LOCATION_TARGET = new Point(100, 280);
@@ -89,7 +89,7 @@ public final class DmScd2DimensionBuilder {
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
 
-    TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceTableInput(ctx, pipelineMeta);
+    TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     TransformMeta sortTransform = addSortNaturalKeys(ctx, pipelineMeta, sourceTransform, dimension);
     TransformMeta compareTransform =
         addEffectiveDateConstants(ctx, pipelineMeta, loadTimestamp, sortTransform);
@@ -253,24 +253,9 @@ public final class DmScd2DimensionBuilder {
     TransformMeta referenceForMerge =
         addMergeReferenceSelectValues(ctx, pipelineMeta, referenceTransform, dimension);
 
-    TransformMeta referenceDummy =
-        DmPipelineBuilderSupport.addDummyTransform(
-            pipelineMeta,
-            referenceForMerge,
-            "merge_reference",
-            referenceForMerge.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
-            referenceForMerge.getLocation().y);
-    TransformMeta compareDummy =
-        DmPipelineBuilderSupport.addDummyTransform(
-            pipelineMeta,
-            compareForMerge,
-            "merge_compare",
-            compareForMerge.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
-            compareForMerge.getLocation().y);
-
-    MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
-    mergeRowsMeta.setReferenceTransform(referenceDummy.getName());
-    mergeRowsMeta.setCompareTransform(compareDummy.getName());
+    MergeRowsPlusMeta mergeRowsMeta = new MergeRowsPlusMeta();
+    mergeRowsMeta.setReferenceTransform(referenceForMerge.getName());
+    mergeRowsMeta.setCompareTransform(compareForMerge.getName());
     mergeRowsMeta.setFlagField("flag");
     mergeRowsMeta.setKeyFields(DmPipelineBuilderSupport.naturalKeyFieldNames(dimension, ctx.variables));
     mergeRowsMeta
@@ -297,13 +282,13 @@ public final class DmScd2DimensionBuilder {
       }
     }
 
-    TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
+    TransformMeta tm = new TransformMeta("MergeRowsPlus", "merge_diff", mergeRowsMeta);
     tm.setLocation(
-        compareForMerge.getLocation().x + 2 * DmPipelineBuilderSupport.SPACING_WIDTH,
+        compareForMerge.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
         compareForMerge.getLocation().y);
     pipelineMeta.addTransform(tm);
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceDummy, tm));
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareDummy, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceForMerge, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareForMerge, tm));
     return tm;
   }
 

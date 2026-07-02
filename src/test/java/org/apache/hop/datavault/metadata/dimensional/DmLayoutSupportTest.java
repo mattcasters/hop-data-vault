@@ -28,6 +28,7 @@ import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.row.RowMeta;
 import org.apache.hop.core.row.value.ValueMetaInteger;
 import org.apache.hop.core.row.value.ValueMetaString;
+import org.apache.hop.core.row.value.ValueMetaTimestamp;
 import org.apache.hop.core.variables.Variables;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -232,6 +233,28 @@ class DmLayoutSupportTest {
     assertEquals(
         DmLayoutSupport.DATE_KEY_FIELD_LENGTH,
         layout.searchValueMeta("order_date_key").getLength());
+  }
+
+  @Test
+  void dimensionLayoutDoesNotDuplicateConfiguredLoadDateAttribute() throws HopException {
+    DmDimension dimension = new DmDimension();
+    dimension.setName("dim_date");
+    dimension.setScdType(DmDimensionScdType.TYPE1);
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("date_key"));
+    dimension.getAttributes().add(new DmDimensionAttribute("full_date", DmScdUpdatePolicy.TYPE1));
+    dimension.getAttributes().add(new DmDimensionAttribute("load_dt", DmScdUpdatePolicy.TYPE1));
+
+    IRowMeta sourceRowMeta = new RowMeta();
+    sourceRowMeta.addValueMeta(new ValueMetaTimestamp("load_dt"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    IRowMeta layout =
+        DmLayoutSupport.buildDimensionTargetTableLayout(
+            dimension, config, new Variables(), sourceRowMeta);
+
+    assertEquals(3, layout.size());
+    assertTrue(layout.indexOfValue("load_dt") >= 0);
+    assertEquals(IValueMeta.TYPE_TIMESTAMP, layout.searchValueMeta("load_dt").getType());
   }
 
   @Test

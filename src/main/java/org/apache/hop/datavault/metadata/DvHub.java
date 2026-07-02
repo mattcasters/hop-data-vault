@@ -70,7 +70,7 @@ import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
-import org.apache.hop.pipeline.transforms.mergerows.MergeRowsMeta;
+import org.apache.hop.datavault.transform.mergerowsplus.MergeRowsPlusMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.jspecify.annotations.NonNull;
 
@@ -370,7 +370,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         // as much as possible.
         TransformMeta targetInputTransform = addTargetTableInput(ctx, pipelineMeta);
 
-        // MergeRows (diff) if we have a target side. The source table input is the compare leg
+        // MergeRowsPlus (diff) if we have a target side. The source table input is the compare leg
         // (direct hop, per request).
         TransformMeta mergeTransform =
             addMergeRows(ctx, pipelineMeta, sourceInputTransform, targetInputTransform);
@@ -514,26 +514,9 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       return null;
     }
 
-    // A bug in hop requires an extra dummy to read from both reference and compare transforms
-    //
-    TransformMeta referenceDummyTransform =
-        addDummyTransform(
-            pipelineMeta,
-            referenceTransform,
-            "Merge reference",
-            LOCATION_START_LINE_3.x + SPACING_WIDTH,
-            LOCATION_START_LINE_3.y);
-    TransformMeta compareDummyTransform =
-        addDummyTransform(
-            pipelineMeta,
-            compareTransform,
-            "Merge compare",
-            LOCATION_START_LINE_2.x + SPACING_WIDTH,
-            LOCATION_START_LINE_2.y);
-
-    MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
-    mergeRowsMeta.setReferenceTransform(referenceDummyTransform.getName());
-    mergeRowsMeta.setCompareTransform(compareDummyTransform.getName());
+    MergeRowsPlusMeta mergeRowsMeta = new MergeRowsPlusMeta();
+    mergeRowsMeta.setReferenceTransform(referenceTransform.getName());
+    mergeRowsMeta.setCompareTransform(compareTransform.getName());
     mergeRowsMeta.setFlagField("flag");
 
     List<String> keyFields = new ArrayList<>();
@@ -542,12 +525,12 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
     mergeRowsMeta.setKeyFields(keyFields);
 
-    TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    TransformMeta tm = new TransformMeta("MergeRowsPlus", "merge_diff", mergeRowsMeta);
+    tm.setLocation(LOCATION_START_LINE_3.x + SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
 
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceDummyTransform, tm));
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareDummyTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareTransform, tm));
 
     return tm;
   }

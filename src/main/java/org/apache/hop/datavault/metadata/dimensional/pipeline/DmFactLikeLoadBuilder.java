@@ -50,7 +50,7 @@ public final class DmFactLikeLoadBuilder {
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
 
-    TransformMeta predecessor = DmPipelineBuilderSupport.addSourceTableInput(ctx, pipelineMeta);
+    TransformMeta predecessor = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     try {
       predecessor =
           DmFactDimensionJoinBuilder.wireDimensionRoles(

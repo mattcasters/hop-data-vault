@@ -77,6 +77,7 @@
       <tableName>f_orders</tableName>
       <description/>
       <tableType>FACT</tableType>
+      <sourceType>SQL</sourceType>
       <sourceConnection>Vault</sourceConnection>
       <sourceSql>SELECT lo.customer_hk, ho.order_id, hc.customer_id, lo.order_hk, so.order_date, so.shipping_date, so.delivery_date, so.total_amount 
 FROM lnk_order lo 
@@ -86,6 +87,12 @@ JOIN hub_order ho
   ON so.order_hk = ho.order_hk
 JOIN hub_customer hc
   ON lo.customer_hk = hc.customer_hk</sourceSql>
+      <sourcePipelineFile/>
+      <sourcePipelineTransform/>
+      <sourcePipelineRunConfiguration/>
+      <sourceCatalogConnection>local-catalog</sourceCatalogConnection>
+      <sourceRecordNamespace>hop/retail-example/sources</sourceRecordNamespace>
+      <sourceRecordName>E2E-order-line</sourceRecordName>
       <dimensionLookupDateField>order_date</dimensionLookupDateField>
       <xloc>320</xloc>
       <yloc>160</yloc>
@@ -93,50 +100,55 @@ JOIN hub_customer hc
     </table>
     <table>
       <referencedDimensionName>d_order</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-order.hdm</referencedModelFilename>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_order</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
+      <sourceType>SQL</sourceType>
       <xloc>64</xloc>
       <yloc>96</yloc>
       <name>d_order</name>
     </table>
     <table>
       <referencedDimensionName>d_customer</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-customer.hdm</referencedModelFilename>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_customer</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
-      <xloc>64</xloc>
-      <yloc>256</yloc>
+      <sourceType>SQL</sourceType>
+      <xloc>96</xloc>
+      <yloc>336</yloc>
       <name>d_customer</name>
     </table>
     <table>
       <referencedDimensionName>d_date</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-date.hdm</referencedModelFilename>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_date</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
+      <sourceType>SQL</sourceType>
       <xloc>320</xloc>
       <yloc>32</yloc>
       <name>d_order_date</name>
     </table>
     <table>
       <referencedDimensionName>d_date</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-date.hdm</referencedModelFilename>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_date</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
+      <sourceType>SQL</sourceType>
       <xloc>528</xloc>
       <yloc>160</yloc>
       <name>d_shipping_date</name>
     </table>
     <table>
       <referencedDimensionName>d_date</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-d-date.hdm</referencedModelFilename>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_date</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
+      <sourceType>SQL</sourceType>
       <xloc>320</xloc>
       <yloc>336</yloc>
       <name>d_delivery_date</name>

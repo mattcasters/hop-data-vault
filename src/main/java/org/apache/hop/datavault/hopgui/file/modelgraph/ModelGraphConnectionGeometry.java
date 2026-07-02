@@ -20,16 +20,17 @@ package org.apache.hop.datavault.hopgui.file.modelgraph;
 
 import org.apache.hop.core.gui.IGc;
 import org.apache.hop.core.gui.Point;
-import org.apache.hop.datavault.config.DataVaultConfigSingleton;
+import org.apache.hop.ui.core.PropsUi;
 
 /** Edge-anchor helpers for table-to-table relationship lines in model graph painters. */
 public final class ModelGraphConnectionGeometry {
+  public static final int DEFAULT_NUMBER_OF_SPLINE_SEGMENTS = 20;
 
   private ModelGraphConnectionGeometry() {}
 
   /** Returns the configured number of segments used to approximate each connection spline. */
   public static int splineSegments() {
-    return DataVaultConfigSingleton.getConfig().getModelGraphSplineSegments();
+    return DEFAULT_NUMBER_OF_SPLINE_SEGMENTS;
   }
 
   /** Axis-aligned table card bounds in the painter's draw coordinate space. */
@@ -62,8 +63,7 @@ public final class ModelGraphConnectionGeometry {
     int dy = to.centerY() - from.centerY();
 
     boolean horizontal =
-        !rectanglesOverlap(from, to)
-            && Math.abs(dx) * from.height() > Math.abs(dy) * from.width();
+        !rectanglesOverlap(from, to) && Math.abs(dx) * from.height() > Math.abs(dy) * from.width();
     if (horizontal) {
       if (dx > 0) {
         return rightMid(from);
@@ -137,18 +137,17 @@ public final class ModelGraphConnectionGeometry {
   }
 
   /**
-   * Picks a segment count that keeps each piece short in screen space when zoomed in, while honoring
-   * the configured minimum.
+   * Picks a segment count that keeps each piece short in screen space when zoomed in, while
+   * honoring the configured minimum.
    */
   static int effectiveSegmentCount(double screenLength, int configuredSegments) {
     int configured = Math.max(1, configuredSegments);
-    int byLength = (int) Math.ceil(screenLength / 8.0);
+    int byLength = (int) Math.ceil(screenLength / (15.0 * PropsUi.getNativeZoomFactor()));
     return Math.max(configured, Math.min(200, byLength));
   }
 
   /** Samples a cubic Bezier between two anchors using the configured segment count. */
-  public static int[] splinePolyline(
-      Point from, Point to, Bounds fromBounds, Bounds toBounds) {
+  public static int[] splinePolyline(Point from, Point to, Bounds fromBounds, Bounds toBounds) {
     return splinePolyline(from, to, fromBounds, toBounds, splineSegments());
   }
 
@@ -207,8 +206,7 @@ public final class ModelGraphConnectionGeometry {
     }
   }
 
-  private static CubicBezier cubicBezier(
-      Point from, Point to, Bounds fromBounds, Bounds toBounds) {
+  private static CubicBezier cubicBezier(Point from, Point to, Bounds fromBounds, Bounds toBounds) {
     Normal startNormal = anchorNormal(fromBounds, from);
     Normal endNormal = endNormalForSpline(from, to, fromBounds, toBounds);
     double controlLen = controlLength(from, to);

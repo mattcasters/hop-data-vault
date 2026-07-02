@@ -59,7 +59,12 @@ import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
+import org.apache.hop.datavault.hopgui.ModelTableLayoutPreviewSupport;
+import org.apache.hop.datavault.hopgui.ModelUpdateActionAuditSupport;
+import org.apache.hop.datavault.hopgui.ModelUpdateWorkflowClipboardSupport;
 import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
+import org.apache.hop.datavault.workflow.actions.dimensionalupdate.ActionDimensionalUpdate;
+import org.apache.hop.workflow.action.ActionMeta;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmAccumulatingSnapshotFact;
@@ -161,6 +166,9 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   public static final String TOOLBAR_ITEM_DELETE = "HopGuiDimensionalModelGraph-ToolBar-20060-Delete";
   public static final String TOOLBAR_ITEM_UNDO = "HopGuiDimensionalModelGraph-ToolBar-20070-Undo";
   public static final String TOOLBAR_ITEM_REDO = "HopGuiDimensionalModelGraph-ToolBar-20080-Redo";
+
+  private static final String DIMENSIONAL_UPDATE_AUDIT_GROUP = "Dimensional";
+  private static final String DIMENSIONAL_UPDATE_AUDIT_TYPE = "DimensionalUpdateAction";
 
   private final HopDimensionalFileType fileType;
   private final HopGuiDimensionalClipboardDelegate clipboardDelegate;
@@ -984,6 +992,22 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = "dm-graph-copy-update-action",
+      parentId = HopGuiDimensionalContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.CopyUpdateAction.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.CopyUpdateAction.Tooltip",
+      image = "ui/images/copy.svg",
+      category = "Workflow",
+      categoryOrder = "1")
+  public void copyUpdateActionToClipboard(HopGuiDimensionalContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph != null) {
+      graph.copyDimensionalUpdateActionToClipboard();
+    }
+  }
+
+  @GuiContextAction(
       id = "dm-graph-edit-note",
       parentId = HopGuiDimensionalNoteContext.CONTEXT_ID,
       type = GuiActionType.Modify,
@@ -1024,6 +1048,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
 
   private static final String ACTION_ID_GO_TO_ALIASED_DIMENSION =
       "dm-graph-go-to-aliased-dimension";
+  private static final String ACTION_ID_OPEN_SOURCE_PIPELINE = "dm-graph-open-source-pipeline";
 
   @GuiContextAction(
       id = "dm-graph-edit-table",
@@ -1042,6 +1067,22 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = ACTION_ID_OPEN_SOURCE_PIPELINE,
+      parentId = HopGuiDimensionalTableContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.OpenSourcePipeline.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.OpenSourcePipeline.Tooltip",
+      image = "ui/images/pipeline.svg",
+      category = "Dimensional",
+      categoryOrder = "2")
+  public void openSourcePipelineAction(HopGuiDimensionalTableContext context) {
+    IDmTable table = context.getTable();
+    if (table != null) {
+      DmSourcePipelineOpenSupport.openSourcePipeline(hopGui, table, getVariables());
+    }
+  }
+
+  @GuiContextAction(
       id = ACTION_ID_GO_TO_ALIASED_DIMENSION,
       parentId = HopGuiDimensionalTableContext.CONTEXT_ID,
       type = GuiActionType.Modify,
@@ -1049,7 +1090,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.GoToAliasedDimension.Tooltip",
       image = "ui/images/location.svg",
       category = "Dimensional",
-      categoryOrder = "2")
+      categoryOrder = "3")
   public void goToAliasedDimensionAction(HopGuiDimensionalTableContext context) {
     IDmTable table = context.getTable();
     HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
@@ -1081,6 +1122,10 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       return DmDimensionAliasNavigationSupport.canNavigateToSourceDimension(
           context.getModel(), alias, getVariables(), hopGui.getMetadataProvider());
     }
+    if (ACTION_ID_OPEN_SOURCE_PIPELINE.equals(contextActionId)) {
+      return DmSourcePipelineOpenSupport.canOpenSourcePipeline(
+          context.getTable(), getVariables());
+    }
     return true;
   }
 
@@ -1092,7 +1137,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.DeleteTable.Tooltip",
       image = "ui/images/delete.svg",
       category = "Dimensional",
-      categoryOrder = "3")
+      categoryOrder = "4")
   public void deleteTable(HopGuiDimensionalTableContext context) {
     IDmTable table = context.getTable();
     HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
@@ -1116,13 +1161,32 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.ShowUpdatePipeline.Tooltip",
       image = "ui/images/debug.svg",
       category = "Dimensional",
-      categoryOrder = "4")
+      categoryOrder = "5")
   public void showUpdatePipelineAction(HopGuiDimensionalTableContext context) {
     IDmTable table = context.getTable();
     HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
     if (table != null && graph != null) {
       graph.openUpdatePipeline(table);
     }
+  }
+
+  @GuiContextAction(
+      id = "dm-graph-preview-target-layout",
+      parentId = HopGuiDimensionalTableContext.CONTEXT_ID,
+      type = GuiActionType.Info,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.PreviewTargetLayout.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.PreviewTargetLayout.Tooltip",
+      image = "ui/images/preview.svg",
+      category = "Dimensional",
+      categoryOrder = "6")
+  public void previewTargetLayoutAction(HopGuiDimensionalTableContext context) {
+    IDmTable table = context.getTable();
+    DimensionalModel dmModel = context.getModel();
+    if (table == null) {
+      return;
+    }
+    ModelTableLayoutPreviewSupport.previewDmTableLayout(
+        hopGui.getShell(), getVariables(), hopGui.getMetadataProvider(), dmModel, table);
   }
 
   @GuiToolbarElement(
@@ -1792,6 +1856,88 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   @Override
   public void debug() {
     debugPipelines();
+  }
+
+  public void copyDimensionalUpdateActionToClipboard() {
+    if (model == null) {
+      return;
+    }
+    if (!ensureModelSavedBeforeClipboard()) {
+      return;
+    }
+    try {
+      ActionDimensionalUpdate updateAction = loadStoredDimensionalUpdateAction();
+      updateAction.setDimensionalModelFile(getFilename());
+      ModelUpdateWorkflowClipboardSupport.copyUpdateWorkflowToClipboard(
+          hopGui, updateAction, getVariables(), getFilename());
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.CopyUpdateAction.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.CopyUpdateAction.Error.Message"),
+          e);
+    }
+  }
+
+  private ActionDimensionalUpdate loadStoredDimensionalUpdateAction() throws HopException {
+    String actionXml =
+        ModelUpdateActionAuditSupport.retrieveActionXml(
+            DIMENSIONAL_UPDATE_AUDIT_GROUP, DIMENSIONAL_UPDATE_AUDIT_TYPE, getFilename());
+    if (!Utils.isEmpty(actionXml)) {
+      Node actionNode = XmlHandler.loadXmlString(actionXml, ActionMeta.XML_TAG);
+      ActionMeta actionMeta =
+          new ActionMeta(actionNode, hopGui.getMetadataProvider(), getVariables());
+      if (actionMeta.getAction() instanceof ActionDimensionalUpdate storedAction) {
+        return storedAction;
+      }
+    }
+    return new ActionDimensionalUpdate();
+  }
+
+  private boolean ensureModelSavedBeforeClipboard() {
+    if (!hasChanged()) {
+      return true;
+    }
+
+    MessageBox messageDialog =
+        new MessageBox(hopShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO | SWT.CANCEL);
+    messageDialog.setText(
+        BaseMessages.getString(
+            PKG, "HopGuiDimensionalModelGraph.CopyUpdateAction.Save.Dialog.Header"));
+    messageDialog.setMessage(
+        BaseMessages.getString(
+            PKG,
+            "HopGuiDimensionalModelGraph.CopyUpdateAction.Save.Dialog.Message",
+            buildTabName()));
+    int answer = messageDialog.open();
+    if ((answer & SWT.YES) != 0) {
+      try {
+        if (Utils.isEmpty(getFilename())) {
+          String chosenFilename =
+              BaseDialog.presentFileDialog(
+                  true,
+                  hopGui.getActiveShell(),
+                  fileType.getFilterExtensions(),
+                  fileType.getFilterNames(),
+                  true);
+          if (chosenFilename == null) {
+            return false;
+          }
+          saveAs(hopGui.getVariables().resolve(chosenFilename));
+        } else {
+          save();
+        }
+        return true;
+      } catch (Exception e) {
+        new ErrorDialog(
+            hopShell(),
+            BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.SaveFile.Error.Header"),
+            BaseMessages.getString(PKG, "HopGuiDimensionalModelGraph.SaveFile.Error.Message"),
+            e);
+        return false;
+      }
+    }
+    return (answer & SWT.NO) != 0;
   }
 
   @GuiToolbarElement(

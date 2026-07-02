@@ -18,7 +18,9 @@
 
 package org.apache.hop.datavault.hopgui.file.dimensional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
@@ -59,6 +61,8 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 public class DimensionalModelPainter extends BasePainter {
 
   private static final Class<?> PKG = DimensionalModelPainter.class;
+  private static final int EMPTY_MODEL_HINT_PADDING = 16;
+  private static final int EMPTY_MODEL_HINT_LINE_GAP = 6;
 
   private final DimensionalModel model;
   private String mouseOverTableName;
@@ -66,6 +70,9 @@ public class DimensionalModelPainter extends BasePainter {
   private IDmTable startRelationshipTable;
   private Point relationshipDragEndLocation;
   private IDmTable candidateRelationshipTarget;
+
+  /** When false, suppress the first-run empty canvas hint (e.g. SVG export). */
+  private boolean showEmptyModelHint = true;
 
   public DimensionalModelPainter(
       DimensionalModel model, IGc gc, IVariables variables, int width, int height) {
@@ -109,9 +116,8 @@ public class DimensionalModelPainter extends BasePainter {
 
     gc.setTransform(0.0f, 0.0f, 1.0f);
 
-    boolean notesEmpty = !drawNotes || model.getNotes().isEmpty();
-    if (model.getTables().isEmpty() && notesEmpty) {
-      drawEmptyHint();
+    if (showEmptyModelHint && isEmptyModel()) {
+      drawEmptyModelHint();
     }
 
     drawNavigationView();
@@ -449,14 +455,72 @@ public class DimensionalModelPainter extends BasePainter {
     };
   }
 
-  private void drawEmptyHint() {
-    String hint = BaseMessages.getString(PKG, "DimensionalModelPainter.EmptyHint");
-    gc.setTransform(0.0f, 0.0f, 1.0f);
+  private boolean isEmptyModel() {
+    boolean notesEmpty = !drawNotes || model.getNotes().isEmpty();
+    return model.getTables().isEmpty() && notesEmpty;
+  }
+
+  private List<String> getEmptyModelHintLines() {
+    List<String> lines = new ArrayList<>();
+    lines.add(BaseMessages.getString(PKG, "DimensionalModelPainter.EmptyModel.Intro"));
+    lines.add(BaseMessages.getString(PKG, "DimensionalModelPainter.EmptyModel.AddTables"));
+    return lines;
+  }
+
+  /** Onboarding hint in the top-left when the model has no tables or notes. */
+  private void drawEmptyModelHint() {
+    if (area == null || area.x <= 0 || area.y <= 0) {
+      return;
+    }
+
+    List<String> lines = getEmptyModelHintLines();
+    if (lines.isEmpty()) {
+      return;
+    }
+
     gc.setFont(EFont.GRAPH);
-    gc.setForeground(EColor.DARKGRAY);
-    Point extent = gc.textExtent(hint);
-    int x = Math.max(16, (area.x - extent.x) / 2);
-    int y = Math.max(16, (area.y - extent.y) / 2);
-    gc.drawText(hint, x, y, true);
+    int maxLineWidth = 0;
+    int totalTextHeight = 0;
+    List<Point> lineExtents = new ArrayList<>(lines.size());
+    int lineHeight = gc.textExtent("Ay").y;
+    for (String line : lines) {
+      Point extent = Utils.isEmpty(line) ? new Point(0, lineHeight / 2) : gc.textExtent(line);
+      lineExtents.add(extent);
+      maxLineWidth = Math.max(maxLineWidth, extent.x);
+      totalTextHeight += extent.y;
+      if (lineExtents.size() < lines.size()) {
+        totalTextHeight += EMPTY_MODEL_HINT_LINE_GAP;
+      }
+    }
+
+    int boxWidth = maxLineWidth + (2 * EMPTY_MODEL_HINT_PADDING);
+    int boxHeight = totalTextHeight + (2 * EMPTY_MODEL_HINT_PADDING);
+    int boxX = 32;
+    int boxY = 32;
+
+    int alpha = gc.getAlpha();
+    gc.setAlpha(210);
+    gc.setTransform(0, 0, 2.5f);
+    gc.setBackground(IGc.EColor.WHITE);
+    gc.setForeground(IGc.EColor.LIGHTGRAY);
+    gc.fillRoundRectangle(boxX, boxY, boxWidth, boxHeight, CORNER_RADIUS_5, CORNER_RADIUS_5);
+    gc.drawRoundRectangle(boxX, boxY, boxWidth, boxHeight, CORNER_RADIUS_5, CORNER_RADIUS_5);
+    gc.setAlpha(alpha);
+
+    gc.setForeground(IGc.EColor.DARKGRAY);
+    int textY = boxY + EMPTY_MODEL_HINT_PADDING;
+    for (int i = 0; i < lines.size(); i++) {
+      String line = lines.get(i);
+      Point extent = lineExtents.get(i);
+      if (!Utils.isEmpty(line)) {
+        int textX = boxX + EMPTY_MODEL_HINT_PADDING + Math.max(0, (maxLineWidth - extent.x) / 2);
+        gc.drawText(line, textX, textY, true);
+      }
+      textY += extent.y;
+      if (i < lines.size() - 1) {
+        textY += EMPTY_MODEL_HINT_LINE_GAP;
+      }
+    }
+    gc.setTransform(0, 0, 1.0f);
   }
 }

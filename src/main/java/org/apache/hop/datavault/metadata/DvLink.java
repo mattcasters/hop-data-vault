@@ -69,7 +69,7 @@ import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
-import org.apache.hop.pipeline.transforms.mergerows.MergeRowsMeta;
+import org.apache.hop.datavault.transform.mergerowsplus.MergeRowsPlusMeta;
 import org.apache.hop.pipeline.transforms.mergerows.PassThroughField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
@@ -903,26 +903,9 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       return null;
     }
 
-    // A bug in hop requires an extra dummy to read from both reference and compare transforms
-    //
-    TransformMeta referenceDummyTransform =
-        addDummyTransform(
-            pipelineMeta,
-            referenceTransform,
-            "Merge reference",
-            referenceTransform.getLocation().x + SPACING_WIDTH,
-            referenceTransform.getLocation().y);
-    TransformMeta compareDummyTransform =
-        addDummyTransform(
-            pipelineMeta,
-            compareTransform,
-            "Merge compare",
-            compareTransform.getLocation().x + SPACING_WIDTH,
-            compareTransform.getLocation().y);
-
-    MergeRowsMeta mergeRowsMeta = new MergeRowsMeta();
-    mergeRowsMeta.setReferenceTransform(referenceDummyTransform.getName());
-    mergeRowsMeta.setCompareTransform(compareDummyTransform.getName());
+    MergeRowsPlusMeta mergeRowsMeta = new MergeRowsPlusMeta();
+    mergeRowsMeta.setReferenceTransform(referenceTransform.getName());
+    mergeRowsMeta.setCompareTransform(compareTransform.getName());
     mergeRowsMeta.setFlagField("flag");
 
     // We merge on the hash key of this table.
@@ -957,12 +940,12 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     String rsFieldName = findRecordSourceFieldName(ctx);
     mergeRowsMeta.getPassThroughFields().add(new PassThroughField(rsFieldName, null, false));
 
-    TransformMeta tm = new TransformMeta("MergeRows", "merge_diff", mergeRowsMeta);
-    tm.setLocation(LOCATION_START_LINE_3.x + 2 * SPACING_WIDTH, LOCATION_START_LINE_3.y);
+    TransformMeta tm = new TransformMeta("MergeRowsPlus", "merge_diff", mergeRowsMeta);
+    tm.setLocation(LOCATION_START_LINE_3.x + SPACING_WIDTH, LOCATION_START_LINE_3.y);
     pipelineMeta.addTransform(tm);
 
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceDummyTransform, tm));
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareDummyTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceTransform, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(compareTransform, tm));
 
     return tm;
   }

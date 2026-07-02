@@ -32,6 +32,7 @@ import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgetsAdapter;
 import org.apache.hop.ui.core.gui.GuiResource;
+import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.eclipse.swt.SWT;
@@ -82,8 +83,6 @@ public class HopGuiDataVaultModelDialog {
     shell = new Shell(parent, BaseDialog.getDefaultDialogStyle());
     PropsUi.setLook(shell);
     shell.setText(BaseMessages.getString(PKG, "HopGuiDataVaultModelDialog.Title", input.getName()));
-    shell.setSize(700, 600);
-
     FormLayout formLayout = new FormLayout();
     formLayout.marginWidth = PropsUi.getFormMargin();
     formLayout.marginHeight = PropsUi.getFormMargin();
@@ -242,6 +241,7 @@ public class HopGuiDataVaultModelDialog {
           }
         });
 
+    BaseTransformDialog.setSize(shell, 700, 600);
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
 
     return ok;
@@ -367,7 +367,9 @@ public class HopGuiDataVaultModelDialog {
   }
 
   private void dispose() {
-    if (!shell.isDisposed()) {
+    if (shell != null && !shell.isDisposed()) {
+      WindowProperty winProp = new WindowProperty(shell);
+      PropsUi.getInstance().setSessionScreen(winProp);
       shell.dispose();
     }
   }

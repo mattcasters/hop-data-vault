@@ -47,7 +47,7 @@
       <type>SPECIAL</type>
       <attributes/>
       <xloc>64</xloc>
-      <yloc>64</yloc>
+      <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -64,7 +64,7 @@
       <type>SQL</type>
       <attributes/>
       <xloc>240</xloc>
-      <yloc>64</yloc>
+      <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -81,7 +81,7 @@
       <type>SQL</type>
       <attributes/>
       <xloc>448</xloc>
-      <yloc>64</yloc>
+      <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -109,7 +109,7 @@
       <type>PIPELINE</type>
       <attributes/>
       <xloc>656</xloc>
-      <yloc>64</yloc>
+      <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -126,7 +126,7 @@
       <type>SQL</type>
       <attributes/>
       <xloc>896</xloc>
-      <yloc>64</yloc>
+      <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -143,7 +143,7 @@
       <type>SQL</type>
       <attributes/>
       <xloc>64</xloc>
-      <yloc>160</yloc>
+      <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -168,7 +168,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-catalog-sources.py"
       <type>SHELL</type>
       <attributes/>
       <xloc>288</xloc>
-      <yloc>160</yloc>
+      <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -193,7 +193,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <type>SHELL</type>
       <attributes/>
       <xloc>560</xloc>
-      <yloc>160</yloc>
+      <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -221,7 +221,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <type>PIPELINE</type>
       <attributes/>
       <xloc>800</xloc>
-      <yloc>160</yloc>
+      <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -248,7 +248,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
       <xloc>64</xloc>
-      <yloc>256</yloc>
+      <yloc>224</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -271,8 +271,8 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>BUSINESS_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>304</xloc>
-      <yloc>256</yloc>
+      <xloc>224</xloc>
+      <yloc>224</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -281,8 +281,8 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>464</xloc>
-      <yloc>464</yloc>
+      <xloc>496</xloc>
+      <yloc>320</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -303,96 +303,8 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>DIMENSIONAL_UPDATE</type>
       <attributes/>
-      <xloc>640</xloc>
-      <yloc>352</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dimensionalModelFile>${PROJECT_HOME}/models/retail-d-date.hdm</dimensionalModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>Y</logModelCheckFailures>
-      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder/>
-      <selectedTableNames/>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <ddlSqlFilename/>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-d-date</name>
-      <description/>
-      <type>DIMENSIONAL_UPDATE</type>
-      <attributes/>
-      <xloc>880</xloc>
-      <yloc>256</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dimensionalModelFile>${PROJECT_HOME}/models/retail-d-order.hdm</dimensionalModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>Y</logModelCheckFailures>
-      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder/>
-      <selectedTableNames/>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <ddlSqlFilename/>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-d-order</name>
-      <description/>
-      <type>DIMENSIONAL_UPDATE</type>
-      <attributes/>
-      <xloc>64</xloc>
-      <yloc>352</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dimensionalModelFile>${PROJECT_HOME}/models/retail-d-customer.hdm</dimensionalModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>Y</logModelCheckFailures>
-      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder/>
-      <selectedTableNames/>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <ddlSqlFilename/>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-d-customer</name>
-      <description/>
-      <type>DIMENSIONAL_UPDATE</type>
-      <attributes/>
-      <xloc>256</xloc>
-      <yloc>352</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dimensionalModelFile>${PROJECT_HOME}/models/retail-d-product.hdm</dimensionalModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>Y</logModelCheckFailures>
-      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder/>
-      <selectedTableNames/>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <ddlSqlFilename/>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-d-product</name>
-      <description/>
-      <type>DIMENSIONAL_UPDATE</type>
-      <attributes/>
-      <xloc>464</xloc>
-      <yloc>352</yloc>
+      <xloc>224</xloc>
+      <yloc>320</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -413,8 +325,26 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>DIMENSIONAL_UPDATE</type>
       <attributes/>
-      <xloc>880</xloc>
-      <yloc>352</yloc>
+      <xloc>352</xloc>
+      <yloc>320</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <dimensionalModelFile>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</dimensionalModelFile>
+      <pipelineRunConfiguration>local</pipelineRunConfiguration>
+      <logModelCheckFailures>Y</logModelCheckFailures>
+      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
+      <parallelPipelineCopies>1</parallelPipelineCopies>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
+      <failIfDdlNeeded>N</failIfDdlNeeded>
+      <name>retail-conformed-dims</name>
+      <description/>
+      <type>DIMENSIONAL_UPDATE</type>
+      <attributes/>
+      <xloc>64</xloc>
+      <yloc>320</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -491,41 +421,6 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>retail-360.hbv</from>
-      <to>retail-d-date</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-d-date</from>
-      <to>retail-d-order</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-d-order</from>
-      <to>retail-d-customer</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-d-customer</from>
-      <to>retail-d-product</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-d-product</from>
-      <to>retail-f-orders.hdm</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>retail-f-orders.hdm</from>
       <to>retail-f-order-lines</to>
       <evaluation>Y</evaluation>
@@ -535,6 +430,20 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
     <hop>
       <from>retail-f-order-lines</from>
       <to>Success</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>retail-360.hbv</from>
+      <to>retail-conformed-dims</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>retail-conformed-dims</from>
+      <to>retail-f-orders.hdm</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

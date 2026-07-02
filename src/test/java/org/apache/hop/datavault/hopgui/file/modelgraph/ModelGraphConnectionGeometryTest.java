@@ -95,8 +95,7 @@ class ModelGraphConnectionGeometryTest {
     Bounds right = new Bounds(200, 5, 80, 40);
     ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(BOX_A, right);
     int[] polyline =
-        ModelGraphConnectionGeometry.splinePolyline(
-            anchors.from(), anchors.to(), BOX_A, right, 20);
+        ModelGraphConnectionGeometry.splinePolyline(anchors.from(), anchors.to(), BOX_A, right, 20);
     assertEquals(anchors.from().x, polyline[0]);
     assertEquals(anchors.from().y, polyline[1]);
     int last = polyline.length - 2;
@@ -106,9 +105,12 @@ class ModelGraphConnectionGeometryTest {
 
   @Test
   void controlLengthClampsForShortAndLongConnections() {
-    assertEquals(3.5, ModelGraphConnectionGeometry.controlLength(new Point(0, 0), new Point(10, 0)), 0.01);
-    assertEquals(70, ModelGraphConnectionGeometry.controlLength(new Point(0, 0), new Point(200, 0)), 0.01);
-    assertEquals(150, ModelGraphConnectionGeometry.controlLength(new Point(0, 0), new Point(500, 0)), 0.01);
+    assertEquals(
+        3.5, ModelGraphConnectionGeometry.controlLength(new Point(0, 0), new Point(10, 0)), 0.01);
+    assertEquals(
+        70, ModelGraphConnectionGeometry.controlLength(new Point(0, 0), new Point(200, 0)), 0.01);
+    assertEquals(
+        150, ModelGraphConnectionGeometry.controlLength(new Point(0, 0), new Point(500, 0)), 0.01);
   }
 
   @Test
@@ -124,17 +126,8 @@ class ModelGraphConnectionGeometryTest {
     Bounds below = new Bounds(10, 120, 80, 40);
     ConnectionAnchors anchors = ModelGraphConnectionGeometry.anchorsBetween(BOX_A, below);
     int[] polyline =
-        ModelGraphConnectionGeometry.splinePolyline(
-            anchors.from(), anchors.to(), BOX_A, below, 20);
-    assertTrue(polyline[3] > polyline[1], "first segment should continue downward from bottom edge");
-  }
-
-  @Test
-  void splineSegmentsReadsConfiguredValue() {
-    DataVaultConfig config = new DataVaultConfig();
-    config.setModelGraphSplineSegments(8);
-    assertEquals(8, config.getModelGraphSplineSegments());
-    config.setModelGraphSplineSegments(0);
-    assertEquals(DataVaultConfig.DEFAULT_MODEL_GRAPH_SPLINE_SEGMENTS, config.getModelGraphSplineSegments());
+        ModelGraphConnectionGeometry.splinePolyline(anchors.from(), anchors.to(), BOX_A, below, 20);
+    assertTrue(
+        polyline[3] > polyline[1], "first segment should continue downward from bottom edge");
   }
 }

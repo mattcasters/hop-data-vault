@@ -83,6 +83,9 @@ import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
 import org.apache.hop.datavault.metadata.DvUpdateExecutionSupport;
+import org.apache.hop.datavault.hopgui.ModelTableLayoutPreviewSupport;
+import org.apache.hop.datavault.hopgui.ModelUpdateActionAuditSupport;
+import org.apache.hop.datavault.hopgui.ModelUpdateWorkflowClipboardSupport;
 import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
@@ -161,7 +164,6 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
 
   private static final String DATA_VAULT_UPDATE_AUDIT_GROUP = "DataVault";
   private static final String DATA_VAULT_UPDATE_AUDIT_TYPE = "DataVaultUpdateAction";
-  private static final String DATA_VAULT_UPDATE_AUDIT_STATE_ACTION_XML = "actionXml";
 
   public static final String GUI_PLUGIN_TOOLBAR_PARENT_ID = "HopGuiVaultGraph-Toolbar";
   public static final String TOOLBAR_ITEM_ZOOM_LEVEL = "HopGuiVaultGraph-ToolBar-10500-Zoom-Level";
@@ -806,43 +808,80 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
   }
 
   private String retrieveStoredDataVaultUpdateActionXml() {
-    try {
-      AuditState auditState =
-          AuditManager.getActive()
-              .retrieveState(
-                  DATA_VAULT_UPDATE_AUDIT_GROUP,
-                  DATA_VAULT_UPDATE_AUDIT_TYPE,
-                  dataVaultUpdateAuditStateName());
-      if (auditState == null || auditState.getStateMap() == null) {
-        return null;
-      }
-      Object value = auditState.getStateMap().get(DATA_VAULT_UPDATE_AUDIT_STATE_ACTION_XML);
-      return value instanceof String xml ? xml : null;
-    } catch (Exception e) {
-      LogChannel.UI.logError("Error restoring Data Vault update action settings", e);
-      return null;
-    }
+    return ModelUpdateActionAuditSupport.retrieveActionXml(
+        DATA_VAULT_UPDATE_AUDIT_GROUP, DATA_VAULT_UPDATE_AUDIT_TYPE, getFilename());
   }
 
   private void storeDataVaultUpdateAction(ActionDataVaultUpdate updateAction) {
+    ModelUpdateActionAuditSupport.storeActionXml(
+        DATA_VAULT_UPDATE_AUDIT_GROUP,
+        DATA_VAULT_UPDATE_AUDIT_TYPE,
+        getFilename(),
+        new ActionMeta(updateAction.clone()));
+  }
+
+  public void copyDataVaultUpdateActionToClipboard() {
+    if (model == null) {
+      return;
+    }
+    if (!ensureModelSavedBeforeClipboard()) {
+      return;
+    }
     try {
-      ActionMeta actionMeta = new ActionMeta(updateAction.clone());
-      Map<String, Object> stateMap = new HashMap<>();
-      stateMap.put(DATA_VAULT_UPDATE_AUDIT_STATE_ACTION_XML, actionMeta.getXml());
-      AuditState auditState = new AuditState(dataVaultUpdateAuditStateName(), stateMap);
-      AuditManager.getActive()
-          .storeState(DATA_VAULT_UPDATE_AUDIT_GROUP, DATA_VAULT_UPDATE_AUDIT_TYPE, auditState);
+      ActionDataVaultUpdate updateAction = loadStoredDataVaultUpdateAction();
+      updateAction.setDataVaultModelFile(getFilename());
+      ModelUpdateWorkflowClipboardSupport.copyUpdateWorkflowToClipboard(
+          hopGui, updateAction, getVariables(), getFilename());
     } catch (Exception e) {
-      LogChannel.UI.logError("Error storing Data Vault update action settings", e);
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.CopyUpdateAction.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiVaultGraph.CopyUpdateAction.Error.Message"),
+          e);
     }
   }
 
-  private String dataVaultUpdateAuditStateName() {
-    String modelFilename = getFilename();
-    if (Utils.isEmpty(modelFilename)) {
-      return "<unsaved-model>";
+  private boolean ensureModelSavedBeforeClipboard() {
+    if (!hasChanged()) {
+      return true;
     }
-    return modelFilename;
+
+    MessageBox messageDialog =
+        new MessageBox(hopShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO | SWT.CANCEL);
+    messageDialog.setText(
+        BaseMessages.getString(PKG, "HopGuiVaultGraph.CopyUpdateAction.Save.Dialog.Header"));
+    messageDialog.setMessage(
+        BaseMessages.getString(
+            PKG, "HopGuiVaultGraph.CopyUpdateAction.Save.Dialog.Message", buildTabName()));
+    int answer = messageDialog.open();
+    if ((answer & SWT.YES) != 0) {
+      try {
+        if (Utils.isEmpty(getFilename())) {
+          String chosenFilename =
+              BaseDialog.presentFileDialog(
+                  true,
+                  hopGui.getActiveShell(),
+                  fileType.getFilterExtensions(),
+                  fileType.getFilterNames(),
+                  true);
+          if (chosenFilename == null) {
+            return false;
+          }
+          saveAs(hopGui.getVariables().resolve(chosenFilename));
+        } else {
+          save();
+        }
+        return true;
+      } catch (Exception e) {
+        new ErrorDialog(
+            hopGui.getShell(),
+            BaseMessages.getString(PKG, "HopGuiVaultGraph.SaveFile.Error.Header"),
+            BaseMessages.getString(PKG, "HopGuiVaultGraph.SaveFile.Error.Message"),
+            e);
+        return false;
+      }
+    }
+    return (answer & SWT.NO) != 0;
   }
 
   private WorkflowMeta buildDataVaultUpdateWorkflow(ActionDataVaultUpdate updateAction) {
@@ -1338,6 +1377,22 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = "vault-graph-copy-update-action",
+      parentId = HopGuiVaultContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiVaultGraph.Context.CopyUpdateAction.Name",
+      tooltip = "i18n::HopGuiVaultGraph.Context.CopyUpdateAction.Tooltip",
+      image = "ui/images/copy.svg",
+      category = "Workflow",
+      categoryOrder = "1")
+  public void copyUpdateActionToClipboard(HopGuiVaultContext context) {
+    HopGuiVaultGraph realGraph = context.getVaultGraph();
+    if (realGraph != null) {
+      realGraph.copyDataVaultUpdateActionToClipboard();
+    }
+  }
+
+  @GuiContextAction(
       id = "vault-graph-add-note",
       parentId = HopGuiVaultContext.CONTEXT_ID,
       type = GuiActionType.Create,
@@ -1484,6 +1539,30 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
     if (t != null && realGraph != null) {
       realGraph.openUpdatePipeline(t);
     }
+  }
+
+  @GuiContextAction(
+      id = "vault-graph-preview-target-layout",
+      parentId = HopGuiVaultTableContext.CONTEXT_ID,
+      type = GuiActionType.Info,
+      name = "i18n::HopGuiVaultGraph.Context.PreviewTargetLayout.Name",
+      tooltip = "i18n::HopGuiVaultGraph.Context.PreviewTargetLayout.Tooltip",
+      image = "ui/images/preview.svg",
+      category = "Data Vault",
+      categoryOrder = "4")
+  public void previewTargetLayoutAction(HopGuiVaultTableContext context) {
+    IDvTable table = context.getTable();
+    DataVaultModel dvModel = context.getModel();
+    HopGuiVaultGraph realGraph = context.getVaultGraph();
+    if (table == null || realGraph == null) {
+      return;
+    }
+    ModelTableLayoutPreviewSupport.previewDvTableLayout(
+        realGraph.getShell(),
+        realGraph.getVariables(),
+        hopGui.getMetadataProvider(),
+        dvModel,
+        table);
   }
 
   @GuiContextAction(

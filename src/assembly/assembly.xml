@@ -84,6 +84,7 @@
                 <include>org.apache.hop:hop-transform-insertupdate:jar</include>
                 <include>org.apache.hop:hop-transform-languagemodelchat:jar</include>
                 <include>org.apache.hop:hop-transform-mergerows:jar</include>
+                <include>org.apache.hop:hop-transform-metainject:jar</include>
                 <include>org.apache.hop:hop-transform-metastructure:jar</include>
                 <include>org.apache.hop:hop-transform-pipelineexecutor:jar</include>
                 <include>org.apache.hop:hop-transform-repeatfields:jar</include>

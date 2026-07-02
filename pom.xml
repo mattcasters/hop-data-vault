@@ -136,6 +136,11 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-metainject</artifactId>
+      <version>${hop.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
       <artifactId>hop-transform-filterrows</artifactId>
       <version>${hop.version}</version>
     </dependency>
@@ -265,6 +270,19 @@
       <groupId>org.eclipse.elk</groupId>
       <artifactId>org.eclipse.elk.alg.rectpacking</artifactId>
       <version>${elk.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-addsequence</artifactId>
+      <version>${hop.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hop</groupId>
+      <artifactId>hop-transform-rowgenerator</artifactId>
+      <version>${hop.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>

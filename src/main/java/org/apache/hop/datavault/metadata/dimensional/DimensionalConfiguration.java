@@ -22,6 +22,7 @@ import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
@@ -86,6 +87,16 @@ public class DimensionalConfiguration extends HopMetadataBase
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String sourceDatabase;
+
+  @GuiWidgetElement(
+      order = "0175",
+      type = GuiElementType.METADATA,
+      metadata = DataCatalogMeta.class,
+      label = "i18n::DimensionalConfiguration.DataCatalogConnection.Label",
+      toolTip = "i18n::DimensionalConfiguration.DataCatalogConnection.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String dataCatalogConnection;
 
   @GuiWidgetElement(
       order = "0200",

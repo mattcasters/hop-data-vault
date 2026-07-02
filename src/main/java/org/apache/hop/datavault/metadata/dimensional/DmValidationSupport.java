@@ -81,7 +81,7 @@ public final class DmValidationSupport {
                   PKG, "DmValidationSupport.CheckResult.MissingJunkKeyFields", junkDimension.getName()),
               junkDimension));
     }
-    validateSourceConfiguration(remarks, junkDimension, variables);
+    validateSourceConfiguration(remarks, junkDimension, null, metadataProvider, variables);
     validateJunkSurrogateKey(remarks, junkDimension, variables);
     validateTargetLayout(remarks, junkDimension, null, metadataProvider, variables);
   }
@@ -98,7 +98,7 @@ public final class DmValidationSupport {
     validateDimensionRoles(remarks, fact.getName(), fact.getDimensionRolesOrEmpty(), model, variables, fact);
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
-    validateSourceConfiguration(remarks, fact, variables);
+    validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
 
@@ -123,7 +123,7 @@ public final class DmValidationSupport {
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
-    validateSourceConfiguration(remarks, fact, variables);
+    validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
 
@@ -148,7 +148,7 @@ public final class DmValidationSupport {
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
-    validateSourceConfiguration(remarks, fact, variables);
+    validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
 
@@ -212,7 +212,7 @@ public final class DmValidationSupport {
                 bridge));
       }
     }
-    validateSourceConfiguration(remarks, bridge, variables);
+    validateSourceConfiguration(remarks, bridge, model, metadataProvider, variables);
     validateTargetLayout(remarks, bridge, model, metadataProvider, variables);
   }
 
@@ -248,7 +248,7 @@ public final class DmValidationSupport {
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
-    validateSourceConfiguration(remarks, fact, variables);
+    validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
 
@@ -573,7 +573,7 @@ public final class DmValidationSupport {
     validateNaturalKeys(remarks, dimension, variables);
     validateAttributes(remarks, dimension, variables);
     validateOutriggers(remarks, dimension, model, variables);
-    validateSourceConfiguration(remarks, dimension, variables);
+    validateSourceConfiguration(remarks, dimension, model, metadataProvider, variables);
     validateSurrogateKey(remarks, dimension, variables);
     validateDimensionSourceFields(remarks, dimension, model, metadataProvider, variables);
     validateTargetLayout(remarks, dimension, model, metadataProvider, variables);
@@ -592,7 +592,7 @@ public final class DmValidationSupport {
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
-    validateSourceConfiguration(remarks, fact, variables);
+    validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateFactSourceFields(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
@@ -972,7 +972,8 @@ public final class DmValidationSupport {
     if (Utils.isEmpty(sourceField)) {
       if (!Utils.isEmpty(naturalKey)
           && (factSourceFields.contains(naturalKey)
-              || sourceSqlContainsField(source, naturalKey, variables))) {
+              || sourceContainsField(
+                  source, naturalKey, variables, metadataProvider, model))) {
         sourceField = naturalKey;
       } else {
         remarks.add(
@@ -1357,11 +1358,92 @@ public final class DmValidationSupport {
   }
 
   private static void validateSourceConfiguration(
-      List<ICheckResult> remarks, IDmTable table, IVariables variables) {
+      List<ICheckResult> remarks,
+      IDmTable table,
+      DimensionalModel model,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables) {
     if (remarks == null || table == null) {
       return;
     }
-    String sourceSql = table.getSourceOrDefault().resolveSourceSql(variables);
+    DmSourceConfiguration source = table.getSourceOrDefault();
+    if (source.isPipelineSource()) {
+      if (Utils.isEmpty(source.resolveSourcePipelineFile(variables))) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.MissingSourcePipelineFile",
+                    table.getName()),
+                table));
+      }
+      if (Utils.isEmpty(source.resolveSourcePipelineTransform(variables))) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.MissingSourcePipelineTransform",
+                    table.getName()),
+                table));
+      }
+      return;
+    }
+    if (source.isRecordDefinitionSource()) {
+      DimensionalConfiguration config =
+          model != null ? model.getConfigurationOrDefault() : null;
+      if (Utils.isEmpty(source.resolveSourceCatalogConnection(variables))
+          && (config == null || Utils.isEmpty(config.getDataCatalogConnection()))) {
+        if (metadataProvider == null) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG,
+                      "DmValidationSupport.CheckResult.MissingSourceCatalogConnection",
+                      table.getName()),
+                  table));
+        } else {
+          try {
+            DmSourceRecordDefinitionSupport.resolveCatalogConnection(
+                config, source, variables, metadataProvider);
+          } catch (HopException e) {
+            remarks.add(
+                new CheckResult(
+                    ICheckResult.TYPE_RESULT_ERROR,
+                    BaseMessages.getString(
+                        PKG,
+                        "DmValidationSupport.CheckResult.MissingSourceCatalogConnection",
+                        table.getName()),
+                    table));
+          }
+        }
+      }
+      if (Utils.isEmpty(source.resolveSourceRecordNamespace(variables))) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.MissingSourceRecordNamespace",
+                    table.getName()),
+                table));
+      }
+      if (Utils.isEmpty(source.resolveSourceRecordName(variables))) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.MissingSourceRecordName",
+                    table.getName()),
+                table));
+      }
+      return;
+    }
+
+    String sourceSql = source.resolveSourceSql(variables);
     if (Utils.isEmpty(sourceSql)) {
       remarks.add(
           new CheckResult(
@@ -1388,12 +1470,25 @@ public final class DmValidationSupport {
     }
   }
 
-  private static boolean sourceSqlContainsField(
-      IDmTable table, String fieldName, IVariables variables) {
+  private static boolean sourceContainsField(
+      IDmTable table,
+      String fieldName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      DimensionalModel model) {
     if (table == null || Utils.isEmpty(fieldName)) {
       return false;
     }
-    String sql = table.getSourceOrDefault().resolveSourceSql(variables);
+    DmSourceConfiguration source = table.getSourceOrDefault();
+    if (source.isPipelineSource() || source.isRecordDefinitionSource()) {
+      if (metadataProvider == null || model == null) {
+        return false;
+      }
+      return DmSourceFieldResolutionSupport.tryResolveFieldNames(
+              metadataProvider, variables, model, table)
+          .contains(fieldName);
+    }
+    String sql = source.resolveSourceSql(variables);
     if (Utils.isEmpty(sql)) {
       return false;
     }

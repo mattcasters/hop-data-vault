@@ -54,8 +54,6 @@ public class DataVaultConfigOptionPlugin
 
   private static final String WIDGET_ID_DRAW_HASH_KEYS_IN_MODEL = "10000-draw-hash-keys-in-model";
   private static final String WIDGET_ID_MAX_UNDO_OPERATIONS = "10010-max-undo-operations";
-  private static final String WIDGET_ID_MODEL_GRAPH_SPLINE_SEGMENTS =
-      "10015-model-graph-spline-segments";
 
   @GuiWidgetElement(
       id = WIDGET_ID_DRAW_HASH_KEYS_IN_MODEL,
@@ -78,25 +76,11 @@ public class DataVaultConfigOptionPlugin
       description = "Maximum number of undo/redo snapshots kept in memory for Data Vault models")
   private String maxUndoOperations;
 
-  @GuiWidgetElement(
-      id = WIDGET_ID_MODEL_GRAPH_SPLINE_SEGMENTS,
-      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
-      type = GuiElementType.TEXT,
-      variables = false,
-      label = "i18n::DataVaultConfigOptionPlugin.ModelGraphSplineSegments.Message")
-  @CommandLine.Option(
-      names = {"--dv-model-graph-spline-segments"},
-      description =
-          "Number of straight segments used to approximate relationship splines in model graphs")
-  private String modelGraphSplineSegments;
-
   public static DataVaultConfigOptionPlugin getInstance() {
     DataVaultConfigOptionPlugin instance = new DataVaultConfigOptionPlugin();
     DataVaultConfig config = DataVaultConfigSingleton.getConfig();
     instance.drawingHashKeysInModel = config.isDrawingHashKeysInModel();
     instance.maxUndoOperations = Integer.toString(config.getMaxUndoOperations());
-    instance.modelGraphSplineSegments =
-        Integer.toString(config.getModelGraphSplineSegments());
     return instance;
   }
 
@@ -120,13 +104,6 @@ public class DataVaultConfigOptionPlugin
         config.setMaxUndoOperations(parseMaxUndoOperations(maxUndoOperations));
         log.logBasic(
             "Set maximum Data Vault undo/redo operations to " + config.getMaxUndoOperations());
-        changed = true;
-      }
-      if (modelGraphSplineSegments != null) {
-        config.setModelGraphSplineSegments(parseModelGraphSplineSegments(modelGraphSplineSegments));
-        log.logBasic(
-            "Set model graph relationship spline segments to "
-                + config.getModelGraphSplineSegments());
         changed = true;
       }
       if (changed) {
@@ -163,11 +140,6 @@ public class DataVaultConfigOptionPlugin
         case WIDGET_ID_MAX_UNDO_OPERATIONS:
           maxUndoOperations = getTextValue(control);
           config.setMaxUndoOperations(parseMaxUndoOperations(maxUndoOperations));
-          break;
-        case WIDGET_ID_MODEL_GRAPH_SPLINE_SEGMENTS:
-          modelGraphSplineSegments = getTextValue(control);
-          config.setModelGraphSplineSegments(
-              parseModelGraphSplineSegments(modelGraphSplineSegments));
           break;
         default:
           break;
@@ -206,18 +178,6 @@ public class DataVaultConfigOptionPlugin
       return Math.max(1, parsed);
     } catch (NumberFormatException e) {
       return DataVaultConfig.DEFAULT_MAX_UNDO_OPERATIONS;
-    }
-  }
-
-  private static int parseModelGraphSplineSegments(String value) {
-    if (value == null || value.isBlank()) {
-      return DataVaultConfig.DEFAULT_MODEL_GRAPH_SPLINE_SEGMENTS;
-    }
-    try {
-      int parsed = Integer.parseInt(value.trim());
-      return Math.max(1, parsed);
-    } catch (NumberFormatException e) {
-      return DataVaultConfig.DEFAULT_MODEL_GRAPH_SPLINE_SEGMENTS;
     }
   }
 }

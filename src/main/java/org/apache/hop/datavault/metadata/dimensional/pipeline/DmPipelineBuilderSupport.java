@@ -34,6 +34,8 @@ import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmSourceConfiguration;
+import org.apache.hop.datavault.metadata.dimensional.DmSourcePipelineSupport;
+import org.apache.hop.datavault.metadata.dimensional.DmSourceRecordDefinitionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
 import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
@@ -44,6 +46,7 @@ import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.dummy.DummyMeta;
+import org.apache.hop.pipeline.transforms.metainject.MetaInjectMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 
 
@@ -62,6 +65,7 @@ public final class DmPipelineBuilderSupport {
     public final DimensionalModel model;
     public final DimensionalConfiguration config;
     public final DmSourceConfiguration source;
+    public final IHopMetadataProvider metadataProvider;
     public final IVariables variables;
     public final DatabaseMeta targetDatabaseMeta;
     public final String targetDbName;
@@ -74,6 +78,7 @@ public final class DmPipelineBuilderSupport {
         DimensionalModel model,
         DimensionalConfiguration config,
         DmSourceConfiguration source,
+        IHopMetadataProvider metadataProvider,
         IVariables variables,
         DatabaseMeta targetDatabaseMeta,
         String targetDbName,
@@ -84,6 +89,7 @@ public final class DmPipelineBuilderSupport {
       this.model = model;
       this.config = config;
       this.source = source;
+      this.metadataProvider = metadataProvider;
       this.variables = variables;
       this.targetDatabaseMeta = targetDatabaseMeta;
       this.targetDbName = targetDbName;
@@ -104,10 +110,40 @@ public final class DmPipelineBuilderSupport {
 
       DimensionalConfiguration config = model.getConfigurationOrDefault();
       DmSourceConfiguration source = table.getSourceOrDefault();
-      String sourceSql = source.resolveSourceSql(variables);
-      if (Utils.isEmpty(sourceSql)) {
+      if (source.isSqlSource()) {
+        String sourceSql = source.resolveSourceSql(variables);
+        if (Utils.isEmpty(sourceSql)) {
+          throw new HopException(
+              "Dimensional table "
+                  + table.getName()
+                  + " requires source SQL for pipeline generation");
+        }
+      } else if (source.isPipelineSource()) {
+        if (Utils.isEmpty(source.resolveSourcePipelineFile(variables))) {
+          throw new HopException(
+              "Dimensional table "
+                  + table.getName()
+                  + " requires a source pipeline file for pipeline generation");
+        }
+        if (Utils.isEmpty(source.resolveSourcePipelineTransform(variables))) {
+          throw new HopException(
+              "Dimensional table "
+                  + table.getName()
+                  + " requires a source pipeline transform for pipeline generation");
+        }
+      } else if (source.isRecordDefinitionSource()) {
+        if (Utils.isEmpty(source.resolveSourceRecordNamespace(variables))
+            || Utils.isEmpty(source.resolveSourceRecordName(variables))) {
+          throw new HopException(
+              "Dimensional table "
+                  + table.getName()
+                  + " requires a record definition namespace and name for pipeline generation");
+        }
+        DmSourceRecordDefinitionSupport.resolveCatalogConnection(
+            config, source, variables, metadataProvider);
+      } else {
         throw new HopException(
-            "Dimensional table " + table.getName() + " requires source SQL for pipeline generation");
+            "Dimensional table " + table.getName() + " has an unsupported source type");
       }
 
       DatabaseMeta targetDatabaseMeta =
@@ -132,6 +168,7 @@ public final class DmPipelineBuilderSupport {
           model,
           config,
           source,
+          metadataProvider,
           variables,
           targetDatabaseMeta,
           targetDbName,
@@ -152,12 +189,48 @@ public final class DmPipelineBuilderSupport {
     return lookupDateField;
   }
 
+  public static TransformMeta addSourceInput(BuildContext ctx, PipelineMeta pipelineMeta)
+      throws HopException {
+    if (ctx.source.isPipelineSource()) {
+      return addSourceMetaInject(ctx, pipelineMeta);
+    }
+    if (ctx.source.isRecordDefinitionSource()) {
+      return addSourceRecordDefinition(ctx, pipelineMeta);
+    }
+    return addSourceTableInput(ctx, pipelineMeta);
+  }
+
+  public static TransformMeta addSourceRecordDefinition(BuildContext ctx, PipelineMeta pipelineMeta)
+      throws HopException {
+    return DmSourceRecordDefinitionSupport.appendSourceInput(
+        ctx.source,
+        ctx.config,
+        pipelineMeta,
+        LOCATION_START,
+        "source_" + ctx.targetTableName,
+        ctx.variables,
+        ctx.metadataProvider);
+  }
+
   public static TransformMeta addSourceTableInput(BuildContext ctx, PipelineMeta pipelineMeta) {
     TableInputMeta tableInputMeta = new TableInputMeta();
     tableInputMeta.setConnection(ctx.sourceDbName);
     DvSqlSupport.assignDisplaySql(tableInputMeta, ctx.source.resolveSourceSql(ctx.variables));
 
-    TransformMeta tm = new TransformMeta("TableInput", "source_" + ctx.targetTableName, tableInputMeta);
+    TransformMeta tm =
+        new TransformMeta("TableInput", "source_" + ctx.targetTableName, tableInputMeta);
+    tm.setLocation(LOCATION_START.x, LOCATION_START.y);
+    pipelineMeta.addTransform(tm);
+    return tm;
+  }
+
+  public static TransformMeta addSourceMetaInject(BuildContext ctx, PipelineMeta pipelineMeta)
+      throws HopException {
+    MetaInjectMeta metaInjectMeta =
+        DmSourcePipelineSupport.buildMetaInjectMeta(
+            ctx.source, ctx.variables, ctx.metadataProvider);
+    TransformMeta tm =
+        new TransformMeta("MetaInject", "source_" + ctx.targetTableName, metaInjectMeta);
     tm.setLocation(LOCATION_START.x, LOCATION_START.y);
     pipelineMeta.addTransform(tm);
     return tm;
