@@ -94,6 +94,9 @@ public final class DmLayoutSupport {
       addColumn(
           rowMeta, added, resolvedConfig.resolveDateToField(variables), new ValueMetaTimestamp());
     } else {
+      if (DmSurrogateKeySupport.usesSurrogateColumn(dimension)) {
+        addSurrogateKeyColumn(rowMeta, added, dimension, resolvedConfig, variables);
+      }
       for (DmNaturalKeyField naturalKey : dimension.getNaturalKeysOrEmpty()) {
         addSourceMappedColumn(
             rowMeta, added, resolveFieldName(naturalKey.getFieldName(), variables), sourceRowMeta);

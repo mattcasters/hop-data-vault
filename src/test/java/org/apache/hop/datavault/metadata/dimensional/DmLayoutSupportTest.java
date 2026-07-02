@@ -143,6 +143,23 @@ class DmLayoutSupportTest {
   }
 
   @Test
+  void type1UseSourceFieldSurrogateUsesStringColumnInLayout() throws HopException {
+    DmDimension dimension = new DmDimension();
+    dimension.setName("d_warehouse");
+    dimension.setScdType(DmDimensionScdType.TYPE1);
+    dimension.setSurrogateKeyStrategy(DmSurrogateKeyStrategy.USE_SOURCE_FIELD);
+    dimension.setSurrogateKeyField("warehouse_hk");
+    dimension.setSurrogateKeySourceField("warehouse_hk");
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("warehouse_id"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    var layout = DmLayoutSupport.buildDimensionTargetTableLayout(dimension, config, new Variables());
+
+    assertTrue(layout.indexOfValue("warehouse_hk") >= 0);
+    assertTrue(layout.indexOfValue("warehouse_id") >= 0);
+  }
+
+  @Test
   void useSourceFieldSurrogateUsesStringColumnInLayout() throws HopException {
     DmDimension dimension = new DmDimension();
     dimension.setName("dim_customer");

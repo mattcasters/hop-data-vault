@@ -1005,32 +1005,36 @@ public final class DmValidationSupport {
               source));
     }
 
-    String lookupKeyField =
-        DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, variables);
-    try {
-      IRowMeta dimensionLayout =
-          dimension.getTargetTableLayout(metadataProvider, variables, model);
-      if (!DmLayoutSupport.layoutFieldNames(dimensionLayout).contains(lookupKeyField)) {
-        remarks.add(
-            new CheckResult(
-                ICheckResult.TYPE_RESULT_ERROR,
-                BaseMessages.getString(
-                    PKG,
-                    "DmValidationSupport.CheckResult.DimensionLookupKeyMissingFromTarget",
-                    tableName,
-                    dimensionName,
-                    lookupKeyField,
-                    dimension.getName()),
-                source));
+    if (!DmSurrogateKeySupport.shouldSkipFactDimensionLookup(role, dimension, config, variables)) {
+      String lookupKeyField =
+          DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, variables);
+      try {
+        IRowMeta dimensionLayout =
+            dimension.getTargetTableLayout(metadataProvider, variables, model);
+        if (!DmLayoutSupport.layoutFieldNames(dimensionLayout).contains(lookupKeyField)) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG,
+                      "DmValidationSupport.CheckResult.DimensionLookupKeyMissingFromTarget",
+                      tableName,
+                      dimensionName,
+                      lookupKeyField,
+                      dimension.getName()),
+                  source));
+        }
+      } catch (HopException e) {
+        remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), source));
       }
-    } catch (HopException e) {
-      remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), source));
     }
 
     String fkColumn = resolve(role.getForeignKeyColumn(), variables);
     if (!Utils.isEmpty(naturalKey)
         && naturalKey.equals(fkColumn)
         && dimension.getScdTypeOrDefault() != DmDimensionScdType.TYPE1) {
+      String lookupKeyField =
+          DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, variables);
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_OK,

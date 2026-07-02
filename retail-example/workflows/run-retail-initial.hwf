@@ -281,7 +281,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>512</xloc>
+      <xloc>704</xloc>
       <yloc>320</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -325,7 +325,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>DIMENSIONAL_UPDATE</type>
       <attributes/>
-      <xloc>368</xloc>
+      <xloc>384</xloc>
       <yloc>320</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -344,6 +344,24 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <type>DIMENSIONAL_UPDATE</type>
       <attributes/>
       <xloc>80</xloc>
+      <yloc>320</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <dimensionalModelFile>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-f-inventory.hdm</dimensionalModelFile>
+      <pipelineRunConfiguration>local</pipelineRunConfiguration>
+      <logModelCheckFailures>Y</logModelCheckFailures>
+      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
+      <parallelPipelineCopies>1</parallelPipelineCopies>
+      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
+      <failIfDdlNeeded>N</failIfDdlNeeded>
+      <name>retail-f-inventory</name>
+      <description/>
+      <type>DIMENSIONAL_UPDATE</type>
+      <attributes/>
+      <xloc>512</xloc>
       <yloc>320</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -428,13 +446,6 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>retail-f-order-lines</from>
-      <to>Success</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>retail-360.hbv</from>
       <to>retail-conformed-dims</to>
       <evaluation>Y</evaluation>
@@ -444,6 +455,20 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
     <hop>
       <from>retail-conformed-dims</from>
       <to>retail-f-orders.hdm</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>retail-f-order-lines</from>
+      <to>retail-f-inventory</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>retail-f-inventory</from>
+      <to>Success</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

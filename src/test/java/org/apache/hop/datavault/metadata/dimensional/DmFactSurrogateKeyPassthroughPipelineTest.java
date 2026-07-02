@@ -138,6 +138,36 @@ class DmFactSurrogateKeyPassthroughPipelineTest {
   }
 
   @Test
+  void skipLookupDoesNotRequireDimensionLookupKeyOnTarget() throws HopException {
+    DimensionalModel model = buildHashKeyPassthroughModel(false, false);
+    DmFact fact = (DmFact) model.findTable("fact_inventory");
+    DmDimension warehouse = (DmDimension) model.findTable("dim_product");
+    warehouse.setName("dim_warehouse");
+    warehouse.setTableName("d_warehouse");
+    warehouse.setSurrogateKeyField("warehouse_hk");
+    warehouse.setSurrogateKeySourceField("warehouse_hk");
+    warehouse.getNaturalKeys().clear();
+    warehouse.getNaturalKeys().add(new DmNaturalKeyField("warehouse_id"));
+
+    DmFactDimensionRole warehouseRole = new DmFactDimensionRole("dim_warehouse", "Warehouse", "warehouse_hk");
+    warehouseRole.setSourceFieldName("warehouse_hk");
+    warehouseRole.setSkipDimensionLookup(true);
+    fact.getDimensionRoles().add(warehouseRole);
+
+    List<ICheckResult> remarks = new ArrayList<>();
+    DmValidationSupport.validateFact(
+        remarks, fact, model, new MemoryMetadataProvider(), new Variables());
+
+    assertFalse(
+        remarks.stream()
+            .anyMatch(
+                remark ->
+                    remark.getType() == ICheckResult.TYPE_RESULT_ERROR
+                        && remark.getText() != null
+                        && remark.getText().contains("DimensionLookupKeyMissingFromTarget")));
+  }
+
+  @Test
   void explicitSkipOnNonSourceFieldDimensionFailsValidation() throws HopException {
     DimensionalModel model = buildHashKeyPassthroughModel(true, false);
     DmFact fact = (DmFact) model.findTable("fact_inventory");

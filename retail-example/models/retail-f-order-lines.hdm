@@ -38,8 +38,8 @@
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
       <sourceType>SQL</sourceType>
-      <xloc>144</xloc>
-      <yloc>256</yloc>
+      <xloc>160</xloc>
+      <yloc>224</yloc>
       <name>d_order</name>
     </table>
     <table>
@@ -50,6 +50,8 @@
           <sourceFieldName>order_id</sourceFieldName>
           <truncateToDateKey>N</truncateToDateKey>
           <preloadLookupCache>Y</preloadLookupCache>
+          <skipDimensionLookup>N</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
         <dimension_role>
           <dimensionTableName>d_product</dimensionTableName>
@@ -57,6 +59,8 @@
           <sourceFieldName>product_id</sourceFieldName>
           <truncateToDateKey>N</truncateToDateKey>
           <preloadLookupCache>Y</preloadLookupCache>
+          <skipDimensionLookup>N</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
         <dimension_role>
           <dimensionTableName>d_order_date</dimensionTableName>
@@ -64,6 +68,8 @@
           <sourceFieldName>order_date</sourceFieldName>
           <truncateToDateKey>Y</truncateToDateKey>
           <preloadLookupCache>N</preloadLookupCache>
+          <skipDimensionLookup>N</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
         <dimension_role>
           <dimensionTableName>d_shipping_date</dimensionTableName>
@@ -71,6 +77,8 @@
           <sourceFieldName>shipping_date</sourceFieldName>
           <truncateToDateKey>Y</truncateToDateKey>
           <preloadLookupCache>N</preloadLookupCache>
+          <skipDimensionLookup>N</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
         <dimension_role>
           <dimensionTableName>d_delivery_date</dimensionTableName>
@@ -78,6 +86,8 @@
           <sourceFieldName>delivery_date</sourceFieldName>
           <truncateToDateKey>Y</truncateToDateKey>
           <preloadLookupCache>N</preloadLookupCache>
+          <skipDimensionLookup>N</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
       </dimension_roles>
       <measures>
@@ -151,8 +161,8 @@ JOIN   (
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
       <sourceType>SQL</sourceType>
-      <xloc>384</xloc>
-      <yloc>416</yloc>
+      <xloc>336</xloc>
+      <yloc>400</yloc>
       <name>d_product</name>
     </table>
     <table>
