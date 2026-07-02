@@ -37,12 +37,24 @@ import org.w3c.dom.Node;
 public final class DmModelLoadSupport {
 
   private static final Class<?> PKG = DmModelLoadSupport.class;
+  private static final String VARIABLE_PROJECT_HOME = "PROJECT_HOME";
   private static final Map<String, DimensionalModel> MODEL_CACHE = new ConcurrentHashMap<>();
 
   private DmModelLoadSupport() {}
 
   public static void clearCache() {
     MODEL_CACHE.clear();
+  }
+
+  public static void invalidateCachedModel(
+      String modelPath, String referringModelFilename, IVariables variables) throws HopException {
+    MODEL_CACHE.remove(resolveModelPath(modelPath, referringModelFilename, variables));
+  }
+
+  public static void invalidateCachedModelByResolvedPath(String resolvedPath) {
+    if (!Utils.isEmpty(resolvedPath)) {
+      MODEL_CACHE.remove(resolvedPath);
+    }
   }
 
   public static DimensionalModel loadDimensionalModel(
@@ -84,6 +96,42 @@ public final class DmModelLoadSupport {
     }
   }
 
+  /**
+   * Converts a browsed or absolute path into a portable stored value when the Hop Projects file-open
+   * extension point did not already emit a variable-based path.
+   */
+  public static String toStoredModelPath(
+      String selectedPath, String referringModelFilename, IVariables variables) throws HopException {
+    if (Utils.isEmpty(selectedPath)) {
+      return selectedPath;
+    }
+    String trimmed = selectedPath.trim();
+    if (trimmed.contains("${")) {
+      return trimmed;
+    }
+
+    String normalized;
+    try {
+      String resolved = variables != null ? variables.resolve(trimmed) : trimmed;
+      normalized = HopVfs.normalize(resolved);
+    } catch (Exception e) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "DmModelLoadSupport.Error.InvalidModelPath", selectedPath), e);
+    }
+
+    String projectHomeRelative = relativizeToProjectHome(normalized, variables);
+    if (!Utils.isEmpty(projectHomeRelative)) {
+      return projectHomeRelative;
+    }
+
+    String modelRelative = relativizeToReferringModel(normalized, referringModelFilename, variables);
+    if (!Utils.isEmpty(modelRelative)) {
+      return modelRelative;
+    }
+
+    return normalized;
+  }
+
   public static String[] listBaseDimensionNames(DimensionalModel model) {
     if (model == null) {
       return new String[0];
@@ -115,6 +163,51 @@ public final class DmModelLoadSupport {
     } catch (Exception e) {
       throw new HopException(
           BaseMessages.getString(PKG, "DmModelLoadSupport.Error.LoadFailed", resolvedPath), e);
+    }
+  }
+
+  private static String relativizeToProjectHome(String normalizedPath, IVariables variables) {
+    if (variables == null || Utils.isEmpty(normalizedPath)) {
+      return null;
+    }
+    String projectHome = variables.resolve("${" + VARIABLE_PROJECT_HOME + "}");
+    if (Utils.isEmpty(projectHome)) {
+      return null;
+    }
+    try {
+      String resolvedHome = HopVfs.normalize(projectHome);
+      Path homePath = Path.of(resolvedHome).normalize();
+      Path selectedPath = Path.of(normalizedPath).normalize();
+      if (!selectedPath.startsWith(homePath)) {
+        return null;
+      }
+      String relative = homePath.relativize(selectedPath).toString().replace('\\', '/');
+      return "${" + VARIABLE_PROJECT_HOME + "}/" + relative;
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private static String relativizeToReferringModel(
+      String normalizedPath, String referringModelFilename, IVariables variables) {
+    if (Utils.isEmpty(normalizedPath) || Utils.isEmpty(referringModelFilename)) {
+      return null;
+    }
+    try {
+      String referring =
+          variables != null ? variables.resolve(referringModelFilename) : referringModelFilename;
+      Path parent = Path.of(referring).getParent();
+      if (parent == null) {
+        return null;
+      }
+      Path selectedPath = Path.of(normalizedPath).normalize();
+      Path normalizedParent = parent.normalize();
+      if (!selectedPath.startsWith(normalizedParent)) {
+        return null;
+      }
+      return normalizedParent.relativize(selectedPath).toString().replace('\\', '/');
+    } catch (Exception ignored) {
+      return null;
     }
   }
 

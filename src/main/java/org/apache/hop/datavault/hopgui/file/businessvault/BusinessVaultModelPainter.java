@@ -31,15 +31,18 @@ import org.apache.hop.core.gui.IGc.EFont;
 import org.apache.hop.core.gui.IGc.EColor;
 import org.apache.hop.core.gui.IGc.ELineStyle;
 import org.apache.hop.core.gui.Point;
-import org.apache.hop.core.svg.SvgFile;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.hopgui.file.modelgraph.DvTableDisplaySupport;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphTableCardLayout;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphTableNameHitArea;
 
 import org.apache.hop.datavault.hopgui.file.vault.BasePainter;
+import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvTableType;
+import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
 import org.apache.hop.datavault.metadata.businessvault.BvDerivativeRef;
 import org.apache.hop.datavault.metadata.businessvault.BvDvTableReference;
@@ -59,11 +62,12 @@ public class BusinessVaultModelPainter extends BasePainter {
   private static final int REF_LINE_HEIGHT = 16;
   private static final int DERIVATIVES_TOP = 50;
   private static final int DERIVATIVES_BOTTOM_PADDING = 12;
-  private static final int DV_ICON_SIZE = 32;
-  private static final int DV_MARGIN = 5;
-
+  private static final int DV_ICON_SIZE = ModelGraphTableCardLayout.ICON_SIZE;
+  private static final int DV_MARGIN = ModelGraphTableCardLayout.MARGIN;
 
   private final BusinessVaultModel model;
+  private DataVaultModel dataVaultModel;
+  private boolean showHashKeyFieldNames;
   private String mouseOverBvTableName;
   private String mouseOverDvReferenceName;
   private IBvTable startRelationshipBvTable;
@@ -376,24 +380,24 @@ public class BusinessVaultModelPainter extends BasePainter {
     String name = reference.getDvTableName() != null ? reference.getDvTableName() : "?";
     String typeLabel =
         reference.getDvTableType() != null ? reference.getDvTableType().name() : "?";
+    ModelGraphTableCardLayout.BoxSize boxSize =
+        ModelGraphTableCardLayout.computeBoxSize(
+            gc, name, resolveDvReferenceSecondaryLine(reference), typeLabel, null);
+    reference.setDrawnBoxWidth(boxSize.width());
+    reference.setDrawnBoxHeight(boxSize.height());
+    return new Point(boxSize.width(), boxSize.height());
+  }
 
-    gc.setFont(EFont.GRAPH);
-    Point nameExtent = gc.textExtent(name);
-    gc.setFont(EFont.SMALL);
-    Point typeExtent = gc.textExtent(typeLabel);
-    gc.setFont(EFont.GRAPH);
-
-    int iconP = DV_ICON_SIZE;
-    int margP = DV_MARGIN;
-    int textColumnWidth = nameExtent.x;
-    int textColumnHeight = nameExtent.y;
-    int leftColumnHeight = iconP + margP + typeExtent.y;
-    int boxW = margP + iconP + margP + textColumnWidth + margP;
-    int boxH = margP + Math.max(leftColumnHeight, textColumnHeight) + margP;
-
-    reference.setDrawnBoxWidth(boxW);
-    reference.setDrawnBoxHeight(boxH);
-    return new Point(boxW, boxH);
+  private String resolveDvReferenceSecondaryLine(BvDvTableReference reference) {
+    if (!showHashKeyFieldNames
+        || reference == null
+        || reference.getDvTableType() != DvTableType.SATELLITE
+        || dataVaultModel == null
+        || Utils.isEmpty(reference.getDvTableName())) {
+      return null;
+    }
+    IDvTable table = dataVaultModel.findTable(reference.getDvTableName());
+    return DvTableDisplaySupport.getHashKeyFieldNameForDisplay(table, dataVaultModel, variables);
   }
 
   private void drawDvTableReferences() {
@@ -425,23 +429,16 @@ public class BusinessVaultModelPainter extends BasePainter {
 
       drawDvReferenceIcon(reference, x, y);
 
-      gc.setFont(EFont.SMALL);
-      gc.setForeground(EColor.DARKGRAY);
       String typeLabel =
           reference.getDvTableType() != null ? reference.getDvTableType().name() : "?";
-      gc.drawText(typeLabel, x + DV_MARGIN, y + DV_MARGIN + DV_ICON_SIZE + 2, true);
+      ModelGraphTableCardLayout.drawTypeBelowIcon(gc, typeLabel, x, y);
 
-      gc.setFont(EFont.GRAPH);
-      gc.setForeground(EColor.BLACK);
       String name = reference.getDvTableName();
-      boolean underline = name.equals(mouseOverDvReferenceName);
-      int nameX = x + DV_MARGIN + DV_ICON_SIZE + DV_MARGIN;
-      int nameY = y + DV_MARGIN;
-      gc.drawText(name, nameX, nameY, true);
-      if (underline) {
-        Point extent = gc.textExtent(name);
-        gc.drawLine(nameX, nameY + extent.y, nameX + extent.x, nameY + extent.y);
-      }
+      Point nameExtent =
+          ModelGraphTableCardLayout.drawName(
+              gc, name, x, y, name.equals(mouseOverDvReferenceName));
+      ModelGraphTableCardLayout.drawSecondaryLine(
+          gc, resolveDvReferenceSecondaryLine(reference), x, y, nameExtent);
 
       if (areaOwners != null) {
         areaOwners.add(
@@ -454,7 +451,8 @@ public class BusinessVaultModelPainter extends BasePainter {
                 offset,
                 reference,
                 name));
-        Point nameExtent = gc.textExtent(name);
+        int nameX = ModelGraphTableCardLayout.nameX(x);
+        int nameY = ModelGraphTableCardLayout.nameY(y);
         ModelGraphTableNameHitArea.Bounds nameHit =
             ModelGraphTableNameHitArea.bounds(nameX, nameY, nameExtent);
         areaOwners.add(
@@ -476,19 +474,13 @@ public class BusinessVaultModelPainter extends BasePainter {
     if (tableType == null) {
       return;
     }
-    try {
-      String imagePath =
-          switch (tableType) {
-            case HUB -> "datavault_hub.svg";
-            case LINK -> "datavault_link.svg";
-            case SATELLITE -> "datavault_satellite.svg";
-          };
-      SvgFile svgFile = new SvgFile(imagePath, getClass().getClassLoader());
-      gc.drawImage(svgFile, x + DV_MARGIN, y + DV_MARGIN, DV_ICON_SIZE, DV_ICON_SIZE, magnification, 0);
-    } catch (Exception e) {
-      gc.setBackground(EColor.GRAY);
-      gc.fillRectangle(x + DV_MARGIN, y + DV_MARGIN, DV_ICON_SIZE, DV_ICON_SIZE);
-    }
+    ModelGraphTableCardLayout.drawSvgIcon(
+        gc,
+        getClass().getClassLoader(),
+        DvTableDisplaySupport.getImagePath(tableType),
+        x,
+        y,
+        magnification);
   }
 
   private void drawBusinessVaultTables() {

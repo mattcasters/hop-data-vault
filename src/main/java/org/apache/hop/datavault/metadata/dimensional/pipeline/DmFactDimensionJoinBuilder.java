@@ -31,6 +31,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSuppor
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionJoinValidationSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.datavault.transform.datedimensiongenerator.DateDimensionGeneratorLogic;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
@@ -48,6 +49,7 @@ public final class DmFactDimensionJoinBuilder {
 
   private static final String DATE_KEYS_FORMAT_TRANSFORM = "date_keys_format";
   private static final String DATE_KEYS_INT_TRANSFORM = "date_keys_int";
+  private static final String SURROGATE_KEYS_PASSTHROUGH_TRANSFORM = "map_surrogate_keys";
 
   private DmFactDimensionJoinBuilder() {}
 
@@ -64,6 +66,7 @@ public final class DmFactDimensionJoinBuilder {
     }
 
     List<DmFactDimensionRole> dateRoles = new ArrayList<>();
+    List<DmFactDimensionRole> passthroughRoles = new ArrayList<>();
     List<DmFactDimensionRole> lookupRoles = new ArrayList<>();
     for (DmFactDimensionRole role : roles) {
       if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
@@ -71,6 +74,18 @@ public final class DmFactDimensionJoinBuilder {
       }
       if (role.isTruncateToDateKey()) {
         dateRoles.add(role);
+        continue;
+      }
+      DmDimension dimension =
+          DmDimensionResolutionSupport.resolveDimension(
+              model, role.getDimensionTableName(), ctx.variables, metadataProvider);
+      if (dimension == null) {
+        throw new HopException(
+            "references unknown dimension " + role.getDimensionTableName());
+      }
+      if (DmSurrogateKeySupport.shouldSkipFactDimensionLookup(
+          role, dimension, ctx.config, ctx.variables)) {
+        passthroughRoles.add(role);
       } else {
         lookupRoles.add(role);
       }
@@ -80,6 +95,12 @@ public final class DmFactDimensionJoinBuilder {
       predecessor =
           addBatchedDateKeySelectValues(
               ctx, pipelineMeta, predecessor, model, metadataProvider, dateRoles);
+    }
+
+    if (!passthroughRoles.isEmpty()) {
+      predecessor =
+          addSurrogateKeyPassthroughSelectValues(
+              ctx, pipelineMeta, predecessor, model, metadataProvider, passthroughRoles);
     }
 
     for (DmFactDimensionRole role : lookupRoles) {
@@ -106,8 +127,99 @@ public final class DmFactDimensionJoinBuilder {
     if (predecessor == null || dimension == null || role == null || role.isTruncateToDateKey()) {
       return predecessor;
     }
+    if (DmSurrogateKeySupport.shouldSkipFactDimensionLookup(
+        role, dimension, ctx.config, ctx.variables)) {
+      SurrogateKeyMapping mapping = resolveSurrogateKeyMapping(role, dimension, ctx);
+      if (mapping == null) {
+        return predecessor;
+      }
+      return addSurrogateKeyPassthroughSelectValues(ctx, pipelineMeta, predecessor, List.of(mapping));
+    }
     return DmDimensionLookupBuilder.addFactDimensionLookup(
         ctx, pipelineMeta, predecessor, dimension, role);
+  }
+
+  public static TransformMeta addSurrogateKeyPassthroughSelectValues(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      DimensionalModel model,
+      IHopMetadataProvider metadataProvider,
+      List<DmFactDimensionRole> passthroughRoles) {
+    if (predecessor == null || passthroughRoles == null || passthroughRoles.isEmpty()) {
+      return predecessor;
+    }
+
+    List<SurrogateKeyMapping> mappings = new ArrayList<>();
+    for (DmFactDimensionRole role : passthroughRoles) {
+      if (role == null || Utils.isEmpty(role.getDimensionTableName())) {
+        continue;
+      }
+      DmDimension dimension =
+          model != null
+              ? DmDimensionResolutionSupport.resolveDimension(
+                  model, role.getDimensionTableName(), ctx.variables, metadataProvider)
+              : null;
+      SurrogateKeyMapping mapping = resolveSurrogateKeyMapping(role, dimension, ctx);
+      if (mapping != null) {
+        mappings.add(mapping);
+      }
+    }
+
+    return addSurrogateKeyPassthroughSelectValues(ctx, pipelineMeta, predecessor, mappings);
+  }
+
+  private static TransformMeta addSurrogateKeyPassthroughSelectValues(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      List<SurrogateKeyMapping> mappings) {
+    if (predecessor == null || mappings == null || mappings.isEmpty()) {
+      return predecessor;
+    }
+
+    SelectValuesMeta selectMeta = new SelectValuesMeta();
+    selectMeta.getSelectOption().setSelectingAndSortingUnspecifiedFields(true);
+    List<SelectField> selectFields = selectMeta.getSelectOption().getSelectFields();
+    for (SurrogateKeyMapping mapping : mappings) {
+      SelectField selectField = new SelectField();
+      selectField.setName(mapping.sourceField());
+      if (!mapping.sourceField().equals(mapping.fkColumn())) {
+        selectField.setRename(mapping.fkColumn());
+      }
+      selectFields.add(selectField);
+    }
+    addDimensionLookupDatePassthrough(ctx, selectFields);
+
+    TransformMeta tm =
+        new TransformMeta("SelectValues", SURROGATE_KEYS_PASSTHROUGH_TRANSFORM, selectMeta);
+    tm.setLocation(
+        predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
+        predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private static SurrogateKeyMapping resolveSurrogateKeyMapping(
+      DmFactDimensionRole role, DmDimension dimension, DmPipelineBuilderSupport.BuildContext ctx) {
+    if (role == null || dimension == null) {
+      return null;
+    }
+    String sourceField =
+        DmSurrogateKeySupport.resolveFactRoleSourceField(role, dimension, ctx.variables);
+    if (Utils.isEmpty(sourceField)) {
+      return null;
+    }
+    String fkColumn = resolveFieldName(role.getForeignKeyColumn(), ctx.variables);
+    if (Utils.isEmpty(fkColumn)) {
+      fkColumn =
+          DmLayoutSupport.defaultFactForeignKeyColumn(dimension, role, ctx.config, ctx.variables);
+    }
+    if (Utils.isEmpty(fkColumn)) {
+      return null;
+    }
+    return new SurrogateKeyMapping(sourceField, fkColumn);
   }
 
   public static TransformMeta addBatchedDateKeySelectValues(
@@ -279,4 +391,6 @@ public final class DmFactDimensionJoinBuilder {
   }
 
   private record DateKeyMapping(String sourceField, String fkColumn) {}
+
+  private record SurrogateKeyMapping(String sourceField, String fkColumn) {}
 }

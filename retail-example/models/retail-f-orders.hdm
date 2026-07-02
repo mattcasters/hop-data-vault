@@ -5,13 +5,14 @@
   <configuration>
     <targetDatabase>Vault</targetDatabase>
     <sourceDatabase/>
+    <dataCatalogConnection/>
     <standardColumnsFolder/>
     <dimKeyField>dim_key</dimKeyField>
-    <versionField>version</versionField>
-    <dateFromField>date_from</dateFromField>
-    <dateToField>date_to</dateToField>
-    <loadDateField>load_dt</loadDateField>
-    <currentFlagField>is_current</currentFlagField>
+    <versionField>x_version</versionField>
+    <dateFromField>x_from_ts</dateFromField>
+    <dateToField>x_to_ts</dateToField>
+    <loadDateField>x_load_ts</loadDateField>
+    <currentFlagField>x_is_current</currentFlagField>
     <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
     <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
     <targetTableBatchSize>1000</targetTableBatchSize>

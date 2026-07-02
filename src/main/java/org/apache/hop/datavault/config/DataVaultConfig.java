@@ -31,6 +31,7 @@ public class DataVaultConfig {
 
   private boolean drawingHashKeysInModel;
   private int maxUndoOperations = DEFAULT_MAX_UNDO_OPERATIONS;
+  private DmDefaultFieldNames dimensionalDefaultFieldNames = new DmDefaultFieldNames();
   private ElkLayout elkLayout = ElkLayout.createDefault();
   private boolean suppressLocalCatalogOffer;
 
@@ -43,7 +44,21 @@ public class DataVaultConfig {
     drawingHashKeysInModel = config.drawingHashKeysInModel;
     suppressLocalCatalogOffer = config.suppressLocalCatalogOffer;
     setMaxUndoOperations(config.maxUndoOperations);
+    setDimensionalDefaultFieldNames(new DmDefaultFieldNames(config.getDimensionalDefaultFieldNames()));
     setElkLayout(new ElkLayout(config.getElkLayout()));
+  }
+
+  public DmDefaultFieldNames getDimensionalDefaultFieldNames() {
+    return dimensionalDefaultFieldNames != null
+        ? dimensionalDefaultFieldNames
+        : new DmDefaultFieldNames();
+  }
+
+  public void setDimensionalDefaultFieldNames(DmDefaultFieldNames dimensionalDefaultFieldNames) {
+    this.dimensionalDefaultFieldNames =
+        dimensionalDefaultFieldNames != null
+            ? dimensionalDefaultFieldNames
+            : new DmDefaultFieldNames();
   }
 
   public int getMaxUndoOperations() {

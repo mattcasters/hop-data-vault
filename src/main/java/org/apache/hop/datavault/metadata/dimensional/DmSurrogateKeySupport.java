@@ -18,6 +18,7 @@
 
 package org.apache.hop.datavault.metadata.dimensional;
 
+import java.util.List;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 
@@ -101,6 +102,55 @@ public final class DmSurrogateKeySupport {
 
   public static boolean usesStringSurrogate(DmDimension dimension) {
     return resolveStrategy(dimension) == DmSurrogateKeyStrategy.USE_SOURCE_FIELD;
+  }
+
+  public static boolean shouldSkipFactDimensionLookup(
+      DmFactDimensionRole role,
+      DmDimension dimension,
+      DimensionalConfiguration config,
+      IVariables variables) {
+    if (role == null || dimension == null || role.isTruncateToDateKey()) {
+      return false;
+    }
+    if (role.isForceDimensionLookup()) {
+      return false;
+    }
+    if (role.isSkipDimensionLookup()) {
+      return true;
+    }
+    return autoDetectSurrogateKeyPassthrough(role, dimension, config, variables);
+  }
+
+  public static boolean autoDetectSurrogateKeyPassthrough(
+      DmFactDimensionRole role,
+      DmDimension dimension,
+      DimensionalConfiguration config,
+      IVariables variables) {
+    if (role == null
+        || dimension == null
+        || resolveStrategy(dimension) != DmSurrogateKeyStrategy.USE_SOURCE_FIELD) {
+      return false;
+    }
+    String surrogateSource = resolveSurrogateKeySourceField(dimension, config, variables);
+    if (Utils.isEmpty(surrogateSource)) {
+      return false;
+    }
+    String sourceField = resolveFactRoleSourceField(role, dimension, variables);
+    return !Utils.isEmpty(sourceField) && sourceField.equals(surrogateSource);
+  }
+
+  public static String resolveFactRoleSourceField(
+      DmFactDimensionRole role, DmDimension dimension, IVariables variables) {
+    if (role == null || dimension == null) {
+      return null;
+    }
+    List<String> naturalKeys =
+        dimension.getNaturalKeysOrEmpty().stream()
+            .filter(key -> key != null && !Utils.isEmpty(key.getFieldName()))
+            .map(key -> resolve(key.getFieldName(), variables))
+            .toList();
+    String naturalKey = naturalKeys.isEmpty() ? null : naturalKeys.get(0);
+    return DmFactDimensionJoinValidationSupport.resolveSourceFieldName(role, naturalKey, variables);
   }
 
   public static boolean usesStringSurrogate(DmJunkDimension junkDimension) {

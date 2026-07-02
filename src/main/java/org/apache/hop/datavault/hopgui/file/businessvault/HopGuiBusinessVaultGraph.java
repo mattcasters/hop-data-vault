@@ -60,6 +60,7 @@ import org.apache.hop.datavault.hopgui.file.modelgraph.HopGuiModelGraphBase;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphHit;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphMouseInteractions;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphSnapshotUndo;
+import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
@@ -312,6 +313,9 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
           candidateRelationshipBvTable,
           candidateRelationshipDvReference);
       painter.setShowingNavigationView(!propsUi.isHideViewportEnabled());
+      painter.setDataVaultModel(dataVaultModel);
+      painter.setShowHashKeyFieldNames(
+          DataVaultConfigSingleton.getConfig().isDrawingHashKeysInModel());
       painter.drawBusinessVaultModel(hopGui.getMetadataProvider());
 
       captureNavigationViewGeometry(painter);

@@ -45,6 +45,18 @@ public class DmFactDimensionRole {
    */
   @HopMetadataProperty private boolean preloadLookupCache;
 
+  /**
+   * When true, copy the fact source surrogate/hash field into the fact foreign key column instead of
+   * using Dimension Lookup.
+   */
+  @HopMetadataProperty private boolean skipDimensionLookup;
+
+  /**
+   * When true, always use Dimension Lookup even when a source hash key passthrough would otherwise
+   * apply automatically.
+   */
+  @HopMetadataProperty private boolean forceDimensionLookup;
+
   public DmFactDimensionRole(String dimensionTableName, String foreignKeyColumn) {
     this.dimensionTableName = dimensionTableName;
     this.foreignKeyColumn = foreignKeyColumn;

@@ -41,6 +41,7 @@ import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.dimensionlookup.DimensionLookupMeta;
 import org.apache.hop.pipeline.transforms.insertupdate.InsertUpdateMeta;
+import org.apache.hop.pipeline.transforms.insertupdate.InsertUpdateValue;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
 import org.junit.jupiter.api.BeforeAll;
@@ -91,6 +92,18 @@ class DmBasicStarPipelineTest {
     assertEquals(
         "customer_id",
         insertUpdateMeta.getInsertUpdateLookupField().getLookupKeys().get(0).getKeyStream());
+
+    List<InsertUpdateValue> valueFields =
+        insertUpdateMeta.getInsertUpdateLookupField().getValueFields();
+    assertEquals(4, valueFields.size());
+    assertEquals("customer_id", valueFields.get(0).getUpdateStream());
+    assertFalse(valueFields.get(0).isUpdate());
+    assertEquals("customer_name", valueFields.get(1).getUpdateStream());
+    assertTrue(valueFields.get(1).isUpdate());
+    assertEquals("city", valueFields.get(2).getUpdateStream());
+    assertTrue(valueFields.get(2).isUpdate());
+    assertEquals("load_dt", valueFields.get(3).getUpdateStream());
+    assertTrue(valueFields.get(3).isUpdate());
   }
 
   @Test

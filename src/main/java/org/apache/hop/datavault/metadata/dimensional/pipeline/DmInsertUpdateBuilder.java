@@ -78,6 +78,9 @@ public final class DmInsertUpdateBuilder {
     lookup.setLookupKeys(keys);
 
     List<InsertUpdateValue> values = new ArrayList<>();
+    for (String naturalKey : DmPipelineBuilderSupport.naturalKeyFieldNames(dimension, ctx.variables)) {
+      values.add(new InsertUpdateValue(naturalKey, naturalKey, false));
+    }
     for (String attribute :
         DmPipelineBuilderSupport.type1AttributeFieldNames(dimension, ctx.variables)) {
       values.add(new InsertUpdateValue(attribute, attribute, true));

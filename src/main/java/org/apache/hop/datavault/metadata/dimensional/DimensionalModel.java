@@ -75,7 +75,7 @@ public class DimensionalModel extends HopMetadataBase
   private String description;
 
   @HopMetadataProperty(key = "configuration")
-  private DimensionalConfiguration configuration = new DimensionalConfiguration();
+  private DimensionalConfiguration configuration;
 
   @HopMetadataProperty(key = "table", groupKey = "tables")
   @Getter(AccessLevel.NONE)
@@ -101,7 +101,7 @@ public class DimensionalModel extends HopMetadataBase
 
   public DimensionalConfiguration getConfigurationOrDefault() {
     if (configuration == null) {
-      configuration = new DimensionalConfiguration();
+      configuration = DimensionalConfiguration.createFromPluginDefaults();
     }
     return configuration;
   }

@@ -962,6 +962,11 @@ public final class DmValidationSupport {
     }
 
     String naturalKey = naturalKeys.isEmpty() ? null : naturalKeys.get(0);
+    DimensionalConfiguration config =
+        model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
+    validateFactDimensionSkipLookup(
+        remarks, tableName, role, dimensionName, dimension, config, variables, source);
+
     String sourceField = resolve(role.getSourceFieldName(), variables);
     List<String> factSourceFields = List.of();
     if (source instanceof DmTableBase factTable) {
@@ -1000,8 +1005,6 @@ public final class DmValidationSupport {
               source));
     }
 
-    DimensionalConfiguration config =
-        model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
     String lookupKeyField =
         DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, variables);
     try {
@@ -1041,7 +1044,10 @@ public final class DmValidationSupport {
               source));
     }
 
-    if (!Utils.isEmpty(naturalKey) && source instanceof DmTableBase factTable) {
+    if (!Utils.isEmpty(naturalKey)
+        && source instanceof DmTableBase factTable
+        && !DmSurrogateKeySupport.shouldSkipFactDimensionLookup(
+            role, dimension, config, variables)) {
       IRowMeta sourceRowMeta =
           DmSourceFieldResolutionSupport.tryResolveSourceRowMeta(
               metadataProvider, variables, model, factTable);
@@ -1063,6 +1069,82 @@ public final class DmValidationSupport {
           remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), source));
         }
       }
+    }
+  }
+
+  private static void validateFactDimensionSkipLookup(
+      List<ICheckResult> remarks,
+      String tableName,
+      DmFactDimensionRole role,
+      String dimensionName,
+      DmDimension dimension,
+      DimensionalConfiguration config,
+      IVariables variables,
+      IDmTable source) {
+    if (remarks == null || role == null || dimension == null) {
+      return;
+    }
+    if (role.isSkipDimensionLookup()
+        && role.isForceDimensionLookup()) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.ConflictingSkipLookupFlags",
+                  tableName,
+                  dimensionName),
+              source));
+    }
+    if (role.isTruncateToDateKey()
+        && (role.isSkipDimensionLookup()
+            || DmSurrogateKeySupport.autoDetectSurrogateKeyPassthrough(
+                role, dimension, config, variables))) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.SkipLookupWithDateKeyTruncation",
+                  tableName,
+                  dimensionName),
+              source));
+    }
+    if (role.isSkipDimensionLookup()
+        && DmSurrogateKeySupport.resolveStrategy(dimension) != DmSurrogateKeyStrategy.USE_SOURCE_FIELD) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.SkipLookupRequiresSourceFieldStrategy",
+                  tableName,
+                  dimensionName),
+              source));
+    }
+    if (DmSurrogateKeySupport.shouldSkipFactDimensionLookup(role, dimension, config, variables)
+        && Utils.isEmpty(DmSurrogateKeySupport.resolveFactRoleSourceField(role, dimension, variables))) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.MissingSkipLookupSourceField",
+                  tableName,
+                  dimensionName),
+              source));
+    }
+    if (role.isPreloadLookupCache()
+        && DmSurrogateKeySupport.shouldSkipFactDimensionLookup(role, dimension, config, variables)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.PreloadCacheIgnoredForSkipLookup",
+                  tableName,
+                  dimensionName),
+              source));
     }
   }
 

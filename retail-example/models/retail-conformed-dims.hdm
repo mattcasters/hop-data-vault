@@ -4,12 +4,15 @@
   <description>Retail warehouse star schema with date role-playing and extended catalog tables</description>
   <configuration>
     <targetDatabase>Vault</targetDatabase>
+    <sourceDatabase/>
+    <dataCatalogConnection/>
+    <standardColumnsFolder/>
     <dimKeyField>dim_key</dimKeyField>
-    <versionField>version</versionField>
-    <dateFromField>date_from</dateFromField>
-    <dateToField>date_to</dateToField>
-    <loadDateField>load_dt</loadDateField>
-    <currentFlagField>is_current</currentFlagField>
+    <versionField>x_version</versionField>
+    <dateFromField>x_from_ts</dateFromField>
+    <dateToField>x_to_ts</dateToField>
+    <loadDateField>x_load_ts</loadDateField>
+    <currentFlagField>x_is_current</currentFlagField>
     <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
     <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
     <targetTableBatchSize>1000</targetTableBatchSize>
@@ -20,6 +23,7 @@
     <bulkLoadEnclosure>"</bulkLoadEnclosure>
     <bulkLoadEncoding>UTF-8</bulkLoadEncoding>
     <bulkLoadLocalFileRequired>N</bulkLoadLocalFileRequired>
+    <generatedPipelineFolder/>
     <dimensionPipelineNamePrefix>dm-dim-</dimensionPipelineNamePrefix>
     <junkDimensionPipelineNamePrefix>dm-junk-</junkDimensionPipelineNamePrefix>
     <bridgePipelineNamePrefix>dm-bridge-</bridgePipelineNamePrefix>
@@ -248,6 +252,53 @@ JOIN sat_product sp ON hp.product_hk = sp.product_hk</sourceSql>
       <xloc>128</xloc>
       <yloc>80</yloc>
       <name>d_date</name>
+    </table>
+    <table>
+      <scdType>TYPE1</scdType>
+      <natural_keys>
+        <natural_key>
+          <fieldName>warehouse_id</fieldName>
+        </natural_key>
+      </natural_keys>
+      <attributes>
+        <attribute>
+          <fieldName>warehouse_name</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>city</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>region</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>capacity</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+      </attributes>
+      <outriggers/>
+      <surrogateKeyField>warehouse_hk</surrogateKeyField>
+      <surrogateKeyStrategy>USE_SOURCE_FIELD</surrogateKeyStrategy>
+      <surrogateKeySourceField>warehouse_hk</surrogateKeySourceField>
+      <tableName>d_warehouse</tableName>
+      <description>Warehouse dimension</description>
+      <tableType>DIMENSION</tableType>
+      <sourceType>SQL</sourceType>
+      <sourceConnection>Vault</sourceConnection>
+      <sourceSql>SELECT hw.warehouse_id, sw.*, sw.x_load_ts as load_dt
+FROM   hub_warehouse hw
+JOIN   sat_warehouse sw ON hw.warehouse_hk = sw.warehouse_hk</sourceSql>
+      <sourcePipelineFile/>
+      <sourcePipelineTransform/>
+      <sourcePipelineRunConfiguration/>
+      <sourceCatalogConnection/>
+      <sourceRecordNamespace/>
+      <sourceRecordName/>
+      <xloc>128</xloc>
+      <yloc>464</yloc>
+      <name>d_warehouse</name>
     </table>
   </tables>
   <conformed_dimensions/>

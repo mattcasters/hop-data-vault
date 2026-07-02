@@ -54,6 +54,12 @@ public class DataVaultConfigOptionPlugin
 
   private static final String WIDGET_ID_DRAW_HASH_KEYS_IN_MODEL = "10000-draw-hash-keys-in-model";
   private static final String WIDGET_ID_MAX_UNDO_OPERATIONS = "10010-max-undo-operations";
+  private static final String WIDGET_ID_DM_DEFAULT_SURROGATE_KEY = "10020-dm-default-surrogate-key";
+  private static final String WIDGET_ID_DM_DEFAULT_VERSION = "10030-dm-default-version";
+  private static final String WIDGET_ID_DM_DEFAULT_EFFECTIVE_FROM = "10040-dm-default-effective-from";
+  private static final String WIDGET_ID_DM_DEFAULT_EFFECTIVE_TO = "10050-dm-default-effective-to";
+  private static final String WIDGET_ID_DM_DEFAULT_LOAD_TIMESTAMP = "10060-dm-default-load-timestamp";
+  private static final String WIDGET_ID_DM_DEFAULT_CURRENT_FLAG = "10070-dm-default-current-flag";
 
   @GuiWidgetElement(
       id = WIDGET_ID_DRAW_HASH_KEYS_IN_MODEL,
@@ -76,11 +82,66 @@ public class DataVaultConfigOptionPlugin
       description = "Maximum number of undo/redo snapshots kept in memory for Data Vault models")
   private String maxUndoOperations;
 
+  @GuiWidgetElement(
+      id = WIDGET_ID_DM_DEFAULT_SURROGATE_KEY,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      variables = false,
+      label = "i18n::DataVaultConfigOptionPlugin.DmDefaultSurrogateKeyField.Message")
+  private String dmDefaultSurrogateKeyField;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_DM_DEFAULT_VERSION,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      variables = false,
+      label = "i18n::DataVaultConfigOptionPlugin.DmDefaultVersionField.Message")
+  private String dmDefaultVersionField;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_DM_DEFAULT_EFFECTIVE_FROM,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      variables = false,
+      label = "i18n::DataVaultConfigOptionPlugin.DmDefaultEffectiveFromField.Message")
+  private String dmDefaultEffectiveFromField;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_DM_DEFAULT_EFFECTIVE_TO,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      variables = false,
+      label = "i18n::DataVaultConfigOptionPlugin.DmDefaultEffectiveToField.Message")
+  private String dmDefaultEffectiveToField;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_DM_DEFAULT_LOAD_TIMESTAMP,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      variables = false,
+      label = "i18n::DataVaultConfigOptionPlugin.DmDefaultLoadTimestampField.Message")
+  private String dmDefaultLoadTimestampField;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_DM_DEFAULT_CURRENT_FLAG,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      variables = false,
+      label = "i18n::DataVaultConfigOptionPlugin.DmDefaultCurrentFlagField.Message")
+  private String dmDefaultCurrentFlagField;
+
   public static DataVaultConfigOptionPlugin getInstance() {
     DataVaultConfigOptionPlugin instance = new DataVaultConfigOptionPlugin();
     DataVaultConfig config = DataVaultConfigSingleton.getConfig();
     instance.drawingHashKeysInModel = config.isDrawingHashKeysInModel();
     instance.maxUndoOperations = Integer.toString(config.getMaxUndoOperations());
+    DmDefaultFieldNames defaults = config.getDimensionalDefaultFieldNames();
+    instance.dmDefaultSurrogateKeyField = defaults.getSurrogateKeyField();
+    instance.dmDefaultVersionField = defaults.getVersionField();
+    instance.dmDefaultEffectiveFromField = defaults.getEffectiveFromField();
+    instance.dmDefaultEffectiveToField = defaults.getEffectiveToField();
+    instance.dmDefaultLoadTimestampField = defaults.getLoadTimestampField();
+    instance.dmDefaultCurrentFlagField = defaults.getCurrentFlagField();
     return instance;
   }
 
@@ -140,6 +201,30 @@ public class DataVaultConfigOptionPlugin
         case WIDGET_ID_MAX_UNDO_OPERATIONS:
           maxUndoOperations = getTextValue(control);
           config.setMaxUndoOperations(parseMaxUndoOperations(maxUndoOperations));
+          break;
+        case WIDGET_ID_DM_DEFAULT_SURROGATE_KEY:
+          dmDefaultSurrogateKeyField = getTextValue(control);
+          config.getDimensionalDefaultFieldNames().setSurrogateKeyField(dmDefaultSurrogateKeyField);
+          break;
+        case WIDGET_ID_DM_DEFAULT_VERSION:
+          dmDefaultVersionField = getTextValue(control);
+          config.getDimensionalDefaultFieldNames().setVersionField(dmDefaultVersionField);
+          break;
+        case WIDGET_ID_DM_DEFAULT_EFFECTIVE_FROM:
+          dmDefaultEffectiveFromField = getTextValue(control);
+          config.getDimensionalDefaultFieldNames().setEffectiveFromField(dmDefaultEffectiveFromField);
+          break;
+        case WIDGET_ID_DM_DEFAULT_EFFECTIVE_TO:
+          dmDefaultEffectiveToField = getTextValue(control);
+          config.getDimensionalDefaultFieldNames().setEffectiveToField(dmDefaultEffectiveToField);
+          break;
+        case WIDGET_ID_DM_DEFAULT_LOAD_TIMESTAMP:
+          dmDefaultLoadTimestampField = getTextValue(control);
+          config.getDimensionalDefaultFieldNames().setLoadTimestampField(dmDefaultLoadTimestampField);
+          break;
+        case WIDGET_ID_DM_DEFAULT_CURRENT_FLAG:
+          dmDefaultCurrentFlagField = getTextValue(control);
+          config.getDimensionalDefaultFieldNames().setCurrentFlagField(dmDefaultCurrentFlagField);
           break;
         default:
           break;

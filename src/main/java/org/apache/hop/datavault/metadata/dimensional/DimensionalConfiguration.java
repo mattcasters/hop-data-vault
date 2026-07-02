@@ -30,6 +30,7 @@ import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.metadata.DvTargetLoadConfigurationSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
 import org.apache.hop.datavault.metadata.IDvTargetLoadConfiguration;
@@ -67,6 +68,12 @@ public class DimensionalConfiguration extends HopMetadataBase
   public static final String DEFAULT_BRIDGE_PIPELINE_NAME_PREFIX = "dm-bridge-";
   public static final String DEFAULT_FACT_PIPELINE_NAME_PREFIX = "dm-fact-";
   public static final String DEFAULT_GENERATED_WORKFLOW_NAME_PREFIX = "DM Bulk Update - ";
+
+  public static DimensionalConfiguration createFromPluginDefaults() {
+    DimensionalConfiguration configuration = new DimensionalConfiguration();
+    DataVaultConfigSingleton.getConfig().getDimensionalDefaultFieldNames().applyTo(configuration);
+    return configuration;
+  }
 
   @GuiWidgetElement(
       order = "0100",

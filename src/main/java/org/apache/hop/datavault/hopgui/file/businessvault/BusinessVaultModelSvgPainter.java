@@ -24,9 +24,11 @@ import org.apache.hop.core.gui.DPoint;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.SvgGc;
 import org.apache.hop.core.svg.HopSvgGraphics2D;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.command.svg.ModelBoundsSupport;
 import org.apache.hop.datavault.command.svg.SvgRenderOptions;
+import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvModelResolver;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
@@ -65,9 +67,19 @@ public final class BusinessVaultModelSvgPainter {
       painter.setIconSize(ICON_SIZE);
       painter.setGridSize(1);
       painter.setShowingNavigationView(false);
+      painter.setShowHashKeyFieldNames(false);
       painter.setDrawNotes(renderOptions.isIncludeNotes());
       painter.setMaximum(
           ModelBoundsSupport.getMaximum(model, renderOptions.isIncludeNotes()));
+      if (!Utils.isEmpty(model.getDataVaultModelPath())) {
+        try {
+          painter.setDataVaultModel(
+              BusinessVaultDvModelResolver.loadReferencedModel(
+                  model.getDataVaultModelPath(), variables, metadataProvider));
+        } catch (HopException ignored) {
+          // SVG export still renders without hash-key annotations when DV model is unavailable.
+        }
+      }
       painter.drawBusinessVaultModel(metadataProvider);
 
       return graphics2D.toXml();

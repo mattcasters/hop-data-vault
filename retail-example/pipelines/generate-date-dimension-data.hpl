@@ -138,10 +138,10 @@
   </transform>
   <transform>
     <type>SystemInfo</type>
-    <name>load_dt</name>
+    <name>x_load_ts</name>
     <fields>
       <field>
-        <name>load_dt</name>
+        <name>x_load_ts</name>
         <type>system date (variable)</type>
       </field>
     </fields>
@@ -163,8 +163,8 @@
     <fields>
       <select_unspecified>N</select_unspecified>
       <meta>
-        <name>load_dt</name>
-        <rename>load_dt</rename>
+        <name>x_load_ts</name>
+        <rename>x_load_ts</rename>
         <type>Timestamp</type>
         <length>-2</length>
         <precision>-2</precision>
@@ -196,11 +196,11 @@
   <order>
     <hop>
       <from>Date dimension generator</from>
-      <to>load_dt</to>
+      <to>x_load_ts</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>load_dt</from>
+      <from>x_load_ts</from>
       <to>Timestamp</to>
       <enabled>Y</enabled>
     </hop>

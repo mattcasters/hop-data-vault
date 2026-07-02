@@ -35,6 +35,7 @@ import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlFormatter;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.dimensional.DmModelLoadSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
@@ -305,6 +306,8 @@ public class HopDimensionalFileType extends HopFileTypeBase {
       try (OutputStream out = HopVfs.getOutputStream(filename, false)) {
         out.write(xml.getBytes(StandardCharsets.UTF_8));
       }
+      DmModelLoadSupport.invalidateCachedModelByResolvedPath(
+          HopVfs.normalize(variables.resolve(filename)));
     } catch (Exception e) {
       throw new HopException("Error saving dimensional model to '" + filename + "'", e);
     }

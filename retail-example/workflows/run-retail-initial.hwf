@@ -46,7 +46,7 @@
       <description/>
       <type>SPECIAL</type>
       <attributes/>
-      <xloc>64</xloc>
+      <xloc>80</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -63,7 +63,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>224</xloc>
+      <xloc>240</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -80,7 +80,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>400</xloc>
+      <xloc>416</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -108,7 +108,7 @@
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>544</xloc>
+      <xloc>560</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -125,7 +125,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>688</xloc>
+      <xloc>704</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -142,7 +142,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>64</xloc>
+      <xloc>80</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -167,7 +167,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-catalog-sources.py"
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>224</xloc>
+      <xloc>240</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -192,7 +192,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>400</xloc>
+      <xloc>416</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -220,7 +220,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>544</xloc>
+      <xloc>560</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -247,8 +247,8 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>64</xloc>
-      <yloc>304</yloc>
+      <xloc>80</xloc>
+      <yloc>224</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -271,8 +271,8 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>BUSINESS_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>224</xloc>
-      <yloc>304</yloc>
+      <xloc>240</xloc>
+      <yloc>224</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -281,8 +281,8 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>SUCCESS</type>
       <attributes/>
-      <xloc>496</xloc>
-      <yloc>400</yloc>
+      <xloc>512</xloc>
+      <yloc>320</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -303,8 +303,8 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>DIMENSIONAL_UPDATE</type>
       <attributes/>
-      <xloc>224</xloc>
-      <yloc>400</yloc>
+      <xloc>240</xloc>
+      <yloc>320</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -325,8 +325,8 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>DIMENSIONAL_UPDATE</type>
       <attributes/>
-      <xloc>352</xloc>
-      <yloc>400</yloc>
+      <xloc>368</xloc>
+      <yloc>320</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -343,8 +343,8 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>DIMENSIONAL_UPDATE</type>
       <attributes/>
-      <xloc>64</xloc>
-      <yloc>400</yloc>
+      <xloc>80</xloc>
+      <yloc>320</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>

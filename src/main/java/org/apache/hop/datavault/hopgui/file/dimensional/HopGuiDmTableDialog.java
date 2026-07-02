@@ -95,6 +95,9 @@ import org.eclipse.swt.widgets.Text;
 /** Dialog to edit a dimension or fact table on the dimensional model canvas. */
 public class HopGuiDmTableDialog {
   private static final Class<?> PKG = HopGuiDmTableDialog.class;
+  private static final String SKIP_LOOKUP_AUTO = "Auto";
+  private static final String SKIP_LOOKUP_YES = "Y";
+  private static final String SKIP_LOOKUP_NO = "N";
 
   private final Shell parent;
   private final IDmTable input;
@@ -144,6 +147,7 @@ public class HopGuiDmTableDialog {
   private TableView wMeasures;
   private ColumnInfo measureFieldColumn;
   private Text wReferencedModelFilename;
+  private Button wValidateReferencedModel;
   private Combo wReferencedDimension;
 
   private boolean ok;
@@ -479,6 +483,16 @@ public class HopGuiDmTableDialog {
         new FormDataBuilder().right().top(0, margin).result());
     wBrowseReferencedModel.addListener(SWT.Selection, e -> browseReferencedModelFilename());
 
+    wValidateReferencedModel = new Button(comp, SWT.PUSH);
+    wValidateReferencedModel.setText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedModelFilename.Validate.Label"));
+    wValidateReferencedModel.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedModelFilename.Validate.ToolTip"));
+    PropsUi.setLook(wValidateReferencedModel);
+    wValidateReferencedModel.setLayoutData(
+        new FormDataBuilder().right(wBrowseReferencedModel, -margin).top(0, margin).result());
+    wValidateReferencedModel.addListener(SWT.Selection, e -> validateReferencedModelFilename());
+
     Label wlReferencedDimension = new Label(comp, SWT.RIGHT);
     wlReferencedDimension.setText(
         BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedDimension.Label"));
@@ -492,13 +506,16 @@ public class HopGuiDmTableDialog {
 
     wReferencedModelFilename = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
     PropsUi.setLook(wReferencedModelFilename);
-    wReferencedModelFilename.addListener(SWT.Modify, e -> refreshReferencedDimensionChoices());
     wReferencedModelFilename.setLayoutData(
-            new FormDataBuilder().left(middle, 0).top(0, margin).right(wBrowseReferencedModel, -margin).result());
+        new FormDataBuilder()
+            .left(middle, 0)
+            .top(0, margin)
+            .right(wValidateReferencedModel, -margin)
+            .result());
 
     wReferencedDimension = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
     PropsUi.setLook(wReferencedDimension);
-    refreshReferencedDimensionChoices();
+    wReferencedDimension.setItems(listBaseDimensionNames());
     wReferencedDimension.setLayoutData(
         new FormDataBuilder()
             .left(middle, 0)
@@ -507,27 +524,58 @@ public class HopGuiDmTableDialog {
             .result());
   }
 
+  private IVariables hopGuiVariables() {
+    HopGui hopGui = HopGui.getInstance();
+    return hopGui != null ? hopGui.getVariables() : variables;
+  }
+
   private void browseReferencedModelFilename() {
     String selectedFile =
         BaseDialog.presentFileDialog(
             false,
             shell,
+            null,
+            hopGuiVariables(),
+            null,
             new String[] {"*" + HopDimensionalFileType.DIMENSIONAL_FILE_EXTENSION},
             new String[] {HopDimensionalFileType.DIMENSIONAL_FILE_TYPE_DESCRIPTION},
             false);
     if (Utils.isEmpty(selectedFile)) {
       return;
     }
-    wReferencedModelFilename.setText(variables.resolve(selectedFile));
-    refreshReferencedDimensionChoices();
+    try {
+      String storedPath = selectedFile;
+      if (!storedPath.contains("${")) {
+        storedPath =
+            DmModelLoadSupport.toStoredModelPath(
+                selectedFile, model != null ? model.getFilename() : null, hopGuiVariables());
+      }
+      wReferencedModelFilename.setText(storedPath);
+      validateReferencedModelFilename();
+    } catch (HopException e) {
+      showReferencedModelLoadError(e);
+    }
   }
 
-  private void refreshReferencedDimensionChoices() {
+  private void validateReferencedModelFilename() {
+    populateReferencedDimensionChoices(true);
+  }
+
+  private void populateReferencedDimensionChoices(boolean showErrors) {
     if (wReferencedDimension == null || wReferencedDimension.isDisposed()) {
       return;
     }
     String previousSelection = wReferencedDimension.getText();
-    wReferencedDimension.setItems(listReferencedDimensionNames());
+    String[] dimensionNames;
+    try {
+      dimensionNames = listReferencedDimensionNames(showErrors);
+    } catch (HopException e) {
+      if (showErrors) {
+        showReferencedModelLoadError(e);
+      }
+      dimensionNames = listBaseDimensionNames();
+    }
+    wReferencedDimension.setItems(dimensionNames);
     if (!Utils.isEmpty(previousSelection)) {
       int index = wReferencedDimension.indexOf(previousSelection);
       if (index >= 0) {
@@ -536,31 +584,35 @@ public class HopGuiDmTableDialog {
     }
   }
 
-  private String[] listReferencedDimensionNames() {
-    String externalModelPath =
-        wReferencedModelFilename != null && !wReferencedModelFilename.isDisposed()
-            ? variables.resolve(wReferencedModelFilename.getText())
-            : null;
-    if (!Utils.isEmpty(externalModelPath)) {
-      try {
-        DimensionalModel externalModel =
-            DmModelLoadSupport.loadDimensionalModel(
-                externalModelPath,
-                model != null ? model.getFilename() : null,
-                variables,
-                metadataProvider);
-        return DmModelLoadSupport.listBaseDimensionNames(externalModel);
-      } catch (HopException e) {
-        new ErrorDialog(
-            shell,
-            BaseMessages.getString(
-                PKG, "HopGuiDmTableDialog.ReferencedModelFilename.LoadError.Header"),
-            BaseMessages.getString(
-                PKG, "HopGuiDmTableDialog.ReferencedModelFilename.LoadError.Message"),
-            e);
-      }
+  private String[] listReferencedDimensionNames(boolean invalidateCache) throws HopException {
+    String externalModelPath = getReferencedModelFilenameText();
+    if (Utils.isEmpty(externalModelPath)) {
+      return listBaseDimensionNames();
     }
-    return listBaseDimensionNames();
+    IVariables pathVariables = hopGuiVariables();
+    String referringModel = model != null ? model.getFilename() : null;
+    if (invalidateCache) {
+      DmModelLoadSupport.invalidateCachedModel(externalModelPath, referringModel, pathVariables);
+    }
+    DimensionalModel externalModel =
+        DmModelLoadSupport.loadDimensionalModel(
+            externalModelPath, referringModel, pathVariables, metadataProvider);
+    return DmModelLoadSupport.listBaseDimensionNames(externalModel);
+  }
+
+  private String getReferencedModelFilenameText() {
+    if (wReferencedModelFilename == null || wReferencedModelFilename.isDisposed()) {
+      return null;
+    }
+    return wReferencedModelFilename.getText().trim();
+  }
+
+  private void showReferencedModelLoadError(HopException exception) {
+    new ErrorDialog(
+        shell,
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedModelFilename.LoadError.Header"),
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.ReferencedModelFilename.LoadError.Message"),
+        exception);
   }
 
   private void addSourceTab() {
@@ -1275,6 +1327,14 @@ public class HopGuiDmTableDialog {
     preloadCacheColumn.setToolTip(
         BaseMessages.getString(
             PKG, "HopGuiDmTableDialog.DimensionRoles.Column.PreloadCache.ToolTip"));
+    ColumnInfo skipLookupColumn =
+        new ColumnInfo(
+            BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.Column.SkipLookup"),
+            ColumnInfo.COLUMN_TYPE_CCOMBO,
+            new String[] {SKIP_LOOKUP_AUTO, SKIP_LOOKUP_YES, SKIP_LOOKUP_NO},
+            true);
+    skipLookupColumn.setToolTip(
+        BaseMessages.getString(PKG, "HopGuiDmTableDialog.DimensionRoles.Column.SkipLookup.ToolTip"));
     ColumnInfo[] roleColumns =
         new ColumnInfo[] {
           new ColumnInfo(
@@ -1290,7 +1350,8 @@ public class HopGuiDmTableDialog {
               ColumnInfo.COLUMN_TYPE_CCOMBO,
               new String[] {"N", "Y"},
               true),
-          preloadCacheColumn
+          preloadCacheColumn,
+          skipLookupColumn
         };
 
     Label wlDimensionLookupDate = new Label(comp, SWT.RIGHT);
@@ -1512,7 +1573,7 @@ public class HopGuiDmTableDialog {
           && !Utils.isEmpty(alias.getReferencedModelFilename())) {
         wReferencedModelFilename.setText(alias.getReferencedModelFilename());
       }
-      refreshReferencedDimensionChoices();
+      populateReferencedDimensionChoices(false);
       if (wReferencedDimension != null && !Utils.isEmpty(alias.getReferencedDimensionName())) {
         int index = wReferencedDimension.indexOf(alias.getReferencedDimensionName());
         if (index >= 0) {
@@ -1604,6 +1665,7 @@ public class HopGuiDmTableDialog {
         }
         item.setText(4, role.isTruncateToDateKey() ? "Y" : "N");
         item.setText(5, role.isPreloadLookupCache() ? "Y" : "N");
+        item.setText(6, formatSkipDimensionLookup(role));
       }
       wDimensionRoles.removeEmptyRows();
       wDimensionRoles.setRowNums();
@@ -1885,6 +1947,14 @@ public class HopGuiDmTableDialog {
         item.setText(3, defaultForeignKeyForDimensionName(dimensionName));
         item.setText(4, looksLikeDateSourceField(fieldName) ? "Y" : "N");
         item.setText(5, "N");
+        DmFactDimensionRole suggestedRole = new DmFactDimensionRole();
+        suggestedRole.setDimensionTableName(dimensionName);
+        suggestedRole.setSourceFieldName(fieldName);
+        applySourceHashKeyJoinDefaults(suggestedRole, dimensionName);
+        item.setText(6, formatSkipDimensionLookup(suggestedRole));
+        if (!Utils.isEmpty(suggestedRole.getSourceFieldName())) {
+          item.setText(2, suggestedRole.getSourceFieldName());
+        }
       }
       wDimensionRoles.removeEmptyRows();
       wDimensionRoles.setRowNums();
@@ -1976,9 +2046,59 @@ public class HopGuiDmTableDialog {
       role.setForeignKeyColumn(item.getText(3));
       role.setTruncateToDateKey("Y".equalsIgnoreCase(item.getText(4)));
       role.setPreloadLookupCache("Y".equalsIgnoreCase(item.getText(5)));
+      applySkipDimensionLookupFromCombo(role, item.getText(6));
       roles.add(role);
     }
     return roles;
+  }
+
+  private String formatSkipDimensionLookup(DmFactDimensionRole role) {
+    if (role == null) {
+      return SKIP_LOOKUP_AUTO;
+    }
+    if (role.isSkipDimensionLookup()) {
+      return SKIP_LOOKUP_YES;
+    }
+    if (role.isForceDimensionLookup()) {
+      return SKIP_LOOKUP_NO;
+    }
+    return SKIP_LOOKUP_AUTO;
+  }
+
+  private void applySkipDimensionLookupFromCombo(DmFactDimensionRole role, String value) {
+    if (role == null) {
+      return;
+    }
+    if (SKIP_LOOKUP_YES.equalsIgnoreCase(value)) {
+      role.setSkipDimensionLookup(true);
+      role.setForceDimensionLookup(false);
+      return;
+    }
+    if (SKIP_LOOKUP_NO.equalsIgnoreCase(value)) {
+      role.setSkipDimensionLookup(false);
+      role.setForceDimensionLookup(true);
+      return;
+    }
+    role.setSkipDimensionLookup(false);
+    role.setForceDimensionLookup(false);
+  }
+
+  private void applySourceHashKeyJoinDefaults(DmFactDimensionRole role, String dimensionName) {
+    if (role == null || model == null || Utils.isEmpty(dimensionName)) {
+      return;
+    }
+    DmDimension dimension =
+        DmDimensionResolutionSupport.resolveDimension(model, dimensionName, variables, metadataProvider);
+    if (dimension == null
+        || DmSurrogateKeySupport.resolveStrategy(dimension) != DmSurrogateKeyStrategy.USE_SOURCE_FIELD) {
+      return;
+    }
+    DimensionalConfiguration config = model.getConfigurationOrDefault();
+    String surrogateSource =
+        DmSurrogateKeySupport.resolveSurrogateKeySourceField(dimension, config, variables);
+    if (!Utils.isEmpty(surrogateSource)) {
+      role.setSourceFieldName(surrogateSource);
+    }
   }
 
   private String defaultForeignKeyForDimensionName(String dimensionName) {

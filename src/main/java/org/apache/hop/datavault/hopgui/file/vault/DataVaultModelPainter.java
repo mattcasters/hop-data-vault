@@ -33,11 +33,9 @@ import org.apache.hop.core.gui.IGc;
 import org.apache.hop.core.gui.IGc.EFont;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.Rectangle;
-import org.apache.hop.core.svg.SvgFile;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
-import org.apache.hop.datavault.metadata.BusinessKey;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvIntegrationSupport;
@@ -45,8 +43,10 @@ import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
+import org.apache.hop.datavault.hopgui.file.modelgraph.DvTableDisplaySupport;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphTableCardLayout;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphTableNameHitArea;
 
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -86,9 +86,8 @@ public class DataVaultModelPainter extends BasePainter {
   /** When false, suppress the first-run empty canvas hint (e.g. SVG export). */
   private boolean showEmptyModelHint = true;
 
-  private static final int ICON_SIZE = 32;
-  private static final int HASH_KEY_LABEL_GAP = 2;
-  private static final int MARGIN = 5;
+  private static final int ICON_SIZE = ModelGraphTableCardLayout.ICON_SIZE;
+  private static final int MARGIN = ModelGraphTableCardLayout.MARGIN;
   private static final int MINI_ICON_SIZE = 16;
 
   // Note: TABLE_* removed in favor of per-table dynamic sizes based on textExtent()
@@ -340,7 +339,7 @@ public class DataVaultModelPainter extends BasePainter {
     drawTableIcon(table, x, y);
 
     // Type label below the icon, small print
-    drawTableTypeLabel(table, x, y);
+    ModelGraphTableCardLayout.drawTypeBelowIcon(gc, getTypeLabel(table), x, y);
 
     // Name of the table to the right of the icon (and optional hash key field below it)
     Point nameExtent = drawTableName(table, x, y);
@@ -354,27 +353,13 @@ public class DataVaultModelPainter extends BasePainter {
   }
 
   private Point drawTableName(IDvTable table, int x, int y) {
-    gc.setFont(IGc.EFont.GRAPH);
-    gc.setForeground(IGc.EColor.BLACK);
     String name = table.getName() != null ? table.getName() : "?";
-    gc.drawText(name, x + MARGIN + ICON_SIZE + MARGIN, y + MARGIN, true);
+    Point nameExtent =
+        ModelGraphTableCardLayout.drawName(gc, name, x, y, name.equals(mouseOverTableName));
 
-    // Compute name position/extent for hover underline and area registration (name part for edit
-    // click)
-    int nameLogX = x + MARGIN + ICON_SIZE + MARGIN;
-    int nameLogY = y + MARGIN;
-    Point nameExtent = gc.textExtent(name);
-
-    // Underline the name on mouse-over (hyperlink style, like transforms/actions in Hop GUI)
-    if (name.equals(mouseOverTableName)) {
-      gc.setLineWidth(1);
-      gc.drawLine(
-          nameLogX, nameLogY + nameExtent.y, nameLogX + nameExtent.x, nameLogY + nameExtent.y);
-    }
-
-    // Register AreaOwners for sub-hit detection (screen coords, using 0 offset so contains works
-    // with screen mouse)
     if (areaOwners != null) {
+      int nameLogX = ModelGraphTableCardLayout.nameX(x);
+      int nameLogY = ModelGraphTableCardLayout.nameY(y);
       ModelGraphTableNameHitArea.Bounds nameHit =
           ModelGraphTableNameHitArea.bounds(nameLogX, nameLogY, nameExtent);
       areaOwners.add(
@@ -393,84 +378,12 @@ public class DataVaultModelPainter extends BasePainter {
 
   private void drawTableHashKeyFieldName(IDvTable table, int x, int y, Point nameExtent) {
     String hashKeyFieldName = getHashKeyFieldNameForDisplay(table);
-    if (Utils.isEmpty(hashKeyFieldName)) {
-      return;
-    }
-
-    int nameLogX = x + MARGIN + ICON_SIZE + MARGIN;
-    int nameLogY = y + MARGIN + nameExtent.y + HASH_KEY_LABEL_GAP;
-
-    gc.setFont(IGc.EFont.SMALL);
-    gc.setForeground(IGc.EColor.DARKGRAY);
-    gc.drawText(hashKeyFieldName, nameLogX, nameLogY, true);
+    ModelGraphTableCardLayout.drawSecondaryLine(gc, hashKeyFieldName, x, y, nameExtent);
   }
 
   private String getHashKeyFieldNameForDisplay(IDvTable table) {
-    if (table == null) {
-      return null;
-    }
-
-    String hashKeyFieldName = null;
-    switch (table.getTableType()) {
-      case HUB -> {
-        DvHub hub = (DvHub) table;
-        hashKeyFieldName = hub.getHashKeyFieldName();
-        if (Utils.isEmpty(hashKeyFieldName) && !Utils.isEmpty(hub.getBusinessKeys())) {
-          BusinessKey firstKey = hub.getBusinessKeys().get(0);
-          if (firstKey != null && !Utils.isEmpty(firstKey.getName())) {
-            hashKeyFieldName = firstKey.getName() + "_HK";
-          }
-        }
-        if (Utils.isEmpty(hashKeyFieldName)) {
-          hashKeyFieldName = "hashkey_HK";
-        }
-      }
-      case LINK -> {
-        DvLink link = (DvLink) table;
-        hashKeyFieldName = link.getLinkHashKeyFieldName();
-        if (Utils.isEmpty(hashKeyFieldName)) {
-          hashKeyFieldName = link.getName() + "_LK";
-        }
-      }
-      case SATELLITE -> {
-        DvSatellite satellite = (DvSatellite) table;
-        if (!Utils.isEmpty(satellite.getHubName())) {
-          DvHub linkedHub = model.findHub(satellite.getHubName());
-          if (linkedHub != null) {
-            hashKeyFieldName = linkedHub.getHashKeyFieldName();
-            if (Utils.isEmpty(hashKeyFieldName) && !Utils.isEmpty(linkedHub.getBusinessKeys())) {
-              BusinessKey firstKey = linkedHub.getBusinessKeys().get(0);
-              if (firstKey != null && !Utils.isEmpty(firstKey.getName())) {
-                hashKeyFieldName = firstKey.getName() + "_HK";
-              }
-            }
-          }
-        } else if (!Utils.isEmpty(satellite.getLinkName())) {
-          IDvTable linkedTable = tableByName.get(satellite.getLinkName());
-          if (linkedTable instanceof DvLink linkedLink) {
-            hashKeyFieldName = linkedLink.getLinkHashKeyFieldName();
-            if (Utils.isEmpty(hashKeyFieldName)) {
-              hashKeyFieldName = linkedLink.getName() + "_LK";
-            }
-          }
-        }
-        if (Utils.isEmpty(hashKeyFieldName)) {
-          hashKeyFieldName = "hashkey";
-        }
-      }
-      default -> {
-        return null;
-      }
-    }
-
-    return variables != null ? variables.resolve(hashKeyFieldName) : hashKeyFieldName;
-  }
-
-  private void drawTableTypeLabel(IDvTable table, int x, int y) {
-    String typeLabel = getTypeLabel(table);
-    gc.setFont(IGc.EFont.SMALL);
-    gc.setForeground(IGc.EColor.BLACK);
-    gc.drawText(typeLabel, x + MARGIN, y + MARGIN + ICON_SIZE + MARGIN, true);
+    return DvTableDisplaySupport.getHashKeyFieldNameForDisplay(
+        table, model, tableByName, variables);
   }
 
   private void drawTableBox(IDvTable table, int x, int y, Point box) {
@@ -492,16 +405,13 @@ public class DataVaultModelPainter extends BasePainter {
   }
 
   private void drawTableIcon(IDvTable table, int x, int y) {
-    try {
-      String imagePath = getImagePath(table.getTableType());
-      ClassLoader classLoader = this.getClass().getClassLoader();
-      SvgFile svgFile = new SvgFile(imagePath, classLoader);
-      gc.drawImage(svgFile, x + MARGIN, y + MARGIN, ICON_SIZE, ICON_SIZE, magnification, 0);
-    } catch (Exception e) {
-      // Fallback: just draw a small rect if image fails
-      gc.setBackground(IGc.EColor.BLUE);
-      gc.fillRectangle(x + MARGIN, y + MARGIN, ICON_SIZE, ICON_SIZE);
-    }
+    ModelGraphTableCardLayout.drawSvgIcon(
+        gc,
+        getClass().getClassLoader(),
+        DvTableDisplaySupport.getImagePath(table.getTableType()),
+        x,
+        y,
+        magnification);
   }
 
   private void drawTableDescriptionInfoIcon(IDvTable table, int x, int y) {
@@ -527,15 +437,6 @@ public class DataVaultModelPainter extends BasePainter {
               table,
               table.getDescription()));
     }
-  }
-
-  private String getImagePath(DvTableType type) {
-    return switch (type) {
-      case HUB -> "datavault_hub.svg";
-      case LINK -> "datavault_link.svg";
-      case SATELLITE -> "datavault_satellite.svg";
-      default -> "datavault_model.svg";
-    };
   }
 
   private String getTypeLabel(IDvTable table) {
@@ -565,34 +466,17 @@ public class DataVaultModelPainter extends BasePainter {
   private Point calculateTableBoxSize(IDvTable table) {
     String name = table.getName() != null ? table.getName() : "?";
     String typeLabel = getTypeLabel(table);
-
-    gc.setFont(IGc.EFont.GRAPH);
-    Point nameExtent = gc.textExtent(name);
-    gc.setFont(IGc.EFont.SMALL);
-    Point typeExtent = gc.textExtent(typeLabel);
-    Point hashKeyExtent = new Point(0, 0);
+    String hashKeyFieldName = null;
     if (showHashKeyFieldNames) {
-      String hashKeyFieldName = getHashKeyFieldNameForDisplay(table);
-      if (!Utils.isEmpty(hashKeyFieldName)) {
-        hashKeyExtent = gc.textExtent(hashKeyFieldName);
-      }
+      hashKeyFieldName = getHashKeyFieldNameForDisplay(table);
     }
-    gc.setFont(IGc.EFont.GRAPH);
-
-    int iconP = ICON_SIZE;
-    int margP = MARGIN;
-    int textColumnWidth = Math.max(nameExtent.x, hashKeyExtent.x);
-    int textColumnHeight =
-        nameExtent.y + (hashKeyExtent.y > 0 ? HASH_KEY_LABEL_GAP + hashKeyExtent.y : 0);
-    int leftColumnHeight = iconP + margP + typeExtent.y;
-    int boxW = margP + iconP + margP + textColumnWidth + margP;
-    int boxH = margP + Math.max(leftColumnHeight, textColumnHeight) + margP;
-
+    ModelGraphTableCardLayout.BoxSize boxSize =
+        ModelGraphTableCardLayout.computeBoxSize(gc, name, hashKeyFieldName, typeLabel, null);
     if (table instanceof DvTableBase base) {
-      base.setDrawnBoxWidth(boxW);
-      base.setDrawnBoxHeight(boxH);
+      base.setDrawnBoxWidth(boxSize.width());
+      base.setDrawnBoxHeight(boxSize.height());
     }
-    return new Point(boxW, boxH);
+    return new Point(boxSize.width(), boxSize.height());
   }
 
   private boolean isValidRelationshipPair(IDvTable a, IDvTable b) {

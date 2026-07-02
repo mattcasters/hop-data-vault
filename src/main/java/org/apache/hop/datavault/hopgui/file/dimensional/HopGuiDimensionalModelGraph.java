@@ -82,6 +82,8 @@ import org.apache.hop.datavault.metadata.dimensional.DmFactlessFact;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmPeriodicSnapshotFact;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
+import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.DmTargetDatabaseSupport;
 import org.apache.hop.datavault.metadata.dimensional.IDmFactLikeTable;
@@ -529,7 +531,27 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     }
     String fkColumn = defaultForeignKeyForDimension(dimension);
     DmFactDimensionRole role = new DmFactDimensionRole(dimension.getName(), null, fkColumn);
+    applySourceHashKeyJoinDefaults(role, dimension);
     return appendFactDimensionRole(fact, role);
+  }
+
+  private void applySourceHashKeyJoinDefaults(DmFactDimensionRole role, IDmTable dimension) {
+    if (role == null || dimension == null || model == null || Utils.isEmpty(dimension.getName())) {
+      return;
+    }
+    DmDimension resolved =
+        DmDimensionResolutionSupport.resolveDimension(
+            model, dimension.getName(), variables, hopGui.getMetadataProvider());
+    if (resolved == null
+        || DmSurrogateKeySupport.resolveStrategy(resolved) != DmSurrogateKeyStrategy.USE_SOURCE_FIELD) {
+      return;
+    }
+    DimensionalConfiguration config = model.getConfigurationOrDefault();
+    String surrogateSource =
+        DmSurrogateKeySupport.resolveSurrogateKeySourceField(resolved, config, variables);
+    if (!Utils.isEmpty(surrogateSource)) {
+      role.setSourceFieldName(surrogateSource);
+    }
   }
 
   private boolean hasExistingFactRole(
@@ -811,7 +833,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiDimensionalModelGraph.Context.AddDimension.Name",
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddDimension.Tooltip",
-      image = "dimensional_model.svg",
+      image = "dimension.svg",
       category = "Dimensional",
       categoryOrder = "1")
   public void addDimension(HopGuiDimensionalContext context) {
@@ -829,7 +851,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiDimensionalModelGraph.Context.AddDimensionAlias.Name",
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddDimensionAlias.Tooltip",
-      image = "dimensional_model.svg",
+      image = "dimension-alias.svg",
       category = "Dimensional",
       categoryOrder = "1")
   public void addDimensionAlias(HopGuiDimensionalContext context) {
@@ -850,7 +872,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiDimensionalModelGraph.Context.AddDateDimension.Name",
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddDateDimension.Tooltip",
-      image = "dimensional_model.svg",
+      image = "dimension.svg",
       category = "Dimensional",
       categoryOrder = "1")
   public void addDateDimension(HopGuiDimensionalContext context) {
@@ -898,7 +920,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiDimensionalModelGraph.Context.AddFact.Name",
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddFact.Tooltip",
-      image = "dimensional_model.svg",
+      image = "fact.svg",
       category = "Dimensional",
       categoryOrder = "2")
   public void addFact(HopGuiDimensionalContext context) {
@@ -916,7 +938,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiDimensionalModelGraph.Context.AddJunkDimension.Name",
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddJunkDimension.Tooltip",
-      image = "dimensional_model.svg",
+      image = "dimension-junk.svg",
       category = "Dimensional",
       categoryOrder = "3")
   public void addJunkDimension(HopGuiDimensionalContext context) {
@@ -934,7 +956,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiDimensionalModelGraph.Context.AddFactlessFact.Name",
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddFactlessFact.Tooltip",
-      image = "dimensional_model.svg",
+      image = "fact.svg",
       category = "Dimensional",
       categoryOrder = "4")
   public void addFactlessFact(HopGuiDimensionalContext context) {
@@ -952,7 +974,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiDimensionalModelGraph.Context.AddBridge.Name",
       tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddBridge.Tooltip",
-      image = "dimensional_model.svg",
+      image = "bridge.svg",
       category = "Dimensional",
       categoryOrder = "5")
   public void addBridge(HopGuiDimensionalContext context) {

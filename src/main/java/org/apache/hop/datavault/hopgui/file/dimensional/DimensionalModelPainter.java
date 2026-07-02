@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.hop.core.Const;
 import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.AreaOwner.AreaType;
 import org.apache.hop.core.gui.IGc;
@@ -34,8 +33,10 @@ import org.apache.hop.core.gui.IGc.ELineStyle;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.hopgui.file.modelgraph.DmTableDisplaySupport;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphTableCardLayout;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphTableNameHitArea;
 
 import org.apache.hop.datavault.hopgui.file.vault.BasePainter;
@@ -43,7 +44,6 @@ import org.apache.hop.datavault.metadata.dimensional.DmBridge;
 import org.apache.hop.datavault.metadata.dimensional.DmBridgeDimensionRef;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
-import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
@@ -111,7 +111,7 @@ public class DimensionalModelPainter extends BasePainter {
     drawRelationshipLines();
     drawRelationshipCandidateLine();
     drawNotes(model.getNotes());
-    drawTables();
+    drawTables(metadataProvider);
     drawRect(selectionRegion);
 
     gc.setTransform(0.0f, 0.0f, 1.0f);
@@ -334,7 +334,7 @@ public class DimensionalModelPainter extends BasePainter {
     }
   }
 
-  private void drawTables() {
+  private void drawTables(IHopMetadataProvider metadataProvider) {
     for (IDmTable table : model.getTables()) {
       if (!(table instanceof DmTableBase base)) {
         continue;
@@ -343,42 +343,59 @@ public class DimensionalModelPainter extends BasePainter {
       if (loc == null) {
         continue;
       }
-      int boxWidth = computeBoxWidth(base);
-      int boxHeight = computeBoxHeight(base);
+
+      String label = DmTableDisplaySupport.resolveDisplayName(base);
+      String typeLabel = DmTableDisplaySupport.resolveTypeLabel(base);
+      String secondaryField =
+          DmTableDisplaySupport.resolveSecondaryFieldName(base, model, variables, metadataProvider);
+      String aliasSourceModel = null;
+      if (base instanceof DmDimensionAlias alias) {
+        aliasSourceModel =
+            DmTableDisplaySupport.resolveAliasSourceModelDisplayName(alias, model, variables);
+      }
+
+      ModelGraphTableCardLayout.BoxSize boxSize =
+          ModelGraphTableCardLayout.computeBoxSize(
+              gc, label, secondaryField, typeLabel, aliasSourceModel);
+      int boxWidth = Math.max(140, boxSize.width());
+      int boxHeight = Math.max(70, boxSize.height());
       base.setDrawnBoxWidth(boxWidth);
       base.setDrawnBoxHeight(boxHeight);
+
       Point screenLoc = real2screen(loc.x, loc.y);
       int x = screenLoc.x;
       int y = screenLoc.y;
       int[] color = tableTypeColor(base.getTableType());
 
       gc.setBackground(EColor.WHITE);
-      gc.fillRoundRectangle(x, y, boxWidth, boxHeight, 8, 8);
+      gc.fillRoundRectangle(x, y, boxWidth, boxHeight, CORNER_RADIUS_5, CORNER_RADIUS_5);
       gc.setLineWidth(base.isSelected() ? 2 : 1);
       gc.setForeground(color[0], color[1], color[2]);
-      gc.drawRoundRectangle(x, y, boxWidth, boxHeight, 8, 8);
+      gc.drawRoundRectangle(x, y, boxWidth, boxHeight, CORNER_RADIUS_5, CORNER_RADIUS_5);
       gc.setLineWidth(1);
 
-      String label = Const.NVL(base.getName(), tableTypeLabel(base.getTableType()));
-      gc.setFont(EFont.GRAPH);
-      gc.setForeground(EColor.BLACK);
-      boolean underline = label.equals(mouseOverTableName);
-      if (underline) {
-        gc.drawText(label, x + 8, y + 8, true);
-        Point extent = gc.textExtent(label);
-        gc.drawLine(x + 8, y + 8 + extent.y, x + 8 + extent.x, y + 8 + extent.y);
-      } else {
-        gc.drawText(label, x + 8, y + 8, true);
-      }
+      ModelGraphTableCardLayout.drawSvgIcon(
+          gc,
+          getClass().getClassLoader(),
+          DmTableDisplaySupport.resolveTableIconPath(base.getTableType()),
+          x,
+          y,
+          magnification);
 
-      drawTableSubtitle(base, x, y, color);
+      Point nameExtent =
+          ModelGraphTableCardLayout.drawName(gc, label, x, y, label.equals(mouseOverTableName));
+      ModelGraphTableCardLayout.drawSecondaryLine(gc, secondaryField, x, y, nameExtent);
+      Point typeExtent = ModelGraphTableCardLayout.drawTypeBelowIcon(gc, typeLabel, x, y);
+      ModelGraphTableCardLayout.drawExtraLineBelowType(
+          gc, aliasSourceModel, x, y, typeExtent, color);
 
       if (areaOwners != null) {
         areaOwners.add(
             new AreaOwner(AreaType.TRANSFORM_ICON, x, y, boxWidth, boxHeight, offset, table, label));
-        Point nameExtent = gc.textExtent(label);
+        int nameX = ModelGraphTableCardLayout.nameX(x);
+        int nameY = ModelGraphTableCardLayout.nameY(y);
         ModelGraphTableNameHitArea.Bounds nameHit =
-            ModelGraphTableNameHitArea.bounds(x + 8, y + 8, nameExtent);
+            ModelGraphTableNameHitArea.bounds(nameX, nameY, nameExtent);
         areaOwners.add(
             new AreaOwner(
                 AreaType.TRANSFORM_NAME,
@@ -391,56 +408,6 @@ public class DimensionalModelPainter extends BasePainter {
                 label));
       }
     }
-  }
-
-  private int computeBoxWidth(DmTableBase base) {
-    String label = Const.NVL(base.getName(), tableTypeLabel(base.getTableType()));
-    gc.setFont(EFont.GRAPH);
-    int width = gc.textExtent(label).x + 16;
-    if (base instanceof DmDimensionAlias alias) {
-      gc.setFont(EFont.SMALL);
-      String sourceModel =
-          DmDimensionResolutionSupport.resolveAliasSourceModelDisplayName(model, alias, variables);
-      if (!Utils.isEmpty(sourceModel)) {
-        width = Math.max(width, gc.textExtent(sourceModel).x + 16);
-      }
-    }
-    return Math.max(140, width);
-  }
-
-  private int computeBoxHeight(DmTableBase base) {
-    return 70;
-  }
-
-  private void drawTableSubtitle(DmTableBase base, int x, int y, int[] borderColor) {
-    gc.setFont(EFont.SMALL);
-    if (base instanceof DmDimensionAlias alias) {
-      String typeLabel = tableTypeLabel(DmTableType.DIMENSION_ALIAS);
-      gc.setForeground(EColor.BLACK);
-      gc.drawText(typeLabel, x + 8, y + 28, true);
-      String sourceModel =
-          DmDimensionResolutionSupport.resolveAliasSourceModelDisplayName(model, alias, variables);
-      if (!Utils.isEmpty(sourceModel)) {
-        Point typeExtent = gc.textExtent(typeLabel);
-        gc.setForeground(borderColor[0], borderColor[1], borderColor[2]);
-        gc.drawText(sourceModel, x + 8, y + 28 + typeExtent.y + 2, true);
-        gc.setForeground(EColor.BLACK);
-      }
-      return;
-    }
-    gc.setForeground(EColor.BLACK);
-    gc.drawText(tableSubtitle(base), x + 8, y + 28, true);
-  }
-
-  private static String tableTypeLabel(DmTableType tableType) {
-    if (tableType == null) {
-      return "";
-    }
-    return tableType.getDescription();
-  }
-
-  private static String tableSubtitle(DmTableBase base) {
-    return tableTypeLabel(base.getTableType());
   }
 
   private static int[] tableTypeColor(DmTableType tableType) {
