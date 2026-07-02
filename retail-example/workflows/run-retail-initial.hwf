@@ -63,7 +63,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>240</xloc>
+      <xloc>224</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -80,7 +80,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>448</xloc>
+      <xloc>400</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -108,7 +108,7 @@
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>656</xloc>
+      <xloc>544</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -125,7 +125,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>896</xloc>
+      <xloc>688</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -167,7 +167,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-catalog-sources.py"
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>288</xloc>
+      <xloc>224</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -192,7 +192,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>560</xloc>
+      <xloc>400</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -220,7 +220,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>800</xloc>
+      <xloc>544</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -248,7 +248,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <type>DATA_VAULT_UPDATE</type>
       <attributes/>
       <xloc>64</xloc>
-      <yloc>224</yloc>
+      <yloc>304</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -272,7 +272,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <type>BUSINESS_VAULT_UPDATE</type>
       <attributes/>
       <xloc>224</xloc>
-      <yloc>224</yloc>
+      <yloc>304</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -282,7 +282,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <type>SUCCESS</type>
       <attributes/>
       <xloc>496</xloc>
-      <yloc>320</yloc>
+      <yloc>400</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -304,7 +304,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <type>DIMENSIONAL_UPDATE</type>
       <attributes/>
       <xloc>224</xloc>
-      <yloc>320</yloc>
+      <yloc>400</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -326,7 +326,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <type>DIMENSIONAL_UPDATE</type>
       <attributes/>
       <xloc>352</xloc>
-      <yloc>320</yloc>
+      <yloc>400</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -344,7 +344,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <type>DIMENSIONAL_UPDATE</type>
       <attributes/>
       <xloc>64</xloc>
-      <yloc>320</yloc>
+      <yloc>400</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
