@@ -2076,6 +2076,12 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       businessVaultGraph.exportModelToSvg();
       return;
     }
+    if (active
+        instanceof org.apache.hop.datavault.hopgui.file.executionmap.HopGuiExecutionMapGraph
+            executionMapGraph) {
+      executionMapGraph.exportToSvg();
+      return;
+    }
     HopGui.getInstance().fileDelegate.exportToSvg();
   }
 

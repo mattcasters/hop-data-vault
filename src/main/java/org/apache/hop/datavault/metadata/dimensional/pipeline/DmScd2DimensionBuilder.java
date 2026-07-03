@@ -21,7 +21,6 @@ package org.apache.hop.datavault.metadata.dimensional.pipeline;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import org.apache.hop.core.Condition;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.exception.HopValueException;
@@ -57,6 +56,8 @@ import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.sort.SortRowsField;
 import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
+import org.apache.hop.pipeline.transforms.tableoutput.TableOutputField;
+import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
 import org.apache.hop.pipeline.transforms.update.UpdateField;
 import org.apache.hop.pipeline.transforms.update.UpdateKeyField;
 import org.apache.hop.pipeline.transforms.update.UpdateLookupField;
@@ -102,16 +103,7 @@ public final class DmScd2DimensionBuilder {
         addCurrentFlagConstant(ctx, pipelineMeta, versionTransform, loadTimestamp);
     IRowMeta targetLayout = dimension.getTargetTableLayout(metadataProvider, variables, model);
     TransformMeta tableOutputTransform =
-        DmPipelineBuilderSupport.addTableOutput(
-            ctx,
-            pipelineMeta,
-            targetLayout,
-            controlFieldsTransform,
-            false,
-            Set.of(
-                "flag",
-                DmPipelineBuilderSupport.PREVIOUS_VERSION_FIELD,
-                DmPipelineBuilderSupport.PREVIOUS_VERSION_NUM_FIELD));
+        addScd2TableOutput(ctx, pipelineMeta, targetLayout, controlFieldsTransform);
     TransformMeta filterPreviousTransform =
         addFilterHasPreviousVersion(pipelineMeta, tableOutputTransform);
     addClosePreviousVersion(ctx, pipelineMeta, filterPreviousTransform, dimension);
@@ -438,6 +430,48 @@ public final class DmScd2DimensionBuilder {
     return tm;
   }
 
+  private static TransformMeta addScd2TableOutput(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      IRowMeta targetLayout,
+      TransformMeta predecessor)
+      throws HopException {
+    if (predecessor == null) {
+      return null;
+    }
+
+    String versionField = ctx.config.resolveVersionField(ctx.variables);
+    String newVersionField = DmPipelineBuilderSupport.scd2NewVersionFieldName(versionField);
+
+    TableOutputMeta tableOutputMeta = new TableOutputMeta();
+    tableOutputMeta.setConnection(ctx.targetDbName);
+    tableOutputMeta.setTableName(ctx.targetTableName);
+    tableOutputMeta.setSpecifyFields(true);
+    tableOutputMeta.setTruncateTable(false);
+    tableOutputMeta.setCommitSize(ctx.config.resolveTargetTableCommitSize(ctx.variables));
+
+    if (targetLayout != null) {
+      for (IValueMeta valueMeta : targetLayout.getValueMetaList()) {
+        String columnName = valueMeta.getName();
+        if (columnName.equals(versionField)) {
+          tableOutputMeta.getFields().add(new TableOutputField(columnName, newVersionField));
+        } else {
+          tableOutputMeta.getFields().add(new TableOutputField(columnName, columnName));
+        }
+      }
+    }
+
+    TransformMeta tm =
+        new TransformMeta("TableOutput", "write_to_" + ctx.targetTableName, tableOutputMeta);
+    tm.setCopiesString(ctx.config.resolveTargetTableParallelCopies(ctx.variables));
+    tm.setLocation(
+        predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
+        predecessor.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
   private static TransformMeta addVersionCalculator(
       DmPipelineBuilderSupport.BuildContext ctx,
       PipelineMeta pipelineMeta,
@@ -468,7 +502,12 @@ public final class DmScd2DimensionBuilder {
         calculatorFunction(constOne, CalculationType.CONSTANT, "1", null, integerType, true));
     functions.add(
         calculatorFunction(
-            versionField, CalculationType.ADD, tempBase, constOne, integerType, false));
+            DmPipelineBuilderSupport.scd2NewVersionFieldName(versionField),
+            CalculationType.ADD,
+            tempBase,
+            constOne,
+            integerType,
+            false));
     calculatorMeta.setFunctions(functions);
 
     TransformMeta tm =

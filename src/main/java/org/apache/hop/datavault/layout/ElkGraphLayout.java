@@ -20,8 +20,10 @@ package org.apache.hop.datavault.layout;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.DataVaultModel;
@@ -42,6 +44,15 @@ import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
+import org.apache.hop.datavault.executionmap.ExecutionMapLayoutOptions;
+import org.apache.hop.datavault.executionmap.ExecutionMapMetrics;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapEdge;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapEdgeType;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
+import org.eclipse.elk.core.math.ElkPadding;
+import org.eclipse.elk.core.options.CoreOptions;
+import org.eclipse.elk.graph.ElkEdge;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
@@ -70,6 +81,154 @@ public final class ElkGraphLayout {
     this.graphName = graphName;
     this.nodes = nodes;
     this.edges = edges;
+  }
+
+  /** Applies nested ELK layout to an execution map document. */
+  public static void layoutExecutionMap(
+      ExecutionMapDocument document, ExecutionMapLayoutOptions options, ElkLayout layout)
+      throws HopException {
+    if (document == null || document.getNodesOrEmpty().isEmpty() || layout == null || !layout.isEnabled()) {
+      return;
+    }
+    ExecutionMapLayoutOptions layoutOptions =
+        options != null ? options : ExecutionMapLayoutOptions.DEFAULT;
+
+    Map<String, ExecutionMapNode> nodesById = new HashMap<>();
+    List<ElkLayoutNode> layoutNodes = new ArrayList<>();
+    Map<String, List<String>> childrenByParent = new HashMap<>();
+    List<String> rootNodeIds = new ArrayList<>();
+
+    for (ExecutionMapNode node : document.getNodesOrEmpty()) {
+      if (node == null || Utils.isEmpty(node.getId()) || Utils.isEmpty(node.getName())) {
+        continue;
+      }
+      nodesById.put(node.getId(), node);
+      layoutNodes.add(
+          new ElkLayoutNode(
+              node.getId(),
+              node.getName(),
+              ExecutionMapMetrics.NODE_WIDTH,
+              ExecutionMapMetrics.NODE_HEIGHT,
+              node));
+    }
+
+    for (ExecutionMapNode node : nodesById.values()) {
+      String parentId = node.getParentNodeId();
+      if (Utils.isEmpty(parentId) || !nodesById.containsKey(parentId)) {
+        rootNodeIds.add(node.getId());
+      } else {
+        childrenByParent.computeIfAbsent(parentId, ignored -> new ArrayList<>()).add(node.getId());
+      }
+    }
+
+    List<ElkLayoutEdge> layoutEdges = collectExecutionMapLayoutEdges(document, layoutOptions);
+
+    try {
+      ElkNode root = ElkGraphUtil.createGraph();
+      layout.applyTo(root);
+
+      Map<String, ElkNode> elkNodes = new HashMap<>();
+      for (String rootNodeId : rootNodeIds) {
+        buildExecutionMapElkNode(root, rootNodeId, nodesById, childrenByParent, elkNodes);
+      }
+
+      for (ElkLayoutEdge edge : layoutEdges) {
+        ElkNode from = elkNodes.get(edge.getFromId());
+        ElkNode to = elkNodes.get(edge.getToId());
+        if (from != null && to != null) {
+          ElkEdge elkEdge = ElkGraphUtil.createSimpleEdge(from, to);
+          ElkGraphUtil.updateContainment(elkEdge);
+        }
+      }
+
+      new RecursiveGraphLayoutEngine().layout(root, new BasicProgressMonitor());
+      applyNestedExecutionMapPositions(root, layoutNodes, layout, 0, 0);
+    } catch (Exception e) {
+      String name = document.getRootArtifactPath();
+      throw new HopException(
+          "Error applying ELK layout to execution map " + (name != null ? name : ""), e);
+    }
+  }
+
+  private static List<ElkLayoutEdge> collectExecutionMapLayoutEdges(
+      ExecutionMapDocument document, ExecutionMapLayoutOptions options) {
+    List<ElkLayoutEdge> edges = new ArrayList<>();
+    Set<String> layoutEdgeKeys = new HashSet<>();
+    for (ExecutionMapEdge edge : document.getEdgesOrEmpty()) {
+      if (edge == null
+          || Utils.isEmpty(edge.getFromNodeId())
+          || Utils.isEmpty(edge.getToNodeId())) {
+        continue;
+      }
+      if (!options.usesEdgeForLayout(edge.getEdgeType())) {
+        continue;
+      }
+      String key = edge.getEdgeType().name() + ":" + edge.getFromNodeId() + "->" + edge.getToNodeId();
+      if (layoutEdgeKeys.add(key)) {
+        edges.add(new ElkLayoutEdge(edge.getFromNodeId(), edge.getToNodeId()));
+      }
+    }
+    return edges;
+  }
+
+  private static void buildExecutionMapElkNode(
+      ElkNode parent,
+      String nodeId,
+      Map<String, ExecutionMapNode> nodesById,
+      Map<String, List<String>> childrenByParent,
+      Map<String, ElkNode> elkNodes) {
+    ExecutionMapNode node = nodesById.get(nodeId);
+    if (node == null) {
+      return;
+    }
+    ElkNode elkNode = ElkGraphUtil.createNode(parent);
+    elkNode.setIdentifier(nodeId);
+    elkNode.setDimensions(ExecutionMapMetrics.NODE_WIDTH, ExecutionMapMetrics.NODE_HEIGHT);
+    ElkGraphUtil.createLabel(node.getName(), elkNode);
+
+    List<String> children = childrenByParent.get(nodeId);
+    if (children != null && !children.isEmpty()) {
+      int padding = ExecutionMapMetrics.CONTAINER_PADDING;
+      elkNode.setProperty(CoreOptions.PADDING, new ElkPadding(padding, padding, padding, padding));
+      for (String childId : children) {
+        buildExecutionMapElkNode(elkNode, childId, nodesById, childrenByParent, elkNodes);
+      }
+    }
+
+    elkNodes.put(nodeId, elkNode);
+  }
+
+  private static void applyNestedExecutionMapPositions(
+      ElkNode elkNode,
+      List<ElkLayoutNode> layoutNodes,
+      ElkLayout layout,
+      double offsetX,
+      double offsetY) {
+    Map<String, ElkLayoutNode> layoutNodeById = new HashMap<>();
+    for (ElkLayoutNode layoutNode : layoutNodes) {
+      layoutNodeById.put(layoutNode.getId(), layoutNode);
+    }
+    applyNestedExecutionMapPositions(elkNode, layoutNodeById, layout, offsetX, offsetY);
+  }
+
+  private static void applyNestedExecutionMapPositions(
+      ElkNode elkNode,
+      Map<String, ElkLayoutNode> layoutNodeById,
+      ElkLayout layout,
+      double offsetX,
+      double offsetY) {
+    for (ElkNode child : elkNode.getChildren()) {
+      String id = child.getIdentifier();
+      ElkLayoutNode layoutNode = layoutNodeById.get(id);
+      double childOffsetX = offsetX + child.getX();
+      double childOffsetY = offsetY + child.getY();
+      if (layoutNode != null && layoutNode.getTarget() != null) {
+        int x = layout.snap((int) Math.round(childOffsetX) + layout.getOriginX());
+        int y = layout.snap((int) Math.round(childOffsetY) + layout.getOriginY());
+        layoutNode.getTarget().setLocation(x, y);
+      }
+      applyNestedExecutionMapPositions(child, layoutNodeById, layout, childOffsetX, childOffsetY);
+    }
   }
 
   public static ElkGraphLayout fromPipeline(PipelineMeta pipelineMeta) {

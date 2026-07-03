@@ -57,8 +57,17 @@ public final class DmPipelineBuilderSupport {
   public static final Point LOCATION_START = new Point(100, 100);
   public static final String PREVIOUS_VERSION_FIELD = "dm_prev_version";
   public static final String PREVIOUS_VERSION_NUM_FIELD = "dm_prev_version_num";
+  public static final String NEW_VERSION_FIELD_SUFFIX = "_new";
 
   private DmPipelineBuilderSupport() {}
+
+  /** Stream field carrying the incremented SCD2 version (avoids colliding with the merge branch). */
+  public static String scd2NewVersionFieldName(String versionField) {
+    if (Utils.isEmpty(versionField)) {
+      return NEW_VERSION_FIELD_SUFFIX.substring(1);
+    }
+    return versionField + NEW_VERSION_FIELD_SUFFIX;
+  }
 
   public static final class BuildContext {
     public final DmTableBase table;

@@ -51,7 +51,7 @@
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
       <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
-      <publishToCatalog>N</publishToCatalog>
+      <publishToCatalog>Y</publishToCatalog>
       <dataCatalogConnection>local-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename>${java.io.tmpdir}/ddl-retail-360.sql</ddlSqlFilename>
@@ -78,7 +78,7 @@
       <parallelPipelineCopies>1</parallelPipelineCopies>
       <pipelineStagingFolder/>
       <metricsOutputFolder/>
-      <publishToCatalog>N</publishToCatalog>
+      <publishToCatalog>Y</publishToCatalog>
       <dataCatalogConnection>local-catalog</dataCatalogConnection>
       <selectedTableNames/>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
@@ -115,6 +115,8 @@
       <metricsOutputFolder/>
       <selectedTableNames/>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <publishToCatalog>Y</publishToCatalog>
+      <dataCatalogConnection>local-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
@@ -138,6 +140,8 @@
       <metricsOutputFolder/>
       <selectedTableNames/>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <publishToCatalog>Y</publishToCatalog>
+      <dataCatalogConnection>local-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
@@ -161,6 +165,8 @@
       <metricsOutputFolder/>
       <selectedTableNames/>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <publishToCatalog>Y</publishToCatalog>
+      <dataCatalogConnection>local-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>
@@ -184,6 +190,8 @@
       <metricsOutputFolder/>
       <selectedTableNames/>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
+      <publishToCatalog>Y</publishToCatalog>
+      <dataCatalogConnection>local-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
       <ddlSqlFilename/>
       <failIfDdlNeeded>N</failIfDdlNeeded>

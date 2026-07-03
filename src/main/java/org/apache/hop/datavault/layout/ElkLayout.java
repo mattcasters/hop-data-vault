@@ -39,7 +39,7 @@ import org.eclipse.elk.graph.ElkNode;
 public class ElkLayout {
 
   public static final boolean DEFAULT_ENABLED = true;
-  public static final ElkLayoutAlgorithm DEFAULT_ALGORITHM = ElkLayoutAlgorithm.RECT_PACKING;
+  public static final ElkLayoutAlgorithm DEFAULT_ALGORITHM = ElkLayoutAlgorithm.LAYERED;
   public static final int DEFAULT_SPACING_WITHIN_LAYER = 48;
   public static final int DEFAULT_SPACING_BETWEEN_LAYERS = 16;
   public static final int DEFAULT_SPACING_EDGE_NODE = 16;
@@ -97,8 +97,22 @@ public class ElkLayout {
     setIconPadding(layout.iconPadding);
   }
 
+  public static final int EXECUTION_MAP_SPACING_WITHIN_LAYER = 24;
+  public static final int EXECUTION_MAP_SPACING_BETWEEN_LAYERS = 48;
+  public static final int EXECUTION_MAP_SPACING_EDGE_NODE = 20;
+
   public static ElkLayout createDefault() {
     return new ElkLayout();
+  }
+
+  /** Tighter layered defaults tuned for nested execution map graphs. */
+  public static ElkLayout createForExecutionMap() {
+    ElkLayout layout = new ElkLayout();
+    layout.setSpacingWithinLayer(EXECUTION_MAP_SPACING_WITHIN_LAYER);
+    layout.setSpacingBetweenLayers(EXECUTION_MAP_SPACING_BETWEEN_LAYERS);
+    layout.setSpacingEdgeNode(EXECUTION_MAP_SPACING_EDGE_NODE);
+    layout.setDirection(ElkLayoutDirection.RIGHT);
+    return layout;
   }
 
   public int getSpacingWithinLayer() {

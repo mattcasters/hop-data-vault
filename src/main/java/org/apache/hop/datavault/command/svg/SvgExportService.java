@@ -32,8 +32,11 @@ import org.apache.hop.datavault.hopgui.file.businessvault.BusinessVaultModelSvgP
 import org.apache.hop.datavault.hopgui.file.businessvault.HopBusinessVaultFileType;
 import org.apache.hop.datavault.hopgui.file.dimensional.DimensionalModelSvgPainter;
 import org.apache.hop.datavault.hopgui.file.dimensional.HopDimensionalFileType;
+import org.apache.hop.datavault.executionmap.ExecutionMapPersistence;
+import org.apache.hop.datavault.hopgui.file.executionmap.ExecutionMapSvgPainter;
 import org.apache.hop.datavault.hopgui.file.vault.DataVaultModelSvgPainter;
 import org.apache.hop.datavault.hopgui.file.vault.HopVaultFileType;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
@@ -54,9 +57,10 @@ public final class SvgExportService {
   public static final String EXT_HDV = "hdv";
   public static final String EXT_HBV = "hbv";
   public static final String EXT_HDM = "hdm";
+  public static final String EXT_HEM = "hem";
 
   private static final Set<String> SUPPORTED_EXTENSIONS =
-      Set.of(EXT_HPL, EXT_HWF, EXT_HDV, EXT_HBV, EXT_HDM);
+      Set.of(EXT_HPL, EXT_HWF, EXT_HDV, EXT_HBV, EXT_HDM, EXT_HEM);
 
   private SvgExportService() {}
 
@@ -89,6 +93,12 @@ public final class SvgExportService {
         model, options, variables, metadataProvider);
   }
 
+  public static String generateExecutionMapSvg(
+      ExecutionMapDocument document, SvgRenderOptions options, IVariables variables)
+      throws HopException {
+    return ExecutionMapSvgPainter.generateExecutionMapSvg(document, options, variables);
+  }
+
   public static String generateSvg(
       String filename,
       SvgRenderOptions options,
@@ -109,6 +119,8 @@ public final class SvgExportService {
           generateBusinessVaultModelSvg(resolvedFilename, renderOptions, variables, metadataProvider);
       case EXT_HDM ->
           generateDimensionalModelSvg(resolvedFilename, renderOptions, variables, metadataProvider);
+      case EXT_HEM ->
+          generateExecutionMapSvg(resolvedFilename, renderOptions, variables, metadataProvider);
       default ->
           throw new HopException("Unsupported file extension for SVG export: " + extension);
     };
@@ -177,7 +189,7 @@ public final class SvgExportService {
 
     FileObject[] childFiles =
         sourceFolder.findFiles(
-            new FileExtensionSelector(EXT_HPL, EXT_HWF, EXT_HDV, EXT_HBV, EXT_HDM));
+            new FileExtensionSelector(EXT_HPL, EXT_HWF, EXT_HDV, EXT_HBV, EXT_HDM, EXT_HEM));
     for (FileObject childFile : childFiles) {
       if (!childFile.getParent().equals(sourceFolder)) {
         continue;
@@ -340,6 +352,23 @@ public final class SvgExportService {
     DimensionalModel model = new DimensionalModel();
     XmlMetadataUtil.deSerializeFromXml(rootNode, DimensionalModel.class, model, metadataProvider);
     return model;
+  }
+
+  private static String generateExecutionMapSvg(
+      String filename,
+      SvgRenderOptions options,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
+    try {
+      ExecutionMapDocument document =
+          ExecutionMapPersistence.load(filename, metadataProvider, variables);
+      return generateExecutionMapSvg(document, options, variables);
+    } catch (HopException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new HopException("Unable to generate SVG for execution map " + filename, e);
+    }
   }
 
   private static String extensionOf(String filename) {

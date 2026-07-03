@@ -41,10 +41,10 @@ import picocli.CommandLine;
 @CommandLine.Command(
     mixinStandardHelpOptions = true,
     name = "svg",
-    description = "Export pipelines, workflows, and DV/BV/dimensional models to SVG")
+    description = "Export pipelines, workflows, models, and execution maps to SVG")
 @HopCommand(
     id = "svg",
-    description = "Export pipelines, workflows, and DV/BV/dimensional models to SVG")
+    description = "Export pipelines, workflows, models, and execution maps to SVG")
 public class SvgExportCommand implements Runnable, IHopCommand, IHasHopMetadataProvider {
 
   public static final String VAR_PROJECT_HOME = "PROJECT_HOME";
@@ -56,7 +56,7 @@ public class SvgExportCommand implements Runnable, IHopCommand, IHasHopMetadataP
 
   @CommandLine.Option(
       names = {"-f", "--file"},
-      description = "Input file (.hpl, .hwf, .hdv, .hbv, or .hdm)")
+      description = "Input file (.hpl, .hwf, .hdv, .hbv, .hdm, or .hem)")
   private String file;
 
   @CommandLine.Option(

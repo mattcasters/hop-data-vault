@@ -138,6 +138,9 @@ public abstract class HopGuiModelGraphBase extends HopGuiAbstractGraph implement
     }
 
     ModelGraphHit hit = mouseInteractions().resolveHit(real.x, real.y);
+    if (hit == null) {
+      hit = ModelGraphHit.BACKGROUND;
+    }
 
     if (mouseInteractions().handleObjectMouseDown(e, real, hit, shift, control)) {
       return;

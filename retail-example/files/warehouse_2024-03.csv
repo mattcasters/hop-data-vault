@@ -1,0 +1,51 @@
+warehouse_id,warehouse_name,city,region,capacity,load_date,record_source
+51,Warehouse 51,Seattle,East,66727,2024-03-01,E2E-warehouse
+52,Warehouse 52,Austin,South,151340,2024-03-01,E2E-warehouse
+53,Warehouse 53,Austin,North,225907,2024-03-01,E2E-warehouse
+54,Warehouse 54,Phoenix,East,70523,2024-03-01,E2E-warehouse
+55,Warehouse 55,Chicago,West,149764,2024-03-01,E2E-warehouse
+56,Warehouse 56,Phoenix,South,127127,2024-03-01,E2E-warehouse
+57,Warehouse 57,Phoenix,West,52298,2024-03-01,E2E-warehouse
+58,Warehouse 58,Chicago,South,153814,2024-03-01,E2E-warehouse
+59,Warehouse 59,Chicago,West,124039,2024-03-01,E2E-warehouse
+60,Warehouse 60,Chicago,East,200361,2024-03-01,E2E-warehouse
+61,Warehouse 61,New York,West,138137,2024-03-01,E2E-warehouse
+62,Warehouse 62,Seattle,East,74479,2024-03-01,E2E-warehouse
+63,Warehouse 63,Seattle,North,217292,2024-03-01,E2E-warehouse
+64,Warehouse 64,Phoenix,West,167094,2024-03-01,E2E-warehouse
+65,Warehouse 65,Seattle,West,105752,2024-03-01,E2E-warehouse
+66,Warehouse 66,Austin,North,162316,2024-03-01,E2E-warehouse
+67,Warehouse 67,Seattle,North,96693,2024-03-01,E2E-warehouse
+68,Warehouse 68,Austin,North,195807,2024-03-01,E2E-warehouse
+69,Warehouse 69,Chicago,East,26013,2024-03-01,E2E-warehouse
+70,Warehouse 70,Phoenix,East,240800,2024-03-01,E2E-warehouse
+71,Warehouse 71,Austin,South,72828,2024-03-01,E2E-warehouse
+72,Warehouse 72,New York,South,18000,2024-03-01,E2E-warehouse
+73,Warehouse 73,Austin,West,98183,2024-03-01,E2E-warehouse
+74,Warehouse 74,New York,West,223071,2024-03-01,E2E-warehouse
+75,Warehouse 75,Seattle,South,13618,2024-03-01,E2E-warehouse
+76,Warehouse 76,Chicago,West,179941,2024-03-01,E2E-warehouse
+77,Warehouse 77,Seattle,North,149920,2024-03-01,E2E-warehouse
+78,Warehouse 78,Austin,West,156043,2024-03-01,E2E-warehouse
+79,Warehouse 79,New York,South,101294,2024-03-01,E2E-warehouse
+80,Warehouse 80,Chicago,North,52071,2024-03-01,E2E-warehouse
+81,Warehouse 81,Phoenix,East,36284,2024-03-01,E2E-warehouse
+82,Warehouse 82,Seattle,West,73697,2024-03-01,E2E-warehouse
+83,Warehouse 83,Seattle,West,160789,2024-03-01,E2E-warehouse
+84,Warehouse 84,Chicago,North,204450,2024-03-01,E2E-warehouse
+85,Warehouse 85,Phoenix,West,181521,2024-03-01,E2E-warehouse
+86,Warehouse 86,Seattle,North,225382,2024-03-01,E2E-warehouse
+87,Warehouse 87,Seattle,South,190313,2024-03-01,E2E-warehouse
+88,Warehouse 88,Seattle,East,52318,2024-03-01,E2E-warehouse
+89,Warehouse 89,Seattle,South,110612,2024-03-01,E2E-warehouse
+90,Warehouse 90,Chicago,West,170580,2024-03-01,E2E-warehouse
+91,Warehouse 91,New York,North,49974,2024-03-01,E2E-warehouse
+92,Warehouse 92,Phoenix,North,30271,2024-03-01,E2E-warehouse
+93,Warehouse 93,Austin,East,218396,2024-03-01,E2E-warehouse
+94,Warehouse 94,Austin,West,168029,2024-03-01,E2E-warehouse
+95,Warehouse 95,Austin,West,45913,2024-03-01,E2E-warehouse
+96,Warehouse 96,Chicago,West,82823,2024-03-01,E2E-warehouse
+97,Warehouse 97,Seattle,East,60114,2024-03-01,E2E-warehouse
+98,Warehouse 98,Austin,South,115621,2024-03-01,E2E-warehouse
+99,Warehouse 99,New York,West,154951,2024-03-01,E2E-warehouse
+100,Warehouse 100,New York,East,28862,2024-03-01,E2E-warehouse

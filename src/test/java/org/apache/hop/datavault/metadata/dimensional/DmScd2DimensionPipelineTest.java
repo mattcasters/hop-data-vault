@@ -171,9 +171,17 @@ class DmScd2DimensionPipelineTest {
             .get(0);
 
     assertEquals("dm-dim-d_customer", pipeline.getName());
-    assertTrue(
-        pipeline.getTransforms().stream()
-            .anyMatch(t -> t.getTransform() instanceof CalculatorMeta));
+    CalculatorMeta versionCalculator =
+        (CalculatorMeta)
+            pipeline.getTransforms().stream()
+                .filter(t -> t.getName().equals("calc_d_customer_version"))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+    assertEquals(
+        "version_new",
+        versionCalculator.getFunctions().get(versionCalculator.getFunctions().size() - 1).getFieldName());
+    assertFalse(versionCalculator.getFunctions().get(versionCalculator.getFunctions().size() - 1).isRemovedFromResult());
     assertTrue(
         pipeline.getTransforms().stream()
             .anyMatch(t -> t.getName().equals("close_d_customer")));
@@ -241,6 +249,12 @@ class DmScd2DimensionPipelineTest {
                 .findFirst()
                 .orElseThrow()
                 .getTransform();
+    assertTrue(
+        tableOutput.getFields().stream()
+            .anyMatch(
+                field ->
+                    "version".equals(field.getFieldDatabase())
+                        && "version_new".equals(field.getFieldStream())));
     Set<String> outputFields =
         tableOutput.getFields().stream()
             .map(field -> field.getFieldDatabase())

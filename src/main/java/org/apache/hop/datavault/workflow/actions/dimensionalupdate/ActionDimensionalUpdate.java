@@ -50,7 +50,10 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.catalog.metadata.DataCatalogMeta;
+import org.apache.hop.datavault.catalog.DmCatalogPublisher;
 import org.apache.hop.datavault.hopgui.file.dimensional.HopDimensionalFileType;
+import org.apache.hop.datavault.metadata.dimensional.DmSourceRecordDefinitionSupport;
 import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvModelBulkUpdateExecutionSupport;
@@ -192,6 +195,25 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
   private boolean doNotUpdateTargetDatabase;
 
   @GuiWidgetElement(
+      order = "0950",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionDimensionalUpdate.PublishToCatalog.Label",
+      toolTip = "i18n::ActionDimensionalUpdate.PublishToCatalog.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
+  @HopMetadataProperty
+  private boolean publishToCatalog;
+
+  @GuiWidgetElement(
+      order = "0960",
+      type = GuiElementType.METADATA,
+      metadata = DataCatalogMeta.class,
+      label = "i18n::ActionDimensionalUpdate.DataCatalogConnection.Label",
+      toolTip = "i18n::ActionDimensionalUpdate.DataCatalogConnection.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
+  @HopMetadataProperty
+  private String dataCatalogConnection;
+
+  @GuiWidgetElement(
       order = "0100",
       type = GuiElementType.CHECKBOX,
       label = "i18n::ActionDimensionalUpdate.UpdateTargetStructure.Label",
@@ -238,6 +260,8 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
     this.metricsOutputFolder = meta.metricsOutputFolder;
     this.selectedTableNames = meta.selectedTableNames;
     this.doNotUpdateTargetDatabase = meta.doNotUpdateTargetDatabase;
+    this.publishToCatalog = meta.publishToCatalog;
+    this.dataCatalogConnection = meta.dataCatalogConnection;
     this.updateTargetDatabaseStructure = meta.updateTargetDatabaseStructure;
     this.ddlSqlFilename = meta.ddlSqlFilename;
     this.failIfDdlNeeded = meta.failIfDdlNeeded;
@@ -302,7 +326,7 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
       List<IDmTable> tables = filterTables(dmModel.getTables());
       if (tables.isEmpty()) {
         logBasic(BaseMessages.getString(PKG, "ActionDimensionalUpdate.Log.NoTables"));
-        return finishExecution(result, true, 0);
+        return finishExecution(result, true, 0, dmModel);
       }
 
       boolean success = true;
@@ -437,13 +461,13 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
         if (updateTargetDatabaseStructure && ddlPhaseFailed) {
           logError(
               BaseMessages.getString(PKG, "ActionDimensionalUpdate.Log.AbortingOnDdlFailure"));
-          return finishExecution(result, false, Math.max(totalErrors, 1));
+          return finishExecution(result, false, Math.max(totalErrors, 1), dmModel);
         }
       }
 
       if (doNotUpdateTargetDatabase) {
         logBasic(BaseMessages.getString(PKG, "ActionDimensionalUpdate.Log.SkippingDataUpdate"));
-        return finishExecution(result, success, totalErrors);
+        return finishExecution(result, success, totalErrors, dmModel);
       }
 
       DimensionalConfiguration pipelineConfig = dmModel.getConfigurationOrDefault();
@@ -545,7 +569,7 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
         totalErrors = outcome.totalErrors();
       }
 
-      return finishExecution(result, success, totalErrors);
+      return finishExecution(result, success, totalErrors, dmModel);
 
     } catch (Exception e) {
       logError(BaseMessages.getString(PKG, "ActionDimensionalUpdate.Error.General"), e);
@@ -555,10 +579,67 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
     }
   }
 
-  private Result finishExecution(Result result, boolean success, int totalErrors) {
+  private Result finishExecution(
+      Result result, boolean success, int totalErrors, DimensionalModel dmModel) {
+    if (publishToCatalog) {
+      if (!publishModelToCatalog(dmModel)) {
+        success = false;
+        totalErrors++;
+      }
+    }
     result.setResult(success);
     result.setNrErrors(success ? 0 : (totalErrors > 0 ? totalErrors : 1));
     return result;
+  }
+
+  private boolean publishModelToCatalog(DimensionalModel dmModel) {
+    try {
+      String catalogConnection = resolveCatalogConnection(dmModel);
+      if (Utils.isEmpty(catalogConnection)) {
+        logError(
+            BaseMessages.getString(PKG, "ActionDimensionalUpdate.Error.NoDataCatalogConnection"));
+        return false;
+      }
+      DmCatalogPublisher.PublishResult publishResult =
+          DmCatalogPublisher.publish(
+              catalogConnection,
+              dmModel,
+              getVariables(),
+              getMetadataProvider(),
+              getName(),
+              new DmCatalogPublisher.CatalogPublishLog() {
+                @Override
+                public void logBasic(String message) {
+                  ActionDimensionalUpdate.this.logBasic(message);
+                }
+
+                @Override
+                public void logError(String message, Throwable throwable) {
+                  ActionDimensionalUpdate.this.logError(message, throwable);
+                }
+              });
+      logBasic(
+          BaseMessages.getString(
+              PKG,
+              "ActionDimensionalUpdate.Log.CatalogPublished",
+              publishResult.getTableCount(),
+              catalogConnection,
+              publishResult.getErrorCount()));
+      return publishResult.isSuccess();
+    } catch (Exception e) {
+      logError(BaseMessages.getString(PKG, "ActionDimensionalUpdate.Error.CatalogPublishFailed"), e);
+      return false;
+    }
+  }
+
+  private String resolveCatalogConnection(DimensionalModel dmModel) throws HopException {
+    String actionConnection = resolve(dataCatalogConnection);
+    if (!Utils.isEmpty(actionConnection)) {
+      return actionConnection;
+    }
+    DimensionalConfiguration config = dmModel != null ? dmModel.getConfigurationOrDefault() : null;
+    return DmSourceRecordDefinitionSupport.resolveCatalogConnection(
+        config, null, getVariables(), getMetadataProvider());
   }
 
   private List<IDmTable> filterTables(List<IDmTable> tables) {
