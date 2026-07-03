@@ -53,6 +53,12 @@ public final class DmFactLikeLoadBuilder {
     TransformMeta predecessor = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     try {
       predecessor =
+          DmNumberRangeBuilder.wireRangeDimensionRoles(
+              ctx, pipelineMeta, predecessor, model, factLike.getRangeDimensionRolesOrEmpty());
+      predecessor =
+          DmFactJunkDimensionJoinBuilder.wireJunkDimensionRoles(
+              ctx, pipelineMeta, predecessor, model, factLike.getJunkDimensionRolesOrEmpty());
+      predecessor =
           DmFactDimensionJoinBuilder.wireDimensionRoles(
               ctx,
               pipelineMeta,

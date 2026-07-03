@@ -27,7 +27,7 @@ import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.variables.IVariables;
-import org.apache.hop.datavault.metadata.dimensional.pipeline.DmCombinationLookupBuilder;
+import org.apache.hop.datavault.metadata.dimensional.pipeline.DmJunkDimensionBuilder;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
@@ -46,6 +46,18 @@ public class DmJunkDimension extends DmTableBase {
   private DmJunkSurrogateKeyStrategy surrogateKeyStrategy;
 
   @HopMetadataProperty private String surrogateKeySourceField;
+
+  @HopMetadataProperty private boolean loadFromFactTable;
+
+  @HopMetadataProperty private String factTableName;
+
+  @HopMetadataProperty(storeWithCode = true)
+  private DmJunkHashCodeStrategy hashCodeStrategy;
+
+  @HopMetadataProperty private String hashCodeField;
+
+  /** When true, the surrogate key column also serves as the hash lookup column (DV hub style). */
+  @HopMetadataProperty private boolean useSurrogateKeyAsHashCodeField;
 
   public DmJunkDimension() {
     super(DmTableType.JUNK_DIMENSION);
@@ -74,6 +86,10 @@ public class DmJunkDimension extends DmTableBase {
     return DmLayoutSupport.buildJunkDimensionTargetTableLayout(this, config, variables);
   }
 
+  public DmJunkHashCodeStrategy getHashCodeStrategyOrDefault() {
+    return hashCodeStrategy != null ? hashCodeStrategy : DmJunkHashCodeStrategy.INTEGER_LEGACY;
+  }
+
   @Override
   public List<PipelineMeta> generateUpdatePipelines(
       IHopMetadataProvider metadataProvider,
@@ -81,7 +97,10 @@ public class DmJunkDimension extends DmTableBase {
       DimensionalModel model,
       Date loadTimestamp)
       throws HopException {
+    if (DmJunkDimensionSupport.isFactEmbedded(this)) {
+      return List.of();
+    }
     return List.of(
-        DmCombinationLookupBuilder.generatePipeline(metadataProvider, variables, model, this));
+        DmJunkDimensionBuilder.generatePipeline(metadataProvider, variables, model, this));
   }
 }

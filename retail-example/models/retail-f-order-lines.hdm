@@ -1,5 +1,5 @@
 <dimensional-model>
-  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-f-order-lines.hdm</filename>
+  <filename>${PROJECT_HOME}/models/retail-f-order-lines.hdm</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description/>
   <configuration>
@@ -16,7 +16,7 @@
     <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
     <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
     <targetTableBatchSize>1000</targetTableBatchSize>
-    <targetTableParallelCopies>2</targetTableParallelCopies>
+    <targetTableParallelCopies>1</targetTableParallelCopies>
     <target_load_mode>Table Output</target_load_mode>
     <bulkLoadStagingFolder>${java.io.tmpdir}/dv2/bulk/</bulkLoadStagingFolder>
     <bulkLoadDelimiter>,</bulkLoadDelimiter>
@@ -33,7 +33,7 @@
   <tables>
     <table>
       <referencedDimensionName>d_order</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_order</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
@@ -108,6 +108,9 @@
           <additive>Y</additive>
         </measure>
       </measures>
+      <degenerate_dimensions/>
+      <range_dimension_roles/>
+      <junk_dimension_roles/>
       <tableName>f_order_lines</tableName>
       <description/>
       <tableType>FACT</tableType>
@@ -156,7 +159,7 @@ JOIN   (
     </table>
     <table>
       <referencedDimensionName>d_product</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_product</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
@@ -167,7 +170,7 @@ JOIN   (
     </table>
     <table>
       <referencedDimensionName>d_date</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_date</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
@@ -178,7 +181,7 @@ JOIN   (
     </table>
     <table>
       <referencedDimensionName>d_date</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_date</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
@@ -189,7 +192,7 @@ JOIN   (
     </table>
     <table>
       <referencedDimensionName>d_date</referencedDimensionName>
-      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</referencedModelFilename>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-conformed-dims.hdm</referencedModelFilename>
       <tableName>d_date</tableName>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>

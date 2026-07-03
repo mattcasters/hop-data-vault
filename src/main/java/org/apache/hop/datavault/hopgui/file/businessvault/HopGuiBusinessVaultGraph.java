@@ -31,14 +31,12 @@ import org.apache.hop.core.Const;
 import org.apache.hop.core.DbCache;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
-import org.apache.hop.core.database.DatabaseMeta;
-import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.core.action.GuiContextAction;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.IGc;
 import org.apache.hop.core.gui.Point;
-import org.apache.hop.core.gui.Rectangle;
 import org.apache.hop.core.gui.SnapAllignDistribute;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.IGuiRefresher;
@@ -51,51 +49,47 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.vfs.HopVfs;
+import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.command.svg.SvgExportService;
-import org.apache.hop.datavault.hopgui.ai.BvAiAdvisorDialog;
 import org.apache.hop.datavault.command.svg.SvgRenderOptions;
+import org.apache.hop.datavault.config.DataVaultConfigSingleton;
+import org.apache.hop.datavault.hopgui.ModelTableLayoutPreviewSupport;
+import org.apache.hop.datavault.hopgui.ModelUpdateActionAuditSupport;
+import org.apache.hop.datavault.hopgui.ModelUpdateWorkflowClipboardSupport;
+import org.apache.hop.datavault.hopgui.ai.BvAiAdvisorDialog;
 import org.apache.hop.datavault.hopgui.file.businessvault.delegates.HopGuiBusinessVaultClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.businessvault.delegates.HopGuiBusinessVaultSnapshotUndo;
 import org.apache.hop.datavault.hopgui.file.modelgraph.HopGuiModelGraphBase;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphHit;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphMouseInteractions;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphSnapshotUndo;
-import org.apache.hop.datavault.config.DataVaultConfigSingleton;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvTableType;
-import org.apache.hop.datavault.metadata.IDvTable;
-import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
-import org.apache.hop.datavault.hopgui.ModelTableLayoutPreviewSupport;
-import org.apache.hop.datavault.hopgui.ModelUpdateActionAuditSupport;
-import org.apache.hop.datavault.hopgui.ModelUpdateWorkflowClipboardSupport;
 import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
-import org.apache.hop.datavault.workflow.actions.businessvaultupdate.ActionBusinessVaultUpdate;
-import org.apache.hop.workflow.action.ActionMeta;
+import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
-import org.apache.hop.datavault.metadata.businessvault.BusinessVaultUpdateExecutionSupport;
-import org.apache.hop.datavault.metadata.businessvault.BvTargetDatabaseSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvModelResolver;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvReferenceSupport;
-import org.apache.hop.datavault.metadata.businessvault.BvDvTableReference;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
+import org.apache.hop.datavault.metadata.businessvault.BusinessVaultUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.businessvault.BvBusinessTable;
+import org.apache.hop.datavault.metadata.businessvault.BvDvTableReference;
 import org.apache.hop.datavault.metadata.businessvault.BvPitTable;
 import org.apache.hop.datavault.metadata.businessvault.BvScd2Table;
 import org.apache.hop.datavault.metadata.businessvault.BvTableBase;
+import org.apache.hop.datavault.metadata.businessvault.BvTargetDatabaseSupport;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
+import org.apache.hop.datavault.workflow.actions.businessvaultupdate.ActionBusinessVaultUpdate;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
-import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.database.dialog.SqlEditor;
-import org.apache.hop.ui.hopgui.context.GuiContextUtil;
-import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
-import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.CheckResultDialog;
 import org.apache.hop.ui.core.dialog.EnterSelectionDialog;
@@ -107,10 +101,15 @@ import org.apache.hop.ui.core.gui.IToolbarContainer;
 import org.apache.hop.ui.hopgui.CanvasFacade;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.hopgui.ToolbarFacade;
+import org.apache.hop.ui.hopgui.context.GuiContextUtil;
+import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
 import org.apache.hop.ui.hopgui.file.IHopFileType;
 import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
+import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.hopgui.shared.SwtGc;
+import org.apache.hop.workflow.WorkflowMeta;
+import org.apache.hop.workflow.action.ActionMeta;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.graphics.Cursor;
@@ -126,7 +125,9 @@ import org.eclipse.swt.widgets.Event;
 import org.w3c.dom.Node;
 
 /** Hop GUI editor for Business Vault models with references to a Data Vault model. */
-@GuiPlugin(id = "HopGuiBusinessVaultGraph", description = "i18n::HopGuiBusinessVaultGraph.Description")
+@GuiPlugin(
+    id = "HopGuiBusinessVaultGraph",
+    description = "i18n::HopGuiBusinessVaultGraph.Description")
 @Getter
 @Setter
 public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
@@ -137,7 +138,8 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   public static final String GUI_PLUGIN_TOOLBAR_PARENT_ID = "HopGuiBusinessVaultGraph-Toolbar";
   public static final String TOOLBAR_ITEM_ZOOM_LEVEL =
       "HopGuiBusinessVaultGraph-ToolBar-10500-Zoom-Level";
-  public static final String TOOLBAR_ITEM_ZOOM_IN = "HopGuiBusinessVaultGraph-ToolBar-10010-Zoom-In";
+  public static final String TOOLBAR_ITEM_ZOOM_IN =
+      "HopGuiBusinessVaultGraph-ToolBar-10010-Zoom-In";
   public static final String TOOLBAR_ITEM_ZOOM_OUT =
       "HopGuiBusinessVaultGraph-ToolBar-10020-Zoom-Out";
   public static final String TOOLBAR_ITEM_ZOOM_100 =
@@ -154,8 +156,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       "HopGuiBusinessVaultGraph-ToolBar-10065-Export-Svg";
   public static final String TOOLBAR_ITEM_RELOAD_DV =
       "HopGuiBusinessVaultGraph-ToolBar-10070-Reload-Dv";
-  public static final String TOOLBAR_ITEM_DEBUG =
-      "HopGuiBusinessVaultGraph-ToolBar-10080-Debug";
+  public static final String TOOLBAR_ITEM_DEBUG = "HopGuiBusinessVaultGraph-ToolBar-10080-Debug";
   public static final String TOOLBAR_ITEM_GENERATE_DDL =
       "HopGuiBusinessVaultGraph-ToolBar-10085-Generate-Ddl";
   public static final String TOOLBAR_ITEM_SELECT_ALL =
@@ -174,7 +175,8 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
 
   private final HopBusinessVaultFileType fileType;
   private final HopGuiBusinessVaultClipboardDelegate clipboardDelegate;
-  private final HopGuiBusinessVaultSnapshotUndo snapshotUndo = new HopGuiBusinessVaultSnapshotUndo();
+  private final HopGuiBusinessVaultSnapshotUndo snapshotUndo =
+      new HopGuiBusinessVaultSnapshotUndo();
   private BusinessVaultModel model;
   private DataVaultModel dataVaultModel;
   private String dataVaultLoadError;
@@ -353,7 +355,8 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   public static HopGuiBusinessVaultGraph getInstance() {
     IHopPerspective activePerspective = HopGui.getInstance().getActivePerspective();
     if (activePerspective instanceof ExplorerPerspective explorerPerspective) {
-      if (explorerPerspective.getActiveFileTypeHandler() instanceof HopGuiBusinessVaultGraph graph) {
+      if (explorerPerspective.getActiveFileTypeHandler()
+          instanceof HopGuiBusinessVaultGraph graph) {
         return graph;
       }
     }
@@ -413,8 +416,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       org.eclipse.swt.graphics.Point p = getShell().getDisplay().map(canvas, null, e.x, e.y);
       String message =
           BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Context.Background.Message");
-      IGuiContextHandler contextHandler =
-          new HopGuiBusinessVaultContext(model, this, real);
+      IGuiContextHandler contextHandler = new HopGuiBusinessVaultContext(model, this, real);
       avoidContextDialog =
           GuiContextUtil.getInstance()
               .handleActionSelection(getShell(), message, new Point(p.x, p.y), contextHandler);
@@ -490,8 +492,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     byte[] beforeChange = captureUndoSnapshot();
     boolean accepted =
         table instanceof BvScd2Table scd2Table
-            ? new HopGuiBvScd2TableDialog(
-                    getShell(), scd2Table, model, dataVaultModel, variables)
+            ? new HopGuiBvScd2TableDialog(getShell(), scd2Table, model, dataVaultModel, variables)
                 .open()
             : new HopGuiBvTableDialog(getShell(), table, model, dataVaultModel, variables).open();
     if (accepted) {
@@ -853,8 +854,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     }
 
     List<String> choices =
-        BusinessVaultDvReferenceSupport.listAvailableDvTableNames(
-            dataVaultModel, model, tableType);
+        BusinessVaultDvReferenceSupport.listAvailableDvTableNames(dataVaultModel, model, tableType);
     if (choices.isEmpty()) {
       new ErrorDialog(
           hopGui.getShell(),
@@ -1136,6 +1136,38 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = "bv-graph-paste-clipboard-table",
+      parentId = HopGuiBusinessVaultTableContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiBusinessVaultGraph.PasteFromClipboard.Name",
+      tooltip = "i18n::HopGuiBusinessVaultGraph.PasteFromClipboard.Tooltip",
+      image = "ui/images/paste.svg",
+      category = "Business Vault",
+      categoryOrder = "5")
+  public void pasteFromClipboardOnTable(HopGuiBusinessVaultTableContext context) {
+    HopGuiBusinessVaultGraph graph = context.getBusinessVaultGraph();
+    if (graph != null) {
+      graph.pasteFromClipboard(context.getClick());
+    }
+  }
+
+  @GuiContextAction(
+      id = "bv-graph-paste-clipboard-note",
+      parentId = HopGuiBusinessVaultNoteContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiBusinessVaultGraph.PasteFromClipboard.Name",
+      tooltip = "i18n::HopGuiBusinessVaultGraph.PasteFromClipboard.Tooltip",
+      image = "ui/images/paste.svg",
+      category = "Business Vault",
+      categoryOrder = "3")
+  public void pasteFromClipboardOnNote(HopGuiBusinessVaultNoteContext context) {
+    HopGuiBusinessVaultGraph graph = context.getBusinessVaultGraph();
+    if (graph != null) {
+      graph.pasteFromClipboard(context.getClick());
+    }
+  }
+
+  @GuiContextAction(
       id = "bv-graph-copy-update-action",
       parentId = HopGuiBusinessVaultContext.CONTEXT_ID,
       type = GuiActionType.Modify,
@@ -1299,7 +1331,8 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
               model, options, variables, hopGui.getMetadataProvider());
 
       String proposedName = Const.NVL(model.getName(), "business-vault-model") + ".svg";
-      String proposedFilename = variables.getVariable("user.home") + java.io.File.separator + proposedName;
+      String proposedFilename =
+          variables.getVariable("user.home") + java.io.File.separator + proposedName;
 
       String filenameFromUser =
           BaseDialog.presentFileDialog(
@@ -1589,8 +1622,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       new ErrorDialog(
           hopGui.getShell(),
           BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Debug.Error.Title"),
-          BaseMessages.getString(
-              PKG, "HopGuiBusinessVaultGraph.Debug.Error.Pipeline", tableName),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Debug.Error.Pipeline", tableName),
           e);
     }
   }
@@ -1876,8 +1908,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     } catch (HopException e) {
       new ErrorDialog(
           hopGui.getShell(),
-          BaseMessages.getString(
-              PKG, "HopGuiBusinessVaultGraph.NavigateDvReference.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.NavigateDvReference.Error.Title"),
           e.getMessage(),
           e);
     }
@@ -2074,7 +2105,8 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     MessageBox messageDialog =
         new MessageBox(hopShell(), SWT.ICON_QUESTION | SWT.YES | SWT.NO | SWT.CANCEL);
     messageDialog.setText(
-        BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.CopyUpdateAction.Save.Dialog.Header"));
+        BaseMessages.getString(
+            PKG, "HopGuiBusinessVaultGraph.CopyUpdateAction.Save.Dialog.Header"));
     messageDialog.setMessage(
         BaseMessages.getString(
             PKG, "HopGuiBusinessVaultGraph.CopyUpdateAction.Save.Dialog.Message", buildTabName()));
@@ -2246,6 +2278,10 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     }
     enableClipboardToolbarItems();
     enableUndoToolbarItems();
+
+    if (canvas != null && !canvas.isDisposed()) {
+      canvas.setFocus();
+    }
   }
 
   private void enableClipboardToolbarItems() {
@@ -2427,8 +2463,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
           return true;
         }
         if (e.button == 1 && areaType == AreaOwner.AreaType.TRANSFORM_ICON) {
-          prepareExclusiveDragSelection(
-              control, bvHit.isSelected(), () -> bvHit.setSelected(true));
+          prepareExclusiveDragSelection(control, bvHit.isSelected(), () -> bvHit.setSelected(true));
           currentBvTable = bvHit;
           currentDvReference = null;
           iconDragStart = new Point(real.x, real.y);
@@ -2574,8 +2609,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     }
 
     @Override
-    public void selectInLassoRegion(
-        int lassoMinX, int lassoMinY, int lassoMaxX, int lassoMaxY) {
+    public void selectInLassoRegion(int lassoMinX, int lassoMinY, int lassoMaxX, int lassoMaxY) {
       if (model == null) {
         return;
       }

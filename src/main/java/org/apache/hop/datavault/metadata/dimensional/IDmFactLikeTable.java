@@ -28,4 +28,8 @@ public interface IDmFactLikeTable extends IDmTable {
   List<DmFactMeasure> getMeasuresOrEmpty();
 
   List<DmFactDegenerateDimension> getDegenerateDimensionsOrEmpty();
+
+  List<DmFactRangeDimensionRole> getRangeDimensionRolesOrEmpty();
+
+  List<DmFactJunkDimensionRole> getJunkDimensionRolesOrEmpty();
 }

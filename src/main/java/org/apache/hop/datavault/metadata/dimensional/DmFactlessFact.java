@@ -43,6 +43,12 @@ public class DmFactlessFact extends DmTableBase implements IDmFactLikeTable {
   @HopMetadataProperty(key = "degenerate_dimension", groupKey = "degenerate_dimensions")
   private List<DmFactDegenerateDimension> degenerateDimensions = new ArrayList<>();
 
+  @HopMetadataProperty(key = "range_dimension_role", groupKey = "range_dimension_roles")
+  private List<DmFactRangeDimensionRole> rangeDimensionRoles = new ArrayList<>();
+
+  @HopMetadataProperty(key = "junk_dimension_role", groupKey = "junk_dimension_roles")
+  private List<DmFactJunkDimensionRole> junkDimensionRoles = new ArrayList<>();
+
   public DmFactlessFact() {
     super(DmTableType.FACTLESS_FACT);
   }
@@ -60,6 +66,16 @@ public class DmFactlessFact extends DmTableBase implements IDmFactLikeTable {
   @Override
   public List<DmFactDegenerateDimension> getDegenerateDimensionsOrEmpty() {
     return degenerateDimensions != null ? degenerateDimensions : List.of();
+  }
+
+  @Override
+  public List<DmFactRangeDimensionRole> getRangeDimensionRolesOrEmpty() {
+    return rangeDimensionRoles != null ? rangeDimensionRoles : List.of();
+  }
+
+  @Override
+  public List<DmFactJunkDimensionRole> getJunkDimensionRolesOrEmpty() {
+    return junkDimensionRoles != null ? junkDimensionRoles : List.of();
   }
 
   @Override

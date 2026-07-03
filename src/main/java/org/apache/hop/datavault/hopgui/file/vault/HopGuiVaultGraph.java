@@ -2184,6 +2184,10 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
 
     enableClipboardToolbarItems();
     enableUndoToolbarItems();
+
+    if (canvas!=null && !canvas.isDisposed()) {
+      canvas.setFocus();
+    }
   }
 
   private void enableClipboardToolbarItems() {

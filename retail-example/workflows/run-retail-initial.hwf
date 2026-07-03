@@ -162,7 +162,7 @@
       <set_append_logfile>N</set_append_logfile>
       <insertScript>Y</insertScript>
       <script>#!/bin/sh
-exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-catalog-sources.py" --project-home "${PROJECT_HOME}"</script>
+exec python3 "${PROJECT_HOME}/scripts/generate-catalog-sources.py" --project-home "${PROJECT_HOME}"</script>
       <name>Generate catalog sources</name>
       <description/>
       <type>SHELL</type>
@@ -187,7 +187,7 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-catalog-sources.py"
       <set_append_logfile>N</set_append_logfile>
       <insertScript>Y</insertScript>
       <script>#!/bin/sh
-exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --mode initial --project-home "${PROJECT_HOME}"</script>
+exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --project-home "${PROJECT_HOME}"</script>
       <name>Generate initial data</name>
       <description/>
       <type>SHELL</type>
@@ -226,143 +226,50 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <attributes_hac/>
     </action>
     <action>
-      <dataVaultModelFile>${PROJECT_HOME}/models/retail-360.hdv</dataVaultModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>Y</logModelCheckFailures>
-      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
-      <detailedDataTypeChecking>Y</detailedDataTypeChecking>
-      <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
-      <publishToCatalog>N</publishToCatalog>
-      <dataCatalogConnection>local-catalog</dataCatalogConnection>
-      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <ddlSqlFilename>${java.io.tmpdir}/ddl-retail-360.sql</ddlSqlFilename>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <loadDate>${DV_INITIAL_LOAD_DATE}</loadDate>
-      <recordSourceGroup/>
-      <ensureSpecialRecords>Y</ensureSpecialRecords>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <name>retail-360 initial DV</name>
+      <filename>${PROJECT_HOME}/workflows/update-retail-dv-bv-dm.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+        <parameter>
+          <name>DV_LOAD_DATE</name>
+          <value>${DV_INITIAL_LOAD_DATE}</value>
+          <stream_name/>
+        </parameter>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>update-retail-dv-bv-dm</name>
       <description/>
-      <type>DATA_VAULT_UPDATE</type>
+      <type>WORKFLOW</type>
       <attributes/>
       <xloc>80</xloc>
-      <yloc>224</yloc>
+      <yloc>240</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
     <action>
-      <businessVaultModelFile>${PROJECT_HOME}/models/retail-360.hbv</businessVaultModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>Y</logModelCheckFailures>
-      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder/>
-      <publishToCatalog>N</publishToCatalog>
-      <dataCatalogConnection>local-catalog</dataCatalogConnection>
-      <selectedTableNames/>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <ddlSqlFilename/>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-360.hbv</name>
+      <sql/>
+      <connection>Vault</connection>
+      <useVariableSubstitution>N</useVariableSubstitution>
+      <sqlfromfile>Y</sqlfromfile>
+      <sqlfilename>${PROJECT_HOME}/sql/advance-load-control.sql</sqlfilename>
+      <sqlfilename_encoding/>
+      <sendOneStatement>N</sendOneStatement>
+      <name>Advance load control</name>
       <description/>
-      <type>BUSINESS_VAULT_UPDATE</type>
+      <type>SQL</type>
       <attributes/>
-      <xloc>240</xloc>
-      <yloc>224</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <name>Success</name>
-      <description/>
-      <type>SUCCESS</type>
-      <attributes/>
-      <xloc>704</xloc>
-      <yloc>320</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dimensionalModelFile>${PROJECT_HOME}/models/retail-f-orders.hdm</dimensionalModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>Y</logModelCheckFailures>
-      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder/>
-      <selectedTableNames/>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <ddlSqlFilename/>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-f-orders.hdm</name>
-      <description/>
-      <type>DIMENSIONAL_UPDATE</type>
-      <attributes/>
-      <xloc>240</xloc>
-      <yloc>320</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dimensionalModelFile>${PROJECT_HOME}/models/retail-f-order-lines.hdm</dimensionalModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>Y</logModelCheckFailures>
-      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder/>
-      <selectedTableNames/>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <ddlSqlFilename/>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-f-order-lines</name>
-      <description/>
-      <type>DIMENSIONAL_UPDATE</type>
-      <attributes/>
-      <xloc>384</xloc>
-      <yloc>320</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dimensionalModelFile>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-conformed-dims.hdm</dimensionalModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>Y</logModelCheckFailures>
-      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-conformed-dims</name>
-      <description/>
-      <type>DIMENSIONAL_UPDATE</type>
-      <attributes/>
-      <xloc>80</xloc>
-      <yloc>320</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dimensionalModelFile>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-f-inventory.hdm</dimensionalModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>Y</logModelCheckFailures>
-      <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-f-inventory</name>
-      <description/>
-      <type>DIMENSIONAL_UPDATE</type>
-      <attributes/>
-      <xloc>512</xloc>
-      <yloc>320</yloc>
+      <xloc>256</xloc>
+      <yloc>240</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -426,49 +333,14 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
     </hop>
     <hop>
       <from>Load CSV to CRM</from>
-      <to>retail-360 initial DV</to>
+      <to>update-retail-dv-bv-dm</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>retail-360 initial DV</from>
-      <to>retail-360.hbv</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-f-orders.hdm</from>
-      <to>retail-f-order-lines</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-360.hbv</from>
-      <to>retail-conformed-dims</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-conformed-dims</from>
-      <to>retail-f-orders.hdm</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-f-order-lines</from>
-      <to>retail-f-inventory</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-f-inventory</from>
-      <to>Success</to>
+      <from>update-retail-dv-bv-dm</from>
+      <to>Advance load control</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

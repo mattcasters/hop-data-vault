@@ -78,8 +78,12 @@ import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmFact;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
+import org.apache.hop.datavault.metadata.dimensional.DmFactJunkDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmFactlessFact;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmJunkDimensionSupport;
+import org.apache.hop.datavault.metadata.dimensional.DmFactRangeDimensionRole;
+import org.apache.hop.datavault.metadata.dimensional.DmRangeDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmPeriodicSnapshotFact;
 import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
@@ -455,10 +459,16 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     candidateRelationshipTarget = null;
   }
 
-  private static boolean isDimensionLike(IDmTable table) {
-    return table instanceof DmDimension
-        || table instanceof DmDimensionAlias
-        || table instanceof DmJunkDimension;
+  private static boolean isRegularDimensionLike(IDmTable table) {
+    return table instanceof DmDimension || table instanceof DmDimensionAlias;
+  }
+
+  private static boolean isJunkDimension(IDmTable table) {
+    return table instanceof DmJunkDimension;
+  }
+
+  private static boolean isRangeDimension(IDmTable table) {
+    return table instanceof DmRangeDimension;
   }
 
   private static boolean isFactLikeTable(IDmTable table) {
@@ -473,16 +483,28 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     if (a == null || b == null || a == b) {
       return false;
     }
-    if (isFactLikeTable(a) && isDimensionLike(b)) {
+    if (isFactLikeTable(a) && isJunkDimension(b)) {
       return true;
     }
-    if (isFactLikeTable(b) && isDimensionLike(a)) {
+    if (isFactLikeTable(b) && isJunkDimension(a)) {
       return true;
     }
-    if (isBridgeTable(a) && isDimensionLike(b)) {
+    if (isFactLikeTable(a) && isRangeDimension(b)) {
       return true;
     }
-    if (isBridgeTable(b) && isDimensionLike(a)) {
+    if (isFactLikeTable(b) && isRangeDimension(a)) {
+      return true;
+    }
+    if (isFactLikeTable(a) && isRegularDimensionLike(b)) {
+      return true;
+    }
+    if (isFactLikeTable(b) && isRegularDimensionLike(a)) {
+      return true;
+    }
+    if (isBridgeTable(a) && isRegularDimensionLike(b)) {
+      return true;
+    }
+    if (isBridgeTable(b) && isRegularDimensionLike(a)) {
       return true;
     }
     if (a instanceof DmDimension && b instanceof DmDimension) {
@@ -500,13 +522,21 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     byte[] beforeChange = captureUndoSnapshot();
     boolean modelChanged = false;
 
-    if (isFactLikeTable(from) && isDimensionLike(to)) {
+    if (isFactLikeTable(from) && isJunkDimension(to)) {
+      modelChanged = addFactJunkRelationship((IDmFactLikeTable) from, (DmJunkDimension) to);
+    } else if (isFactLikeTable(to) && isJunkDimension(from)) {
+      modelChanged = addFactJunkRelationship((IDmFactLikeTable) to, (DmJunkDimension) from);
+    } else if (isFactLikeTable(from) && isRangeDimension(to)) {
+      modelChanged = addFactRangeRelationship((IDmFactLikeTable) from, (DmRangeDimension) to);
+    } else if (isFactLikeTable(to) && isRangeDimension(from)) {
+      modelChanged = addFactRangeRelationship((IDmFactLikeTable) to, (DmRangeDimension) from);
+    } else if (isFactLikeTable(from) && isRegularDimensionLike(to)) {
       modelChanged = addFactDimensionRole((IDmFactLikeTable) from, to);
-    } else if (isFactLikeTable(to) && isDimensionLike(from)) {
+    } else if (isFactLikeTable(to) && isRegularDimensionLike(from)) {
       modelChanged = addFactDimensionRole((IDmFactLikeTable) to, from);
-    } else if (isBridgeTable(from) && isDimensionLike(to)) {
+    } else if (isBridgeTable(from) && isRegularDimensionLike(to)) {
       modelChanged = addBridgeDimensionRef((DmBridge) from, to);
-    } else if (isBridgeTable(to) && isDimensionLike(from)) {
+    } else if (isBridgeTable(to) && isRegularDimensionLike(from)) {
       modelChanged = addBridgeDimensionRef((DmBridge) to, from);
     } else if (from instanceof DmDimension parent && to instanceof DmDimension outrigger) {
       modelChanged = addOutriggerRef(parent, outrigger);
@@ -522,6 +552,67 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     }
   }
 
+  private boolean addFactRangeRelationship(IDmFactLikeTable fact, DmRangeDimension range) {
+    if (fact == null || range == null || Utils.isEmpty(range.getName())) {
+      return false;
+    }
+    if (hasExistingRangeRole(fact, range.getName())) {
+      return false;
+    }
+    DmFactRangeDimensionRole role = new DmFactRangeDimensionRole(range.getName(), "", "");
+    return appendFactRangeDimensionRole(fact, role);
+  }
+
+  private boolean hasExistingRangeRole(IDmFactLikeTable fact, String rangeDimensionName) {
+    for (DmFactRangeDimensionRole role : fact.getRangeDimensionRolesOrEmpty()) {
+      if (role != null && rangeDimensionName.equals(role.getRangeDimensionTableName())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean appendFactRangeDimensionRole(
+      IDmFactLikeTable fact, DmFactRangeDimensionRole role) {
+    if (fact instanceof DmFact dmFact) {
+      dmFact.getRangeDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmFactlessFact factlessFact) {
+      factlessFact.getRangeDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmPeriodicSnapshotFact periodicFact) {
+      periodicFact.getRangeDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmAccumulatingSnapshotFact accumulatingFact) {
+      accumulatingFact.getRangeDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmAggregateFact aggregateFact) {
+      aggregateFact.getRangeDimensionRoles().add(role);
+      return true;
+    }
+    return false;
+  }
+
+  private boolean addFactJunkRelationship(IDmFactLikeTable fact, DmJunkDimension junk) {
+    if (fact == null || junk == null || Utils.isEmpty(junk.getName())) {
+      return false;
+    }
+    if (hasExistingJunkRole(fact, junk.getName())) {
+      return false;
+    }
+    String fkColumn = DmJunkDimensionSupport.defaultForeignKeyForJunk(junk);
+    DmFactJunkDimensionRole role = new DmFactJunkDimensionRole(junk.getName(), fkColumn);
+    if (!appendFactJunkDimensionRole(fact, role)) {
+      return false;
+    }
+    DmJunkDimensionSupport.applyFactTableSource(junk, fact.getName());
+    return true;
+  }
+
   private boolean addFactDimensionRole(IDmFactLikeTable fact, IDmTable dimension) {
     if (fact == null || dimension == null || Utils.isEmpty(dimension.getName())) {
       return false;
@@ -533,6 +624,15 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     DmFactDimensionRole role = new DmFactDimensionRole(dimension.getName(), null, fkColumn);
     applySourceHashKeyJoinDefaults(role, dimension);
     return appendFactDimensionRole(fact, role);
+  }
+
+  private boolean hasExistingJunkRole(IDmFactLikeTable fact, String junkDimensionName) {
+    for (DmFactJunkDimensionRole role : fact.getJunkDimensionRolesOrEmpty()) {
+      if (role != null && junkDimensionName.equals(role.getJunkDimensionTableName())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private void applySourceHashKeyJoinDefaults(DmFactDimensionRole role, IDmTable dimension) {
@@ -605,6 +705,30 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     }
     if (fact instanceof DmAggregateFact aggregateFact) {
       aggregateFact.getDimensionRoles().add(role);
+      return true;
+    }
+    return false;
+  }
+
+  private boolean appendFactJunkDimensionRole(IDmFactLikeTable fact, DmFactJunkDimensionRole role) {
+    if (fact instanceof DmFact dmFact) {
+      dmFact.getJunkDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmFactlessFact factlessFact) {
+      factlessFact.getJunkDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmPeriodicSnapshotFact periodicFact) {
+      periodicFact.getJunkDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmAccumulatingSnapshotFact accumulatingFact) {
+      accumulatingFact.getJunkDimensionRoles().add(role);
+      return true;
+    }
+    if (fact instanceof DmAggregateFact aggregateFact) {
+      aggregateFact.getJunkDimensionRoles().add(role);
       return true;
     }
     return false;
@@ -951,6 +1075,24 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = "dm-graph-add-range-dimension",
+      parentId = HopGuiDimensionalContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiDimensionalModelGraph.Context.AddRangeDimension.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.Context.AddRangeDimension.Tooltip",
+      image = "dimension-range.svg",
+      category = "Dimensional",
+      categoryOrder = "3")
+  public void addRangeDimension(HopGuiDimensionalContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph == null || context.getModel() == null) {
+      return;
+    }
+    graph.markUndoPoint();
+    graph.addTableAtClick(new DmRangeDimension(), context.getClick());
+  }
+
+  @GuiContextAction(
       id = "dm-graph-add-factless-fact",
       parentId = HopGuiDimensionalContext.CONTEXT_ID,
       type = GuiActionType.Create,
@@ -1011,6 +1153,54 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     dmModel.getNotes().add(note);
     graph.editNote(note, false);
     graph.setChanged();
+  }
+
+  @GuiContextAction(
+      id = "dm-graph-paste-clipboard",
+      parentId = HopGuiDimensionalContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiDimensionalModelGraph.PasteFromClipboard.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.PasteFromClipboard.Tooltip",
+      image = "ui/images/paste.svg",
+      category = "Dimensional",
+      categoryOrder = "6")
+  public void pasteFromClipboard(HopGuiDimensionalContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph != null) {
+      graph.pasteFromClipboard(context.getClick());
+    }
+  }
+
+  @GuiContextAction(
+      id = "dm-graph-paste-clipboard-table",
+      parentId = HopGuiDimensionalTableContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiDimensionalModelGraph.PasteFromClipboard.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.PasteFromClipboard.Tooltip",
+      image = "ui/images/paste.svg",
+      category = "Dimensional",
+      categoryOrder = "6")
+  public void pasteFromClipboardOnTable(HopGuiDimensionalTableContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph != null) {
+      graph.pasteFromClipboard(context.getClick());
+    }
+  }
+
+  @GuiContextAction(
+      id = "dm-graph-paste-clipboard-note",
+      parentId = HopGuiDimensionalNoteContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiDimensionalModelGraph.PasteFromClipboard.Name",
+      tooltip = "i18n::HopGuiDimensionalModelGraph.PasteFromClipboard.Tooltip",
+      image = "ui/images/paste.svg",
+      category = "Dimensional",
+      categoryOrder = "3")
+  public void pasteFromClipboardOnNote(HopGuiDimensionalNoteContext context) {
+    HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
+    if (graph != null) {
+      graph.pasteFromClipboard(context.getClick());
+    }
   }
 
   @GuiContextAction(
@@ -2093,6 +2283,9 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     }
     enableClipboardToolbarItems();
     enableUndoToolbarItems();
+    if (canvas!=null && !canvas.isDisposed()) {
+      canvas.setFocus();
+    }
   }
 
   private void enableClipboardToolbarItems() {

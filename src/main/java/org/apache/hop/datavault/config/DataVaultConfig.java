@@ -34,6 +34,8 @@ public class DataVaultConfig {
   private DmDefaultFieldNames dimensionalDefaultFieldNames = new DmDefaultFieldNames();
   private ElkLayout elkLayout = ElkLayout.createDefault();
   private boolean suppressLocalCatalogOffer;
+  private String defaultPipelineRunConfiguration;
+  private String defaultWorkflowRunConfiguration;
 
   public DataVaultConfig() {
     drawingHashKeysInModel = true;
@@ -46,6 +48,8 @@ public class DataVaultConfig {
     setMaxUndoOperations(config.maxUndoOperations);
     setDimensionalDefaultFieldNames(new DmDefaultFieldNames(config.getDimensionalDefaultFieldNames()));
     setElkLayout(new ElkLayout(config.getElkLayout()));
+    defaultPipelineRunConfiguration = config.defaultPipelineRunConfiguration;
+    defaultWorkflowRunConfiguration = config.defaultWorkflowRunConfiguration;
   }
 
   public DmDefaultFieldNames getDimensionalDefaultFieldNames() {

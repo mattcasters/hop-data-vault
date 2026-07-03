@@ -30,7 +30,10 @@ public enum DmSourceType implements IEnumHasCodeAndDescription {
   PIPELINE("PIPELINE", BaseMessages.getString(DmSourceType.class, "DmSourceType.Pipeline")),
   RECORD_DEFINITION(
       "RECORD_DEFINITION",
-      BaseMessages.getString(DmSourceType.class, "DmSourceType.RecordDefinition"));
+      BaseMessages.getString(DmSourceType.class, "DmSourceType.RecordDefinition")),
+  FACT_TABLE(
+      "FACT_TABLE",
+      BaseMessages.getString(DmSourceType.class, "DmSourceType.FactTable"));
 
   private final String code;
   private final String description;

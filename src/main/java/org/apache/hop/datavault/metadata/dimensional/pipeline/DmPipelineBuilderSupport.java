@@ -329,6 +329,7 @@ public final class DmPipelineBuilderSupport {
       case DIMENSION -> config.buildDimensionPipelineName(variables, targetTableName);
       case DIMENSION_ALIAS -> config.buildDimensionPipelineName(variables, targetTableName);
       case JUNK_DIMENSION -> config.buildJunkDimensionPipelineName(variables, targetTableName);
+      case RANGE_DIMENSION -> targetTableName;
       case BRIDGE -> config.buildBridgePipelineName(variables, targetTableName);
       case FACT,
               FACTLESS_FACT,

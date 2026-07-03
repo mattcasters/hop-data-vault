@@ -33,8 +33,11 @@ import org.apache.hop.metadata.api.IHasHopMetadataProvider;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
 import org.apache.hop.ui.core.gui.IGuiPluginCompositeWidgetsListener;
+import org.apache.hop.pipeline.config.PipelineRunConfiguration;
+import org.apache.hop.ui.core.widget.MetaSelectionLine;
 import org.apache.hop.ui.core.widget.TextVar;
 import org.apache.hop.ui.hopgui.HopGui;
+import org.apache.hop.workflow.config.WorkflowRunConfiguration;
 import org.apache.hop.ui.hopgui.perspective.configuration.tabs.ConfigPluginOptionsTab;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Control;
@@ -60,6 +63,10 @@ public class DataVaultConfigOptionPlugin
   private static final String WIDGET_ID_DM_DEFAULT_EFFECTIVE_TO = "10050-dm-default-effective-to";
   private static final String WIDGET_ID_DM_DEFAULT_LOAD_TIMESTAMP = "10060-dm-default-load-timestamp";
   private static final String WIDGET_ID_DM_DEFAULT_CURRENT_FLAG = "10070-dm-default-current-flag";
+  private static final String WIDGET_ID_DEFAULT_PIPELINE_RUN_CONFIGURATION =
+      "10080-default-pipeline-run-configuration";
+  private static final String WIDGET_ID_DEFAULT_WORKFLOW_RUN_CONFIGURATION =
+      "10090-default-workflow-run-configuration";
 
   @GuiWidgetElement(
       id = WIDGET_ID_DRAW_HASH_KEYS_IN_MODEL,
@@ -130,6 +137,22 @@ public class DataVaultConfigOptionPlugin
       label = "i18n::DataVaultConfigOptionPlugin.DmDefaultCurrentFlagField.Message")
   private String dmDefaultCurrentFlagField;
 
+  @GuiWidgetElement(
+      id = WIDGET_ID_DEFAULT_PIPELINE_RUN_CONFIGURATION,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.METADATA,
+      metadata = PipelineRunConfiguration.class,
+      label = "i18n::DataVaultConfigOptionPlugin.DefaultPipelineRunConfiguration.Message")
+  private String defaultPipelineRunConfiguration;
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_DEFAULT_WORKFLOW_RUN_CONFIGURATION,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.METADATA,
+      metadata = WorkflowRunConfiguration.class,
+      label = "i18n::DataVaultConfigOptionPlugin.DefaultWorkflowRunConfiguration.Message")
+  private String defaultWorkflowRunConfiguration;
+
   public static DataVaultConfigOptionPlugin getInstance() {
     DataVaultConfigOptionPlugin instance = new DataVaultConfigOptionPlugin();
     DataVaultConfig config = DataVaultConfigSingleton.getConfig();
@@ -142,6 +165,8 @@ public class DataVaultConfigOptionPlugin
     instance.dmDefaultEffectiveToField = defaults.getEffectiveToField();
     instance.dmDefaultLoadTimestampField = defaults.getLoadTimestampField();
     instance.dmDefaultCurrentFlagField = defaults.getCurrentFlagField();
+    instance.defaultPipelineRunConfiguration = config.getDefaultPipelineRunConfiguration();
+    instance.defaultWorkflowRunConfiguration = config.getDefaultWorkflowRunConfiguration();
     return instance;
   }
 
@@ -226,6 +251,14 @@ public class DataVaultConfigOptionPlugin
           dmDefaultCurrentFlagField = getTextValue(control);
           config.getDimensionalDefaultFieldNames().setCurrentFlagField(dmDefaultCurrentFlagField);
           break;
+        case WIDGET_ID_DEFAULT_PIPELINE_RUN_CONFIGURATION:
+          defaultPipelineRunConfiguration = getTextValue(control);
+          config.setDefaultPipelineRunConfiguration(defaultPipelineRunConfiguration);
+          break;
+        case WIDGET_ID_DEFAULT_WORKFLOW_RUN_CONFIGURATION:
+          defaultWorkflowRunConfiguration = getTextValue(control);
+          config.setDefaultWorkflowRunConfiguration(defaultWorkflowRunConfiguration);
+          break;
         default:
           break;
       }
@@ -249,6 +282,9 @@ public class DataVaultConfigOptionPlugin
     }
     if (control instanceof Text text) {
       return text.getText();
+    }
+    if (control instanceof MetaSelectionLine<?> metaSelectionLine) {
+      return metaSelectionLine.getText();
     }
     throw new IllegalArgumentException(
         "Unsupported text control type: " + control.getClass().getName());

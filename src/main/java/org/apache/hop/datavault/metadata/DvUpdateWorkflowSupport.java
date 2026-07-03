@@ -57,6 +57,7 @@ public final class DvUpdateWorkflowSupport {
       String stagedPipelinePath,
       String targetTableName,
       String stagingFolder,
+      String stagingFileBase,
       int parallelCopies,
       List<String> columnNames,
       DatabaseMeta targetDatabase,
@@ -71,10 +72,11 @@ public final class DvUpdateWorkflowSupport {
         FileObject[] children = stagingFolder.getChildren();
         if (children != null) {
           for (FileObject child : children) {
-            if (child != null
-                && child.getType().hasContent()
-                && child.getName().getBaseName().toLowerCase().endsWith(".csv")) {
-              child.delete();
+            if (child != null && child.getType().hasContent()) {
+              String baseName = child.getName().getBaseName().toLowerCase();
+              if (baseName.endsWith(".csv") || baseName.endsWith(PipelineMeta.PIPELINE_EXTENSION)) {
+                child.delete();
+              }
             }
           }
         }
@@ -168,23 +170,41 @@ public final class DvUpdateWorkflowSupport {
 
       for (int copyIndex = 0; copyIndex < descriptor.parallelCopies(); copyIndex++) {
         String stagedFilePath =
-            DvTargetLoadSupport.buildStagingFileBase(
-                    descriptor.stagingFolder(), descriptor.pipelineName(), false)
-                + "-"
-                + copyIndex
-                + "."
-                + DvTargetLoadSupport.STAGING_FILE_EXTENSION;
-        IAction bulkAction =
-            DvBulkLoadCommandSupport.createStagingBulkLoadAction(
-                descriptor.targetDatabase(),
-                config,
-                variables,
-                descriptor.targetDbName(),
-                descriptor.targetTableName(),
-                descriptor.columnNames(),
-                stagedFilePath,
-                copyIndex);
-        ActionMeta bulkActionMeta = new ActionMeta(bulkAction);
+            DvTargetLoadSupport.resolveStagedCsvFilePath(descriptor.stagingFileBase(), copyIndex);
+        ActionMeta bulkActionMeta;
+        if (DvStagingBulkLoadPipelineSupport.usesClientSideBulkLoad(descriptor.targetDatabase())) {
+          String bulkPipelinePath =
+              DvStagingBulkLoadPipelineSupport.buildAndStagePostgresBulkLoadPipeline(
+                  descriptor.stagingFolder(),
+                  variables,
+                  config,
+                  descriptor.targetDbName(),
+                  descriptor.targetTableName(),
+                  descriptor.columnNames(),
+                  stagedFilePath,
+                  copyIndex);
+          bulkActionMeta =
+              newActionMeta(
+                  PIPELINE_ACTION_ID,
+                  "bulk_load_"
+                      + sanitizeActionName(descriptor.targetTableName())
+                      + "_"
+                      + copyIndex,
+                  action ->
+                      configurePipelineAction(action, bulkPipelinePath, pipelineRunConfiguration));
+        } else {
+          IAction bulkAction =
+              DvBulkLoadCommandSupport.createStagingBulkLoadAction(
+                  descriptor.targetDatabase(),
+                  config,
+                  variables,
+                  descriptor.targetDbName(),
+                  descriptor.targetTableName(),
+                  descriptor.columnNames(),
+                  stagedFilePath,
+                  copyIndex);
+          bulkActionMeta = new ActionMeta(bulkAction);
+        }
         bulkActionMeta.setLocation(x, y);
         workflowMeta.addAction(bulkActionMeta);
         workflowMeta.addWorkflowHop(new WorkflowHopMeta(previousAction, bulkActionMeta));
@@ -199,13 +219,15 @@ public final class DvUpdateWorkflowSupport {
   /** Runs the master workflow and returns its result. */
   public static Result runMasterWorkflow(
       WorkflowMeta workflowMeta,
+      String workflowRunConfiguration,
       LogLevel logLevel,
       ILoggingObject parent,
       IVariables variables,
       org.apache.hop.metadata.api.IHopMetadataProvider metadataProvider)
       throws HopException {
     IWorkflowEngine<WorkflowMeta> engine =
-        WorkflowEngineFactory.createWorkflowEngine(variables, null, metadataProvider, workflowMeta, parent);
+        WorkflowEngineFactory.createWorkflowEngine(
+            variables, workflowRunConfiguration, metadataProvider, workflowMeta, parent);
     if (logLevel != null) {
       engine.setLogLevel(logLevel);
     }
@@ -263,11 +285,17 @@ public final class DvUpdateWorkflowSupport {
           "Staged pipeline '" + pipelineMeta.getName() + "' does not have a filename");
     }
 
+    String stagingFileBase = textFileOutputMeta.getFileSettings().getFileName();
+    if (variables != null) {
+      stagingFileBase = variables.resolve(stagingFileBase);
+    }
+
     return new DvStagingLoadDescriptor(
         pipelineMeta.getName(),
         stagedPipelinePath,
         targetTableName,
         stagingFolder,
+        stagingFileBase,
         parallelCopies,
         List.copyOf(columnNames),
         targetDatabase,
@@ -293,7 +321,12 @@ public final class DvUpdateWorkflowSupport {
   private static void configurePipelineAction(
       IAction action, DvStagingLoadDescriptor descriptor, String pipelineRunConfiguration)
       throws HopException {
-    DvBulkLoadActionSupport.invoke(action, "setFilename", String.class, descriptor.stagedPipelinePath());
+    configurePipelineAction(action, descriptor.stagedPipelinePath(), pipelineRunConfiguration);
+  }
+
+  private static void configurePipelineAction(
+      IAction action, String pipelinePath, String pipelineRunConfiguration) throws HopException {
+    DvBulkLoadActionSupport.invoke(action, "setFilename", String.class, pipelinePath);
     DvBulkLoadActionSupport.invoke(action, "setRunConfiguration", String.class, pipelineRunConfiguration);
     DvBulkLoadActionSupport.invoke(action, "setWaitingToFinish", boolean.class, true);
     DvBulkLoadActionSupport.invoke(action, "setClearResultRows", boolean.class, false);

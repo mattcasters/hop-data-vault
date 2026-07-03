@@ -231,6 +231,8 @@ class DmScd2DimensionPipelineTest {
                 .orElseThrow()
                 .getTransform();
     assertTrue(targetInput.getSql().contains("version"));
+    assertTrue(targetInput.getSql().contains("ORDER BY"));
+    assertTrue(targetInput.getSql().contains("customer_id"));
 
     TableOutputMeta tableOutput =
         (TableOutputMeta)

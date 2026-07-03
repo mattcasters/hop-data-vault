@@ -91,15 +91,6 @@ public final class DvTargetLoadModelCheckSupport {
                     PKG, "DvTargetLoadModelCheckSupport.TargetLoadStagingLocalFileRequired"),
                 null));
       }
-      if (targetDatabase != null
-          && DvBulkLoadPluginSupport.POSTGRESQL_DB_PLUGIN_ID.equals(targetDatabase.getPluginId())) {
-        remarks.add(
-            new CheckResult(
-                ICheckResult.TYPE_RESULT_WARNING,
-                BaseMessages.getString(
-                    PKG, "DvTargetLoadModelCheckSupport.TargetLoadStagingPostgresServerPath"),
-                null));
-      }
     }
   }
 

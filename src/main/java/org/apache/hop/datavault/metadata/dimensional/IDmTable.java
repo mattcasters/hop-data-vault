@@ -84,6 +84,7 @@ public interface IDmTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
         case DIMENSION -> new DmDimension();
         case DIMENSION_ALIAS -> new DmDimensionAlias();
         case JUNK_DIMENSION -> new DmJunkDimension();
+        case RANGE_DIMENSION -> new DmRangeDimension();
         case FACT -> new DmFact();
         case FACTLESS_FACT -> new DmFactlessFact();
         case PERIODIC_SNAPSHOT_FACT -> new DmPeriodicSnapshotFact();

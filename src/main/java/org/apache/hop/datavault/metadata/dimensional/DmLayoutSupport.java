@@ -166,6 +166,21 @@ public final class DmLayoutSupport {
     RowMeta rowMeta = new RowMeta();
     Set<String> added = new HashSet<>();
     addJunkSurrogateKeyColumn(rowMeta, added, junkDimension, resolvedConfig, variables);
+    DmJunkHashCodeStrategy hashStrategy = junkDimension.getHashCodeStrategyOrDefault();
+    if (hashStrategy.usesHashColumn()
+        && !DmJunkDimensionSupport.sharesHashAndSurrogateColumn(
+            junkDimension, resolvedConfig, variables)) {
+      String hashField =
+          resolveFieldName(
+              DmJunkDimensionSupport.resolveJunkHashCodeField(
+                  junkDimension, resolvedConfig, variables),
+              variables);
+      if (hashStrategy.usesIntegerHash()) {
+        addColumn(rowMeta, added, hashField, new ValueMetaInteger());
+      } else {
+        addColumn(rowMeta, added, hashField);
+      }
+    }
     for (DmNaturalKeyField keyField : junkDimension.getKeyFieldsOrEmpty()) {
       addColumn(rowMeta, added, resolveFieldName(keyField.getFieldName(), variables));
     }
@@ -626,6 +641,31 @@ public final class DmLayoutSupport {
           added,
           resolveFieldName(degenerateDimension.getFieldName(), variables),
           sourceRowMeta);
+    }
+    if (fact instanceof IDmFactLikeTable factLike) {
+      for (DmFactRangeDimensionRole rangeRole : factLike.getRangeDimensionRolesOrEmpty()) {
+        if (rangeRole == null) {
+          continue;
+        }
+        addColumn(rowMeta, added, resolveFieldName(rangeRole.getTargetFieldName(), variables));
+      }
+      for (DmFactJunkDimensionRole junkRole : factLike.getJunkDimensionRolesOrEmpty()) {
+        if (junkRole == null) {
+          continue;
+        }
+        DmJunkDimension junkDimension =
+            DmJunkDimensionSupport.resolveJunkDimension(
+                model, junkRole.getJunkDimensionTableName(), variables);
+        if (junkDimension != null && DmSurrogateKeySupport.usesStringSurrogate(junkDimension)) {
+          addColumn(rowMeta, added, resolveFieldName(junkRole.getForeignKeyColumn(), variables));
+        } else {
+          addColumn(
+              rowMeta,
+              added,
+              resolveFieldName(junkRole.getForeignKeyColumn(), variables),
+              new ValueMetaInteger());
+        }
+      }
     }
     for (DmFactMeasure measure : measures) {
       addColumn(rowMeta, added, resolveFieldName(measure.getFieldName(), variables), new ValueMetaNumber());

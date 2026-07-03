@@ -61,6 +61,6 @@ public enum DmJunkSurrogateKeyStrategy implements IEnumHasCodeAndDescription {
   }
 
   public boolean isPipelineSupported() {
-    return this == AUTO_INCREMENT;
+    return true;
   }
 }

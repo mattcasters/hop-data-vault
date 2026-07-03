@@ -26,6 +26,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.datavault.config.DvRunConfigurationSupport;
 import org.apache.hop.datavault.workflow.actions.businessvaultupdate.ActionBusinessVaultUpdate;
 import org.apache.hop.datavault.workflow.actions.datavaultupdate.ActionDataVaultUpdate;
 import org.apache.hop.datavault.workflow.actions.dimensionalupdate.ActionDimensionalUpdate;
@@ -119,6 +120,10 @@ public final class ModelUpdateWorkflowClipboardSupport {
                 "ModelUpdateWorkflowClipboardSupport.PipelineRunConfiguration.Dialog.Message"));
 
     String current = readPipelineRunConfiguration(updateAction);
+    if (Utils.isEmpty(current)) {
+      current =
+          DvRunConfigurationSupport.resolvePipelineRunConfiguration(null, hopGui.getVariables());
+    }
     if (!Utils.isEmpty(current)) {
       int index = dialog.getSelectionNr(current);
       if (index >= 0) {

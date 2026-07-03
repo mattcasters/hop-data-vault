@@ -44,6 +44,8 @@ public final class DvTargetLoadSupport {
   public static final String STAGING_TRANSFORM_PREFIX = "stage_to_";
   public static final String STAGING_FILE_EXTENSION = "csv";
   public static final String STAGING_FILE_COPY_VARIABLE = Const.INTERNAL_VARIABLE_TRANSFORM_COPYNR;
+  public static final String STAGING_FILE_COPY_VARIABLE_PATTERN =
+      "${" + STAGING_FILE_COPY_VARIABLE + "}";
 
   private DvTargetLoadSupport() {}
 
@@ -139,11 +141,50 @@ public final class DvTargetLoadSupport {
   /** Builds the staged CSV filename base used by Text File Output and bulk-load workflow actions. */
   public static String buildStagingFileBase(
       String stagingFolder, String pipelineName, boolean includeCopyVariable) {
-    String base = ensureTrailingSlash(stagingFolder) + pipelineName;
+    String base = ensureTrailingSlash(stagingFolder) + stripStagedPipelineSequencePrefix(pipelineName);
     if (includeCopyVariable) {
-      base = base + "-" + STAGING_FILE_COPY_VARIABLE;
+      base = base + "-" + STAGING_FILE_COPY_VARIABLE_PATTERN;
     }
     return base;
+  }
+
+  /**
+   * Removes the zero-padded sequence prefix ({@code 0001-}) added when staging pipelines for
+   * ordered execution. The Text File Output path is generated before that prefix is applied.
+   */
+  public static String stripStagedPipelineSequencePrefix(String pipelineName) {
+    if (Utils.isEmpty(pipelineName) || pipelineName.length() <= 5) {
+      return pipelineName;
+    }
+    if (pipelineName.charAt(4) == '-') {
+      String sequence = pipelineName.substring(0, 4);
+      for (int i = 0; i < sequence.length(); i++) {
+        if (!Character.isDigit(sequence.charAt(i))) {
+          return pipelineName;
+        }
+      }
+      return pipelineName.substring(5);
+    }
+    return pipelineName;
+  }
+
+  /** Resolves the staged CSV path for a parallel copy from the Text File Output file base. */
+  public static String resolveStagedCsvFilePath(String stagingFileBase, int copyIndex) {
+    if (Utils.isEmpty(stagingFileBase)) {
+      return stagingFileBase;
+    }
+    String base = stagingFileBase;
+    if (base.contains(STAGING_FILE_COPY_VARIABLE_PATTERN)) {
+      base = base.replace(STAGING_FILE_COPY_VARIABLE_PATTERN, Integer.toString(copyIndex));
+    } else if (base.endsWith("-" + STAGING_FILE_COPY_VARIABLE)) {
+      base =
+          base.substring(0, base.length() - STAGING_FILE_COPY_VARIABLE.length())
+              + "-"
+              + copyIndex;
+    } else {
+      base = base + "-" + copyIndex;
+    }
+    return base + "." + STAGING_FILE_EXTENSION;
   }
 
   private static TargetLoadResult addStagingFileOutput(
@@ -200,8 +241,8 @@ public final class DvTargetLoadSupport {
           field.setName(name);
           field.setType(vm.getType());
           field.setFormat(vm.getConversionMask());
-          field.setLength(vm.getLength());
-          field.setPrecision(vm.getPrecision());
+          field.setLength(-1);
+          field.setPrecision(-1);
           outputFields.add(field);
         }
       }

@@ -233,6 +233,16 @@ public final class DmScd2DimensionBuilder {
     sql.append(openEnd.replace("'", "''"));
     sql.append("'");
 
+    List<String> orderByFields = new ArrayList<>();
+    for (String naturalKey :
+        DmPipelineBuilderSupport.naturalKeyFieldNames(dimension, ctx.variables)) {
+      orderByFields.add(ctx.targetDatabaseMeta.quoteField(naturalKey));
+    }
+    if (!orderByFields.isEmpty()) {
+      sql.append(" ORDER BY ");
+      sql.append(String.join(", ", orderByFields));
+    }
+
     DvSqlSupport.assignDisplaySql(targetTableInputMeta, sql.toString());
 
     TransformMeta tm =

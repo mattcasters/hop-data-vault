@@ -38,7 +38,7 @@ import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
-import org.apache.hop.pipeline.transforms.combinationlookup.CombinationLookupMeta;
+import org.apache.hop.datavault.transform.junkdimension.JunkDimensionMeta;
 import org.apache.hop.pipeline.transforms.dimensionlookup.DimensionLookupMeta;
 import org.apache.hop.pipeline.transforms.insertupdate.InsertUpdateMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
@@ -88,7 +88,7 @@ class DmCatalogPipelineTest {
   }
 
   @Test
-  void junkDimensionUsesCombinationLookup() throws Exception {
+  void junkDimensionUsesJunkDimensionTransform() throws Exception {
     DimensionalModel model = loadExtendedCatalogModel();
     DmJunkDimension junk = (DmJunkDimension) model.findTable("dim_order_junk");
 
@@ -100,16 +100,16 @@ class DmCatalogPipelineTest {
     assertEquals(2, pipeline.getTransforms().size());
     assertTrue(
         pipeline.getTransforms().stream()
-            .anyMatch(t -> t.getTransform() instanceof CombinationLookupMeta));
-    CombinationLookupMeta combo =
-        (CombinationLookupMeta)
+            .anyMatch(t -> t.getTransform() instanceof JunkDimensionMeta));
+    JunkDimensionMeta junkMeta =
+        (JunkDimensionMeta)
             pipeline.getTransforms().stream()
-                .filter(t -> t.getTransform() instanceof CombinationLookupMeta)
+                .filter(t -> t.getTransform() instanceof JunkDimensionMeta)
                 .findFirst()
                 .orElseThrow()
                 .getTransform();
-    assertEquals(3, combo.getFields().getKeyFields().size());
-    assertEquals("promo_flag", combo.getFields().getKeyFields().get(0).getName());
+    assertEquals(3, junkMeta.getFields().getKeyFields().size());
+    assertEquals("promo_flag", junkMeta.getFields().getKeyFields().get(0).getName());
   }
 
   @Test

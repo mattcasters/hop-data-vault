@@ -30,14 +30,14 @@
     <useLoadEndDate>N</useLoadEndDate>
     <targetTableBatchSize>1000</targetTableBatchSize>
     <targetTableParallelCopies>${OUTPUT_COPIES}</targetTableParallelCopies>
-    <target_load_mode>Table Output</target_load_mode>
+    <target_load_mode>Native bulk loader</target_load_mode>
     <bulkLoadStagingFolder>${java.io.tmpdir}/dv2/bulk/</bulkLoadStagingFolder>
     <bulkLoadDelimiter>,</bulkLoadDelimiter>
     <bulkLoadEnclosure>"</bulkLoadEnclosure>
     <bulkLoadEncoding>UTF-8</bulkLoadEncoding>
     <bulkLoadLocalFileRequired>N</bulkLoadLocalFileRequired>
     <sortRowsSize>1000000</sortRowsSize>
-    <execution_log_level>Minimal</execution_log_level>
+    <execution_log_level>Detailed</execution_log_level>
     <singleStoreShardKeyOnHashKey>N</singleStoreShardKeyOnHashKey>
     <singleStoreShardKeyIncludeDrivingKeys>N</singleStoreShardKeyIncludeDrivingKeys>
     <generatedPipelineFolder/>

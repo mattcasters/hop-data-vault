@@ -19,13 +19,10 @@
 package org.apache.hop.datavault.metadata;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
-import org.apache.hop.core.variables.Variables;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -45,29 +42,17 @@ class DvBulkLoadCommandSupportTest {
   }
 
   @Test
-  void postgresCopySqlIncludesHeaderAndDelimiter() throws Exception {
+  void resolvesPostgresStagingActionAsPipelineWhenPgBulkLoaderInstalled() {
     DatabaseMeta postgres =
         new DatabaseMeta(
             "postgres-test", "PostgreSQL", "Native", "", "localhost", "test", "postgres", "");
-    DataVaultConfiguration config = new DataVaultConfiguration();
-    config.setBulkLoadDelimiter("|");
-    config.setBulkLoadEnclosure("'");
-    config.setBulkLoadEncoding("UTF-8");
-
-    String sql =
-        DvBulkLoadCommandSupport.buildPostgresCopySql(
-            postgres,
-            config,
-            new Variables(),
-            "hub_customer",
-            List.of("CUSTOMER_HK", "LOAD_DATE"),
-            "/tmp/hub-customer-0.csv");
-
-    assertTrue(sql.contains("COPY"));
-    assertTrue(sql.contains("HEADER true"));
-    assertTrue(sql.contains("DELIMITER '|'"));
-    assertTrue(sql.contains("/tmp/hub-customer-0.csv"));
-    assertTrue(sql.contains("CUSTOMER_HK"));
+    if (!DvBulkLoadPluginSupport.isTransformPluginAvailable(
+        DvBulkLoadPluginSupport.PG_BULK_LOADER_ID)) {
+      return;
+    }
+    assertEquals(
+        DvBulkLoadCommandSupport.PIPELINE_ACTION_ID,
+        DvBulkLoadCommandSupport.resolveStagingBulkActionPluginId(postgres));
   }
 
   private static DatabaseMeta databaseMetaWithPluginId(String pluginId) {

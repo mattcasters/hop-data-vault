@@ -31,6 +31,7 @@ public final class DvBulkLoadCommandSupport {
   public static final String MYSQL_BULK_LOAD_ACTION_ID = "MYSQL_BULK_LOAD";
   public static final String MSSQL_BULK_LOAD_ACTION_ID = "MSSQL_BULK_LOAD";
   public static final String SQL_ACTION_ID = "SQL";
+  public static final String PIPELINE_ACTION_ID = "PIPELINE";
 
   private DvBulkLoadCommandSupport() {}
 
@@ -46,7 +47,11 @@ public final class DvBulkLoadCommandSupport {
       case DvBulkLoadPluginSupport.MSSQL_DB_PLUGIN_ID,
               DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID ->
           MSSQL_BULK_LOAD_ACTION_ID;
-      case DvBulkLoadPluginSupport.POSTGRESQL_DB_PLUGIN_ID -> SQL_ACTION_ID;
+      case DvBulkLoadPluginSupport.POSTGRESQL_DB_PLUGIN_ID ->
+          DvBulkLoadPluginSupport.isTransformPluginAvailable(
+                  DvBulkLoadPluginSupport.PG_BULK_LOADER_ID)
+              ? PIPELINE_ACTION_ID
+              : null;
       default -> null;
     };
   }
@@ -73,54 +78,10 @@ public final class DvBulkLoadCommandSupport {
       configureMysqlBulkLoadAction(action, config, variables, targetDbName, targetTableName, stagedFilePath);
     } else if (MSSQL_BULK_LOAD_ACTION_ID.equals(actionPluginId)) {
       configureMssqlBulkLoadAction(action, config, variables, targetDbName, targetTableName, stagedFilePath);
-    } else if (SQL_ACTION_ID.equals(actionPluginId)) {
-      configurePostgresCopyAction(
-          action,
-          targetDatabase,
-          config,
-          variables,
-          targetDbName,
-          targetTableName,
-          columnNames,
-          stagedFilePath);
     } else {
       throw new HopException("Unsupported staging bulk-load action: " + actionPluginId);
     }
     return action;
-  }
-
-  public static String buildPostgresCopySql(
-      DatabaseMeta targetDatabase,
-      IDvTargetLoadConfiguration config,
-      IVariables variables,
-      String targetTableName,
-      List<String> columnNames,
-      String stagedFilePath) {
-    String delimiter = escapeSqlLiteral(config.resolveBulkLoadDelimiter(variables));
-    String quote = escapeSqlLiteral(config.resolveBulkLoadEnclosure(variables));
-    String encoding = escapeSqlLiteral(config.resolveBulkLoadEncoding(variables));
-    String quotedTable =
-        targetDatabase.getQuotedSchemaTableCombination(variables, null, targetTableName);
-    StringBuilder columns = new StringBuilder();
-    for (int i = 0; i < columnNames.size(); i++) {
-      if (i > 0) {
-        columns.append(", ");
-      }
-      columns.append(targetDatabase.quoteField(columnNames.get(i)));
-    }
-    return "COPY "
-        + quotedTable
-        + " ("
-        + columns
-        + ") FROM '"
-        + escapeSqlLiteral(stagedFilePath)
-        + "' WITH (FORMAT csv, HEADER true, DELIMITER '"
-        + delimiter
-        + "', QUOTE '"
-        + quote
-        + "', ENCODING '"
-        + encoding
-        + "');";
   }
 
   private static void configureMssqlBulkLoadAction(
@@ -167,30 +128,4 @@ public final class DvBulkLoadCommandSupport {
     DvBulkLoadActionSupport.invoke(action, "setLocalInFile", boolean.class, true);
   }
 
-  private static void configurePostgresCopyAction(
-      IAction action,
-      DatabaseMeta targetDatabase,
-      IDvTargetLoadConfiguration config,
-      IVariables variables,
-      String targetDbName,
-      String targetTableName,
-      List<String> columnNames,
-      String stagedFilePath)
-      throws HopException {
-    String sql =
-        buildPostgresCopySql(
-            targetDatabase, config, variables, targetTableName, columnNames, stagedFilePath);
-    DvBulkLoadActionSupport.invoke(action, "setConnection", String.class, targetDbName);
-    DvBulkLoadActionSupport.invoke(action, "setSql", String.class, sql);
-    DvBulkLoadActionSupport.invoke(action, "setUseVariableSubstitution", boolean.class, false);
-    DvBulkLoadActionSupport.invoke(action, "setSqlFromFile", boolean.class, false);
-    DvBulkLoadActionSupport.invoke(action, "setSendOneStatement", boolean.class, true);
-  }
-
-  private static String escapeSqlLiteral(String value) {
-    if (value == null) {
-      return "";
-    }
-    return value.replace("'", "''");
-  }
 }

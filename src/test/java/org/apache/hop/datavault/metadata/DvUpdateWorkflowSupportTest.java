@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.metadata;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -43,6 +44,65 @@ class DvUpdateWorkflowSupportTest {
   @BeforeAll
   static void initHop() throws HopException {
     HopEnvironment.init();
+  }
+
+  @Test
+  void postgresBulkLoadUsesPipelineActionWithCorrectCsvPath() throws Exception {
+    if (!DvBulkLoadPluginSupport.isTransformPluginAvailable(
+            DvBulkLoadPluginSupport.PG_BULK_LOADER_ID)
+        || !DvBulkLoadPluginSupport.isActionPluginAvailable(DvUpdateWorkflowSupport.PIPELINE_ACTION_ID)) {
+      return;
+    }
+
+    DataVaultConfiguration config = new DataVaultConfiguration();
+    config.setTargetLoadMode(DvTargetLoadMode.STAGING_FILE.getCode());
+    config.setTargetTableParallelCopies("1");
+    config.setBulkLoadStagingFolder("/tmp/dv2/bulk/");
+
+    DatabaseMeta databaseMeta =
+        new DatabaseMeta(
+            "postgres-test", "PostgreSQL", "Native", "", "localhost", "test", "postgres", "");
+    Variables variables = new Variables();
+
+    PipelineMeta pipelineMeta =
+        buildStagingPipeline(config, variables, databaseMeta, "dm-fact-f_orders");
+    pipelineMeta.setName("0001-dm-fact-f_orders");
+
+    List<DvUpdateWorkflowSupport.DvStagingLoadDescriptor> descriptors =
+        DvUpdateWorkflowSupport.buildStagingDescriptors(
+            config, variables, "retail-f-orders", databaseMeta, "target-db", List.of(pipelineMeta));
+
+    assertEquals(1, descriptors.size());
+    assertEquals(
+        "/tmp/dv2/bulk/dm-fact-f_orders-${Internal.Transform.CopyNr}",
+        descriptors.get(0).stagingFileBase());
+
+    String stagedCsvPath =
+        DvTargetLoadSupport.resolveStagedCsvFilePath(descriptors.get(0).stagingFileBase(), 0);
+    assertEquals("/tmp/dv2/bulk/dm-fact-f_orders-0.csv", stagedCsvPath);
+    assertFalse(stagedCsvPath.contains("0001-"));
+
+    WorkflowMeta workflowMeta =
+        DvUpdateWorkflowSupport.buildMasterWorkflow(
+            descriptors, config, variables, "local", "retail-f-orders");
+
+    long postgresBulkPipelineActions =
+        workflowMeta.getActions().stream()
+            .filter(action -> action.getAction() != null)
+            .filter(
+                action ->
+                    DvUpdateWorkflowSupport.PIPELINE_ACTION_ID.equals(
+                            action.getAction().getPluginId())
+                        && action.getName().startsWith("bulk_load_"))
+            .count();
+    assertEquals(1, postgresBulkPipelineActions);
+    assertTrue(
+        workflowMeta.getActions().stream()
+            .noneMatch(
+                action ->
+                    action.getAction() != null
+                        && DvBulkLoadCommandSupport.SQL_ACTION_ID.equals(
+                            action.getAction().getPluginId())));
   }
 
   @Test

@@ -179,6 +179,31 @@ class DmLayoutSupportTest {
   }
 
   @Test
+  void factLayoutIncludesRangeDimensionTargetFields() throws HopException {
+    DimensionalModel model = new DimensionalModel();
+    DmRangeDimension amountBand = new DmRangeDimension();
+    amountBand.setName("dim_amount_band");
+    amountBand.getBands().add(new DmRangeBand("0", "101", "small"));
+    model.getTables().add(amountBand);
+
+    DmFact fact = new DmFact();
+    fact.setName("fact_sales");
+    fact.getMeasures().add(new DmFactMeasure("amount", true));
+    fact.getRangeDimensionRoles()
+        .add(new DmFactRangeDimensionRole("dim_amount_band", "amount", "amount_band"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    IRowMeta layout =
+        DmLayoutSupport.buildFactTargetTableLayout(fact, model, config, new Variables());
+
+    assertTrue(layout.indexOfValue("amount_band") >= 0);
+    assertEquals(
+        org.apache.hop.core.row.IValueMeta.TYPE_STRING,
+        layout.searchValueMeta("amount_band").getType());
+    assertTrue(layout.indexOfValue("amount") >= 0);
+  }
+
+  @Test
   void factLayoutIncludesDegenerateDimensionFields() throws HopException {
     DimensionalModel model = new DimensionalModel();
     DmDimension customer = new DmDimension();
@@ -323,5 +348,45 @@ class DmLayoutSupportTest {
     assertTrue(layout.indexOfValue("customer_key") >= 0);
     assertTrue(layout.indexOfValue("quantity") >= 0);
     assertTrue(layout.indexOfValue("amount") >= 0);
+  }
+
+  @Test
+  void junkDimensionSharedHashColumnProducesSingleSurrogateColumn() throws HopException {
+    DmJunkDimension junk = new DmJunkDimension();
+    junk.setName("d_orders_junk");
+    junk.setSurrogateKeyField("orders_junk_hk");
+    junk.setSurrogateKeyStrategy(DmJunkSurrogateKeyStrategy.COMPUTE_HASH_KEY);
+    junk.setHashCodeStrategy(DmJunkHashCodeStrategy.MD5);
+    junk.setUseSurrogateKeyAsHashCodeField(true);
+    junk.getKeyFields().add(new DmNaturalKeyField("j1"));
+    junk.getKeyFields().add(new DmNaturalKeyField("j2"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    IRowMeta layout =
+        DmLayoutSupport.buildJunkDimensionTargetTableLayout(junk, config, new Variables());
+
+    assertEquals(4, layout.size());
+    assertTrue(layout.indexOfValue("orders_junk_hk") >= 0);
+    assertEquals(-1, layout.indexOfValue("hashcode"));
+    assertTrue(layout.indexOfValue("j1") >= 0);
+    assertTrue(layout.indexOfValue("j2") >= 0);
+    assertTrue(layout.indexOfValue("load_dt") >= 0);
+  }
+
+  @Test
+  void junkDimensionSeparateHashColumnWhenCheckboxUnset() throws HopException {
+    DmJunkDimension junk = new DmJunkDimension();
+    junk.setName("junk_flags");
+    junk.setSurrogateKeyField("junk_key");
+    junk.setHashCodeStrategy(DmJunkHashCodeStrategy.MD5);
+    junk.getKeyFields().add(new DmNaturalKeyField("flag_a"));
+
+    DimensionalConfiguration config = new DimensionalConfiguration();
+    IRowMeta layout =
+        DmLayoutSupport.buildJunkDimensionTargetTableLayout(junk, config, new Variables());
+
+    assertTrue(layout.indexOfValue("junk_key") >= 0);
+    assertTrue(layout.indexOfValue("hashcode") >= 0);
+    assertTrue(layout.indexOfValue("flag_a") >= 0);
   }
 }

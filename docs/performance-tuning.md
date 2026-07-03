@@ -120,11 +120,11 @@ Generated insert pipelines end in **Text File Output** with `targetTableParallel
 |-----------------|-----------------|-------|
 | MySQL, SingleStore | MySQL bulk load | `LOAD DATA LOCAL INFILE` from staged CSV |
 | Microsoft SQL Server | MSSQL bulk load | `BULK INSERT` from staged CSV (UTF-8, header skipped) |
-| PostgreSQL | SQL (`COPY`) | Server must read the file path; not client `\copy` |
+| PostgreSQL | Pipeline (CSV input → PGBulkLoader) | Client-side `COPY FROM STDIN` from staged CSV |
 
 Operational notes:
 
-- Set **Bulk load staging folder** to a path visible to both Hop and the database when required (especially PostgreSQL `COPY FROM 'path'`).
+- Set **Bulk load staging folder** to a path writable by Hop. PostgreSQL loads from the Hop client via PGBulkLoader; MySQL/SingleStore use `LOAD DATA LOCAL INFILE`.
 - **Bulk load requires local file** (default on) documents that Hop and the DB client must access the CSV on the filesystem.
 - Cleanup of pipeline staging (`.hpl`) and bulk CSV folders runs in a `finally` block after the master workflow finishes.
 

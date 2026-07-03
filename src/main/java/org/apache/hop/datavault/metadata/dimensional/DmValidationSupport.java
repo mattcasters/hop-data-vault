@@ -81,9 +81,71 @@ public final class DmValidationSupport {
                   PKG, "DmValidationSupport.CheckResult.MissingJunkKeyFields", junkDimension.getName()),
               junkDimension));
     }
-    validateSourceConfiguration(remarks, junkDimension, null, metadataProvider, variables);
+    if (!DmJunkDimensionSupport.isFactEmbedded(junkDimension)) {
+      validateSourceConfiguration(remarks, junkDimension, null, metadataProvider, variables);
+    } else {
+      validateJunkFactTableSource(remarks, junkDimension, null, variables);
+    }
     validateJunkSurrogateKey(remarks, junkDimension, variables);
+    validateJunkHashCode(remarks, junkDimension, variables);
     validateTargetLayout(remarks, junkDimension, null, metadataProvider, variables);
+  }
+
+  public static void validateRangeDimension(
+      List<ICheckResult> remarks, DmRangeDimension rangeDimension, IVariables variables) {
+    if (remarks == null || rangeDimension == null) {
+      return;
+    }
+    if (rangeDimension.getBandsOrEmpty().isEmpty()) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.MissingRangeBands",
+                  rangeDimension.getName()),
+              rangeDimension));
+    }
+    if (Utils.isEmpty(rangeDimension.getFallBackLabel())) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_WARNING,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.MissingRangeFallBackLabel",
+                  rangeDimension.getName()),
+              rangeDimension));
+    }
+    int bandIndex = 0;
+    for (DmRangeBand band : rangeDimension.getBandsOrEmpty()) {
+      bandIndex++;
+      if (band == null || Utils.isEmpty(band.getLabel())) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.EmptyRangeBandLabel",
+                    rangeDimension.getName(),
+                    bandIndex),
+                rangeDimension));
+      }
+      try {
+        parseRangeBound(band != null ? band.getLowerBound() : null, true);
+        parseRangeBound(band != null ? band.getUpperBound() : null, false);
+      } catch (NumberFormatException e) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.InvalidRangeBandBounds",
+                    rangeDimension.getName(),
+                    bandIndex),
+                rangeDimension));
+      }
+    }
+    warnOnOverlappingRangeBands(remarks, rangeDimension);
   }
 
   public static void validateFactlessFact(
@@ -99,6 +161,8 @@ public final class DmValidationSupport {
     validateFactDimensionLookupDate(
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateDegenerateDimensions(remarks, fact, model, metadataProvider, variables);
+    validateRangeDimensionRoles(remarks, fact, model, metadataProvider, variables);
+    validateJunkDimensionRoles(remarks, fact, model, metadataProvider, variables);
     validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
@@ -125,6 +189,8 @@ public final class DmValidationSupport {
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
     validateDegenerateDimensions(remarks, fact, model, metadataProvider, variables);
+    validateRangeDimensionRoles(remarks, fact, model, metadataProvider, variables);
+    validateJunkDimensionRoles(remarks, fact, model, metadataProvider, variables);
     validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
@@ -151,6 +217,8 @@ public final class DmValidationSupport {
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
     validateDegenerateDimensions(remarks, fact, model, metadataProvider, variables);
+    validateRangeDimensionRoles(remarks, fact, model, metadataProvider, variables);
+    validateJunkDimensionRoles(remarks, fact, model, metadataProvider, variables);
     validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
@@ -252,6 +320,8 @@ public final class DmValidationSupport {
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
     validateDegenerateDimensions(remarks, fact, model, metadataProvider, variables);
+    validateRangeDimensionRoles(remarks, fact, model, metadataProvider, variables);
+    validateJunkDimensionRoles(remarks, fact, model, metadataProvider, variables);
     validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
   }
@@ -597,6 +667,8 @@ public final class DmValidationSupport {
         remarks, fact, fact.getDimensionRolesOrEmpty(), model, metadataProvider, variables);
     validateMeasures(remarks, fact, variables);
     validateDegenerateDimensions(remarks, fact, model, metadataProvider, variables);
+    validateRangeDimensionRoles(remarks, fact, model, metadataProvider, variables);
+    validateJunkDimensionRoles(remarks, fact, model, metadataProvider, variables);
     validateSourceConfiguration(remarks, fact, model, metadataProvider, variables);
     validateFactSourceFields(remarks, fact, model, metadataProvider, variables);
     validateTargetLayout(remarks, fact, model, metadataProvider, variables);
@@ -1032,6 +1104,353 @@ public final class DmValidationSupport {
       reserved.add(resolve(table.getDimensionLookupDateField(), variables));
     }
     return reserved;
+  }
+
+  private static void validateRangeDimensionRoles(
+      List<ICheckResult> remarks,
+      IDmFactLikeTable factLike,
+      DimensionalModel model,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables) {
+    if (remarks == null || factLike == null) {
+      return;
+    }
+    Set<String> targetNames = new HashSet<>();
+    Set<String> measureNames = new HashSet<>();
+    for (DmFactMeasure measure : factLike.getMeasuresOrEmpty()) {
+      String fieldName = resolve(measure != null ? measure.getFieldName() : null, variables);
+      if (!Utils.isEmpty(fieldName)) {
+        measureNames.add(fieldName);
+      }
+    }
+    Set<String> degenerateNames = new HashSet<>();
+    for (DmFactDegenerateDimension degenerateDimension : factLike.getDegenerateDimensionsOrEmpty()) {
+      String fieldName =
+          resolve(
+              degenerateDimension != null ? degenerateDimension.getFieldName() : null, variables);
+      if (!Utils.isEmpty(fieldName)) {
+        degenerateNames.add(fieldName);
+      }
+    }
+    Set<String> roleSourceFields = new HashSet<>();
+    Set<String> roleForeignKeys = new HashSet<>();
+    for (DmFactDimensionRole role : factLike.getDimensionRolesOrEmpty()) {
+      String sourceField = resolve(role != null ? role.getSourceFieldName() : null, variables);
+      if (!Utils.isEmpty(sourceField)) {
+        roleSourceFields.add(sourceField);
+      }
+      String foreignKey = resolve(role != null ? role.getForeignKeyColumn() : null, variables);
+      if (!Utils.isEmpty(foreignKey)) {
+        roleForeignKeys.add(foreignKey);
+      }
+    }
+    Set<String> reservedFields = collectReservedDegenerateDimensionFields(factLike, variables);
+    Set<String> available = new HashSet<>();
+    IRowMeta sourceRowMeta = null;
+    if (factLike instanceof DmTableBase factTable) {
+      sourceRowMeta =
+          DmSourceFieldResolutionSupport.tryResolveSourceRowMeta(
+              metadataProvider, variables, model, factTable);
+      if (sourceRowMeta != null) {
+        available.addAll(sourceRowMeta.getValueMetaList().stream().map(IValueMeta::getName).toList());
+      }
+    }
+    for (DmFactRangeDimensionRole rangeRole : factLike.getRangeDimensionRolesOrEmpty()) {
+      String rangeDimensionName =
+          resolve(
+              rangeRole != null ? rangeRole.getRangeDimensionTableName() : null, variables);
+      String sourceFieldName =
+          resolve(rangeRole != null ? rangeRole.getSourceFieldName() : null, variables);
+      String targetFieldName =
+          resolve(rangeRole != null ? rangeRole.getTargetFieldName() : null, variables);
+      if (Utils.isEmpty(rangeDimensionName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.EmptyRangeDimensionRole",
+                    factLike.getName()),
+                factLike));
+        continue;
+      }
+      DmRangeDimension rangeDimension =
+          DmRangeDimensionSupport.resolveRangeDimension(model, rangeDimensionName, variables);
+      if (rangeDimension == null) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.UnknownRangeDimension",
+                    factLike.getName(),
+                    rangeDimensionName),
+                factLike));
+      }
+      if (Utils.isEmpty(sourceFieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.EmptyRangeDimensionSourceField",
+                    factLike.getName(),
+                    rangeDimensionName),
+                factLike));
+      } else if (!available.isEmpty() && !available.contains(sourceFieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.RangeDimensionSourceMissingFromFactSource",
+                    factLike.getName(),
+                    sourceFieldName),
+                factLike));
+      } else if (sourceRowMeta != null && !Utils.isEmpty(sourceFieldName)) {
+        IValueMeta sourceMeta = sourceRowMeta.searchValueMeta(sourceFieldName);
+        if (sourceMeta != null && !sourceMeta.isNumeric()) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_WARNING,
+                  BaseMessages.getString(
+                      PKG,
+                      "DmValidationSupport.CheckResult.RangeDimensionSourceNotNumeric",
+                      factLike.getName(),
+                      sourceFieldName),
+                  factLike));
+        }
+      }
+      if (Utils.isEmpty(targetFieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.EmptyRangeDimensionTargetField",
+                    factLike.getName(),
+                    rangeDimensionName),
+                factLike));
+        continue;
+      }
+      if (!targetNames.add(targetFieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.DuplicateRangeDimensionTargetField",
+                    factLike.getName(),
+                    targetFieldName),
+                factLike));
+      }
+      if (degenerateNames.contains(targetFieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.RangeDimensionTargetOverlapsDegenerate",
+                    factLike.getName(),
+                    targetFieldName),
+                factLike));
+      }
+      if (measureNames.contains(targetFieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.RangeDimensionTargetOverlapsMeasure",
+                    factLike.getName(),
+                    targetFieldName),
+                factLike));
+      }
+      if (roleSourceFields.contains(targetFieldName) || roleForeignKeys.contains(targetFieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.RangeDimensionTargetOverlapsDimensionRole",
+                    factLike.getName(),
+                    targetFieldName),
+                factLike));
+      }
+      if (reservedFields.contains(targetFieldName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.RangeDimensionTargetOverlapsReservedField",
+                    factLike.getName(),
+                    targetFieldName),
+                factLike));
+      }
+    }
+  }
+
+  private static void validateJunkDimensionRoles(
+      List<ICheckResult> remarks,
+      IDmFactLikeTable factLike,
+      DimensionalModel model,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables) {
+    if (remarks == null || factLike == null) {
+      return;
+    }
+    Set<String> foreignKeys = new HashSet<>();
+    Set<String> roleForeignKeys = new HashSet<>();
+    for (DmFactDimensionRole role : factLike.getDimensionRolesOrEmpty()) {
+      String foreignKey = resolve(role != null ? role.getForeignKeyColumn() : null, variables);
+      if (!Utils.isEmpty(foreignKey)) {
+        roleForeignKeys.add(foreignKey);
+      }
+    }
+    Set<String> available = new HashSet<>();
+    IRowMeta sourceRowMeta = null;
+    if (factLike instanceof DmTableBase factTable) {
+      sourceRowMeta =
+          DmSourceFieldResolutionSupport.tryResolveSourceRowMeta(
+              metadataProvider, variables, model, factTable);
+      if (sourceRowMeta != null) {
+        available.addAll(sourceRowMeta.getValueMetaList().stream().map(IValueMeta::getName).toList());
+      }
+    }
+    for (DmFactJunkDimensionRole junkRole : factLike.getJunkDimensionRolesOrEmpty()) {
+      String junkDimensionName =
+          resolve(junkRole != null ? junkRole.getJunkDimensionTableName() : null, variables);
+      String foreignKeyColumn =
+          resolve(junkRole != null ? junkRole.getForeignKeyColumn() : null, variables);
+      if (Utils.isEmpty(junkDimensionName)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.EmptyJunkDimensionRole",
+                    factLike.getName()),
+                factLike));
+        continue;
+      }
+      DmJunkDimension junkDimension =
+          DmJunkDimensionSupport.resolveJunkDimension(model, junkDimensionName, variables);
+      if (junkDimension == null) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.UnknownJunkDimension",
+                    factLike.getName(),
+                    junkDimensionName),
+                factLike));
+        continue;
+      }
+      if (!DmJunkDimensionSupport.isFactEmbedded(junkDimension)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.JunkDimensionNotFactEmbedded",
+                    factLike.getName(),
+                    junkDimensionName),
+                factLike));
+      }
+      for (DmNaturalKeyField keyField : junkDimension.getKeyFieldsOrEmpty()) {
+        String keyName = resolve(keyField != null ? keyField.getFieldName() : null, variables);
+        if (!Utils.isEmpty(keyName)
+            && !available.isEmpty()
+            && !available.contains(keyName)) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG,
+                      "DmValidationSupport.CheckResult.JunkKeyMissingFromFactSource",
+                      factLike.getName(),
+                      keyName,
+                      junkDimensionName),
+                  factLike));
+        }
+      }
+      if (Utils.isEmpty(foreignKeyColumn)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.EmptyJunkForeignKey",
+                    factLike.getName(),
+                    junkDimensionName),
+                factLike));
+        continue;
+      }
+      if (!foreignKeys.add(foreignKeyColumn)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.DuplicateJunkForeignKey",
+                    factLike.getName(),
+                    foreignKeyColumn),
+                factLike));
+      }
+      if (roleForeignKeys.contains(foreignKeyColumn)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.JunkForeignKeyOverlapsDimensionRole",
+                    factLike.getName(),
+                    foreignKeyColumn),
+                factLike));
+      }
+    }
+  }
+
+  private static double parseRangeBound(String bound, boolean lower) {
+    if (Utils.isEmpty(bound)) {
+      return lower ? -Double.MAX_VALUE : Double.MAX_VALUE;
+    }
+    return Double.parseDouble(bound.trim());
+  }
+
+  private static void warnOnOverlappingRangeBands(
+      List<ICheckResult> remarks, DmRangeDimension rangeDimension) {
+    List<DmRangeBand> bands = rangeDimension.getBandsOrEmpty();
+    for (int i = 0; i < bands.size(); i++) {
+      DmRangeBand left = bands.get(i);
+      if (left == null) {
+        continue;
+      }
+      double leftLower = parseRangeBound(left.getLowerBound(), true);
+      double leftUpper = parseRangeBound(left.getUpperBound(), false);
+      for (int j = i + 1; j < bands.size(); j++) {
+        DmRangeBand right = bands.get(j);
+        if (right == null) {
+          continue;
+        }
+        double rightLower = parseRangeBound(right.getLowerBound(), true);
+        double rightUpper = parseRangeBound(right.getUpperBound(), false);
+        if (leftLower < rightUpper && rightLower < leftUpper) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_WARNING,
+                  BaseMessages.getString(
+                      PKG,
+                      "DmValidationSupport.CheckResult.OverlappingRangeBands",
+                      rangeDimension.getName(),
+                      Const.NVL(left.getLabel(), "?"),
+                      Const.NVL(right.getLabel(), "?")),
+                  rangeDimension));
+        }
+      }
+    }
   }
 
   private static void validateMeasures(
@@ -1564,17 +1983,6 @@ public final class DmValidationSupport {
       return;
     }
     DmJunkSurrogateKeyStrategy strategy = DmSurrogateKeySupport.resolveJunkStrategy(junkDimension);
-    if (!strategy.isPipelineSupported()) {
-      remarks.add(
-          new CheckResult(
-              ICheckResult.TYPE_RESULT_WARNING,
-              BaseMessages.getString(
-                  PKG,
-                  "DmValidationSupport.CheckResult.JunkSurrogatePipelineUnsupported",
-                  junkDimension.getName(),
-                  strategy.getDescription()),
-              junkDimension));
-    }
     if (strategy == DmJunkSurrogateKeyStrategy.USE_SOURCE_FIELD
         && Utils.isEmpty(junkDimension.getSurrogateKeySourceField())) {
       remarks.add(
@@ -1583,6 +1991,89 @@ public final class DmValidationSupport {
               BaseMessages.getString(
                   PKG,
                   "DmValidationSupport.CheckResult.MissingJunkSurrogateSourceField",
+                  junkDimension.getName()),
+              junkDimension));
+    }
+  }
+
+  private static void validateJunkFactTableSource(
+      List<ICheckResult> remarks,
+      DmJunkDimension junkDimension,
+      DimensionalModel model,
+      IVariables variables) {
+    if (remarks == null || junkDimension == null) {
+      return;
+    }
+    String factTableName = DmJunkDimensionSupport.resolveFactTableName(junkDimension, variables);
+    if (Utils.isEmpty(factTableName)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.MissingJunkFactTableSource",
+                  junkDimension.getName()),
+              junkDimension));
+      return;
+    }
+    if (model != null
+        && DmJunkDimensionSupport.resolveFactTable(model, factTableName, variables) == null) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.UnknownJunkFactTableSource",
+                  junkDimension.getName(),
+                  factTableName),
+              junkDimension));
+    }
+  }
+
+  private static void validateJunkHashCode(
+      List<ICheckResult> remarks, DmJunkDimension junkDimension, IVariables variables) {
+    if (remarks == null || junkDimension == null) {
+      return;
+    }
+    DmJunkHashCodeStrategy strategy = junkDimension.getHashCodeStrategyOrDefault();
+    if (!strategy.usesHashColumn()) {
+      return;
+    }
+    if (junkDimension.isUseSurrogateKeyAsHashCodeField()) {
+      DmJunkSurrogateKeyStrategy surrogateStrategy =
+          DmSurrogateKeySupport.resolveJunkStrategy(junkDimension);
+      if (surrogateStrategy == DmJunkSurrogateKeyStrategy.AUTO_INCREMENT) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_WARNING,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.JunkSharedHashAutoIncrement",
+                    junkDimension.getName()),
+                junkDimension));
+      }
+      String surrogateField =
+          DmSurrogateKeySupport.resolveJunkSurrogateKeyField(
+              junkDimension, new DimensionalConfiguration(), variables);
+      if (Utils.isEmpty(surrogateField)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.MissingJunkSharedHashSurrogateField",
+                    junkDimension.getName()),
+                junkDimension));
+      }
+      return;
+    }
+    if (Utils.isEmpty(junkDimension.getHashCodeField())) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_WARNING,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.MissingJunkHashCodeField",
                   junkDimension.getName()),
               junkDimension));
     }

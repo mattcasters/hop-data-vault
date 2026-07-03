@@ -35,6 +35,7 @@ import org.apache.hop.datavault.metadata.IDvTargetLoadConfiguration;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
+
 /** Configuration embedded in a {@link BusinessVaultModel}. */
 @Getter
 @Setter

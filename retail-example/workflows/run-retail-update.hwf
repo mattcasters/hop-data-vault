@@ -11,11 +11,6 @@
   <workflow_version/>
   <parameters>
     <parameter>
-      <name>DV_UPDATE_LOAD_DATE</name>
-      <description>Load date for incremental Data Vault Update actions</description>
-      <default_value>2024/02/01 00:00:00.000</default_value>
-    </parameter>
-    <parameter>
       <name>OUTPUT_COPIES</name>
       <description>Valid in the current workflow</description>
       <default_value>1</default_value>
@@ -29,6 +24,11 @@
       <name>METRICS_FOLDER</name>
       <description>Valid in the current workflow</description>
       <default_value>${PROJECT_HOME}/metrics</default_value>
+    </parameter>
+    <parameter>
+      <name>DV_UPDATE_LOAD_DATE</name>
+      <description>Load date for incremental Data Vault Update actions</description>
+      <default_value>2024/02/01 00:00:00.000</default_value>
     </parameter>
   </parameters>
   <actions>
@@ -52,16 +52,27 @@
       <attributes_hac/>
     </action>
     <action>
-      <sql/>
-      <connection>Vault</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>Y</sqlfromfile>
-      <sqlfilename>${PROJECT_HOME}/sql/read-load-control.sql</sqlfilename>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
+      <filename>${PROJECT_HOME}/pipelines/write-load-control-context.hpl</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <clear_rows>N</clear_rows>
+      <clear_files>N</clear_files>
+      <create_parent_folder>N</create_parent_folder>
+      <set_logfile>N</set_logfile>
+      <set_append_logfile>N</set_append_logfile>
+      <logfile/>
+      <logext/>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <loglevel>Basic</loglevel>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
       <name>Read load control</name>
       <description/>
-      <type>SQL</type>
+      <type>PIPELINE</type>
       <attributes/>
       <xloc>240</xloc>
       <yloc>64</yloc>
@@ -83,7 +94,7 @@
       <set_append_logfile>N</set_append_logfile>
       <insertScript>Y</insertScript>
       <script>#!/bin/sh
-exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --mode update --project-home "${PROJECT_HOME}"</script>
+exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --project-home "${PROJECT_HOME}"</script>
       <name>Generate update data</name>
       <description/>
       <type>SHELL</type>
@@ -116,81 +127,8 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>656</xloc>
-      <yloc>64</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dataVaultModelFile>${PROJECT_HOME}/models/retail-360.hdv</dataVaultModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>N</logModelCheckFailures>
-      <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
-      <detailedDataTypeChecking>N</detailedDataTypeChecking>
-      <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
-      <publishToCatalog>N</publishToCatalog>
-      <dataCatalogConnection>local-catalog</dataCatalogConnection>
-      <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
-      <ddlSqlFilename/>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <loadDate>${DV_UPDATE_LOAD_DATE}</loadDate>
-      <recordSourceGroup/>
-      <ensureSpecialRecords>N</ensureSpecialRecords>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <name>retail-360 update DV</name>
-      <description/>
-      <type>DATA_VAULT_UPDATE</type>
-      <attributes/>
-      <xloc>64</xloc>
-      <yloc>160</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <businessVaultModelFile>${PROJECT_HOME}/models/retail-360.hbv</businessVaultModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>N</logModelCheckFailures>
-      <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder/>
-      <publishToCatalog>N</publishToCatalog>
-      <dataCatalogConnection>local-catalog</dataCatalogConnection>
-      <selectedTableNames/>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
-      <ddlSqlFilename/>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-360.hbv</name>
-      <description/>
-      <type>BUSINESS_VAULT_UPDATE</type>
-      <attributes/>
-      <xloc>320</xloc>
-      <yloc>160</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dimensionalModelFile>${PROJECT_HOME}/models/retail-warehouse.hdm</dimensionalModelFile>
-      <pipelineRunConfiguration>local</pipelineRunConfiguration>
-      <logModelCheckFailures>N</logModelCheckFailures>
-      <abortOnModelCheckFailures>N</abortOnModelCheckFailures>
-      <parallelPipelineCopies>1</parallelPipelineCopies>
-      <pipelineStagingFolder/>
-      <metricsOutputFolder/>
-      <selectedTableNames/>
-      <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
-      <updateTargetDatabaseStructure>N</updateTargetDatabaseStructure>
-      <ddlSqlFilename/>
-      <failIfDdlNeeded>N</failIfDdlNeeded>
-      <name>retail-warehouse.hdm</name>
-      <description/>
-      <type>DIMENSIONAL_UPDATE</type>
-      <attributes/>
-      <xloc>576</xloc>
-      <yloc>160</yloc>
+      <xloc>240</xloc>
+      <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -206,18 +144,39 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>832</xloc>
-      <yloc>160</yloc>
+      <xloc>608</xloc>
+      <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
     <action>
-      <name>Success</name>
+      <filename>${PROJECT_HOME}/workflows/update-retail-dv-bv-dm.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+        <parameter>
+          <name>DV_LOAD_DATE</name>
+          <value>${DV_UPDATE_LOAD_DATE}</value>
+          <stream_name/>
+        </parameter>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>update-retail-dv-bv-dm</name>
       <description/>
-      <type>SUCCESS</type>
+      <type>WORKFLOW</type>
       <attributes/>
-      <xloc>64</xloc>
-      <yloc>256</yloc>
+      <xloc>432</xloc>
+      <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -246,35 +205,14 @@ exec python3 "${PROJECT_HOME}/../scripts/end-to-end/generate-retail-data.py" --m
     </hop>
     <hop>
       <from>Load CSV to CRM</from>
-      <to>retail-360 update DV</to>
+      <to>update-retail-dv-bv-dm</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>retail-360 update DV</from>
-      <to>retail-360.hbv</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-360.hbv</from>
-      <to>retail-warehouse.hdm</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>retail-warehouse.hdm</from>
+      <from>update-retail-dv-bv-dm</from>
       <to>Advance load control</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Advance load control</from>
-      <to>Success</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

@@ -69,7 +69,9 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.datavault.config.DvRunConfigurationSupport;
 import org.apache.hop.pipeline.config.PipelineRunConfiguration;
+import org.apache.hop.workflow.config.WorkflowRunConfiguration;
 import org.apache.hop.workflow.action.ActionBase;
 import org.apache.hop.workflow.action.IAction;
 import org.w3c.dom.Document;
@@ -115,6 +117,16 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
       parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
   private String pipelineRunConfiguration;
+
+  @GuiWidgetElement(
+      order = "0210",
+      type = GuiElementType.METADATA,
+      metadata = WorkflowRunConfiguration.class,
+      label = "i18n::ActionBusinessVaultUpdate.WorkflowRunConfiguration.Label",
+      toolTip = "i18n::ActionBusinessVaultUpdate.WorkflowRunConfiguration.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
+  @HopMetadataProperty
+  private String workflowRunConfiguration;
 
   @GuiWidgetElement(
       order = "0300",
@@ -241,6 +253,7 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
     super(meta);
     this.businessVaultModelFile = meta.businessVaultModelFile;
     this.pipelineRunConfiguration = meta.pipelineRunConfiguration;
+    this.workflowRunConfiguration = meta.workflowRunConfiguration;
     this.logModelCheckFailures = meta.logModelCheckFailures;
     this.abortOnModelCheckFailures = meta.abortOnModelCheckFailures;
     this.parallelPipelineCopies = meta.parallelPipelineCopies;
@@ -271,7 +284,12 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
     result.setNrErrors(1);
 
     try {
-      String realRunConfig = resolve(pipelineRunConfiguration);
+      String realRunConfig =
+          DvRunConfigurationSupport.resolvePipelineRunConfiguration(
+              pipelineRunConfiguration, getVariables());
+      String realWorkflowRunConfig =
+          DvRunConfigurationSupport.resolveWorkflowRunConfiguration(
+              workflowRunConfiguration, getVariables());
       if (Utils.isEmpty(realRunConfig)) {
         logError(BaseMessages.getString(PKG, "ActionBusinessVaultUpdate.Error.NoRunConfig"));
         return result;
@@ -536,6 +554,7 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
                   pipelineConfig,
                   allPipelineMetas,
                   realRunConfig,
+                  realWorkflowRunConfig,
                   getLogLevel(),
                   pipelineStagingFolder,
                   targetDatabase,

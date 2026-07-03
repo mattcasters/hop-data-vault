@@ -38,6 +38,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
 import org.apache.hop.datavault.metadata.dimensional.DmFact;
 import org.apache.hop.datavault.metadata.dimensional.DmFactlessFact;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmRangeDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmPeriodicSnapshotFact;
 import org.apache.hop.datavault.metadata.dimensional.DmTableType;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
@@ -214,6 +215,8 @@ public class HopGuiDimensionalClipboardDelegate {
           XmlMetadataUtil.deSerializeFromXml(tableNode, DmDimensionAlias.class, metadataProvider);
       case JUNK_DIMENSION ->
           XmlMetadataUtil.deSerializeFromXml(tableNode, DmJunkDimension.class, metadataProvider);
+      case RANGE_DIMENSION ->
+          XmlMetadataUtil.deSerializeFromXml(tableNode, DmRangeDimension.class, metadataProvider);
       case FACT -> XmlMetadataUtil.deSerializeFromXml(tableNode, DmFact.class, metadataProvider);
       case FACTLESS_FACT ->
           XmlMetadataUtil.deSerializeFromXml(tableNode, DmFactlessFact.class, metadataProvider);

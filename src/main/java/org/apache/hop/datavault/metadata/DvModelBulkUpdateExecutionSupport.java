@@ -136,6 +136,7 @@ public final class DvModelBulkUpdateExecutionSupport {
       IDvTargetLoadConfiguration pipelineConfig,
       List<PipelineMeta> allPipelineMetas,
       String realRunConfig,
+      String realWorkflowRunConfig,
       LogLevel pipelineLogLevel,
       String pipelineStagingFolder,
       DatabaseMeta targetDatabase,
@@ -214,6 +215,7 @@ public final class DvModelBulkUpdateExecutionSupport {
       Result workflowResult =
           DvUpdateWorkflowSupport.runMasterWorkflow(
               masterWorkflow,
+              realWorkflowRunConfig,
               pipelineLogLevel != null ? pipelineLogLevel : parent.getLogLevel(),
               parent,
               variables,

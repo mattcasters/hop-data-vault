@@ -20,6 +20,8 @@ package org.apache.hop.datavault.metadata.dimensional.pipeline;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmJunkDimensionSupport;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 
 /** Execution ordering helpers for dimensional model update workflows. */
@@ -45,7 +47,15 @@ public final class DmUpdateExecutionSupport {
         case DIMENSION_ALIAS -> {
           // Aliases inherit pipelines from the referenced physical dimension.
         }
-        case JUNK_DIMENSION -> junkDimensions.add(table);
+        case RANGE_DIMENSION -> {
+          // Metadata-only band definitions; applied on fact load pipelines.
+        }
+        case JUNK_DIMENSION -> {
+          if (table instanceof DmJunkDimension junkDimension
+              && DmJunkDimensionSupport.requiresStandalonePipeline(junkDimension)) {
+            junkDimensions.add(table);
+          }
+        }
         case BRIDGE -> bridges.add(table);
         case FACT,
                 FACTLESS_FACT,

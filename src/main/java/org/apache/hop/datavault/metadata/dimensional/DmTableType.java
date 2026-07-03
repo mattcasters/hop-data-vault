@@ -27,6 +27,7 @@ public enum DmTableType implements IEnumHasCodeAndDescription {
   DIMENSION("DmTableType.Dimension"),
   DIMENSION_ALIAS("DmTableType.DimensionAlias"),
   JUNK_DIMENSION("DmTableType.JunkDimension"),
+  RANGE_DIMENSION("DmTableType.RangeDimension"),
   FACT("DmTableType.Fact"),
   FACTLESS_FACT("DmTableType.FactlessFact"),
   PERIODIC_SNAPSHOT_FACT("DmTableType.PeriodicSnapshotFact"),

@@ -39,6 +39,7 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadata;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
+
 /** Warehouse configuration for a dimensional model. */
 @GuiPlugin
 @Getter

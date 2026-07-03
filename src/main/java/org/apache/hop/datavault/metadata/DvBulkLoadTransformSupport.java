@@ -29,6 +29,7 @@ import org.apache.hop.core.plugins.TransformPluginType;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.pipeline.transform.ITransformMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 
@@ -382,6 +383,32 @@ public final class DvBulkLoadTransformSupport {
     } catch (Exception e) {
       throw new HopException("Unable to create Vertica bulk loader field mapping", e);
     }
+  }
+
+  public static void configurePgBulkLoaderFromColumns(
+      ITransformMeta meta,
+      IDvTargetLoadConfiguration config,
+      IVariables variables,
+      String targetDbName,
+      String targetTableName,
+      List<String> columnNames)
+      throws HopException {
+    invoke(meta, "setConnection", String.class, targetDbName);
+    invoke(meta, "setTableName", String.class, targetTableName);
+    invoke(meta, "setSchemaName", String.class, "");
+    invoke(meta, "setLoadAction", String.class, "INSERT");
+    invoke(meta, "setDelimiter", String.class, config.resolveBulkLoadDelimiter(variables));
+    invoke(meta, "setEnclosure", String.class, config.resolveBulkLoadEnclosure(variables));
+    invoke(meta, "setStopOnError", boolean.class, true);
+    List<Object> mappings = new ArrayList<>();
+    if (columnNames != null) {
+      for (String columnName : columnNames) {
+        if (!Utils.isEmpty(columnName)) {
+          mappings.add(createPgMapping(meta, columnName, columnName, "PASS THROUGH"));
+        }
+      }
+    }
+    invoke(meta, "setMappings", List.class, mappings);
   }
 
   private static void configurePgBulkLoader(

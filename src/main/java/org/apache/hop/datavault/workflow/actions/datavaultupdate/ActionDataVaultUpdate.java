@@ -63,7 +63,9 @@ import org.apache.hop.datavault.metadata.DvIntegrationSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvLoadDateSupport;
 import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
+import org.apache.hop.datavault.config.DvRunConfigurationSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
+import org.apache.hop.workflow.config.WorkflowRunConfiguration;
 import org.apache.hop.datavault.metadata.DvUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
@@ -124,6 +126,16 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
   private String pipelineRunConfiguration;
+
+  @GuiWidgetElement(
+      order = "0210",
+      type = GuiElementType.METADATA,
+      metadata = WorkflowRunConfiguration.class,
+      label = "i18n::ActionDataVaultUpdate.WorkflowRunConfiguration.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.WorkflowRunConfiguration.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
+  @HopMetadataProperty
+  private String workflowRunConfiguration;
 
   @GuiWidgetElement(
       order = "0300",
@@ -270,6 +282,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     super(name, "");
     dataVaultModelFile = null;
     pipelineRunConfiguration = null;
+    workflowRunConfiguration = null;
   }
 
   public ActionDataVaultUpdate() {
@@ -280,6 +293,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     super(meta);
     this.dataVaultModelFile = meta.dataVaultModelFile;
     this.pipelineRunConfiguration = meta.pipelineRunConfiguration;
+    this.workflowRunConfiguration = meta.workflowRunConfiguration;
     this.logModelCheckFailures = meta.logModelCheckFailures;
     this.abortOnModelCheckFailures = meta.abortOnModelCheckFailures;
     this.detailedDataTypeChecking = meta.detailedDataTypeChecking;
@@ -315,7 +329,12 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
 
     try {
 
-      String realRunConfig = resolve(pipelineRunConfiguration);
+      String realRunConfig =
+          DvRunConfigurationSupport.resolvePipelineRunConfiguration(
+              pipelineRunConfiguration, getVariables());
+      String realWorkflowRunConfig =
+          DvRunConfigurationSupport.resolveWorkflowRunConfiguration(
+              workflowRunConfiguration, getVariables());
       if (Utils.isEmpty(realRunConfig)) {
         logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.NoRunConfig"));
         return result;
@@ -692,6 +711,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
                   pipelineConfig,
                   allPipelineMetas,
                   realRunConfig,
+                  realWorkflowRunConfig,
                   pipelineLogLevel,
                   success,
                   totalErrors);
@@ -805,6 +825,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       DataVaultConfiguration pipelineConfig,
       List<PipelineMeta> allPipelineMetas,
       String realRunConfig,
+      String realWorkflowRunConfig,
       LogLevel pipelineLogLevel,
       boolean success,
       int totalErrors)
@@ -883,6 +904,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       Result workflowResult =
           DvUpdateWorkflowSupport.runMasterWorkflow(
               masterWorkflow,
+              realWorkflowRunConfig,
               pipelineLogLevel != null ? pipelineLogLevel : getLogLevel(),
               this,
               getVariables(),

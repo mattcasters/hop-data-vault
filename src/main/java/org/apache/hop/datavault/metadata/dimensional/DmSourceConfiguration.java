@@ -58,6 +58,9 @@ public class DmSourceConfiguration {
   /** Catalog name of the staging record definition. */
   @HopMetadataProperty private String sourceRecordName;
 
+  /** Fact table name when {@link DmSourceType#FACT_TABLE} is selected (junk dimensions). */
+  @HopMetadataProperty private String sourceFactTableName;
+
   public DmSourceType resolveSourceType() {
     return sourceType != null ? sourceType : DmSourceType.SQL;
   }
@@ -72,6 +75,10 @@ public class DmSourceConfiguration {
 
   public boolean isRecordDefinitionSource() {
     return resolveSourceType() == DmSourceType.RECORD_DEFINITION;
+  }
+
+  public boolean isFactTableSource() {
+    return resolveSourceType() == DmSourceType.FACT_TABLE;
   }
 
   public String resolveSourceConnection(
@@ -151,6 +158,14 @@ public class DmSourceConfiguration {
 
   public String resolveSourceRecordName(IVariables variables) {
     String name = sourceRecordName;
+    if (variables != null) {
+      name = variables.resolve(name);
+    }
+    return name;
+  }
+
+  public String resolveSourceFactTableName(IVariables variables) {
+    String name = sourceFactTableName;
     if (variables != null) {
       name = variables.resolve(name);
     }

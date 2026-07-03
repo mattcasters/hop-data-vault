@@ -30,6 +30,8 @@ import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionScdType;
 import org.apache.hop.datavault.metadata.dimensional.DmFact;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmRangeBand;
+import org.apache.hop.datavault.metadata.dimensional.DmRangeDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmNaturalKeyField;
 import org.apache.hop.datavault.metadata.dimensional.DmTableType;
 import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
@@ -54,6 +56,9 @@ class DmTableDisplaySupportTest {
     assertEquals(
         DmTableDisplaySupport.JUNK_DIMENSION_ICON,
         DmTableDisplaySupport.resolveTableIconPath(DmTableType.JUNK_DIMENSION));
+    assertEquals(
+        DmTableDisplaySupport.RANGE_DIMENSION_ICON,
+        DmTableDisplaySupport.resolveTableIconPath(DmTableType.RANGE_DIMENSION));
     assertEquals(
         DmTableDisplaySupport.BRIDGE_ICON,
         DmTableDisplaySupport.resolveTableIconPath(DmTableType.BRIDGE));
@@ -140,6 +145,20 @@ class DmTableDisplaySupportTest {
         "junk_key",
         DmTableDisplaySupport.resolveSecondaryFieldName(
             junk, model, new Variables(), new MemoryMetadataProvider()));
+  }
+
+  @Test
+  void resolveSecondaryFieldNameForRangeDimensionShowsBandCount() {
+    DimensionalModel model = new DimensionalModel();
+    DmRangeDimension range = new DmRangeDimension();
+    range.setName("dim_amount_band");
+    range.getBands().add(new DmRangeBand("0", "100", "small"));
+    range.getBands().add(new DmRangeBand("100", "500", "medium"));
+
+    assertEquals(
+        "2 bands",
+        DmTableDisplaySupport.resolveSecondaryFieldName(
+            range, model, new Variables(), new MemoryMetadataProvider()));
   }
 
   @Test

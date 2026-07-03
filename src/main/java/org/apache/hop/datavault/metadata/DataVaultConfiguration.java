@@ -35,6 +35,7 @@ import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
+
 /**
  * Configuration for Data Vault 2.0 physical implementation and update strategy.
  *

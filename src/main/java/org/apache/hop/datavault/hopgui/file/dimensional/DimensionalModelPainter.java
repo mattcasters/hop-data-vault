@@ -46,7 +46,10 @@ import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionOutriggerRef;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
+import org.apache.hop.datavault.metadata.dimensional.DmFactJunkDimensionRole;
+import org.apache.hop.datavault.metadata.dimensional.DmFactRangeDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmRangeDimension;
 import org.apache.hop.datavault.metadata.dimensional.IDmFactLikeTable;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.DmTableType;
@@ -141,6 +144,8 @@ public class DimensionalModelPainter extends BasePainter {
     for (IDmTable table : model.getTables()) {
       if (table instanceof IDmFactLikeTable factLike) {
         drawFactDimensionConnections(factLike);
+        drawFactJunkDimensionConnections(factLike);
+        drawFactRangeDimensionConnections(factLike);
       }
       if (table instanceof DmBridge bridge) {
         drawBridgeDimensionConnections(bridge);
@@ -187,6 +192,44 @@ public class DimensionalModelPainter extends BasePainter {
       }
       Bounds dimensionBounds = tableBounds(dimension, dimension.getLocation());
       ModelGraphConnectionGeometry.drawConnectionSpline(gc, dimensionBounds, factBounds);
+    }
+  }
+
+  private void drawFactRangeDimensionConnections(IDmFactLikeTable fact) {
+    Point factLocation = fact.getLocation();
+    if (factLocation == null) {
+      return;
+    }
+    Bounds factBounds = tableBounds(fact, factLocation);
+    for (DmFactRangeDimensionRole role : fact.getRangeDimensionRolesOrEmpty()) {
+      if (role == null || Utils.isEmpty(role.getRangeDimensionTableName())) {
+        continue;
+      }
+      IDmTable range = tableByName.get(role.getRangeDimensionTableName());
+      if (range == null || range.getLocation() == null) {
+        continue;
+      }
+      Bounds rangeBounds = tableBounds(range, range.getLocation());
+      ModelGraphConnectionGeometry.drawConnectionSpline(gc, rangeBounds, factBounds);
+    }
+  }
+
+  private void drawFactJunkDimensionConnections(IDmFactLikeTable fact) {
+    Point factLocation = fact.getLocation();
+    if (factLocation == null) {
+      return;
+    }
+    Bounds factBounds = tableBounds(fact, factLocation);
+    for (DmFactJunkDimensionRole role : fact.getJunkDimensionRolesOrEmpty()) {
+      if (role == null || Utils.isEmpty(role.getJunkDimensionTableName())) {
+        continue;
+      }
+      IDmTable junk = tableByName.get(role.getJunkDimensionTableName());
+      if (junk == null || junk.getLocation() == null) {
+        continue;
+      }
+      Bounds junkBounds = tableBounds(junk, junk.getLocation());
+      ModelGraphConnectionGeometry.drawConnectionSpline(gc, junkBounds, factBounds);
     }
   }
 
@@ -269,8 +312,16 @@ public class DimensionalModelPainter extends BasePainter {
     }
   }
 
-  private static boolean isDimensionLike(IDmTable table) {
-    return table instanceof DmDimension || table instanceof DmJunkDimension;
+  private static boolean isRegularDimensionLike(IDmTable table) {
+    return table instanceof DmDimension;
+  }
+
+  private static boolean isJunkDimension(IDmTable table) {
+    return table instanceof DmJunkDimension;
+  }
+
+  private static boolean isRangeDimension(IDmTable table) {
+    return table instanceof DmRangeDimension;
   }
 
   private static boolean isFactLikeTable(IDmTable table) {
@@ -285,16 +336,28 @@ public class DimensionalModelPainter extends BasePainter {
     if (a == null || b == null || a == b) {
       return false;
     }
-    if (isFactLikeTable(a) && isDimensionLike(b)) {
+    if (isFactLikeTable(a) && isJunkDimension(b)) {
       return true;
     }
-    if (isFactLikeTable(b) && isDimensionLike(a)) {
+    if (isFactLikeTable(b) && isJunkDimension(a)) {
       return true;
     }
-    if (isBridgeTable(a) && isDimensionLike(b)) {
+    if (isFactLikeTable(a) && isRangeDimension(b)) {
       return true;
     }
-    if (isBridgeTable(b) && isDimensionLike(a)) {
+    if (isFactLikeTable(b) && isRangeDimension(a)) {
+      return true;
+    }
+    if (isFactLikeTable(a) && isRegularDimensionLike(b)) {
+      return true;
+    }
+    if (isFactLikeTable(b) && isRegularDimensionLike(a)) {
+      return true;
+    }
+    if (isBridgeTable(a) && isRegularDimensionLike(b)) {
+      return true;
+    }
+    if (isBridgeTable(b) && isRegularDimensionLike(a)) {
       return true;
     }
     return a instanceof DmDimension && b instanceof DmDimension;
@@ -416,6 +479,7 @@ public class DimensionalModelPainter extends BasePainter {
           new int[] {180, 100, 40};
       case FACTLESS_FACT -> new int[] {200, 130, 60};
       case JUNK_DIMENSION -> new int[] {120, 90, 160};
+      case RANGE_DIMENSION -> new int[] {140, 110, 170};
       case BRIDGE -> new int[] {90, 150, 90};
       case DIMENSION -> new int[] {60, 120, 180};
       case DIMENSION_ALIAS -> new int[] {100, 140, 180};

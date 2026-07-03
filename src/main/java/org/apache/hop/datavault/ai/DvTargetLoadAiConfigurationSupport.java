@@ -141,6 +141,7 @@ public final class DvTargetLoadAiConfigurationSupport {
       case "bulkLoadEnclosure" -> config.setBulkLoadEnclosure(value);
       case "bulkLoadEncoding" -> config.setBulkLoadEncoding(value);
       case "bulkLoadLocalFileRequired" -> config.setBulkLoadLocalFileRequired(parseBoolean(value));
+
       case "targetDatabase" -> config.setTargetDatabase(value);
       case "dataCatalogConnection" -> config.setDataCatalogConnection(value);
       case "generatedPipelineFolder" -> config.setGeneratedPipelineFolder(value);
@@ -200,6 +201,7 @@ public final class DvTargetLoadAiConfigurationSupport {
       case "bulkLoadEnclosure" -> config.setBulkLoadEnclosure(value);
       case "bulkLoadEncoding" -> config.setBulkLoadEncoding(value);
       case "bulkLoadLocalFileRequired" -> config.setBulkLoadLocalFileRequired(parseBoolean(value));
+
       case "targetDatabase" -> config.setTargetDatabase(value);
       case "generatedPipelineFolder" -> config.setGeneratedPipelineFolder(value);
       case "generatedWorkflowNamePrefix" -> config.setGeneratedWorkflowNamePrefix(value);
@@ -218,6 +220,7 @@ public final class DvTargetLoadAiConfigurationSupport {
       case "bulkLoadEnclosure" -> config.setBulkLoadEnclosure(value);
       case "bulkLoadEncoding" -> config.setBulkLoadEncoding(value);
       case "bulkLoadLocalFileRequired" -> config.setBulkLoadLocalFileRequired(parseBoolean(value));
+
       case "targetDatabase" -> config.setTargetDatabase(value);
       case "generatedPipelineFolder" -> config.setGeneratedPipelineFolder(value);
       case "generatedWorkflowNamePrefix" -> config.setGeneratedWorkflowNamePrefix(value);

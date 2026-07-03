@@ -59,6 +59,12 @@ public final class DmAccumulatingSnapshotLoadBuilder {
     TransformMeta predecessor = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     try {
       predecessor =
+          DmNumberRangeBuilder.wireRangeDimensionRoles(
+              ctx, pipelineMeta, predecessor, model, fact.getRangeDimensionRolesOrEmpty());
+      predecessor =
+          DmFactJunkDimensionJoinBuilder.wireJunkDimensionRoles(
+              ctx, pipelineMeta, predecessor, model, fact.getJunkDimensionRolesOrEmpty());
+      predecessor =
           DmFactDimensionJoinBuilder.wireDimensionRoles(
               ctx,
               pipelineMeta,

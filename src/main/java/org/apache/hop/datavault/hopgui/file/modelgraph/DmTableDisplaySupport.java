@@ -27,6 +27,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmRangeDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.datavault.metadata.dimensional.DmTableBase;
 import org.apache.hop.datavault.metadata.dimensional.DmTableType;
@@ -38,6 +39,7 @@ public final class DmTableDisplaySupport {
   public static final String DIMENSION_ICON = "dimension.svg";
   public static final String DIMENSION_ALIAS_ICON = "dimension-alias.svg";
   public static final String JUNK_DIMENSION_ICON = "dimension-junk.svg";
+  public static final String RANGE_DIMENSION_ICON = "dimension-range.svg";
   public static final String FACT_ICON = "fact.svg";
   public static final String BRIDGE_ICON = "bridge.svg";
 
@@ -52,6 +54,7 @@ public final class DmTableDisplaySupport {
           FACT_ICON;
       case DIMENSION_ALIAS -> DIMENSION_ALIAS_ICON;
       case JUNK_DIMENSION -> JUNK_DIMENSION_ICON;
+      case RANGE_DIMENSION -> RANGE_DIMENSION_ICON;
       case BRIDGE -> BRIDGE_ICON;
       case DIMENSION -> DIMENSION_ICON;
     };
@@ -85,6 +88,13 @@ public final class DmTableDisplaySupport {
     }
     if (table instanceof DmJunkDimension junkDimension) {
       return DmSurrogateKeySupport.resolveJunkSurrogateKeyField(junkDimension, config, variables);
+    }
+    if (table instanceof DmRangeDimension rangeDimension) {
+      int bandCount = rangeDimension.getBandsOrEmpty().size();
+      if (bandCount == 0) {
+        return null;
+      }
+      return bandCount == 1 ? "1 band" : bandCount + " bands";
     }
     if (table instanceof DmDimensionAlias alias) {
       DmDimension target =

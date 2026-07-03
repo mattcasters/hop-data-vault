@@ -54,4 +54,5 @@ class DvTargetLoadConfigurationSupportTest {
         "/tmp/bulk/warehouse/",
         config.resolveBulkLoadStagingFolder(variables, "warehouse"));
   }
+
 }
