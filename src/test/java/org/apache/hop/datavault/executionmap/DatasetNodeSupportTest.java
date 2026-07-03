@@ -52,13 +52,63 @@ class DatasetNodeSupportTest {
 
     assertEquals(first, second);
     assertEquals(1, document.getNodesOrEmpty().size());
-    assertEquals("dataset://CRM/customer", document.getNodesOrEmpty().get(0).getPath());
+    assertEquals("dataset://CRM::customer", document.getNodesOrEmpty().get(0).getPath());
+  }
+
+  @Test
+  void storesCatalogConnectionOnDatasetNode() {
+    ExecutionMapDocument document = new ExecutionMapDocument();
+    ExecutionMapContext context =
+        new ExecutionMapContext(document, new Variables(), null, CrawlOptions.builder().build());
+
+    String nodeId =
+        DatasetNodeSupport.getOrCreateDatasetNode(
+            context,
+            ExecutionMapNodeType.TARGET_DATASET,
+            "Vault",
+            "d_customer",
+            "DATABASE",
+            "parent-1",
+            "local-catalog");
+
+    assertEquals(
+        "local-catalog",
+        document.findNodeById(nodeId).getProperty(DatasetNodeSupport.PROPERTY_CATALOG_CONNECTION));
+  }
+
+  @Test
+  void backfillsCatalogConnectionOnDeduplicatedDatasetNode() {
+    ExecutionMapDocument document = new ExecutionMapDocument();
+    ExecutionMapContext context =
+        new ExecutionMapContext(document, new Variables(), null, CrawlOptions.builder().build());
+
+    String first =
+        DatasetNodeSupport.getOrCreateDatasetNode(
+            context,
+            ExecutionMapNodeType.TARGET_DATASET,
+            "Vault",
+            "d_customer",
+            "DATABASE",
+            "parent-1");
+    DatasetNodeSupport.getOrCreateDatasetNode(
+        context,
+        ExecutionMapNodeType.TARGET_DATASET,
+        "Vault",
+        "d_customer",
+        "DATABASE",
+        "parent-2",
+        "local-catalog");
+
+    assertEquals(first, document.getNodesOrEmpty().get(0).getId());
+    assertEquals(
+        "local-catalog",
+        document.findNodeById(first).getProperty(DatasetNodeSupport.PROPERTY_CATALOG_CONNECTION));
   }
 
   @Test
   void buildsQualifiedLabelsAndPaths() {
-    assertEquals("dataset://default/orders", DatasetNodeSupport.datasetPath(null, "orders"));
-    assertEquals("Vault.d_customer", DatasetNodeSupport.qualifiedLabel("Vault", "d_customer"));
+    assertEquals("dataset://default::orders", DatasetNodeSupport.datasetPath(null, "orders"));
+    assertEquals("Vault::d_customer", DatasetNodeSupport.qualifiedLabel("Vault", "d_customer"));
     Variables variables = new Variables();
     variables.setVariable("DB", "Warehouse");
     assertEquals("Warehouse", DatasetNodeSupport.resolveValue(variables, "${DB}"));

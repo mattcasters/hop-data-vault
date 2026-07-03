@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.hopgui.file.executionmap;
 
 import org.apache.hop.datavault.executionmap.ExecutionMapDiffSupport.DiffResult;
+
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.dialog.EnterTextDialog;
 import org.eclipse.swt.widgets.Shell;
@@ -26,7 +27,7 @@ import org.eclipse.swt.widgets.Shell;
 /** Read-only viewer for execution map refresh diffs. */
 public final class ExecutionMapDiffViewer {
 
-  private static final Class<?> PKG = ExecutionMapDiffViewer.class;
+  private static final Class<?> PKG = HopGuiExecutionMapGraph.class;
 
   private ExecutionMapDiffViewer() {}
 

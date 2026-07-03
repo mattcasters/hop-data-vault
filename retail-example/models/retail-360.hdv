@@ -37,7 +37,7 @@
     <bulkLoadEncoding>UTF-8</bulkLoadEncoding>
     <bulkLoadLocalFileRequired>N</bulkLoadLocalFileRequired>
     <sortRowsSize>1000000</sortRowsSize>
-    <execution_log_level>Detailed</execution_log_level>
+    <execution_log_level>Minimal</execution_log_level>
     <singleStoreShardKeyOnHashKey>N</singleStoreShardKeyOnHashKey>
     <singleStoreShardKeyIncludeDrivingKeys>N</singleStoreShardKeyIncludeDrivingKeys>
     <generatedPipelineFolder/>

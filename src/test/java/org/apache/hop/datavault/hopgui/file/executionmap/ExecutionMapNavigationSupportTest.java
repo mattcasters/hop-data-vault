@@ -30,6 +30,8 @@ import org.apache.hop.datavault.executionmap.ArtifactSnapshotSupport;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapArtifactSnapshot;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapArtifactType;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
+import org.apache.hop.catalog.model.RecordDefinitionKey;
+import org.apache.hop.datavault.executionmap.DatasetNodeSupport;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
 import org.junit.jupiter.api.BeforeAll;
@@ -87,5 +89,53 @@ class ExecutionMapNavigationSupportTest {
     assertTrue(tooltip.contains("p1"));
     assertTrue(tooltip.contains("GENERATED_PIPELINE"));
     assertFalse(tooltip.isBlank());
+  }
+
+  @Test
+  void resolvesDatasetRecordKeyFromProperties() {
+    ExecutionMapNode node = new ExecutionMapNode();
+    node.setNodeType(ExecutionMapNodeType.TARGET_DATASET);
+    node.setProperty("datasetNamespace", "Vault");
+    node.setProperty("datasetName", "d_customer");
+
+    RecordDefinitionKey key = ExecutionMapNavigationSupport.resolveDatasetRecordKey(node);
+
+    assertEquals(new RecordDefinitionKey("Vault", "d_customer"), key);
+  }
+
+  @Test
+  void resolvesDatasetRecordKeyFromPathWhenPropertiesMissing() {
+    ExecutionMapNode node = new ExecutionMapNode();
+    node.setNodeType(ExecutionMapNodeType.SOURCE_DATASET);
+    node.setPath("dataset://CRM::customer");
+
+    RecordDefinitionKey key = ExecutionMapNavigationSupport.resolveDatasetRecordKey(node);
+
+    assertEquals(new RecordDefinitionKey("CRM", "customer"), key);
+  }
+
+  @Test
+  void previewUnavailableWithoutMetadataProvider() {
+    ExecutionMapNode node = new ExecutionMapNode();
+    node.setNodeType(ExecutionMapNodeType.TARGET_DATASET);
+    node.setProperty("datasetNamespace", "hop/project/dimensional/model");
+    node.setProperty("datasetName", "d_customer");
+    node.setProperty(DatasetNodeSupport.PROPERTY_CATALOG_CONNECTION, "local-catalog");
+
+    assertFalse(
+        ExecutionMapNavigationSupport.canPreviewDataset(
+            node, new ExecutionMapDocument(), new Variables(), null));
+  }
+
+  @Test
+  void canNavigateWhenDatasetHasCatalogConnectionProperty() {
+    ExecutionMapNode node = new ExecutionMapNode();
+    node.setNodeType(ExecutionMapNodeType.TARGET_DATASET);
+    node.setProperty("datasetNamespace", "Vault");
+    node.setProperty("datasetName", "d_customer");
+    node.setProperty(DatasetNodeSupport.PROPERTY_CATALOG_CONNECTION, "local-catalog");
+
+    assertTrue(
+        ExecutionMapNavigationSupport.canNavigateToCatalog(node, new Variables(), null));
   }
 }

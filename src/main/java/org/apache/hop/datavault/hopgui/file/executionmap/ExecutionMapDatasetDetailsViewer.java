@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.hopgui.file.executionmap;
 
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.executionmap.DatasetNodeSupport;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
 import org.apache.hop.i18n.BaseMessages;
@@ -28,7 +29,7 @@ import org.eclipse.swt.widgets.Shell;
 /** Read-only viewer for dataset node metadata in execution maps. */
 public final class ExecutionMapDatasetDetailsViewer {
 
-  private static final Class<?> PKG = ExecutionMapDatasetDetailsViewer.class;
+  private static final Class<?> PKG = HopGuiExecutionMapGraph.class;
 
   private ExecutionMapDatasetDetailsViewer() {}
 
@@ -57,6 +58,10 @@ public final class ExecutionMapDatasetDetailsViewer {
     appendProperty(builder, "Kind", node.getProperty("datasetKind"));
     appendProperty(builder, "Namespace", node.getProperty("datasetNamespace"));
     appendProperty(builder, "Dataset", node.getProperty("datasetName"));
+    appendProperty(
+        builder, "Catalog", node.getProperty(DatasetNodeSupport.PROPERTY_CATALOG_CONNECTION));
+    appendProperty(
+        builder, "Target database", node.getProperty(DatasetNodeSupport.PROPERTY_TARGET_DATABASE));
     return builder.toString();
   }
 

@@ -126,14 +126,16 @@ public final class ReferencedObjectResolver {
   private static void dispatchLoadedArtifact(
       ExecutionMapContext context, String fromNodeId, IHasFilename loaded, String description) {
     if (loaded instanceof DataVaultModel dvModel) {
-      String modelNodeId = addModelNode(context, ExecutionMapNodeType.DATA_VAULT_MODEL, dvModel);
+      String modelNodeId =
+          addModelNode(context, fromNodeId, ExecutionMapNodeType.DATA_VAULT_MODEL, dvModel);
       context.addEdge(ExecutionMapEdgeType.REFERENCES, fromNodeId, modelNodeId, description);
       ModelPipelineResolver.resolveDataVaultModel(context, modelNodeId, dvModel);
       ModelDatasetResolver.resolveDataVaultModel(context, modelNodeId, dvModel);
       return;
     }
     if (loaded instanceof BusinessVaultModel bvModel) {
-      String modelNodeId = addModelNode(context, ExecutionMapNodeType.BUSINESS_VAULT_MODEL, bvModel);
+      String modelNodeId =
+          addModelNode(context, fromNodeId, ExecutionMapNodeType.BUSINESS_VAULT_MODEL, bvModel);
       context.addEdge(ExecutionMapEdgeType.REFERENCES, fromNodeId, modelNodeId, description);
       DataVaultModel dvModel = null;
       try {
@@ -142,7 +144,8 @@ public final class ReferencedObjectResolver {
           dvModel =
               BusinessVaultDvModelResolver.loadReferencedModel(
                   dvPath, context.getVariables(), context.getMetadataProvider());
-          String dvNodeId = addModelNode(context, ExecutionMapNodeType.DATA_VAULT_MODEL, dvModel);
+          String dvNodeId =
+              addModelNode(context, modelNodeId, ExecutionMapNodeType.DATA_VAULT_MODEL, dvModel);
           context.addEdge(ExecutionMapEdgeType.MODEL_LINK, modelNodeId, dvNodeId, dvPath);
         }
       } catch (Exception e) {
@@ -153,11 +156,12 @@ public final class ReferencedObjectResolver {
                 + e.getMessage());
       }
       ModelPipelineResolver.resolveBusinessVaultModel(context, modelNodeId, bvModel, dvModel);
-      ModelDatasetResolver.resolveBusinessVaultModel(context, modelNodeId, bvModel);
+      ModelDatasetResolver.resolveBusinessVaultModel(context, modelNodeId, bvModel, dvModel);
       return;
     }
     if (loaded instanceof DimensionalModel dmModel) {
-      String modelNodeId = addModelNode(context, ExecutionMapNodeType.DIMENSIONAL_MODEL, dmModel);
+      String modelNodeId =
+          addModelNode(context, fromNodeId, ExecutionMapNodeType.DIMENSIONAL_MODEL, dmModel);
       context.addEdge(ExecutionMapEdgeType.REFERENCES, fromNodeId, modelNodeId, description);
       ModelPipelineResolver.resolveDimensionalModel(context, modelNodeId, dmModel);
       ModelDatasetResolver.resolveDimensionalModel(context, modelNodeId, dmModel);
@@ -200,19 +204,36 @@ public final class ReferencedObjectResolver {
   }
 
   public static String addModelNode(
-      ExecutionMapContext context, ExecutionMapNodeType nodeType, IHasFilename model) {
+      ExecutionMapContext context,
+      String parentNodeId,
+      ExecutionMapNodeType nodeType,
+      IHasFilename model) {
     String path = model != null ? model.getFilename() : null;
     String resolvedPath = context.resolvePath(path);
     String existing = context.existingNodeIdForPath(resolvedPath);
     if (!Utils.isEmpty(existing)) {
+      linkModelToParent(context, parentNodeId, existing);
       return existing;
     }
     ExecutionMapNode node = new ExecutionMapNode();
     node.setNodeType(nodeType);
     node.setName(model != null ? extractName(model) : path);
     node.setPath(path);
+    node.setParentNodeId(parentNodeId);
     context.addNode(node);
+    linkModelToParent(context, parentNodeId, node.getId());
     return node.getId();
+  }
+
+  private static void linkModelToParent(
+      ExecutionMapContext context, String parentNodeId, String modelNodeId) {
+    if (context == null
+        || Utils.isEmpty(parentNodeId)
+        || Utils.isEmpty(modelNodeId)
+        || parentNodeId.equals(modelNodeId)) {
+      return;
+    }
+    context.addEdge(ExecutionMapEdgeType.CONTAINS, parentNodeId, modelNodeId, null);
   }
 
   private static String extractName(IHasFilename model) {

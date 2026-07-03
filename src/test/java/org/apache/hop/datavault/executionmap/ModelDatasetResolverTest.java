@@ -42,10 +42,11 @@ class ModelDatasetResolverTest {
 
   @Test
   void resolveDimensionalModelAddsTargetDatasetNodes() {
+    Variables variables = new Variables();
+    variables.setVariable("PROJECT_HOME", "/workspace/retail-example");
     ExecutionMapDocument document = new ExecutionMapDocument();
     ExecutionMapContext context =
-        new ExecutionMapContext(
-            document, new Variables(), null, CrawlOptions.builder().build());
+        new ExecutionMapContext(document, variables, null, CrawlOptions.builder().build());
 
     ExecutionMapNode modelNode = new ExecutionMapNode();
     modelNode.setNodeType(ExecutionMapNodeType.DIMENSIONAL_MODEL);
@@ -53,10 +54,11 @@ class ModelDatasetResolverTest {
     context.addNode(modelNode);
 
     DimensionalModel model = new DimensionalModel();
-    model.setName("retail-dm");
+    model.setName("retail-conformed-dims");
     model.getConfigurationOrDefault().setTargetDatabase("Vault");
+    model.getConfigurationOrDefault().setDataCatalogConnection("local-catalog");
     DmDimension dimension = new DmDimension();
-    dimension.setName("dim_customer");
+    dimension.setName("d_customer");
     dimension.setTableName("d_customer");
     model.getTables().add(dimension);
 
@@ -67,9 +69,19 @@ class ModelDatasetResolverTest {
             .filter(node -> node.getNodeType() == ExecutionMapNodeType.TARGET_DATASET)
             .findFirst()
             .orElseThrow();
-    assertEquals("dataset://Vault/d_customer", dataset.getPath());
-    assertEquals("Vault.d_customer", dataset.getName());
+    assertEquals(
+        "dataset://hop/retail-example/dimensional/retail-conformed-dims::d_customer",
+        dataset.getPath());
+    assertEquals(
+        "hop/retail-example/dimensional/retail-conformed-dims::d_customer", dataset.getName());
     assertEquals("DATABASE", dataset.getProperty("datasetKind"));
+    assertEquals("Vault", dataset.getProperty(DatasetNodeSupport.PROPERTY_TARGET_DATABASE));
+    assertEquals(
+        "hop/retail-example/dimensional/retail-conformed-dims",
+        dataset.getProperty("datasetNamespace"));
+    assertEquals(
+        "local-catalog",
+        dataset.getProperty(DatasetNodeSupport.PROPERTY_CATALOG_CONNECTION));
     assertTrue(
         document.getEdgesOrEmpty().stream()
             .anyMatch(

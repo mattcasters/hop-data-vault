@@ -20,6 +20,7 @@ package org.apache.hop.datavault.command.svg;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.hop.datavault.executionmap.ExecutionMapFocusContext;
 
 /** Options controlling SVG generation for pipelines, workflows, and DV/BV/dimensional models. */
 @Getter
@@ -31,16 +32,28 @@ public class SvgRenderOptions {
   private boolean includeNotes = true;
   private float magnification = DEFAULT_MAGNIFICATION;
   private boolean showHashKeyFieldNames;
+  private ExecutionMapExportScope executionMapExportScope = ExecutionMapExportScope.FOCUSED;
+  private ExecutionMapFocusContext executionMapFocus;
 
   public static SvgRenderOptions defaults() {
     return new SvgRenderOptions();
   }
 
   public static SvgRenderOptions fromCli(boolean noNotes, float magnification, boolean showHashKeys) {
+    return fromCli(noNotes, magnification, showHashKeys, ExecutionMapExportScope.FOCUSED);
+  }
+
+  public static SvgRenderOptions fromCli(
+      boolean noNotes,
+      float magnification,
+      boolean showHashKeys,
+      ExecutionMapExportScope executionMapExportScope) {
     SvgRenderOptions options = new SvgRenderOptions();
     options.setIncludeNotes(!noNotes);
     options.setMagnification(magnification);
     options.setShowHashKeyFieldNames(showHashKeys);
+    options.setExecutionMapExportScope(
+        executionMapExportScope != null ? executionMapExportScope : ExecutionMapExportScope.FOCUSED);
     return options;
   }
 }

@@ -22,6 +22,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.xml.XmlFormatter;
 import org.apache.hop.datavault.executionmap.ArtifactSnapshotSupport;
+
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapArtifactSnapshot;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
@@ -33,7 +34,7 @@ import org.eclipse.swt.widgets.Shell;
 /** Read-only viewer for gzip+Base64 XML snapshots stored in execution maps. */
 public final class ExecutionMapSnapshotViewer {
 
-  private static final Class<?> PKG = ExecutionMapSnapshotViewer.class;
+  private static final Class<?> PKG = HopGuiExecutionMapGraph.class;
 
   private ExecutionMapSnapshotViewer() {}
 

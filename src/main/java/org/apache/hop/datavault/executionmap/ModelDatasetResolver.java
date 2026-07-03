@@ -22,22 +22,23 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.catalog.BvCatalogNamespaces;
+import org.apache.hop.datavault.catalog.DmCatalogNamespaces;
+import org.apache.hop.datavault.catalog.DvCatalogNamespaces;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
-import org.apache.hop.datavault.metadata.IDvSource;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
-import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapEdgeType;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
-import org.apache.hop.datavault.metadata.file.DvCsvSource;
-import org.apache.hop.datavault.metadata.file.IDvFileBasedSource;
 import org.apache.hop.pipeline.PipelineMeta;
 
 /** Adds dataset leaf nodes from DV/BV/DM model table and source metadata. */
@@ -53,30 +54,60 @@ public final class ModelDatasetResolver {
         || !context.getOptions().isIncludeDatasetNodes()) {
       return;
     }
-    String targetNamespace = model.getConfigurationOrDefault().getTargetDatabase();
+    String catalogConnectionName = resolveDataVaultCatalogConnection(context, model);
+    String catalogNamespace =
+        DvCatalogNamespaces.projectModelsNamespace(context.getVariables(), model);
+    String targetDatabase = model.getConfigurationOrDefault().getTargetDatabase();
     for (IDvTable table : model.getTables()) {
       if (table == null) {
         continue;
       }
-      addTargetDataset(context, modelNodeId, targetNamespace, table.getTableName(), table.getName());
-      addDvTableSources(context, modelNodeId, model, table);
+      addTargetDataset(
+          context,
+          modelNodeId,
+          catalogNamespace,
+          table.getName(),
+          table.getName(),
+          "DATABASE",
+          targetDatabase,
+          catalogConnectionName);
+      addDvTableSources(context, modelNodeId, model, table, catalogConnectionName);
     }
   }
 
   public static void resolveBusinessVaultModel(
       ExecutionMapContext context, String modelNodeId, BusinessVaultModel model) {
+    resolveBusinessVaultModel(context, modelNodeId, model, null);
+  }
+
+  public static void resolveBusinessVaultModel(
+      ExecutionMapContext context,
+      String modelNodeId,
+      BusinessVaultModel model,
+      DataVaultModel dvModel) {
     if (context == null
         || model == null
         || Utils.isEmpty(modelNodeId)
         || !context.getOptions().isIncludeDatasetNodes()) {
       return;
     }
-    String targetNamespace = model.getConfigurationOrDefault().getTargetDatabase();
+    String catalogConnectionName = resolveBusinessVaultCatalogConnection(context, dvModel);
+    String catalogNamespace =
+        BvCatalogNamespaces.projectBusinessVaultModelsNamespace(context.getVariables(), model);
+    String targetDatabase = model.getConfigurationOrDefault().getTargetDatabase();
     for (IBvTable table : model.getTables()) {
       if (table == null) {
         continue;
       }
-      addTargetDataset(context, modelNodeId, targetNamespace, table.getTableName(), table.getName());
+      addTargetDataset(
+          context,
+          modelNodeId,
+          catalogNamespace,
+          table.getName(),
+          table.getName(),
+          "DATABASE",
+          targetDatabase,
+          catalogConnectionName);
     }
   }
 
@@ -88,12 +119,23 @@ public final class ModelDatasetResolver {
         || !context.getOptions().isIncludeDatasetNodes()) {
       return;
     }
-    String targetNamespace = model.getConfigurationOrDefault().getTargetDatabase();
+    String catalogConnectionName = resolveDimensionalCatalogConnection(context, model);
+    String catalogNamespace =
+        DmCatalogNamespaces.projectDimensionalModelsNamespace(context.getVariables(), model);
+    String targetDatabase = model.getConfigurationOrDefault().getTargetDatabase();
     for (IDmTable table : model.getTables()) {
       if (table == null) {
         continue;
       }
-      addTargetDataset(context, modelNodeId, targetNamespace, table.getTableName(), table.getName());
+      addTargetDataset(
+          context,
+          modelNodeId,
+          catalogNamespace,
+          table.getName(),
+          table.getName(),
+          "DATABASE",
+          targetDatabase,
+          catalogConnectionName);
     }
   }
 
@@ -111,30 +153,85 @@ public final class ModelDatasetResolver {
     PipelineDatasetResolver.resolvePipeline(context, generatedPipelineNodeId, pipelineMeta);
   }
 
+  private static String resolveDataVaultCatalogConnection(
+      ExecutionMapContext context, DataVaultModel model) {
+    try {
+      return DvSourceCatalogService.resolveCatalogConnection(
+          model, context.getVariables(), context.getMetadataProvider());
+    } catch (HopException e) {
+      return null;
+    }
+  }
+
+  private static String resolveBusinessVaultCatalogConnection(
+      ExecutionMapContext context, DataVaultModel dvModel) {
+    if (dvModel != null) {
+      return resolveDataVaultCatalogConnection(context, dvModel);
+    }
+    try {
+      return DvSourceCatalogService.resolvePreferredCatalogConnection(
+          null, context.getVariables(), context.getMetadataProvider());
+    } catch (HopException e) {
+      return null;
+    }
+  }
+
+  private static String resolveDimensionalCatalogConnection(
+      ExecutionMapContext context, DimensionalModel model) {
+    String configured =
+        DatasetNodeSupport.resolveValue(
+            context.getVariables(), model.getConfigurationOrDefault().getDataCatalogConnection());
+    if (!Utils.isEmpty(configured)) {
+      return configured;
+    }
+    try {
+      return DvSourceCatalogService.resolvePreferredCatalogConnection(
+          null, context.getVariables(), context.getMetadataProvider());
+    } catch (HopException e) {
+      return null;
+    }
+  }
+
   private static void addTargetDataset(
       ExecutionMapContext context,
       String modelNodeId,
-      String namespace,
-      String tableName,
-      String label) {
-    if (Utils.isEmpty(tableName)) {
+      String catalogNamespace,
+      String recordName,
+      String edgeLabel,
+      String kind,
+      String targetDatabase,
+      String catalogConnectionName) {
+    if (Utils.isEmpty(recordName)) {
       return;
     }
     String datasetNodeId =
         DatasetNodeSupport.getOrCreateDatasetNode(
             context,
             ExecutionMapNodeType.TARGET_DATASET,
-            namespace,
-            tableName,
-            "DATABASE",
-            modelNodeId);
+            catalogNamespace,
+            recordName,
+            kind,
+            modelNodeId,
+            catalogConnectionName);
+    if (!Utils.isEmpty(datasetNodeId) && !Utils.isEmpty(targetDatabase)) {
+      ExecutionMapNode datasetNode = context.getDocument().findNodeById(datasetNodeId);
+      if (datasetNode != null) {
+        datasetNode.setProperty(
+            DatasetNodeSupport.PROPERTY_TARGET_DATABASE,
+            DatasetNodeSupport.resolveValue(context.getVariables(), targetDatabase));
+      }
+    }
     if (!Utils.isEmpty(datasetNodeId)) {
-      context.addEdge(ExecutionMapEdgeType.CONTAINS, modelNodeId, datasetNodeId, label);
+      context.addEdge(ExecutionMapEdgeType.CONTAINS, modelNodeId, datasetNodeId, edgeLabel);
     }
   }
 
   private static void addDvTableSources(
-      ExecutionMapContext context, String modelNodeId, DataVaultModel model, IDvTable table) {
+      ExecutionMapContext context,
+      String modelNodeId,
+      DataVaultModel model,
+      IDvTable table,
+      String catalogConnectionName) {
     List<DataVaultSource> sources = new ArrayList<>();
     try {
       if (table instanceof DvHub hub) {
@@ -144,7 +241,7 @@ public final class ModelDatasetResolver {
               continue;
             }
             DataVaultSource source =
-                org.apache.hop.datavault.catalog.DvSourceCatalogService.resolveSource(
+                DvSourceCatalogService.resolveSource(
                     sourceRef, model, context.getVariables(), context.getMetadataProvider());
             if (source != null) {
               sources.add(source);
@@ -178,77 +275,37 @@ public final class ModelDatasetResolver {
               + "': "
               + e.getMessage());
     }
+    String sourceNamespace =
+        DvCatalogNamespaces.projectSourcesNamespace(context.getVariables());
     for (DataVaultSource source : sources) {
-      addDataVaultSourceDataset(context, modelNodeId, source, table.getName());
+      addDataVaultSourceDataset(
+          context, modelNodeId, source, table.getName(), sourceNamespace, catalogConnectionName);
     }
   }
 
   private static void addDataVaultSourceDataset(
-      ExecutionMapContext context, String modelNodeId, DataVaultSource source, String tableLabel) {
-    if (source == null) {
+      ExecutionMapContext context,
+      String modelNodeId,
+      DataVaultSource source,
+      String tableLabel,
+      String catalogNamespace,
+      String catalogConnectionName) {
+    if (source == null || Utils.isEmpty(source.getName())) {
       return;
     }
-    IDvSource dvSource = source.getDvSourceOrDefault();
-    String namespace;
-    String datasetName;
-    String kind;
-    if (dvSource instanceof DvDatabaseSource databaseSource) {
-      namespace = databaseSource.getDatabaseName();
-      datasetName = qualifiedDatabaseTable(databaseSource.getSchemaName(), databaseSource.getTableName());
-      kind = "DATABASE";
-    } else if (dvSource instanceof DvCsvSource csvSource) {
-      namespace = source.getName();
-      datasetName = qualifiedFileDataset(csvSource);
-      kind = "CSV";
-    } else if (dvSource instanceof IDvFileBasedSource fileSource) {
-      namespace = source.getName();
-      datasetName =
-          !Utils.isEmpty(fileSource.getSingleFilename())
-              ? fileSource.getSingleFilename()
-              : qualifiedFileDataset(fileSource.getFolder(), fileSource.getIncludeFileMask());
-      kind = dvSource.getSourceType() != null ? dvSource.getSourceType().name() : "FILE";
-    } else {
-      namespace = source.getName();
-      datasetName = source.getName();
-      kind = dvSource.getSourceType() != null ? dvSource.getSourceType().name() : "SOURCE";
-    }
+    String kind =
+        source.getSourceType() != null ? source.getSourceType().name() : "DV_SOURCE";
     String datasetNodeId =
         DatasetNodeSupport.getOrCreateDatasetNode(
             context,
             ExecutionMapNodeType.SOURCE_DATASET,
-            namespace,
-            datasetName,
+            catalogNamespace,
+            source.getName(),
             kind,
-            modelNodeId);
+            modelNodeId,
+            catalogConnectionName);
     if (!Utils.isEmpty(datasetNodeId)) {
       context.addEdge(ExecutionMapEdgeType.CONTAINS, modelNodeId, datasetNodeId, tableLabel);
     }
-  }
-
-  private static String qualifiedDatabaseTable(String schemaName, String tableName) {
-    if (Utils.isEmpty(schemaName)) {
-      return tableName;
-    }
-    if (Utils.isEmpty(tableName)) {
-      return schemaName;
-    }
-    return schemaName + "." + tableName;
-  }
-
-  private static String qualifiedFileDataset(DvCsvSource csvSource) {
-    if (!Utils.isEmpty(csvSource.getSingleFilename())) {
-      return csvSource.getSingleFilename();
-    }
-    return qualifiedFileDataset(csvSource.getFolder(), csvSource.getIncludeFileMask());
-  }
-
-  private static String qualifiedFileDataset(String folder, String fileMask) {
-    if (!Utils.isEmpty(folder) && !Utils.isEmpty(fileMask)) {
-      return folder + "/" + fileMask;
-    }
-    if (!Utils.isEmpty(fileMask)) {
-      return fileMask;
-    }
-    return folder;
   }
 }

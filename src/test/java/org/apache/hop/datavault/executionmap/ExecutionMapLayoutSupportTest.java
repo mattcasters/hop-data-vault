@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.executionmap;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapEdge;
@@ -62,6 +63,30 @@ class ExecutionMapLayoutSupportTest {
   }
 
   @Test
+  void hubSpokeLayoutPlacesTargetsInRightColumnWithGutter() throws Exception {
+    ExecutionMapDocument document = buildHubSpokeDocument();
+
+    ExecutionMapLayoutSupport.layout(document);
+
+    ExecutionMapNode hub = document.findNodeById("hub");
+    ExecutionMapNode dm = document.findNodeById("dm-1");
+    ExecutionMapNode dv = document.findNodeById("dv");
+
+    int expectedTargetX =
+        hub.getLocation().x
+            + ExecutionMapMetrics.NODE_WIDTH
+            + ExecutionMapMetrics.HUB_GUTTER
+            + ExecutionMapMetrics.BUS_LANE_WIDTH;
+    assertEquals(expectedTargetX, dm.getLocation().x);
+    assertEquals(expectedTargetX, dv.getLocation().x);
+    assertTrue(
+        dm.getLocation().y != dv.getLocation().y, "spokes should be vertically separated");
+    assertTrue(
+        expectedTargetX - (hub.getLocation().x + ExecutionMapMetrics.NODE_WIDTH) >= 64,
+        "gutter between hub and targets should be at least 64px");
+  }
+
+  @Test
   void layoutSucceedsWhenOnlyNonLayoutEdgesArePresent() throws Exception {
     ExecutionMapDocument document = buildSampleDocument();
     document.getEdgesOrEmpty().removeIf(edge -> ExecutionMapLayoutOptions.DEFAULT.usesEdgeForLayout(edge.getEdgeType()));
@@ -75,6 +100,21 @@ class ExecutionMapLayoutSupportTest {
       assertTrue(node.getLocation().x >= 0, "node " + node.getId() + " should have x position");
       assertTrue(node.getLocation().y >= 0, "node " + node.getId() + " should have y position");
     }
+  }
+
+  private static ExecutionMapDocument buildHubSpokeDocument() {
+    ExecutionMapDocument document = new ExecutionMapDocument();
+    document.setRootArtifactPath("workflows/update.hwf");
+    document.getNodesOrEmpty().add(node("hub", "update", ExecutionMapNodeType.ROOT_WORKFLOW, null));
+    document
+        .getNodesOrEmpty()
+        .add(node("dm-1", "retail-f-orders", ExecutionMapNodeType.DIMENSIONAL_MODEL, null));
+    document
+        .getNodesOrEmpty()
+        .add(node("dv", "retail-360", ExecutionMapNodeType.DATA_VAULT_MODEL, null));
+    document.getEdgesOrEmpty().add(edge(ExecutionMapEdgeType.REFERENCES, "hub", "dm-1", "dm"));
+    document.getEdgesOrEmpty().add(edge(ExecutionMapEdgeType.REFERENCES, "hub", "dv", "dv"));
+    return document;
   }
 
   private static ExecutionMapDocument buildSampleDocument() {

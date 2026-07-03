@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.hopgui.file.executionmap;
 
 import org.apache.hop.core.gui.AreaOwner;
+import org.apache.hop.core.gui.AreaOwner.AreaType;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphHit;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphMouseInteractions;
@@ -48,6 +49,19 @@ public class ExecutionMapReadOnlyInteractions implements ModelGraphMouseInteract
   @Override
   public boolean handleObjectMouseDown(
       Event e, Point real, ModelGraphHit hit, boolean shift, boolean control) {
+    if (e.button != 1 || hit == null || !(hit.canvasObject() instanceof ExecutionMapNode node)) {
+      return false;
+    }
+    AreaType areaType = hit.areaType();
+    if (areaType == AreaType.TRANSFORM_NAME
+        && graph.getFocusContext().canDrillInto(node, graph.getDocument())) {
+      graph.drillInto(node);
+      return true;
+    }
+    if (areaType == AreaType.TRANSFORM_ICON) {
+      graph.showNodeContextDialog(e, node);
+      return true;
+    }
     return false;
   }
 
@@ -101,40 +115,56 @@ public class ExecutionMapReadOnlyInteractions implements ModelGraphMouseInteract
 
   @Override
   public boolean handlePureClickMouseUp(Event e, Point real) {
-    if (!graph.isPureClickAt(real)) {
-      return false;
-    }
-    ModelGraphHit hit = resolveHit(real.x, real.y);
-    if (hit != null && hit.canvasObject() instanceof ExecutionMapNode node) {
-      graph.showNodeContextDialog(e, node);
-      return true;
-    }
     return false;
   }
 
   @Override
   public boolean clearHoverState() {
-    if (graph.mouseOverNode == null) {
-      return false;
+    boolean changed = false;
+    if (graph.mouseOverNode != null) {
+      graph.mouseOverNode = null;
+      changed = true;
     }
-    graph.mouseOverNode = null;
-    graph.updateNodeHoverTooltip(null);
-    return true;
+    if (graph.mouseOverNodeName != null) {
+      graph.mouseOverNodeName = null;
+      changed = true;
+    }
+    if (changed) {
+      graph.updateNodeHoverTooltip(null);
+    }
+    return changed;
   }
 
   @Override
   public boolean updateHoverState(AreaOwner areaOwner, Point real) {
+    boolean doRedraw = false;
     ExecutionMapNode node = graph.getAreaOwnerNode(areaOwner);
-    if (node == graph.mouseOverNode) {
-      return false;
+    if (node != graph.mouseOverNode) {
+      graph.mouseOverNode = node;
+      graph.updateNodeHoverTooltip(node);
+      doRedraw = true;
     }
-    graph.mouseOverNode = node;
-    graph.updateNodeHoverTooltip(node);
-    return true;
+
+    String newOver = null;
+    if (areaOwner != null
+        && areaOwner.getAreaType() == AreaType.TRANSFORM_NAME
+        && node != null
+        && graph.getFocusContext().canDrillInto(node, graph.getDocument())
+        && areaOwner.getOwner() instanceof String name) {
+      newOver = name;
+    }
+    if ((graph.mouseOverNodeName == null && newOver != null)
+        || (graph.mouseOverNodeName != null && !graph.mouseOverNodeName.equals(newOver))) {
+      graph.mouseOverNodeName = newOver;
+      doRedraw = true;
+    }
+    return doRedraw;
   }
 
   @Override
-  public void onLassoMouseDownAfter() {}
+  public void onLassoMouseDownAfter() {
+    graph.mouseOverNodeName = null;
+  }
 
   @Override
   public boolean isNoteMouseDownAllowed() {

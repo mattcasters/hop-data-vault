@@ -133,6 +133,11 @@ public final class ElkGraphLayout {
       }
 
       for (ElkLayoutEdge edge : layoutEdges) {
+        ExecutionMapNode fromNode = nodesById.get(edge.getFromId());
+        ExecutionMapNode toNode = nodesById.get(edge.getToId());
+        if (isNestedLayoutEdge(fromNode, toNode)) {
+          continue;
+        }
         ElkNode from = elkNodes.get(edge.getFromId());
         ElkNode to = elkNodes.get(edge.getToId());
         if (from != null && to != null) {
@@ -148,6 +153,13 @@ public final class ElkGraphLayout {
       throw new HopException(
           "Error applying ELK layout to execution map " + (name != null ? name : ""), e);
     }
+  }
+
+  private static boolean isNestedLayoutEdge(ExecutionMapNode from, ExecutionMapNode to) {
+    if (from == null || to == null || Utils.isEmpty(from.getId())) {
+      return false;
+    }
+    return from.getId().equals(to.getParentNodeId());
   }
 
   private static List<ElkLayoutEdge> collectExecutionMapLayoutEdges(

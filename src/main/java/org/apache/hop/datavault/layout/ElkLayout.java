@@ -27,6 +27,7 @@ import org.eclipse.elk.alg.rectpacking.p1widthapproximation.WidthApproximationSt
 import org.eclipse.elk.core.math.ElkPadding;
 import org.eclipse.elk.core.options.ContentAlignment;
 import org.eclipse.elk.core.options.CoreOptions;
+import org.eclipse.elk.core.options.HierarchyHandling;
 import org.eclipse.elk.graph.ElkNode;
 
 /**
@@ -70,6 +71,7 @@ public class ElkLayout {
   private int nodeHeight = DEFAULT_NODE_HEIGHT;
   private double charWidth = DEFAULT_CHAR_WIDTH;
   private double iconPadding = DEFAULT_ICON_PADDING;
+  private boolean includeChildrenHierarchy;
 
   public ElkLayout() {}
 
@@ -95,6 +97,7 @@ public class ElkLayout {
     setNodeHeight(layout.nodeHeight);
     setCharWidth(layout.charWidth);
     setIconPadding(layout.iconPadding);
+    includeChildrenHierarchy = layout.includeChildrenHierarchy;
   }
 
   public static final int EXECUTION_MAP_SPACING_WITHIN_LAYER = 24;
@@ -112,6 +115,7 @@ public class ElkLayout {
     layout.setSpacingBetweenLayers(EXECUTION_MAP_SPACING_BETWEEN_LAYERS);
     layout.setSpacingEdgeNode(EXECUTION_MAP_SPACING_EDGE_NODE);
     layout.setDirection(ElkLayoutDirection.RIGHT);
+    layout.setIncludeChildrenHierarchy(true);
     return layout;
   }
 
@@ -257,6 +261,9 @@ public class ElkLayout {
     root.setProperty(LayeredOptions.NODE_PLACEMENT_STRATEGY, getNodePlacement().toElkStrategy());
     root.setProperty(LayeredOptions.LAYERING_STRATEGY, getLayeringStrategy().toElkStrategy());
     root.setProperty(LayeredOptions.CYCLE_BREAKING_STRATEGY, getCycleBreaking().toElkStrategy());
+    if (isIncludeChildrenHierarchy()) {
+      root.setProperty(LayeredOptions.HIERARCHY_HANDLING, HierarchyHandling.INCLUDE_CHILDREN);
+    }
   }
 
   private void applyRectPackingTo(ElkNode root) {

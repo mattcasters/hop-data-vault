@@ -26,6 +26,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.Props;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.action.GuiContextActionFilter;
 import org.apache.hop.core.gui.AreaOwner;
@@ -40,9 +41,13 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.datavault.command.executionmap.ExecutionMapService;
+import org.apache.hop.datavault.command.svg.ExecutionMapExportScope;
 import org.apache.hop.datavault.command.svg.SvgExportService;
 import org.apache.hop.datavault.command.svg.SvgRenderOptions;
 import org.apache.hop.datavault.executionmap.CrawlOptions;
+import org.apache.hop.datavault.executionmap.ExecutionMapFocusContext;
+import org.apache.hop.datavault.executionmap.ExecutionMapViewSupport;
+
 import org.apache.hop.datavault.hopgui.file.modelgraph.HopGuiModelGraphBase;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphMouseInteractions;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphSnapshotUndo;
@@ -61,8 +66,8 @@ import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.hopgui.ToolbarFacade;
 import org.apache.hop.ui.hopgui.context.GuiContextUtil;
 import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
-import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
 import org.apache.hop.ui.hopgui.file.IHopFileType;
+import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.hopgui.shared.SwtGc;
 import org.eclipse.swt.SWT;
@@ -83,28 +88,30 @@ import org.eclipse.swt.widgets.Event;
 @Setter
 public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
     implements IHopFileTypeHandler, IGuiRefresher {
-
   private static final Class<?> PKG = HopGuiExecutionMapGraph.class;
 
   public static final String GUI_PLUGIN_TOOLBAR_PARENT_ID = "HopGuiExecutionMapGraph-Toolbar";
   public static final String TOOLBAR_ITEM_ZOOM_LEVEL =
       "HopGuiExecutionMapGraph-ToolBar-10500-Zoom-Level";
-  public static final String TOOLBAR_ITEM_ZOOM_IN =
-      "HopGuiExecutionMapGraph-ToolBar-10010-Zoom-In";
+  public static final String TOOLBAR_ITEM_ZOOM_IN = "HopGuiExecutionMapGraph-ToolBar-10010-Zoom-In";
   public static final String TOOLBAR_ITEM_ZOOM_OUT =
       "HopGuiExecutionMapGraph-ToolBar-10020-Zoom-Out";
   public static final String TOOLBAR_ITEM_ZOOM_100 =
       "HopGuiExecutionMapGraph-ToolBar-10030-Zoom-100";
   public static final String TOOLBAR_ITEM_ZOOM_FIT =
       "HopGuiExecutionMapGraph-ToolBar-10040-Zoom-Fit";
-  public static final String TOOLBAR_ITEM_REFRESH =
-      "HopGuiExecutionMapGraph-ToolBar-10050-Refresh";
+  public static final String TOOLBAR_ITEM_REFRESH = "HopGuiExecutionMapGraph-ToolBar-10050-Refresh";
   public static final String TOOLBAR_ITEM_EXPORT_SVG =
       "HopGuiExecutionMapGraph-ToolBar-10060-Export-Svg";
   public static final String TOOLBAR_ITEM_EXPORT_LINEAGE =
       "HopGuiExecutionMapGraph-ToolBar-10070-Export-Lineage";
+  public static final String TOOLBAR_ITEM_EXPORT_FULL_SVG =
+      "HopGuiExecutionMapGraph-ToolBar-10080-Export-Full-Svg";
+  private static final String STATE_FOCUS_NODE_ID = "focusNodeId";
   private static final String ACTION_ID_OPEN_ARTIFACT = "execution-map-graph-open-artifact";
   private static final String ACTION_ID_VIEW_SNAPSHOT = "execution-map-graph-view-snapshot";
+  private static final String ACTION_ID_OPEN_IN_CATALOG = "execution-map-graph-open-in-catalog";
+  private static final String ACTION_ID_PREVIEW_DATASET = "execution-map-graph-preview-dataset";
   private static final String ACTION_ID_VIEW_DATASET = "execution-map-graph-view-dataset";
 
   private final HopExecutionMapFileType fileType;
@@ -116,7 +123,10 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
   private GuiToolbarWidgets toolBarWidgets;
   private String filename;
   private final List<AreaOwner> areaOwners = new ArrayList<>();
+  private final ExecutionMapFocusContext focusContext = new ExecutionMapFocusContext();
+  private ExecutionMapBreadcrumbBar breadcrumbBar;
   ExecutionMapNode mouseOverNode;
+  String mouseOverNodeName;
 
   public HopGuiExecutionMapGraph(
       Composite parent,
@@ -135,10 +145,18 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
     syncMaximumFromDocument();
     setLayout(new FormLayout());
     addToolBar();
+    breadcrumbBar =
+        new ExecutionMapBreadcrumbBar(this, this::navigateToFocus, this::navigateToRootFocus);
+    FormData fdBreadcrumb = new FormData();
+    fdBreadcrumb.left = new FormAttachment(0, 0);
+    fdBreadcrumb.top = new FormAttachment(0, toolBar.getBounds().height);
+    fdBreadcrumb.right = new FormAttachment(100, 0);
+    breadcrumbBar.setLayoutData(fdBreadcrumb);
+    breadcrumbBar.pack();
     canvas = new Canvas(this, SWT.NO_BACKGROUND);
     FormData fdCanvas = new FormData();
     fdCanvas.left = new FormAttachment(0, 0);
-    fdCanvas.top = new FormAttachment(0, toolBar.getBounds().height);
+    fdCanvas.top = new FormAttachment(breadcrumbBar, 0);
     fdCanvas.right = new FormAttachment(100, 0);
     fdCanvas.bottom = new FormAttachment(100, 0);
     canvas.setLayoutData(fdCanvas);
@@ -148,6 +166,18 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
     canvas.setFocus();
     setZoomLabel();
     layout(true, true);
+    if (breadcrumbBar != null) {
+      breadcrumbBar.update(document, focusContext);
+    }
+  }
+
+  public static HopGuiExecutionMapGraph getInstance() {
+    IHopFileTypeHandler activeFileTypeHandler =
+        HopGui.getExplorerPerspective().getActiveFileTypeHandler();
+    if (activeFileTypeHandler instanceof HopGuiExecutionMapGraph graph) {
+      return graph;
+    }
+    return null;
   }
 
   private void addToolBar() {
@@ -195,18 +225,35 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
   private void drawExecutionMapImage(GC swtGc, int width, int height) {
     PropsUi propsUi = PropsUi.getInstance();
     IGc gc = new SwtGc(swtGc, width, height, propsUi.getIconSize());
-    maximum = document.getMaximum();
     try {
       areaOwners.clear();
+      float paintMagnification = (float) (magnification * PropsUi.getNativeZoomFactor());
       ExecutionMapPainter painter =
-          new ExecutionMapPainter(document, gc, variables, width, height);
+          new ExecutionMapPainter(
+              document,
+              gc,
+              variables,
+              width,
+              height,
+              null,
+              focusContext,
+              ExecutionMapExportScope.FOCUSED);
+      var cardMetrics =
+          ExecutionMapViewSupport.prepareFocusedView(
+              document, focusContext, gc, paintMagnification);
+      maximum =
+          ExecutionMapViewSupport.computeViewMaximum(
+              org.apache.hop.datavault.executionmap.ExecutionMapViewFilter.getVisibleNodes(
+                  document, focusContext),
+              cardMetrics);
       painter.setGridSize(propsUi.isShowCanvasGridEnabled() ? propsUi.getCanvasGridSize() : 1);
       painter.setZoomFactor((float) propsUi.getZoomFactor());
-      painter.setMagnification((float) (magnification * PropsUi.getNativeZoomFactor()));
+      painter.setMagnification(paintMagnification);
       painter.setOffset(offset);
       painter.setIconSize(propsUi.getIconSize());
       painter.setMaximum(maximum);
       painter.setAreaOwners(areaOwners);
+      painter.setMouseOverNodeName(mouseOverNodeName);
       painter.setShowingNavigationView(!propsUi.isHideViewportEnabled());
       painter.drawExecutionMap();
       captureNavigationViewGeometry(painter);
@@ -297,12 +344,7 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
 
   @Override
   protected AreaOwner getVisibleAreaOwner(int x, int y) {
-    for (AreaOwner areaOwner : areaOwners) {
-      if (areaOwner != null && areaOwner.contains(x, y)) {
-        return areaOwner;
-      }
-    }
-    return null;
+    return AreaOwner.getVisibleAreaOwner(areaOwners, x, y);
   }
 
   @Override
@@ -348,7 +390,8 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
   }
 
   @Override
-  protected boolean handleLassoMouseDown(Event e, Point real, boolean control, boolean onBackground) {
+  protected boolean handleLassoMouseDown(
+      Event e, Point real, boolean control, boolean onBackground) {
     // Read-only viewer: skip lasso selection so base pan/zoom handlers run instead.
     return false;
   }
@@ -359,11 +402,10 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
   }
 
   ExecutionMapNode getAreaOwnerNode(AreaOwner areaOwner) {
-    if (areaOwner == null || areaOwner.getOwner() == null) {
+    if (areaOwner == null) {
       return null;
     }
-    Object owner = areaOwner.getOwner();
-    if (owner instanceof ExecutionMapNode executionMapNode) {
+    if (areaOwner.getParent() instanceof ExecutionMapNode executionMapNode) {
       return executionMapNode;
     }
     return null;
@@ -403,7 +445,9 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
     if (canvas == null || canvas.isDisposed()) {
       return;
     }
-    String tooltip = ExecutionMapNavigationSupport.buildTooltip(node, document);
+    String tooltip =
+        ExecutionMapNavigationSupport.buildTooltip(
+            node, document, variables, hopGui.getMetadataProvider());
     canvas.setToolTipText(tooltip);
   }
 
@@ -416,6 +460,14 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
     }
     if (ACTION_ID_VIEW_SNAPSHOT.equals(contextActionId)) {
       return ExecutionMapNavigationSupport.canOpenFromSnapshot(node, context.getDocument());
+    }
+    if (ACTION_ID_OPEN_IN_CATALOG.equals(contextActionId)) {
+      return ExecutionMapNavigationSupport.canNavigateToCatalog(
+          node, context.getDocument(), variables, hopGui.getMetadataProvider());
+    }
+    if (ACTION_ID_PREVIEW_DATASET.equals(contextActionId)) {
+      return ExecutionMapNavigationSupport.canPreviewDataset(
+          node, context.getDocument(), variables, hopGui.getMetadataProvider());
     }
     if (ACTION_ID_VIEW_DATASET.equals(contextActionId)) {
       return ExecutionMapDatasetDetailsViewer.isDatasetNode(node);
@@ -454,6 +506,68 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
   }
 
   @GuiContextAction(
+      id = ACTION_ID_OPEN_IN_CATALOG,
+      parentId = HopGuiExecutionMapNodeContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiExecutionMapGraph.Context.OpenInCatalog.Name",
+      tooltip = "i18n::HopGuiExecutionMapGraph.Context.OpenInCatalog.Tooltip",
+      image = "data_catalog.svg",
+      category = "Execution map",
+      categoryOrder = "3")
+  public void openInCatalogFromContext(HopGuiExecutionMapNodeContext context) {
+    if (context.getNode() != null) {
+      try {
+        ExecutionMapNavigationSupport.openDatasetInCatalog(
+            hopGui,
+            variables,
+            hopGui.getMetadataProvider(),
+            context.getDocument(),
+            context.getNode());
+      } catch (Exception e) {
+        new ErrorDialog(
+            hopGui.getShell(),
+            BaseMessages.getString(PKG, "ExecutionMapNavigationSupport.Error.OpenTitle"),
+            BaseMessages.getString(
+                PKG,
+                "ExecutionMapNavigationSupport.Error.OpenMessage",
+                ExecutionMapNavigationSupport.describeNode(context.getNode())),
+            e instanceof HopException ? e : new HopException(e));
+      }
+    }
+  }
+
+  @GuiContextAction(
+      id = ACTION_ID_PREVIEW_DATASET,
+      parentId = HopGuiExecutionMapNodeContext.CONTEXT_ID,
+      type = GuiActionType.Modify,
+      name = "i18n::HopGuiExecutionMapGraph.Context.PreviewDataset.Name",
+      tooltip = "i18n::HopGuiExecutionMapGraph.Context.PreviewDataset.Tooltip",
+      image = "ui/images/preview.svg",
+      category = "Execution map",
+      categoryOrder = "4")
+  public void previewDatasetFromContext(HopGuiExecutionMapNodeContext context) {
+    if (context.getNode() != null) {
+      try {
+        ExecutionMapNavigationSupport.previewDataset(
+            hopGui,
+            variables,
+            hopGui.getMetadataProvider(),
+            context.getDocument(),
+            context.getNode());
+      } catch (Exception e) {
+        new ErrorDialog(
+            hopGui.getShell(),
+            BaseMessages.getString(PKG, "ExecutionMapNavigationSupport.Error.PreviewTitle"),
+            BaseMessages.getString(
+                PKG,
+                "ExecutionMapNavigationSupport.Error.PreviewMessage",
+                ExecutionMapNavigationSupport.describeNode(context.getNode())),
+            e instanceof HopException ? e : new HopException(e));
+      }
+    }
+  }
+
+  @GuiContextAction(
       id = ACTION_ID_VIEW_DATASET,
       parentId = HopGuiExecutionMapNodeContext.CONTEXT_ID,
       type = GuiActionType.Modify,
@@ -461,7 +575,7 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
       tooltip = "i18n::HopGuiExecutionMapGraph.Context.ViewDataset.Tooltip",
       image = "ui/images/view.svg",
       category = "Execution map",
-      categoryOrder = "3")
+      categoryOrder = "5")
   public void viewDatasetFromContext(HopGuiExecutionMapNodeContext context) {
     ExecutionMapDatasetDetailsViewer.showDetails(hopGui.getShell(), context.getNode());
   }
@@ -472,7 +586,16 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
       toolTip = "i18n::HopGuiExecutionMapGraph.Toolbar.ExportSvg.Tooltip",
       image = "ui/images/image.svg")
   public void exportExecutionMapToSvg() {
-    exportToSvg();
+    exportToSvg(ExecutionMapExportScope.FOCUSED);
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_EXPORT_FULL_SVG,
+      toolTip = "i18n::HopGuiExecutionMapGraph.Toolbar.ExportFullSvg.Tooltip",
+      image = "ui/images/image.svg")
+  public void exportFullExecutionMapToSvg() {
+    exportToSvg(ExecutionMapExportScope.FULL);
   }
 
   @GuiToolbarElement(
@@ -491,7 +614,8 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
       image = "ui/images/refresh.svg",
       separator = true)
   public void refreshExecutionMap() {
-    if (document == null || org.apache.hop.core.util.Utils.isEmpty(document.getRootArtifactPath())) {
+    if (document == null
+        || org.apache.hop.core.util.Utils.isEmpty(document.getRootArtifactPath())) {
       new ErrorDialog(
           hopGui.getShell(),
           BaseMessages.getString(PKG, "HopGuiExecutionMapGraph.Refresh.Error.Title"),
@@ -502,10 +626,7 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
     try {
       ExecutionMapService.RefreshResult result =
           ExecutionMapService.refresh(
-              document,
-              variables,
-              hopGui.getMetadataProvider(),
-              CrawlOptions.builder().build());
+              document, variables, hopGui.getMetadataProvider(), CrawlOptions.builder().build());
       this.document = result.getDocument();
       syncMaximumFromDocument();
       ExecutionMapDiffViewer.showDiff(hopGui.getShell(), result.getDiff());
@@ -521,16 +642,21 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
   }
 
   public void exportToSvg() {
+    exportToSvg(ExecutionMapExportScope.FOCUSED);
+  }
+
+  public void exportToSvg(ExecutionMapExportScope exportScope) {
     if (document == null) {
       return;
     }
     try {
-      String svgXml =
-          SvgExportService.generateExecutionMapSvg(
-              document, SvgRenderOptions.defaults(), variables);
+      SvgRenderOptions options = SvgRenderOptions.defaults();
+      options.setExecutionMapExportScope(
+          exportScope != null ? exportScope : ExecutionMapExportScope.FOCUSED);
+      options.setExecutionMapFocus(focusContext);
+      String svgXml = SvgExportService.generateExecutionMapSvg(document, options, variables);
       String proposedName = Const.NVL(document.getName(), "execution-map") + ".svg";
-      String proposedFilename =
-          variables.getVariable("user.home") + File.separator + proposedName;
+      String proposedFilename = variables.getVariable("user.home") + File.separator + proposedName;
       String filenameFromUser =
           BaseDialog.presentFileDialog(
               true,
@@ -571,8 +697,7 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
     }
     try {
       String proposedName = Const.NVL(document.getName(), "execution-map") + "-lineage.json";
-      String proposedFilename =
-          variables.getVariable("user.home") + File.separator + proposedName;
+      String proposedFilename = variables.getVariable("user.home") + File.separator + proposedName;
       String filenameFromUser =
           BaseDialog.presentFileDialog(
               true,
@@ -588,7 +713,8 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
       }
       ExecutionMapService.exportLineage(document, variables.resolve(filenameFromUser), variables);
       MessageBox box = new MessageBox(hopGui.getShell(), SWT.ICON_INFORMATION | SWT.OK);
-      box.setText(BaseMessages.getString(PKG, "HopGuiExecutionMapGraph.ExportLineage.Success.Title"));
+      box.setText(
+          BaseMessages.getString(PKG, "HopGuiExecutionMapGraph.ExportLineage.Success.Title"));
       box.setMessage(
           BaseMessages.getString(
               PKG, "HopGuiExecutionMapGraph.ExportLineage.Success.Message", filenameFromUser));
@@ -625,8 +751,32 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
   @Override
   public void updateGui() {
     hopGui.handleFileCapabilities(fileType, this, hasChanged(), false, false);
+    if (breadcrumbBar != null && !breadcrumbBar.isDisposed()) {
+      breadcrumbBar.update(document, focusContext);
+    }
     setZoomLabel();
     redraw();
+  }
+
+  public void drillInto(ExecutionMapNode node) {
+    if (node == null || document == null || !focusContext.canDrillInto(node, document)) {
+      return;
+    }
+    focusContext.drillInto(node.getId());
+    performZoomFitToScreen();
+    updateGui();
+  }
+
+  public void navigateToFocus(String nodeId) {
+    focusContext.navigateTo(nodeId);
+    performZoomFitToScreen();
+    updateGui();
+  }
+
+  public void navigateToRootFocus() {
+    focusContext.navigateToRoot();
+    performZoomFitToScreen();
+    updateGui();
   }
 
   @GuiToolbarElement(
@@ -778,12 +928,25 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
 
   @Override
   public Map<String, Object> getStateProperties() {
-    return buildCanvasStateProperties();
+    Map<String, Object> props = buildCanvasStateProperties();
+    if (!org.apache.hop.core.util.Utils.isEmpty(focusContext.getFocusNodeId())) {
+      props.put(STATE_FOCUS_NODE_ID, focusContext.getFocusNodeId());
+    }
+    return props;
   }
 
   @Override
   public void applyStateProperties(Map<String, Object> stateProperties) {
     applyCanvasStateProperties(stateProperties);
+    if (stateProperties != null) {
+      Object focusId = stateProperties.get(STATE_FOCUS_NODE_ID);
+      if (focusId != null) {
+        focusContext.setFocusNodeId(focusId.toString());
+      }
+    }
+    if (breadcrumbBar != null && !breadcrumbBar.isDisposed()) {
+      breadcrumbBar.update(document, focusContext);
+    }
     redraw();
   }
 
@@ -801,5 +964,4 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
   public List<IGuiContextHandler> getContextHandlers() {
     return List.of();
   }
-
 }

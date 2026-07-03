@@ -100,6 +100,11 @@ public class SvgExportCommand implements Runnable, IHopCommand, IHasHopMetadataP
       description = "Project home folder (sets ${PROJECT_HOME})")
   private String projectHome;
 
+  @CommandLine.Option(
+      names = {"--export-scope"},
+      description = "Execution map export scope: focused (default) or full")
+  private String exportScope;
+
   public SvgExportCommand() {}
 
   @Override
@@ -130,7 +135,11 @@ public class SvgExportCommand implements Runnable, IHopCommand, IHasHopMetadataP
       applyProjectHome();
 
       SvgRenderOptions options =
-          SvgRenderOptions.fromCli(noNotes, magnification, showHashKeys);
+          SvgRenderOptions.fromCli(
+              noNotes,
+              magnification,
+              showHashKeys,
+              ExecutionMapExportScope.fromCli(exportScope));
 
       if (StringUtils.isNotEmpty(file)) {
         exportSingleFile(options);

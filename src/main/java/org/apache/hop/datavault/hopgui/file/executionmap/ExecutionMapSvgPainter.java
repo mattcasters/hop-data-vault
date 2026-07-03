@@ -19,14 +19,21 @@
 package org.apache.hop.datavault.hopgui.file.executionmap;
 
 import java.util.ArrayList;
+import java.util.Map;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.DPoint;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.SvgGc;
 import org.apache.hop.core.svg.HopSvgGraphics2D;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.command.svg.ExecutionMapExportScope;
 import org.apache.hop.datavault.command.svg.SvgRenderOptions;
+import org.apache.hop.datavault.executionmap.ExecutionMapFocusContext;
+import org.apache.hop.datavault.executionmap.ExecutionMapNodeCardMetrics;
+import org.apache.hop.datavault.executionmap.ExecutionMapViewFilter;
+import org.apache.hop.datavault.executionmap.ExecutionMapViewSupport;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
 
 /** Renders an {@link ExecutionMapDocument} to SVG using {@link ExecutionMapPainter}. */
 public final class ExecutionMapSvgPainter {
@@ -43,24 +50,48 @@ public final class ExecutionMapSvgPainter {
       throw new HopException("Cannot generate SVG for a null execution map document.");
     }
     SvgRenderOptions renderOptions = options != null ? options : SvgRenderOptions.defaults();
+    ExecutionMapExportScope exportScope =
+        renderOptions.getExecutionMapExportScope() != null
+            ? renderOptions.getExecutionMapExportScope()
+            : ExecutionMapExportScope.FOCUSED;
+    ExecutionMapFocusContext focus =
+        renderOptions.getExecutionMapFocus() != null
+            ? renderOptions.getExecutionMapFocus()
+            : new ExecutionMapFocusContext();
     try {
-      Point maximum = document.getMaximum();
-      maximum.multiply(renderOptions.getMagnification());
-
+      float magnification = renderOptions.getMagnification();
       HopSvgGraphics2D graphics2D = HopSvgGraphics2D.newDocument();
-      Point svgSize = new Point(maximum.x + EXTRA_MARGIN, maximum.y + EXTRA_MARGIN);
+      Point provisionalSize = new Point(1200, 900);
+      SvgGc gc = new SvgGc(graphics2D, provisionalSize, ICON_SIZE, 0, 0);
 
-      SvgGc gc = new SvgGc(graphics2D, svgSize, ICON_SIZE, 0, 0);
+      Point graphMaximum;
+      if (exportScope == ExecutionMapExportScope.FULL) {
+        graphMaximum = document.getMaximum();
+      } else {
+        Map<String, ExecutionMapNodeCardMetrics> cardMetrics =
+            ExecutionMapViewSupport.prepareFocusedView(document, focus, gc, magnification);
+        java.util.List<ExecutionMapNode> visible =
+            ExecutionMapViewFilter.getVisibleNodes(document, focus);
+        graphMaximum = ExecutionMapViewSupport.computeViewMaximum(visible, cardMetrics);
+      }
+
+      Point svgSize =
+          new Point(
+              (int) (graphMaximum.x * magnification) + EXTRA_MARGIN,
+              (int) (graphMaximum.y * magnification) + EXTRA_MARGIN);
+      gc = new SvgGc(graphics2D, svgSize, ICON_SIZE, 0, 0);
+
       ExecutionMapPainter painter =
-          new ExecutionMapPainter(document, gc, variables, svgSize.x, svgSize.y);
-      painter.setMagnification(renderOptions.getMagnification());
+          new ExecutionMapPainter(
+              document, gc, variables, svgSize.x, svgSize.y, null, focus, exportScope);
+      painter.setMagnification(magnification);
       painter.setAreaOwners(new ArrayList<>());
       painter.setZoomFactor(1.0f);
       painter.setOffset(new DPoint(0, 0));
       painter.setIconSize(ICON_SIZE);
       painter.setGridSize(1);
       painter.setShowingNavigationView(false);
-      painter.setMaximum(document.getMaximum());
+      painter.setMaximum(graphMaximum);
       painter.drawExecutionMap();
 
       return graphics2D.toXml();

@@ -27,6 +27,7 @@ import org.apache.hop.core.file.IHasFilename;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.executionmap.ExecutionMapPersistence;
+
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.ui.hopgui.HopGui;
@@ -50,7 +51,7 @@ import org.w3c.dom.Node;
     image = "execution_map.svg")
 public class HopExecutionMapFileType extends HopFileTypeBase {
 
-  public static final Class<?> PKG = HopExecutionMapFileType.class;
+  public static final Class<?> PKG = HopGuiExecutionMapGraph.class;
   public static final String FILE_TYPE_DESCRIPTION = "Hop Execution Map";
   public static final String FILE_EXTENSION = ".hem";
   public static final String XML_TAG = "hop-execution-map";

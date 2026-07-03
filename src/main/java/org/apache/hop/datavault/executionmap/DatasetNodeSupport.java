@@ -27,13 +27,16 @@ import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
 public final class DatasetNodeSupport {
 
   public static final String DATASET_PATH_PREFIX = "dataset://";
+  public static final String DATASET_KEY_SEPARATOR = "::";
+  public static final String PROPERTY_CATALOG_CONNECTION = "catalogConnectionName";
+  public static final String PROPERTY_TARGET_DATABASE = "datasetTargetDatabase";
 
   private DatasetNodeSupport() {}
 
   public static String datasetPath(String namespace, String name) {
     String ns = Utils.isEmpty(namespace) ? "default" : namespace;
     String table = Utils.isEmpty(name) ? "unknown" : name;
-    return DATASET_PATH_PREFIX + ns + "/" + table;
+    return DATASET_PATH_PREFIX + ns + DATASET_KEY_SEPARATOR + table;
   }
 
   public static String qualifiedLabel(String namespace, String name) {
@@ -43,7 +46,7 @@ public final class DatasetNodeSupport {
     if (Utils.isEmpty(name)) {
       return namespace;
     }
-    return namespace + "." + name;
+    return namespace + DATASET_KEY_SEPARATOR + name;
   }
 
   public static String resolveValue(IVariables variables, String value) {
@@ -60,14 +63,28 @@ public final class DatasetNodeSupport {
       String datasetName,
       String datasetKind,
       String parentNodeId) {
+    return getOrCreateDatasetNode(
+        context, nodeType, namespace, datasetName, datasetKind, parentNodeId, null);
+  }
+
+  public static String getOrCreateDatasetNode(
+      ExecutionMapContext context,
+      ExecutionMapNodeType nodeType,
+      String namespace,
+      String datasetName,
+      String datasetKind,
+      String parentNodeId,
+      String catalogConnectionName) {
     if (context == null || nodeType == null) {
       return null;
     }
     String resolvedNamespace = resolveValue(context.getVariables(), namespace);
     String resolvedName = resolveValue(context.getVariables(), datasetName);
+    String resolvedCatalog = resolveValue(context.getVariables(), catalogConnectionName);
     String path = datasetPath(resolvedNamespace, resolvedName);
     String existing = context.existingNodeIdForPath(context.resolvePath(path));
     if (!Utils.isEmpty(existing)) {
+      backfillCatalogConnection(context, existing, resolvedCatalog);
       return existing;
     }
     ExecutionMapNode node = new ExecutionMapNode();
@@ -80,7 +97,22 @@ public final class DatasetNodeSupport {
     }
     node.setProperty("datasetNamespace", resolvedNamespace);
     node.setProperty("datasetName", resolvedName);
+    if (!Utils.isEmpty(resolvedCatalog)) {
+      node.setProperty(PROPERTY_CATALOG_CONNECTION, resolvedCatalog);
+    }
     context.addNode(node);
     return node.getId();
+  }
+
+  private static void backfillCatalogConnection(
+      ExecutionMapContext context, String nodeId, String catalogConnectionName) {
+    if (context == null || Utils.isEmpty(nodeId) || Utils.isEmpty(catalogConnectionName)) {
+      return;
+    }
+    ExecutionMapNode existing = context.getDocument().findNodeById(nodeId);
+    if (existing != null
+        && Utils.isEmpty(existing.getProperty(PROPERTY_CATALOG_CONNECTION))) {
+      existing.setProperty(PROPERTY_CATALOG_CONNECTION, catalogConnectionName);
+    }
   }
 }

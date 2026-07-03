@@ -28,6 +28,7 @@ import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewRunner;
 import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewSupport;
 import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.catalog.model.RecordDefinition;
+import org.apache.hop.catalog.model.RecordDefinitionKey;
 import org.apache.hop.catalog.model.RecordDefinitionQuery;
 import org.apache.hop.catalog.model.RecordDefinitionRef;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
@@ -236,6 +237,33 @@ public class DataCatalogPerspective implements IHopPerspective {
       image = "ui/images/refresh.svg")
   @GuiKeyboardShortcut(key = SWT.F5)
   @GuiOsxKeyboardShortcut(key = SWT.F5)
+  /** Activates this perspective and selects a record definition in the tree and details panel. */
+  public void selectRecordDefinition(String catalogConnectionName, RecordDefinitionKey key)
+      throws HopException {
+    if (Utils.isEmpty(catalogConnectionName) || key == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "DataCatalogPerspective.Error.SelectRecord.MissingTarget"));
+    }
+    if (tree == null || tree.isDisposed()) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "DataCatalogPerspective.Error.SelectRecord.TreeUnavailable"));
+    }
+    activate();
+    String recordKey = key.toString();
+    if (!trySelectRecord(catalogConnectionName, recordKey)) {
+      refresh();
+      if (!trySelectRecord(catalogConnectionName, recordKey)) {
+        throw new HopException(
+            BaseMessages.getString(
+                PKG,
+                "DataCatalogPerspective.Error.SelectRecord.NotFound",
+                recordKey,
+                catalogConnectionName));
+      }
+    }
+    updateSelection();
+  }
+
   public void refresh() {
     if (tree == null || tree.isDisposed()) {
       return;
@@ -320,6 +348,23 @@ public class DataCatalogPerspective implements IHopPerspective {
       return "";
     }
     return ref.getKey().toString();
+  }
+
+  private boolean trySelectRecord(String catalogConnectionName, String recordKey) {
+    restoreSelection(catalogConnectionName, recordKey);
+    return isRecordSelected(catalogConnectionName, recordKey);
+  }
+
+  private boolean isRecordSelected(String catalogConnectionName, String recordKey) {
+    if (tree == null || tree.isDisposed() || tree.getSelectionCount() != 1) {
+      return false;
+    }
+    DataCatalogTreeNode node = (DataCatalogTreeNode) tree.getSelection()[0].getData();
+    return node != null
+        && node.getType() == DataCatalogTreeNode.Type.RECORD
+        && catalogConnectionName.equals(node.getCatalogConnectionName())
+        && node.getRecordKey() != null
+        && recordKey.equals(node.getRecordKey().toString());
   }
 
   private void restoreSelection(String selectedCatalog, String selectedRecordKey) {

@@ -11,7 +11,7 @@
     "modelElementName" : "f_orders",
     "hopProject" : "retail-example",
     "createdAt" : 1783090401775,
-    "updatedAt" : 1783093708021,
+    "updatedAt" : 1783113082886,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "retail-f-orders.hdm",

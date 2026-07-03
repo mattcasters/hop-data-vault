@@ -22,11 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
 import java.nio.file.Path;
 import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapRootArtifactType;
 import org.junit.jupiter.api.BeforeAll;
@@ -83,6 +85,58 @@ class ExecutionMapCrawlerTest {
     assertEqualsRootWorkflow(document);
     assertFalse(containsWorkflowActionLayerNode(document));
     assertTrue(document.getNodesOrEmpty().size() >= 2);
+  }
+
+  @Test
+  void crawlRetailWorkflowMinimalViewLayoutsWithoutError() throws Exception {
+    Variables variables = retailVariables();
+    CrawlOptions options =
+        CrawlOptions.builder()
+            .includeWorkflowActions(false)
+            .includePipelineTransforms(false)
+            .includeDatasetNodes(false)
+            .includeGeneratedPipelines(true)
+            .build();
+
+    ExecutionMapCrawler.CrawlResult result =
+        ExecutionMapCrawler.crawl(
+            ROOT_WORKFLOW.toString(), variables, null, options);
+
+    ExecutionMapDocument document = result.getDocument();
+    assertNotNull(document);
+    assertFalse(document.getNodesOrEmpty().isEmpty());
+    assertTrue(ExecutionMapHubSpokeLayout.canUseHubSpokeLayout(document));
+  }
+
+  @Test
+  void crawlRetailWorkflowParentsReferencedModelsUnderRoot() throws Exception {
+    Variables variables = retailVariables();
+    CrawlOptions options =
+        CrawlOptions.builder()
+            .includeGeneratedPipelines(false)
+            .includeWorkflowActions(false)
+            .build();
+
+    ExecutionMapCrawler.CrawlResult result =
+        ExecutionMapCrawler.crawl(
+            ROOT_WORKFLOW.toString(), variables, null, options);
+
+    ExecutionMapDocument document = result.getDocument();
+    ExecutionMapNode root =
+        document.getNodesOrEmpty().stream()
+            .filter(node -> node != null && node.getNodeType() == ExecutionMapNodeType.ROOT_WORKFLOW)
+            .findFirst()
+            .orElse(null);
+    assertNotNull(root);
+
+    boolean modelParentedUnderRoot =
+        document.getNodesOrEmpty().stream()
+            .anyMatch(
+                node ->
+                    node != null
+                        && node.getNodeType() == ExecutionMapNodeType.DATA_VAULT_MODEL
+                        && root.getId().equals(node.getParentNodeId()));
+    assertTrue(modelParentedUnderRoot, "Referenced DV models should be parented under the root workflow");
   }
 
   @Test

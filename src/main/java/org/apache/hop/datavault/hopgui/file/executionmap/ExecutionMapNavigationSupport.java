@@ -20,16 +20,27 @@ package org.apache.hop.datavault.hopgui.file.executionmap;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewRunner;
+import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewSupport;
+import org.apache.hop.catalog.hopgui.perspective.DataCatalogPerspective;
+import org.apache.hop.catalog.model.RecordDefinition;
+import org.apache.hop.catalog.model.RecordDefinitionKey;
+import org.apache.hop.catalog.model.RecordDefinitionQuery;
+import org.apache.hop.catalog.model.RecordDefinitionRef;
+import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.executionmap.ArtifactSnapshotSupport;
+import org.apache.hop.datavault.executionmap.DatasetNodeSupport;
+import org.apache.hop.datavault.executionmap.ExecutionMapDatasetCatalogSupport;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapArtifactSnapshot;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapArtifactType;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
-import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
@@ -44,7 +55,7 @@ import org.w3c.dom.Node;
 /** Opens execution map nodes in Hop GUI or from embedded XML snapshots. */
 public final class ExecutionMapNavigationSupport {
 
-  private static final Class<?> PKG = ExecutionMapNavigationSupport.class;
+  private static final Class<?> PKG = HopGuiExecutionMapGraph.class;
 
   private ExecutionMapNavigationSupport() {}
 
@@ -93,13 +104,54 @@ public final class ExecutionMapNavigationSupport {
     return snapshot != null && !Utils.isEmpty(snapshot.getXmlGzipBase64());
   }
 
+  public static boolean canNavigateToCatalog(
+      ExecutionMapNode node,
+      ExecutionMapDocument document,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    if (!ExecutionMapDatasetDetailsViewer.isDatasetNode(node)) {
+      return false;
+    }
+    try {
+      RecordDefinitionKey key =
+          ExecutionMapDatasetCatalogSupport.resolveDatasetRecordKey(node, document, variables);
+      if (key == null) {
+        return false;
+      }
+      resolveCatalogConnectionName(node, key, variables, metadataProvider);
+      return true;
+    } catch (HopException e) {
+      return false;
+    }
+  }
+
+  public static boolean canNavigateToCatalog(
+      ExecutionMapNode node, IVariables variables, IHopMetadataProvider metadataProvider) {
+    return canNavigateToCatalog(node, null, variables, metadataProvider);
+  }
+
+  public static boolean canNavigate(
+      ExecutionMapNode node,
+      ExecutionMapDocument document,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    return canOpenArtifactFile(node)
+        || canOpenFromSnapshot(node, document)
+        || canNavigateToCatalog(node, document, variables, metadataProvider);
+  }
+
   public static boolean canNavigate(ExecutionMapNode node, ExecutionMapDocument document) {
     return canOpenArtifactFile(node) || canOpenFromSnapshot(node, document);
+  }
+
+  public static RecordDefinitionKey resolveDatasetRecordKey(ExecutionMapNode node) {
+    return ExecutionMapDatasetCatalogSupport.resolveDatasetRecordKey(node);
   }
 
   public static void openNode(
       HopGui hopGui,
       IVariables variables,
+      IHopMetadataProvider metadataProvider,
       ExecutionMapDocument document,
       ExecutionMapNode node) {
     if (hopGui == null || node == null) {
@@ -113,7 +165,11 @@ public final class ExecutionMapNavigationSupport {
       }
       if (canOpenFromSnapshot(node, document)) {
         openFromSnapshot(
-            hopGui, variables, hopGui.getMetadataProvider(), findSnapshot(node, document), node);
+            hopGui, variables, metadataProvider, findSnapshot(node, document), node);
+        return;
+      }
+      if (canNavigateToCatalog(node, document, variables, metadataProvider)) {
+        openDatasetInCatalog(hopGui, variables, metadataProvider, document, node);
         return;
       }
       new ErrorDialog(
@@ -134,6 +190,113 @@ public final class ExecutionMapNavigationSupport {
               describeNode(node)),
           e instanceof HopException ? e : new HopException(e));
     }
+  }
+
+  public static void openNode(
+      HopGui hopGui,
+      IVariables variables,
+      ExecutionMapDocument document,
+      ExecutionMapNode node) {
+    openNode(hopGui, variables, hopGui != null ? hopGui.getMetadataProvider() : null, document, node);
+  }
+
+  public static void openDatasetInCatalog(
+      HopGui hopGui,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      ExecutionMapDocument document,
+      ExecutionMapNode node)
+      throws HopException {
+    if (hopGui == null || node == null) {
+      return;
+    }
+    RecordDefinitionKey key =
+        ExecutionMapDatasetCatalogSupport.resolveDatasetRecordKey(node, document, variables);
+    if (key == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "ExecutionMapNavigationSupport.Error.MissingDatasetKey"));
+    }
+    String catalogConnectionName =
+        resolveCatalogConnectionName(node, key, variables, metadataProvider);
+    DataCatalogPerspective perspective = DataCatalogPerspective.getInstance();
+    if (perspective == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "ExecutionMapNavigationSupport.Error.CatalogUnavailable"));
+    }
+    perspective.selectRecordDefinition(catalogConnectionName, key);
+  }
+
+  public static void openDatasetInCatalog(
+      HopGui hopGui,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      ExecutionMapNode node)
+      throws HopException {
+    openDatasetInCatalog(hopGui, variables, metadataProvider, null, node);
+  }
+
+  public static boolean canPreviewDataset(
+      ExecutionMapNode node,
+      ExecutionMapDocument document,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    if (!ExecutionMapDatasetDetailsViewer.isDatasetNode(node)) {
+      return false;
+    }
+    try {
+      RecordDefinition definition =
+          resolveDatasetRecordDefinition(node, document, variables, metadataProvider);
+      return definition != null && RecordDefinitionPreviewSupport.supportsPreview(definition);
+    } catch (HopException e) {
+      return false;
+    }
+  }
+
+  public static void previewDataset(
+      HopGui hopGui,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      ExecutionMapDocument document,
+      ExecutionMapNode node)
+      throws HopException {
+    if (hopGui == null || node == null) {
+      return;
+    }
+    RecordDefinition definition =
+        resolveDatasetRecordDefinition(node, document, variables, metadataProvider);
+    if (definition == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "ExecutionMapNavigationSupport.Error.PreviewNoDefinition"));
+    }
+    if (!RecordDefinitionPreviewSupport.supportsPreview(definition)) {
+      throw new HopException(
+          BaseMessages.getString(
+              PKG,
+              "ExecutionMapNavigationSupport.Error.PreviewUnsupported",
+              definition.getKey() != null ? definition.getKey().toString() : node.getName()));
+    }
+    RecordDefinitionPreviewRunner.run(
+        hopGui.getShell(), definition, variables, metadataProvider);
+  }
+
+  public static RecordDefinition resolveDatasetRecordDefinition(
+      ExecutionMapNode node,
+      ExecutionMapDocument document,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
+    if (node == null || metadataProvider == null) {
+      return null;
+    }
+    RecordDefinitionKey key =
+        ExecutionMapDatasetCatalogSupport.resolveDatasetRecordKey(node, document, variables);
+    if (key == null) {
+      return null;
+    }
+    String catalogConnectionName =
+        resolveCatalogConnectionName(node, key, variables, metadataProvider);
+    return RecordDefinitionRegistry.getInstance()
+        .read(catalogConnectionName, key, variables, metadataProvider);
   }
 
   public static void openArtifactFile(
@@ -235,7 +398,11 @@ public final class ExecutionMapNavigationSupport {
     return builder.toString();
   }
 
-  public static String buildTooltip(ExecutionMapNode node, ExecutionMapDocument document) {
+  public static String buildTooltip(
+      ExecutionMapNode node,
+      ExecutionMapDocument document,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
     if (node == null) {
       return null;
     }
@@ -251,13 +418,69 @@ public final class ExecutionMapNavigationSupport {
       }
       builder.append(BaseMessages.getString(PKG, "ExecutionMapNavigationSupport.Tooltip.Snapshot"));
     }
-    if (canNavigate(node, document)) {
+    if (canNavigateToCatalog(node, document, variables, metadataProvider)) {
+      if (!builder.isEmpty()) {
+        builder.append(System.lineSeparator());
+      }
+      builder.append(
+          BaseMessages.getString(PKG, "ExecutionMapNavigationSupport.Tooltip.OpenInCatalog"));
+    } else if (canOpenArtifactFile(node) || canOpenFromSnapshot(node, document)) {
       if (!builder.isEmpty()) {
         builder.append(System.lineSeparator());
       }
       builder.append(BaseMessages.getString(PKG, "ExecutionMapNavigationSupport.Tooltip.DoubleClick"));
     }
     return builder.isEmpty() ? null : builder.toString();
+  }
+
+  public static String buildTooltip(ExecutionMapNode node, ExecutionMapDocument document) {
+    return buildTooltip(node, document, null, null);
+  }
+
+  private static String resolveCatalogConnectionName(
+      ExecutionMapNode node,
+      RecordDefinitionKey key,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
+    String fromProperty =
+        resolvePath(variables, node.getProperty(DatasetNodeSupport.PROPERTY_CATALOG_CONNECTION));
+    if (!Utils.isEmpty(fromProperty)) {
+      return fromProperty;
+    }
+    List<String> matches = findCatalogMatches(key, variables, metadataProvider);
+    if (matches.isEmpty()) {
+      throw new HopException(
+          BaseMessages.getString(
+              PKG, "ExecutionMapNavigationSupport.Error.RecordNotFound", key.toString()));
+    }
+    if (matches.size() > 1) {
+      throw new HopException(
+          BaseMessages.getString(
+              PKG,
+              "ExecutionMapNavigationSupport.Error.AmbiguousCatalog",
+              key.toString(),
+              String.join(", ", matches)));
+    }
+    return matches.get(0);
+  }
+
+  private static List<String> findCatalogMatches(
+      RecordDefinitionKey key, IVariables variables, IHopMetadataProvider metadataProvider)
+      throws HopException {
+    List<String> matches = new ArrayList<>();
+    if (key == null || metadataProvider == null) {
+      return matches;
+    }
+    List<RecordDefinitionRef> refs =
+        RecordDefinitionRegistry.getInstance()
+            .listAll(new RecordDefinitionQuery(), variables, metadataProvider);
+    for (RecordDefinitionRef ref : refs) {
+      if (ref.getKey() != null && key.equals(ref.getKey())) {
+        matches.add(ref.getCatalogConnectionName());
+      }
+    }
+    return matches;
   }
 
   private static ExecutionMapArtifactType inferArtifactType(ExecutionMapNode node) {

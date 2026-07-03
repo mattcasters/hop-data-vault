@@ -37,9 +37,14 @@ public final class ExecutionMapLayoutSupport {
     if (document == null || document.getNodesOrEmpty().isEmpty()) {
       return;
     }
+    if (ExecutionMapHubSpokeLayout.canUseHubSpokeLayout(document)) {
+      ExecutionMapHubSpokeLayout.applyIfNeeded(document);
+      return;
+    }
     ElkGraphLayout.layoutExecutionMap(
         document,
         options != null ? options : ExecutionMapLayoutOptions.DEFAULT,
         ElkLayout.createForExecutionMap());
+    ExecutionMapHubSpokeLayout.applyIfNeeded(document);
   }
 }
