@@ -25,9 +25,11 @@ The map stores node positions, parent links, and crawl timestamp for reproducibl
 | File | Root |
 |------|------|
 | `update-retail-dv-bv-dm.hem` | `workflows/update-retail-dv-bv-dm.hwf` |
-| `simulate-12-months.hem` | Simulated multi-month update scenario |
+| `simulate-6-months.hem` | `workflows/simulate-6-months.hwf` (initial load + six update cycles) |
 
 Open a `.hem` file in Hop GUI. Use filters and focus controls to collapse or expand model subtrees and generated pipeline swimlanes.
+
+image::images/execution-map-in-hop-gui-simulate-six-months.png[Execution map in Hop GUI — simulate-6-months root workflow with nested update paths,align="center"]
 
 == Creating and refreshing maps
 

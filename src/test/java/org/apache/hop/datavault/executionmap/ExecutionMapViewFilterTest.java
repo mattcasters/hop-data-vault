@@ -47,6 +47,38 @@ class ExecutionMapViewFilterTest {
   }
 
   @Test
+  void visibleNodesIncludeRunRetailUpdateSharedReferences() {
+    ExecutionMapDocument document = runRetailUpdateDocument();
+    ExecutionMapFocusContext focus = new ExecutionMapFocusContext("run-retail-update");
+
+    Set<String> visibleNames =
+        ExecutionMapViewFilter.getVisibleNodes(document, focus).stream()
+            .map(ExecutionMapNode::getName)
+            .collect(Collectors.toSet());
+
+    assertEquals(
+        Set.of(
+            "run-retail-update",
+            "write-load-control-context",
+            "load-e2e-sources-to-crm",
+            "update-retail-dv-bv-dm"),
+        visibleNames);
+  }
+
+  @Test
+  void visibleNodesIncludeSharedChildrenLinkedByContainsEdge() {
+    ExecutionMapDocument document = sharedChildDocument();
+    ExecutionMapFocusContext focus = new ExecutionMapFocusContext("second-parent");
+
+    Set<String> visibleIds =
+        ExecutionMapViewFilter.getVisibleNodes(document, focus).stream()
+            .map(ExecutionMapNode::getId)
+            .collect(Collectors.toSet());
+
+    assertEquals(Set.of("second-parent", "shared-child"), visibleIds);
+  }
+
+  @Test
   void visibleEdgesExcludeContainsAndDistantEdges() {
     ExecutionMapDocument document = sampleDocument();
     ExecutionMapFocusContext focus = new ExecutionMapFocusContext("root");
@@ -59,6 +91,62 @@ class ExecutionMapViewFilterTest {
     assertTrue(visible.contains(ExecutionMapEdgeType.EXECUTES));
     assertTrue(!visible.contains(ExecutionMapEdgeType.CONTAINS));
     assertTrue(!visible.contains(ExecutionMapEdgeType.MODEL_LINK));
+  }
+
+  private static ExecutionMapDocument runRetailUpdateDocument() {
+    ExecutionMapDocument document = new ExecutionMapDocument();
+    document
+        .getNodesOrEmpty()
+        .add(node("root", ExecutionMapNodeType.ROOT_WORKFLOW, null));
+    document
+        .getNodesOrEmpty()
+        .add(node("run-retail-initial", ExecutionMapNodeType.WORKFLOW, "root"));
+    document
+        .getNodesOrEmpty()
+        .add(node("update-6-times", ExecutionMapNodeType.PIPELINE, "root"));
+    document
+        .getNodesOrEmpty()
+        .add(node("run-retail-update", ExecutionMapNodeType.WORKFLOW, "update-6-times"));
+    document
+        .getNodesOrEmpty()
+        .add(
+            node(
+                "write-load-control-context",
+                ExecutionMapNodeType.PIPELINE,
+                "run-retail-update"));
+    document
+        .getNodesOrEmpty()
+        .add(
+            node("load-e2e-sources-to-crm", ExecutionMapNodeType.PIPELINE, "run-retail-initial"));
+    document
+        .getNodesOrEmpty()
+        .add(
+            node("update-retail-dv-bv-dm", ExecutionMapNodeType.WORKFLOW, "run-retail-initial"));
+    document
+        .getEdgesOrEmpty()
+        .add(edge(ExecutionMapEdgeType.CONTAINS, "run-retail-update", "load-e2e-sources-to-crm"));
+    document
+        .getEdgesOrEmpty()
+        .add(edge(ExecutionMapEdgeType.CONTAINS, "run-retail-update", "update-retail-dv-bv-dm"));
+    return document;
+  }
+
+  private static ExecutionMapDocument sharedChildDocument() {
+    ExecutionMapDocument document = new ExecutionMapDocument();
+    document.getNodesOrEmpty().add(node("root", ExecutionMapNodeType.ROOT_WORKFLOW, null));
+    document
+        .getNodesOrEmpty()
+        .add(node("first-parent", ExecutionMapNodeType.WORKFLOW, "root"));
+    document
+        .getNodesOrEmpty()
+        .add(node("second-parent", ExecutionMapNodeType.WORKFLOW, "root"));
+    document
+        .getNodesOrEmpty()
+        .add(node("shared-child", ExecutionMapNodeType.PIPELINE, "first-parent"));
+    document
+        .getEdgesOrEmpty()
+        .add(edge(ExecutionMapEdgeType.CONTAINS, "second-parent", "shared-child"));
+    return document;
   }
 
   private static ExecutionMapDocument sampleDocument() {

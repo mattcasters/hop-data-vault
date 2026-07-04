@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapEdge;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapEdgeType;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
 import org.junit.jupiter.api.Test;
@@ -55,16 +57,41 @@ class ExecutionMapFocusContextTest {
 
   @Test
   void drillIntoAndNavigateToUpdateFocus() {
+    ExecutionMapDocument document = sampleDocument();
     ExecutionMapFocusContext focus = new ExecutionMapFocusContext();
 
     focus.drillInto("child");
     assertEquals("child", focus.getFocusNodeId());
 
-    focus.navigateTo("root");
-    assertEquals("root", focus.getFocusNodeId());
+    focus.navigateTo("root", document);
+    assertEquals(null, focus.getFocusNodeId());
+
+    focus.drillInto("child");
+    focus.drillInto("grandchild");
+    assertEquals("grandchild", focus.getFocusNodeId());
+
+    focus.navigateTo("child", document);
+    assertEquals("child", focus.getFocusNodeId());
 
     focus.navigateToRoot();
     assertEquals(null, focus.getFocusNodeId());
+  }
+
+  @Test
+  void canDrillIntoWhenNodeHasSharedChildLinkedByContainsEdge() {
+    ExecutionMapDocument document = new ExecutionMapDocument();
+    document
+        .getNodesOrEmpty()
+        .add(node("parent", "Parent", ExecutionMapNodeType.WORKFLOW, "root"));
+    document
+        .getNodesOrEmpty()
+        .add(node("shared", "Shared", ExecutionMapNodeType.PIPELINE, "other-parent"));
+    document.getEdgesOrEmpty().add(edge("parent", "shared"));
+
+    ExecutionMapFocusContext focus = new ExecutionMapFocusContext();
+    ExecutionMapNode parent = document.findNodeById("parent");
+
+    assertTrue(focus.canDrillInto(parent, document));
   }
 
   @Test
@@ -74,9 +101,11 @@ class ExecutionMapFocusContextTest {
 
     ExecutionMapNode root = document.findNodeById("root");
     ExecutionMapNode child = document.findNodeById("child");
+    ExecutionMapNode grandchild = document.findNodeById("grandchild");
 
     assertTrue(focus.canDrillInto(root, document));
-    assertFalse(focus.canDrillInto(child, document));
+    assertTrue(focus.canDrillInto(child, document));
+    assertFalse(focus.canDrillInto(grandchild, document));
   }
 
   private static ExecutionMapDocument sampleDocument() {
@@ -84,9 +113,20 @@ class ExecutionMapFocusContextTest {
     ExecutionMapNode root = node("root", "Root Workflow", ExecutionMapNodeType.ROOT_WORKFLOW, null);
     ExecutionMapNode child =
         node("child", "Child Model", ExecutionMapNodeType.DATA_VAULT_MODEL, "root");
+    ExecutionMapNode grandchild =
+        node("grandchild", "Grandchild Pipeline", ExecutionMapNodeType.PIPELINE, "child");
     document.getNodesOrEmpty().add(root);
     document.getNodesOrEmpty().add(child);
+    document.getNodesOrEmpty().add(grandchild);
     return document;
+  }
+
+  private static ExecutionMapEdge edge(String fromId, String toId) {
+    ExecutionMapEdge edge = new ExecutionMapEdge();
+    edge.setEdgeType(ExecutionMapEdgeType.CONTAINS);
+    edge.setFromNodeId(fromId);
+    edge.setToNodeId(toId);
+    return edge;
   }
 
   private static ExecutionMapNode node(

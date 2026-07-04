@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.ConnectionAnchors;
+import org.apache.hop.ui.core.PropsUi;
 import org.junit.jupiter.api.Test;
 
 class ModelGraphConnectionGeometryTest {
@@ -114,10 +115,21 @@ class ModelGraphConnectionGeometryTest {
 
   @Test
   void effectiveSegmentCountScalesWithScreenLength() {
-    assertEquals(20, ModelGraphConnectionGeometry.effectiveSegmentCount(120, 20));
-    assertEquals(38, ModelGraphConnectionGeometry.effectiveSegmentCount(300, 20));
-    assertEquals(38, ModelGraphConnectionGeometry.effectiveSegmentCount(300, 30));
-    assertEquals(200, ModelGraphConnectionGeometry.effectiveSegmentCount(5000, 20));
+    double zoom = PropsUi.getNativeZoomFactor();
+    assertEquals(expectedSegmentCount(120, 20, zoom), ModelGraphConnectionGeometry.effectiveSegmentCount(120, 20));
+    assertEquals(expectedSegmentCount(300, 20, zoom), ModelGraphConnectionGeometry.effectiveSegmentCount(300, 20));
+    assertEquals(expectedSegmentCount(300, 30, zoom), ModelGraphConnectionGeometry.effectiveSegmentCount(300, 30));
+    assertEquals(expectedSegmentCount(5000, 20, zoom), ModelGraphConnectionGeometry.effectiveSegmentCount(5000, 20));
+    assertTrue(
+        ModelGraphConnectionGeometry.effectiveSegmentCount(300, 20)
+            <= ModelGraphConnectionGeometry.effectiveSegmentCount(5000, 20));
+  }
+
+  private static int expectedSegmentCount(
+      double screenLength, int configuredSegments, double zoomFactor) {
+    int configured = Math.max(1, configuredSegments);
+    int byLength = (int) Math.ceil(screenLength / (15.0 * zoomFactor));
+    return Math.max(configured, Math.min(200, byLength));
   }
 
   @Test

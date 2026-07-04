@@ -104,7 +104,9 @@ Kimball star/snowflake modeling: dimensions, facts, junk dimensions, bridges, sn
 
 ### Execution maps (`.hem`)
 
-Crawl a root workflow or model and persist a graph of workflows, models, generated pipelines, and source datasets. Open `.hem` files in Hop GUI for execution and lineage views. The retail example includes maps for its main update workflow.
+Crawl a root workflow or model and persist a graph of workflows, models, generated pipelines, and source datasets. Open `.hem` files in Hop GUI for execution and lineage views. The retail example includes maps for its main update workflow and the six-month simulation.
+
+![Execution map in Hop GUI — simulate-6-months](images/execution-map-in-hop-gui-simulate-six-months.png)
 
 ### AI Help
 

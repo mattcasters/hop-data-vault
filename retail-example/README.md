@@ -56,9 +56,13 @@ retail-example/
 │   ├── retail-360.hbv         # Business Vault model (target: Vault)
 │   └── retail-warehouse.hdm   # Dimensional model (target: Vault)
 ├── sql/                       # drop-source / drop-target, load control, staging views
+├── execution-maps/
+│   ├── update-retail-dv-bv-dm.hem
+│   └── simulate-6-months.hem
 └── workflows/
     ├── run-retail-initial.hwf
-    └── run-retail-update.hwf
+    ├── run-retail-update.hwf
+    └── simulate-6-months.hwf
 ```
 
 Shared Python helpers live in `../scripts/end-to-end/` (repo root, not inside this project).

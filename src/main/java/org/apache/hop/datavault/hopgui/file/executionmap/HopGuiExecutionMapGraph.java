@@ -777,7 +777,7 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
   }
 
   public void navigateToFocus(String nodeId) {
-    focusContext.navigateTo(nodeId);
+    focusContext.navigateTo(nodeId, document);
     performZoomFitToScreen();
     updateGui();
   }

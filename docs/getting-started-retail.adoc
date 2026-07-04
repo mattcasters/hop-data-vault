@@ -61,6 +61,9 @@ Key files:
 
 |`execution-maps/update-retail-dv-bv-dm.hem`
 |Optional execution map of the main update graph
+
+|`execution-maps/simulate-6-months.hem`
+|Optional execution map of the full six-month simulation workflow
 |===
 
 == Chapter 2 — Tour the Data Catalog
@@ -121,8 +124,13 @@ Reference: link:business-vault-overview.adoc[Business Vault overview], link:dime
 
 == Chapter 7 — Execution map (optional)
 
-. Open `execution-maps/update-retail-dv-bv-dm.hem`.
-. Explore the crawled graph: root workflow → models → generated pipelines → source datasets.
+. Open `execution-maps/update-retail-dv-bv-dm.hem` or `execution-maps/simulate-6-months.hem`.
+. Explore the crawled graph: root workflow → nested workflows and pipelines → models → generated pipelines → source datasets.
+. Drill into nodes (double-click) to focus on one layer at a time; use the breadcrumb bar to navigate back.
+
+image::images/execution-map-in-hop-gui-simulate-six-months.png[Execution map — simulate-6-months workflow opened in Hop GUI,align="center"]
+
+The **simulate-6-months** map crawls `workflows/simulate-6-months.hwf`: an initial load followed by `update-6-times.hpl`, which runs `run-retail-update.hwf` six times.
 
 Reference: link:execution-maps.adoc[Execution maps].
 

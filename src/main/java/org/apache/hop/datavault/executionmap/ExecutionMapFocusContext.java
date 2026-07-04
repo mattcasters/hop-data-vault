@@ -21,7 +21,6 @@ package org.apache.hop.datavault.executionmap;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
-import lombok.Setter;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
@@ -29,24 +28,36 @@ import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
 
 /** Tracks the focused parent node for 2-level drill-down navigation. */
 @Getter
-@Setter
 public class ExecutionMapFocusContext {
 
-  /** Null means root focus (implicit root workflow/pipeline node). */
-  private String focusNodeId;
+  private final List<String> focusPath = new ArrayList<>();
 
   public ExecutionMapFocusContext() {}
 
   public ExecutionMapFocusContext(String focusNodeId) {
-    this.focusNodeId = focusNodeId;
+    if (!Utils.isEmpty(focusNodeId)) {
+      focusPath.add(focusNodeId);
+    }
+  }
+
+  /** Null means root focus (implicit root workflow/pipeline node). */
+  public String getFocusNodeId() {
+    return focusPath.isEmpty() ? null : focusPath.get(focusPath.size() - 1);
+  }
+
+  public void setFocusNodeId(String focusNodeId) {
+    focusPath.clear();
+    if (!Utils.isEmpty(focusNodeId)) {
+      focusPath.add(focusNodeId);
+    }
   }
 
   public ExecutionMapNode resolveFocusNode(ExecutionMapDocument document) {
     if (document == null) {
       return null;
     }
-    if (!Utils.isEmpty(focusNodeId)) {
-      ExecutionMapNode focused = document.findNodeById(focusNodeId);
+    if (!focusPath.isEmpty()) {
+      ExecutionMapNode focused = document.findNodeById(getFocusNodeId());
       if (focused != null) {
         return focused;
       }
@@ -56,21 +67,19 @@ public class ExecutionMapFocusContext {
 
   public List<ExecutionMapNode> getBreadcrumb(ExecutionMapDocument document) {
     List<ExecutionMapNode> breadcrumb = new ArrayList<>();
-    ExecutionMapNode focus = resolveFocusNode(document);
-    if (focus == null) {
+    if (document == null) {
       return breadcrumb;
     }
-    List<ExecutionMapNode> ancestors = new ArrayList<>();
-    ExecutionMapNode current = focus;
-    while (current != null) {
-      ancestors.add(0, current);
-      String parentId = current.getParentNodeId();
-      current =
-          Utils.isEmpty(parentId) || document == null
-              ? null
-              : document.findNodeById(parentId);
+    ExecutionMapNode root = findRootNode(document);
+    if (root != null) {
+      breadcrumb.add(root);
     }
-    breadcrumb.addAll(ancestors);
+    for (String nodeId : focusPath) {
+      ExecutionMapNode node = document.findNodeById(nodeId);
+      if (node != null) {
+        breadcrumb.add(node);
+      }
+    }
     return breadcrumb;
   }
 
@@ -78,26 +87,42 @@ public class ExecutionMapFocusContext {
     if (node == null || document == null || Utils.isEmpty(node.getId())) {
       return false;
     }
-    for (ExecutionMapNode candidate : document.getNodesOrEmpty()) {
-      if (candidate != null && node.getId().equals(candidate.getParentNodeId())) {
-        return true;
-      }
-    }
-    return false;
+    return !ExecutionMapViewFilter.directChildNodeIds(document, node.getId()).isEmpty();
   }
 
   public void drillInto(String nodeId) {
     if (!Utils.isEmpty(nodeId)) {
-      focusNodeId = nodeId;
+      focusPath.add(nodeId);
     }
   }
 
   public void navigateTo(String nodeId) {
-    focusNodeId = Utils.isEmpty(nodeId) ? null : nodeId;
+    navigateTo(nodeId, null);
+  }
+
+  public void navigateTo(String nodeId, ExecutionMapDocument document) {
+    if (Utils.isEmpty(nodeId)) {
+      focusPath.clear();
+      return;
+    }
+    if (document != null) {
+      ExecutionMapNode root = findRootNode(document);
+      if (root != null && nodeId.equals(root.getId())) {
+        focusPath.clear();
+        return;
+      }
+    }
+    int index = focusPath.indexOf(nodeId);
+    if (index >= 0) {
+      focusPath.subList(index + 1, focusPath.size()).clear();
+      return;
+    }
+    focusPath.clear();
+    focusPath.add(nodeId);
   }
 
   public void navigateToRoot() {
-    focusNodeId = null;
+    focusPath.clear();
   }
 
   public static ExecutionMapNode findRootNode(ExecutionMapDocument document) {

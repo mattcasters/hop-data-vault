@@ -20,6 +20,7 @@ package org.apache.hop.datavault.executionmap;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.hop.core.util.Utils;
@@ -33,6 +34,30 @@ public final class ExecutionMapViewFilter {
 
   private ExecutionMapViewFilter() {}
 
+  public static Set<String> directChildNodeIds(ExecutionMapDocument document, String parentId) {
+    Set<String> childIds = new LinkedHashSet<>();
+    if (document == null || Utils.isEmpty(parentId)) {
+      return childIds;
+    }
+    for (ExecutionMapNode node : document.getNodesOrEmpty()) {
+      if (node != null
+          && !Utils.isEmpty(node.getId())
+          && parentId.equals(node.getParentNodeId())) {
+        childIds.add(node.getId());
+      }
+    }
+    for (ExecutionMapEdge edge : document.getEdgesOrEmpty()) {
+      if (edge == null
+          || edge.getEdgeType() != ExecutionMapEdgeType.CONTAINS
+          || !parentId.equals(edge.getFromNodeId())
+          || Utils.isEmpty(edge.getToNodeId())) {
+        continue;
+      }
+      childIds.add(edge.getToNodeId());
+    }
+    return childIds;
+  }
+
   public static List<ExecutionMapNode> getVisibleNodes(
       ExecutionMapDocument document, ExecutionMapFocusContext focus) {
     List<ExecutionMapNode> visible = new ArrayList<>();
@@ -45,11 +70,10 @@ public final class ExecutionMapViewFilter {
       return visible;
     }
     visible.add(parent);
-    for (ExecutionMapNode node : document.getNodesOrEmpty()) {
-      if (node != null
-          && parent.getId() != null
-          && parent.getId().equals(node.getParentNodeId())) {
-        visible.add(node);
+    for (String childId : directChildNodeIds(document, parent.getId())) {
+      ExecutionMapNode child = document.findNodeById(childId);
+      if (child != null) {
+        visible.add(child);
       }
     }
     return visible;

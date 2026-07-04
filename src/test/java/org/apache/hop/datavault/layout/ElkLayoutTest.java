@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.eclipse.elk.alg.layered.options.LayeredOptions;
 import org.eclipse.elk.alg.rectpacking.options.RectPackingOptions;
 import org.eclipse.elk.alg.rectpacking.p1widthapproximation.WidthApproximationStrategy;
 import org.eclipse.elk.core.options.CoreOptions;
@@ -68,7 +69,7 @@ class ElkLayoutTest {
   void createDefaultMatchesPreferredSettings() {
     ElkLayout layout = ElkLayout.createDefault();
 
-    assertEquals(ElkLayoutAlgorithm.RECT_PACKING, layout.getAlgorithm());
+    assertEquals(ElkLayoutAlgorithm.LAYERED, layout.getAlgorithm());
     assertEquals(1000, layout.getTargetWidth());
     assertEquals(ElkLayoutDirection.RIGHT, layout.getDirection());
     assertEquals(48, layout.getSpacingWithinLayer());
@@ -82,14 +83,14 @@ class ElkLayoutTest {
   }
 
   @Test
-  void applyToUsesRectPackingAlgorithmByDefault() {
+  void applyToUsesLayeredAlgorithmByDefault() {
     ElkLayout layout = new ElkLayout();
 
     ElkNode root = ElkGraphUtil.createGraph();
     layout.applyTo(root);
 
-    assertEquals(RectPackingOptions.ALGORITHM_ID, root.getProperty(CoreOptions.ALGORITHM));
+    assertEquals(LayeredOptions.ALGORITHM_ID, root.getProperty(CoreOptions.ALGORITHM));
     assertEquals(
-        1000.0, root.getProperty(RectPackingOptions.WIDTH_APPROXIMATION_TARGET_WIDTH));
+        ElkLayoutDirection.RIGHT.toElkDirection(), root.getProperty(CoreOptions.DIRECTION));
   }
 }
