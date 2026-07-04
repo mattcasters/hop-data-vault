@@ -19,6 +19,8 @@ limitations under the License.
 
 **Model-driven Data Vault and Business Vault on Apache Hop 2.18.1**
 
+> For a feature checklist with documentation links, see [feature-overview.md](../feature-overview.md).
+
 ---
 
 # The problem
@@ -132,7 +134,7 @@ Requires a configured LLM in Hop GUI → Configuration → AI Assistant. Human m
 
 # Quality and repeatability
 
-The sample `project/` includes:
+The sample `integration-tests/` project includes:
 
 - Golden-dataset unit tests per suite
 - Docker-based test runner (PostgreSQL, MySQL, SingleStore)
@@ -161,7 +163,7 @@ Sources (catalog / CRM)
   SCD2 · PIT · future bridges
         │
         ▼
-  Dimensional / marts (roadmap)
+  Dimensional marts (.hdm)
 ```
 
 One metadata chain from staging to consumption.
@@ -181,7 +183,7 @@ One metadata chain from staging to consumption.
 
 # Sample project highlights
 
-Under `integration-tests/tests//`:
+Under `integration-tests/tests/`:
 
 - **vault1** — classic hub / link / satellite
 - **customer-phone** — multi-active satellite
@@ -192,7 +194,9 @@ Under `integration-tests/tests//`:
 
 ![Customer 360 Business Vault model](../images/business-vault-model-customer-360.png)
 
-Runnable via `project/run-tests.sh` or Hop GUI with the `hop-data-vault` project open.
+Runnable via `integration-tests/run-tests.sh` or Hop GUI with the `hop-data-vault` project open. For a full-stack learning path, use `retail-example/` — see [getting-started-retail.adoc](../getting-started-retail.adoc).
+
+![Retail 360 Data Vault model](../images/data-vault-model-retail-example.png)
 
 ---
 
@@ -217,14 +221,17 @@ Choose per table — mixed models are supported.
 - Raw DV modeling and loading
 - Business Vault SCD2 (single and multi-satellite)
 - PIT table type in BV model
+- Dimensional modeler and Dimensional Update/Publish
+- Execution maps (`.hem`)
 - External / custom integration modes
+- Data Catalog sources and resource definition validation
 - AI advisory
 
-**Planned**
+**Planned (0.1.x and beyond)**
 
-- Dimensional modeler (Kimball-style from DV/BV metadata)
-- Business Vault field dictionary (naming / typing rules)
+- BV naming rules engine
 - Marquez / OpenLineage lineage export
+- Hash-key ModPartitioner parallelism
 
 ---
 
@@ -232,11 +239,12 @@ Choose per table — mixed models are supported.
 
 | Audience | Start here |
 |----------|------------|
-| **Modelers** | [docs/getting-started-modeler.adoc](../getting-started-modeler.adoc) |
-| **Implementers** | [README.md](../../README.md) and [project/PROJECT.md](../../project/PROJECT.md) |
+| **Modelers** | [docs/getting-started-retail.adoc](../getting-started-retail.adoc) |
+| **Advanced fixtures** | [docs/getting-started-integration-tests.adoc](../getting-started-integration-tests.adoc) |
+| **Implementers** | [README.md](../../README.md) and [integration-tests/PROJECT.md](../../integration-tests/PROJECT.md) |
 | **Reference** | [docs/README.md](../README.md) — full doc index |
 
-Open the `project/` folder as Hop project **`hop-data-vault`**, configure **CRM** and **Vault** connections, install plugin **0.0.15-SNAPSHOT**, and run `tests/run-tests.hwf`.
+Open `retail-example/` for the tutorial, or `integration-tests/` as **`hop-data-vault`** for regression suites. Configure **CRM** and **Vault** connections, install plugin **0.0.16-SNAPSHOT**.
 
 ---
 

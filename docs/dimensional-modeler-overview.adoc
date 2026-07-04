@@ -66,37 +66,7 @@ For the standard calendar **`dim_date`** dimension, you can populate the physica
 
 == Workflow integration
 
-=== Dimensional Update
-
-Production loads use the **Dimensional Update** workflow action (`DIMENSIONAL_UPDATE`):
-
-1. Load `.hdm` model
-2. `model.check()` — Kimball validation
-3. Optional DDL (CREATE TABLE on target database)
-4. Per-table `generateUpdatePipelines()` — configure native Hop transforms
-5. Stage pipelines → orchestrate in parallel → cleanup
-
-Fixture workflows:
-
-* `integration-tests/tests//basic/update-dm-basic-star.hwf` — basic star schema
-* `integration-tests/tests//basic/update-dm-extended-catalog.hwf` — full Kimball catalog (pipeline/DDL only)
-
-=== Dimensional Publish
-
-**Dimensional Publish** (`DIMENSIONAL_PUBLISH`) converts a `.hdv` Data Vault model into a **draft** `.hdm` for human review. It does not run ETL.
-
-Fixture: `integration-tests/tests//basic/publish-vault1-draft.hwf`
-
-Mapping rules (starting point):
-
-* Hub → dimension (business keys → natural keys)
-* Hub satellite → dimension attributes (SCD2 when historized)
-* Hub satellite with cross-hub FKs + measures → transaction fact
-* Link (2 hubs, no measures) → bridge (configurable)
-* Link (otherwise, no measures) → factless fact
-* Link satellite with measures → fact
-
-Review the draft model in the GUI before running Dimensional Update.
+Production loads and DV-to-dimensional publish use workflow actions documented in link:dimensional-update-action.adoc[Dimensional Update and Publish actions].
 
 == GUI workflows
 
@@ -156,13 +126,13 @@ Imported tables are **draft** metadata — review grains, roles, and source SQL 
 |===
 |Fixture |Purpose
 
-|`integration-tests/tests//basic/basic-star.hdm`
+|`integration-tests/tests/basic/basic-star.hdm`
 |Minimal customer/product/sales star (SCD1 dims + transaction fact)
 
-|`integration-tests/tests//basic/extended-catalog.hdm`
+|`integration-tests/tests/basic/extended-catalog.hdm`
 |Full Phase C catalog: SCD3, junk, bridge, factless, snapshots, aggregate
 
-|`integration-tests/tests//basic/vault1.hdv` + publish
+|`integration-tests/tests/basic/vault1.hdv` + publish
 |DV → draft dimensional publish golden path
 |===
 
@@ -170,6 +140,6 @@ Unit tests: `DmBasicStarPipelineTest`, `DmCatalogPipelineTest`, `DvToDimensional
 
 == Related documents
 
-* link:dimensional-modeler-plan.md[Dimensional modeler plan] — phase roadmap and architecture
-* link:getting-started-modeler.adoc[Getting started modeler] — Data Vault / Business Vault tutorial (dimensional sections forthcoming)
+* link:dimensional-update-action.adoc[Dimensional Update and Publish actions]
+* link:getting-started-retail.adoc[Getting started — retail example]
 * link:datavault-plugin.adoc[Data Vault plugin overview]

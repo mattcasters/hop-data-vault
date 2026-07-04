@@ -149,7 +149,7 @@ Simpler v1 alternative: emit only `COMPLETE` after a successful run.
 
 - i18n labels in `messages_en_US.properties`
 - Docker note: [Marquez quickstart](https://github.com/MarquezProject/marquez#quickstart) (`docker-compose up`, port 5000)
-- Optional sample in `project/PROJECT.md`
+- Optional sample in `integration-tests/PROJECT.md`
 
 ### 5. Smoke test (~1 day)
 

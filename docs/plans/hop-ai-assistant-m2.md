@@ -4,7 +4,7 @@ Milestone 2 extends **Pipeline AI Help** and **Workflow AI Help** beyond advisor
 
 This document describes how M2 works, what proposal types are supported, how validation differs from prompt guidance, and where the bundled Apache Hop standards content comes from.
 
-For shared AI configuration, provider setup, and entry points, see [Data Vault AI Help & Advisory](ai-advisory.md).
+For shared AI configuration, provider setup, and entry points, see [Data Vault AI Help & Advisory](../ai-advisory.md).
 
 ---
 
@@ -167,7 +167,7 @@ User prompts still include structure JSON, optional catalog, check results, logs
 
 | Class | Role |
 | :--- | :--- |
-| [`HopAiProposalParser`](../src/main/java/org/apache/hop/datavault/ai/HopAiProposalParser.java) | Parses `hop_proposals` blocks from raw LLM text |
+| [`HopAiProposalParser`](../../src/main/java/org/apache/hop/datavault/ai/HopAiProposalParser.java) | Parses `hop_proposals` blocks from raw LLM text |
 | [`HopAiM2PromptSupport`](../src/main/java/org/apache/hop/datavault/ai/HopAiM2PromptSupport.java) | Loads bundled hop-standards resources into the system prompt |
 | [`PipelineAiProposalValidator`](../src/main/java/org/apache/hop/datavault/ai/pipeline/PipelineAiProposalValidator.java) | Topology validation for pipeline proposals |
 | [`PipelineAiProposalApplier`](../src/main/java/org/apache/hop/datavault/ai/pipeline/PipelineAiProposalApplier.java) | Applies validated pipeline proposals |
@@ -185,7 +185,7 @@ Pipeline and workflow advisor services call `HopAiProposalParser.parse()` after 
 Bundled hop-standards content is derived from the Apache Hop Development Skill by De Bortoli Wines Pty Limited. See:
 
 - Classpath: `org/apache/hop/datavault/ai/prompts/hop-standards/NOTICE-debortoli-hop-skill.txt`
-- Project: [`NOTICE`](../NOTICE)
+- Project: [`NOTICE`](../../NOTICE)
 - Full skill (maintained separately): `../skill-apache-hop-development/` relative to this repository
 
 Only condensed extracts are bundled; the full skill remains in its upstream repository.
@@ -194,5 +194,5 @@ Only condensed extracts are bundled; the full skill remains in its upstream repo
 
 ## Related documentation
 
-- [Data Vault AI Help & Advisory](ai-advisory.md) — configuration, scenarios, Data Vault structural proposals, privacy
+- [Data Vault AI Help & Advisory](../ai-advisory.md) — configuration, scenarios, Data Vault structural proposals, privacy
 - [Apache Hop Development Skill](https://github.com/DeBortoliWines/skill-apache-hop-development) — source standards and transform reference

@@ -2,7 +2,7 @@
 
 > Layered rules engine, acknowledgements with comments, architect health check, and exportable naming quality reports for code review (CLI + GUI) — giving reviewers semantic context a GitHub diff cannot provide.
 >
-> Supersedes the catalog-first approach in [bv-field-dictionary-plan.md](bv-field-dictionary-plan.md) (deferred).
+> Supersedes a deferred BV field dictionary plan (not published).
 
 ## Summary
 
@@ -137,7 +137,7 @@ flowchart LR
   Report[BvNamingReviewReportSupport]
   GUI["BV toolbar\nExport review report"]
   CLI["hop bv naming-report\nfile.hbv"]
-  Docker["project/run-bv-naming-report.sh"]
+  Docker["integration-tests/run-bv-naming-report.sh"]
   CI["PR artifact\noptional"]
   Engine --> Report
   Report --> GUI
@@ -150,13 +150,13 @@ flowchart LR
 |---------|-------|-------|
 | **Hop GUI** | A | BV toolbar → *Export naming review report…* (Markdown/JSON/CSV file chooser) |
 | **Hop CLI** | A | New command plugin mirroring [SvgExportCommand](../src/main/java/org/apache/hop/datavault/command/svg/SvgExportCommand.java): `hop bv naming-report <path.hbv> [--table name] [--format md\|json\|csv] [-o output]` |
-| **Docker script** | A | `project/run-bv-naming-report.sh` — same pattern as `run-svg.sh` for reviewers without local Hop |
+| **Docker script** | A | `integration-tests/run-bv-naming-report.sh` — same pattern as `run-svg.sh` for reviewers without local Hop |
 | **CI / PR** | A doc, B automation | Document running script on changed `.hbv` files; upload `naming-review.md` as artifact; optional GitHub Action later |
 
 ### Reviewer workflow
 
 1. Author opens PR with `.hbv` (and possibly `.hdv`) changes
-2. Author or CI runs: `./project/run-bv-naming-report.sh tests/multi-satellite-bv/customer-360.hbv -o naming-review.md`
+2. Author or CI runs: `./integration-tests/run-bv-naming-report.sh tests/multi-satellite-bv/customer-360.hbv -o naming-review.md`
 3. Author attaches `naming-review.md` to PR (or CI posts as comment artifact)
 4. Reviewer reads diff **plus** report:
    - Challenge weak ack comments ("It's because I said so" is valid but reviewer may ask for more)
@@ -179,7 +179,7 @@ flowchart LR
 | Report core | `BvNamingReviewReport`, `BvNamingReviewReportSupport`, `BvNamingReviewMarkdownWriter`, `BvNamingReviewJsonWriter` |
 | CLI | `BvNamingReportCommand` (register like `SvgExportCommand`) |
 | GUI | [HopGuiBusinessVaultGraph](../src/main/java/org/apache/hop/datavault/hopgui/file/businessvault/HopGuiBusinessVaultGraph.java) toolbar action |
-| Docker | `project/run-bv-naming-report.sh`, note in [PROJECT.md](../project/PROJECT.md) |
+| Docker | `integration-tests/run-bv-naming-report.sh`, note in [PROJECT.md](../../integration-tests/PROJECT.md) |
 | Tests | `BvNamingReviewReportTest` — Customer 360 fixture produces expected Markdown sections |
 
 ---
@@ -220,6 +220,6 @@ Ship only what surfaces in Suggest, WARNING, **Acknowledge**, Health check, or *
 - [ ] **naming-rule-engine** — BvNamingRuleEngine: structural, redundancy, vague, collision rules + BvNamingSuggestSupport
 - [ ] **naming-health** — BvNamingHealthSupport: conforming / justified / unreviewed classification
 - [ ] **naming-review-report** — BvNamingReviewReportSupport + Markdown/JSON/CSV writers; GUI export + hop bv naming-report CLI
-- [ ] **run-bv-naming-report-sh** — project/run-bv-naming-report.sh Docker wrapper; document PR review workflow in PROJECT.md
+- [ ] **run-bv-naming-report-sh** — integration-tests/run-bv-naming-report.sh Docker wrapper; document PR review workflow in PROJECT.md
 - [ ] **glossary-language-ai** — BvNamingGlossary + language rule; optional AI suggest on user click
 - [ ] **tests-review-report** — BvNamingReviewReportTest with customer-360.hbv: summary, unreviewed, ack sections

@@ -11,7 +11,7 @@ Use it when you want to drive pipelines from catalog metadata instead of hard-co
 == Prerequisites
 
 * A configured **data catalog connection** (DataCatalogMeta) that points at your catalog storage. The transform's **Catalog connection** dropdown lists every catalog connection in the project.
-* Record definitions published to that catalog (for example Data Vault sources under namespace `hop/project/sources`).
+* Record definitions published to that catalog (for example Data Vault sources under namespace `hop/integration-tests/sources`).
 
 You can inspect and manage catalog entries from the **Data Catalog** perspective in Hop GUI.
 
@@ -38,7 +38,7 @@ image::images/record-definition-input-dialog-general-settings.png[Record Definit
 When enabled, the transform reads every input row and looks up one record definition per row using the namespace and name taken from the input fields you specify.
 
 |Namespace field
-|Enabled when **Select from previous transform input?** is on. Name of the incoming field that holds the catalog namespace (for example `hop/project/sources`).
+|Enabled when **Select from previous transform input?** is on. Name of the incoming field that holds the catalog namespace (for example `hop/integration-tests/sources`).
 
 |Name field
 |Enabled when **Select from previous transform input?** is on. Name of the incoming field that holds the record definition name (for example `CRM-customer`).
@@ -142,16 +142,16 @@ The sample project uses **Record Definition Input** together with the **DDL** tr
 
 === Orchestrator pipeline
 
-`integration-tests/tests//shared/create-source-tables-from-data-catalog.hpl` runs at the start of `integration-tests/tests//run-tests.hwf`:
+`integration-tests/tests/shared/create-source-tables-from-data-catalog.hpl` runs at the start of `integration-tests/tests/run-tests.hwf`:
 
 1. **Record Definition Input** — catalog connection `local-catalog`, no input selection, no namespace/name filter (all definitions), denormalized output off.
-2. **Filter rows** — keeps definitions in namespace `hop/project/sources` whose name starts with `CRM`.
+2. **Filter rows** — keeps definitions in namespace `hop/integration-tests/sources` whose name starts with `CRM`.
 3. **Select values** — passes `namespace`, `name`, `physical_database`, `physical_schema`, and `physical_table` downstream.
 4. **Pipeline executor** — calls `create-source-table-from-data-catalog.hpl` once per filtered record, mapping those fields to pipeline parameters.
 
 === Per-table DDL pipeline
 
-`integration-tests/tests//shared/create-source-table-from-data-catalog.hpl` creates one source table from a single catalog entry:
+`integration-tests/tests/shared/create-source-table-from-data-catalog.hpl` creates one source table from a single catalog entry:
 
 1. **Get variables** — supplies `CATALOG_NAMESPACE` and `CATALOG_NAME` from pipeline parameters.
 2. **Record Definition Input** — **Select from previous transform input?** enabled; reads namespace and name from input; **Output fields metadata** enabled so each column becomes its own row.

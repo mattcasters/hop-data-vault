@@ -58,7 +58,7 @@ FIELD_SPECS = {
             ("customer_id", "Integer", "9", "0", 5),
             ("segment", "String", "20", "", 2),
             ("loyalty_tier", "String", "20", "", 2),
-            ("demo_score", "Integer", "3", "0", 5),
+            ("demo_score", "Integer", "4", "0", 5),
             ("load_date", "Timestamp", "", "", 9),
             ("record_source", "String", "20", "", 2),
         ],

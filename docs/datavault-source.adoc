@@ -4,73 +4,101 @@
 
 toc::[]
 
-A **Data Vault Source** is the logical definition of a source system or data feed that supplies data to your Data Vault model. Hubs, Links, and Satellites refer to Data Vault Sources (in their record source fields) rather than directly to physical database connections.
+A **Data Vault Source** is a **Data Catalog record definition** of type `DV_SOURCE`. It describes a logical feed that supplies rows to hubs, links, and satellites. Model tables reference the source **name**, not a raw database connection.
 
-Each Data Vault Source combines:
+Each definition combines:
 
-* **DV semantics** – How rows from this feed should be tagged with a record source value, and optionally which **group** they belong to for partial workflow loads.
-* **Physical source definition** – How to read the data (today an embedded **database** source with connection, table, and field layout; file and API types are planned).
+* **DV semantics** — record source indicator, optional **group** for partial workflow loads
+* **Physical layout** — today typically a **database** table (connection, schema, table, field list); file sources are planned
 
-== Editor tabs
+Sources live under namespace `hop/{project}/sources` in `catalog-data/` and open in the **Data Catalog** perspective. See link:data-catalog.adoc[Data Catalog] for folder layout and refresh behavior.
 
-The Data Vault Source metadata editor has two tabs:
+== Create and edit a source
 
-* **General** – Record source indicator settings and group.
-* **Database** – Connection, schema, table, and field layout (see link:datavault-source-database.adoc[Database source details]).
+. Open the Hop project.
+. Open the **Data Catalog** perspective.
+. Under `hop/{project}/sources`, create or open a `DV_SOURCE` record.
+. Set connection, table, and fields (database-backed sources).
+. Configure record source indicator and optional group.
 
-== General tab options
+The model toolbar **Import sources** action can also create catalog entries from live database metadata.
+
+== JSON structure (file catalog)
+
+Each source is a JSON file. Important fields:
 
 [cols="1,3", options="header"]
 |===
-|Option |Description
+|Field |Description
 
-|Name
-|The name of this source. Selected when attaching sources to hubs (Record sources tab), links, and satellites (Default record source). Must be unique within the project.
+|`namespace`
+|Must match folder path (for example `hop/retail-example/sources`)
 
-|Source indicator
-|Optional fixed value written as the record source for every row from this feed (for example `ERP`, `CRM`, `ORDERS-2024`). Supports variables. When set, takes precedence over Source indicator field.
+|`name`
+|Unique within namespace; used in hub **Record sources** and satellite **Default record source**
 
-|Source indicator field
-|Optional column in the source that contains the per-row record source value. Used only when Source indicator is empty. Supports variables; the name is quoted in generated SQL.
+|`type`
+|`DV_SOURCE`
 
-|Group
-|Optional tag used by the **Data Vault Update** action's **Record source group** option. When the action specifies a group, only sources whose Group matches are included in that run. Leave empty to always participate in full loads.
+|`physicalTable`
+|Database connection name, schema, table (`databaseMetaName`, `schemaName`, `tableName`)
+
+|`dvSource.sourceIndicator`
+|Optional fixed record source value for every row (for example `CRM`, `ERP`)
+
+|`dvSource.sourceIndicatorField`
+|Optional source column for per-row record source (used when indicator is empty)
+
+|`dvSource.group`
+|Optional tag for **Record source group** on Data Vault Update
+
+|`dvSource.fields`
+|Column layout with types, lengths, primary-key flags
+
+|`rowMetaXml`
+|Hop row metadata for pipeline field resolution
 |===
 
-== How the record source indicator is chosen at runtime
+Example path: `retail-example/catalog-data/hop/retail-example/sources/E2E-customer-hub.json`.
 
-The plugin follows this precedence:
+== Record source indicator at runtime
 
-1. If **Source indicator** contains a non-empty value (after variable resolution), that static value is used for all rows from this source.
-2. Otherwise, if **Source indicator field** is set, the generated pipeline reads that column and aliases it to the target record source column name.
-3. If neither is provided, no record source indicator is added from this source (a NULL placeholder may still be used during comparison steps).
+The plugin applies this precedence:
 
-The target record source column name comes from the model configuration, unless a hub or link overrides it in its own dialog.
+1. If **source indicator** is non-empty (after variable resolution), that static value is used for all rows.
+2. Otherwise, if **source indicator field** is set, the pipeline reads that column and aliases it to the model's record source column name.
+3. If neither is set, no indicator is added from this source.
 
-== Why logical and physical details live together
+The target column name comes from `.hdv` model configuration unless a hub or link overrides it.
 
-Keeping DV semantics and the database layout in one metadata object means:
+== Database field layout
 
-* Model tables reference a single stable source name.
-* Connection, schema, table, and column metadata travel with the feed definition.
-* You can duplicate a Data Vault Source (with a different name, indicator, or group) while reusing the same physical layout when one table is loaded under multiple record source tags.
+Database-backed sources store per-column metadata used by Get Keys, Get Attributes, hashing, and type checking. See link:datavault-source-database.adoc[Database source details] for the field editor and **Import** from live schema.
 
-The **Import** button on the Database tab (and the model toolbar **Import sources** action) reads column metadata from a live database to populate the field list quickly.
+Keeping the field list accurate is essential for **Check model** and **detailed data type checking**.
 
-== Validation and checks
+== Groups and partial loads
 
-When you click **Check model** (or when the Data Vault Update action runs with model checking enabled), the plugin verifies that every table's chosen record source exists and that source field definitions are present. A missing reference or empty field list is reported as an error.
+Set **group** on a source when only some feeds should run in a batch (for example `nightly` vs `hourly`). On **Data Vault Update**, set **Record source group** to match; sources with a different or empty group are skipped for that run.
 
-When **detailed data type checking** is active, database sources additionally resolve field types from the live table or view (`connection`, `schema`, `table`). The stored field layout on the Database tab remains the baseline for target column definitions and drift detection. If live resolution fails, the check falls back to stored metadata and reports the failure.
+== Validation
 
-Parquet file sources use stored metadata until live field resolution is implemented for that type. Additional file types (planned: Avro, Iceberg) will follow the same pattern.
+* **Catalog validation** — feed-level checks, proposals, acknowledgements; see link:resource-definition-validation.adoc[Resource definition validation]
+* **Check model** — verifies every referenced source exists and fields are present; optional live schema type checks
+
+When detailed type checking is active, database sources resolve types from the live table. Stored catalog metadata remains the baseline; drift from the live schema produces warnings.
 
 == Practical advice
 
-* Name sources after the business feed, not only the physical table name.
-* Agree on a convention for record source values and document it.
-* Use **Group** when you need to split loads (for example hourly vs nightly feeds) without maintaining separate models.
-* For sources that carry their own indicator column, use Source indicator field; for most cases a static Source indicator is simpler.
-* Keep the Database tab field layout accurate—it drives Get Keys, Get Attributes, hash calculations, and target column definitions.
+* Name sources after the business feed, not only the physical table.
+* Agree on record source value conventions across the program.
+* Use **group** for scheduled partial loads without maintaining separate models.
+* Prefer a static source indicator when all rows share one feed identity.
+* Refresh the catalog (F5) after editing JSON files on disk.
 
-Data Vault Sources are lightweight but important. Good source definitions make modeling smoother and loads more correct.
+== Related documents
+
+* link:data-catalog.adoc[Data Catalog]
+* link:datavault-source-database.adoc[Database source details]
+* link:record-definition-input.adoc[Record Definition Input transform]
+* link:dv-hub.adoc[Hub metadata]

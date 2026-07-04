@@ -7,9 +7,13 @@
 > - **Docker** with Compose v2 — used by `run-tests.sh` and `run-tests-all-databases.sh` to run workflows in a short-lived Hop container (`docker-hop:latest`). No local Hop installation is required for command-line testing.
 > - **Python 3** — used by the test scripts to print the metrics overview table at the end of a run (stdlib only; no extra packages).
 > - Testing has been done with **PostgreSQL**, **MySQL**, and **SingleStore** (see [Docker multi-database tests](#docker-multi-database-tests) below).
-> - For Hop GUI use, install the **hop-datavault** plugin (**0.0.15-SNAPSHOT**) in your Hop 2.18.1 environment.
+> - For Hop GUI use, install the **hop-datavault** plugin (**0.0.16-SNAPSHOT**) in your Hop 2.18.1 environment.
+
+**CI and regression reference** — not the primary tutorial. For learning, use [retail-example](../retail-example/) and [docs/getting-started-retail.adoc](../docs/getting-started-retail.adoc). Documentation index: [docs/README.md](../docs/README.md).
 
 This folder is a sample Hop project demonstrating the Data Vault 2.0 and Business Vault plugin: model-driven DDL, pipeline generation, initial and incremental loads, multi-active satellites, link satellites, load end date satellites, status tracking, multi-source hubs, **multi-satellite Business Vault SCD2**, external read-only DV tables, and golden-dataset unit tests.
+
+DV source catalog entries use namespace **`hop/integration-tests/sources`** (must match paths under `catalog-data/hop/integration-tests/sources/`).
 
 ## Project layout
 
@@ -418,7 +422,7 @@ The SCD2 table dialog (General, Field mappings, Satellite settings):
 3. **Business Vault Update** on the matching `.hbv` — rebuild `customer_360_bv`
 4. **validate-customer-360-bv.hpl** — unit test against golden dataset
 
-Tutorial walkthrough: [docs/getting-started-modeler.adoc](../docs/getting-started-modeler.adoc).
+Fixture walkthrough: [docs/getting-started-integration-tests.adoc](../docs/getting-started-integration-tests.adoc).
 
 ---
 
@@ -453,4 +457,4 @@ In the visual model editor, use **left-click context menus with icon actions** t
 - The Data Vault Update action supports **`recordSourceGroup`** on record sources tagged with **`group`** in metadata — useful for partial scheduled loads (not exercised in these sample workflows; all groups are empty).
 - All connections, run configurations, sources, and unit tests are under `metadata/`.
 - Source CSVs under `files/` are inputs to load pipelines; `datasets/` holds expected outputs for Hop unit tests.
-- Plugin documentation is under `docs/`. Start with [`docs/README.md`](../docs/README.md) (index), [`docs/getting-started-modeler.adoc`](../docs/getting-started-modeler.adoc) (tutorial), and [`docs/datavault-plugin.adoc`](../docs/datavault-plugin.adoc) (reference).
+- Plugin documentation is under `docs/`. Start with [`docs/README.md`](../docs/README.md) (index), [`docs/getting-started-retail.adoc`](../docs/getting-started-retail.adoc) (tutorial), [`docs/getting-started-integration-tests.adoc`](../docs/getting-started-integration-tests.adoc) (fixtures), and [`docs/datavault-plugin.adoc`](../docs/datavault-plugin.adoc) (reference).

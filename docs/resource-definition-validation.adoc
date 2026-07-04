@@ -1,0 +1,49 @@
+= Resource definition validation
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+Beyond **Check model** on `.hdv` / `.hbv` / `.hdm` files, the plugin validates **Data Catalog record definitions** — especially `DV_SOURCE` feeds — and surfaces issues in the Hop GUI with optional remediation and acknowledgements.
+
+== When validation runs
+
+* Explicit **Validate** action on catalog record definition groups in the Data Catalog perspective
+* Pipelines that depend on catalog layout (indirectly, via model checks and source resolution)
+
+Model validation and catalog validation are complementary: a passing model check still requires accurate source definitions in the catalog.
+
+== Validation results dialog
+
+After validation, the **Validation results** dialog lists issues grouped by severity:
+
+* **Errors** — block correct loading or metadata use
+* **Warnings** — drift, missing optional data, or policy notices
+* **Info** — informational checks
+
+Each row identifies the affected record (`namespace/name`) and a human-readable message.
+
+== Issue detail and remediation
+
+Select an issue to open the **Issue** dialog:
+
+* Full description and context
+* **Remediation proposals** when the engine can suggest a fix (for example field type alignment or missing column metadata)
+* **Apply** — accept a selected proposal and update the catalog record
+* **Acknowledge** — record that a warning is accepted with a reason and optional expiry; acknowledged issues are suppressed on subsequent runs until the underlying data changes
+
+Acknowledgements persist with the catalog record so teams can document conscious exceptions (for example known schema drift in a non-production feed).
+
+== Practical workflow
+
+. Edit or import sources in the Data Catalog.
+. Run **Validate** on the source group before attaching feeds to a new `.hdv` model.
+. Fix errors; apply proposals where appropriate.
+. Acknowledge warnings that are accepted risk, with a short reason.
+. Run **Check model** on the `.hdv` file — detailed type checking uses live database schemas when enabled.
+
+== Related documents
+
+* link:data-catalog.adoc[Data Catalog]
+* link:datavault-source.adoc[Data Vault Source]
+* link:datavault-update-action.adoc[Data Vault Update action] (model check options)

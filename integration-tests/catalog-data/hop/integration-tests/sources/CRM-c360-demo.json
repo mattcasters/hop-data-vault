@@ -70,7 +70,7 @@
         "name": "demo_score",
         "description": null,
         "sourceDataType": "Integer",
-        "length": "3",
+        "length": "4",
         "precision": "0",
         "hopType": 5,
         "inputOptions": null

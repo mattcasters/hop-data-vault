@@ -1,0 +1,86 @@
+= Data Catalog
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+The hop-datavault plugin stores **record definitions** — especially Data Vault sources (`DV_SOURCE`) — in the Hop **Data Catalog**. Modelers work in the **Data Catalog** perspective; generated pipelines and transforms resolve definitions by namespace and name.
+
+== Local file catalog
+
+Sample projects use a file-based catalog configured in `metadata/data-catalog/local-catalog.json`:
+
+[source,json]
+----
+{
+  "name": "local-catalog",
+  "enabled": true,
+  "catalog": {
+    "FILE": {
+      "pluginId": "FILE",
+      "storageDirectory": "${PROJECT_HOME}/catalog-data"
+    }
+  }
+}
+----
+
+Definitions are JSON files under `catalog-data/`. The path after `catalog-data/` must match the record's **`namespace`** field.
+
+== Namespaces
+
+The plugin derives the default sources namespace from the open Hop project:
+
+* Pattern: `hop/{project-folder-name}/sources`
+* Examples:
+** `retail-example/` → `hop/retail-example/sources`
+** `integration-tests/` → `hop/integration-tests/sources`
+
+Additional namespaces appear when models publish catalog entries, for example:
+
+* `hop/{project}/models/{model-name}/` — DV table definitions
+* `hop/{project}/business-vault/{model-name}/` — BV target tables
+* `hop/{project}/dimensional/{model-name}/` — dimensional table definitions
+
+The catalog **key** is `namespace/name` (for example `hop/retail-example/sources/E2E-customer-hub`).
+
+== Folder layout example (retail-example)
+
+[source]
+----
+catalog-data/
+└── hop/
+    └── retail-example/
+        ├── sources/           # DV_SOURCE feeds
+        ├── models/retail-360/ # Published DV table layouts
+        ├── business-vault/    # Published BV tables
+        └── dimensional/       # Published dimensional tables
+----
+
+== Working in Hop GUI
+
+. Open the Hop project (so `${PROJECT_HOME}` resolves).
+. Open the **Data Catalog** perspective.
+. Browse the tree by namespace.
+. Double-click a record to open its editor.
+. Press **F5** or use refresh if files changed on disk.
+
+If a record appears in the tree but fails to open, the **`namespace`** in the JSON file likely does not match its directory path. Fix the namespace and refresh.
+
+== Record definition types
+
+| Type | Role |
+|------|------|
+| `DV_SOURCE` | Data Vault source feed — see link:datavault-source.adoc[Data Vault Source] |
+| Other catalog types | Published model targets, conformed dimensions, pipeline inputs |
+
+== Validation
+
+Use **Validate** on catalog record groups to run feed-level checks. Issues can include remediation proposals and acknowledgements — see link:resource-definition-validation.adoc[Resource definition validation].
+
+Model-level **Check model** validates `.hdv` / `.hbv` / `.hdm` structure separately; both layers complement each other.
+
+== Related documents
+
+* link:datavault-source.adoc[Data Vault Source]
+* link:record-definition-input.adoc[Record Definition Input transform]
+* link:resource-definition-validation.adoc[Resource definition validation]

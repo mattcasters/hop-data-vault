@@ -80,7 +80,7 @@ public final class SourceFieldMetadataEquivalenceSupport {
 
   private static void addIntegerDifference(
       List<String> parts, SourceField stored, SourceField discovered) {
-    if (!stringLengthEquivalent(stored.getLength(), discovered.getLength())) {
+    if (!integerLengthEquivalent(stored.getLength(), discovered.getLength())) {
       parts.add(
           BaseMessages.getString(
               PKG,
@@ -193,6 +193,39 @@ public final class SourceFieldMetadataEquivalenceSupport {
 
   private static boolean stringLengthEquivalent(String left, String right) {
     return parseDimension(left) == parseDimension(right);
+  }
+
+  /**
+   * Compares integer lengths using Hop JDBC canonical sizes.
+   *
+   * <p>Catalog lengths often reflect display width (for example {@code 3} for a 0-100 score) while
+   * JDBC discovery normalizes physical types to fixed lengths ({@code SMALLINT -> 4}, {@code
+   * INTEGER -> 9}, signed {@code BIGINT -> 15}). PostgreSQL DDL generation in Hop also maps
+   * lengths below 5 to {@code SMALLINT}, so a stored length of 3 round-trips as 4.
+   */
+  private static boolean integerLengthEquivalent(String left, String right) {
+    int leftLength = parseDimension(left);
+    int rightLength = parseDimension(right);
+    if (leftLength == rightLength) {
+      return true;
+    }
+    return canonicalHopIntegerLength(leftLength) == canonicalHopIntegerLength(rightLength);
+  }
+
+  private static int canonicalHopIntegerLength(int length) {
+    if (length <= 0) {
+      return length;
+    }
+    if (length < 5) {
+      return 4;
+    }
+    if (length <= 9) {
+      return 9;
+    }
+    if (length <= 15) {
+      return 15;
+    }
+    return length;
   }
 
   private static boolean rawDimensionEquivalent(String left, String right) {

@@ -11,7 +11,7 @@
     "modelElementName" : "qty_class",
     "hopProject" : "retail-example",
     "createdAt" : 1783115539892,
-    "updatedAt" : 1783167400950,
+    "updatedAt" : 1783197958343,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "retail-f-inventory",
@@ -27,5 +27,6 @@
   "tags" : [ "DM RANGE_DIMENSION", "retail-f-inventory" ],
   "glossaryTerms" : [ ],
   "customProperties" : { },
+  "validationAcknowledgements" : [ ],
   "dvSource" : null
 }

@@ -25,6 +25,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.dimensional.pipeline.DmDimensionLookupBuilder;
@@ -58,6 +59,12 @@ public class DmDimension extends DmTableBase {
 
   @HopMetadataProperty private String surrogateKeySourceField;
 
+  /**
+   * Optional source column used as the SCD2 effective start ({@code dateFromField}) on new versions.
+   * When empty, the dimensional update load timestamp is used.
+   */
+  @HopMetadataProperty private String effectiveDateSourceField;
+
   public DmDimension() {
     super(DmTableType.DIMENSION);
   }
@@ -76,6 +83,13 @@ public class DmDimension extends DmTableBase {
 
   public List<DmDimensionOutriggerRef> getOutriggersOrEmpty() {
     return outriggers != null ? outriggers : List.of();
+  }
+
+  public String resolveEffectiveDateSourceField(IVariables variables) {
+    if (Utils.isEmpty(effectiveDateSourceField)) {
+      return null;
+    }
+    return variables != null ? variables.resolve(effectiveDateSourceField) : effectiveDateSourceField;
   }
 
   public boolean usesHybridDimensionLookup() {

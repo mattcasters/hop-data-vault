@@ -201,14 +201,14 @@ If you change the linked `.hdv` file on disk, use **Reload DV model** on the Bus
 
 == Single-satellite example (vault1)
 
-`integration-tests/tests//basic/vault1.hbv` defines:
+`integration-tests/tests/basic/vault1.hbv` defines:
 
 * `sat_customer_hb` — SCD2 from `sat_customer`
 * `pit_customer` — PIT from `hub_customer` + `sat_customer`
 
 The PIT table uses a **fixed date range** (`2024-01-31` → `2024-02-01`) for deterministic golden tests in CI. Production models typically use `EARLIEST_PARTICIPATING_SATELLITE_LOAD` and `NOW_MINUS_HORIZON`.
 
-Workflow: `integration-tests/tests//basic/update-vault1.hwf` loads the raw vault, runs Business Vault Update (SCD2 then PIT), and validates with `validate-pit-customer.hpl` against `project/datasets/basic/pit-customer-golden.csv`.
+Workflow: `integration-tests/tests/basic/update-vault1.hwf` loads the raw vault, runs Business Vault Update (SCD2 then PIT), and validates with `validate-pit-customer.hpl` against `integration-tests/datasets/basic/pit-customer-golden.csv`.
 
 == Running loads
 
@@ -250,7 +250,7 @@ Implemented as Business Vault PIT (`BvPitTable` in `.hbv`), not raw-vault `DvPit
 
 * Documentation: link:business-vault-pit.adoc[business-vault-pit.adoc] (and link:business-vault-overview.adoc[business-vault-overview.adoc])
 * MVP: hub + one satellite, daily EOD snapshots, incremental append, Postgres SQL
-* Sample: `integration-tests/tests//basic/vault1.hbv` → `pit_customer`, validated by `update-vault1.hwf`
+* Sample: `integration-tests/tests/basic/vault1.hbv` → `pit_customer`, validated by `update-vault1.hwf`
 * Execution: Business Vault Update runs SCD2 tables first, then PIT tables
 
 Raw-vault PIT is superseded by this BV approach. Remaining work (weekly/monthly, multi-satellite, link PIT) is tracked in the doc roadmap section.

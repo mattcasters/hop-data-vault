@@ -20,6 +20,7 @@ package org.apache.hop.datavault.metadata.dimensional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.apache.hop.core.CheckResult;
@@ -649,6 +650,7 @@ public final class DmValidationSupport {
     validateOutriggers(remarks, dimension, model, variables);
     validateSourceConfiguration(remarks, dimension, model, metadataProvider, variables);
     validateSurrogateKey(remarks, dimension, variables);
+    validateScd2HistorizedSource(remarks, dimension, model, variables);
     validateDimensionSourceFields(remarks, dimension, model, metadataProvider, variables);
     validateTargetLayout(remarks, dimension, model, metadataProvider, variables);
   }
@@ -1967,6 +1969,56 @@ public final class DmValidationSupport {
             "Dimension '" + dimensionName + "' surrogate key '" + sourceField + "'",
             dimension);
       }
+    }
+  }
+
+  private static void validateScd2HistorizedSource(
+      List<ICheckResult> remarks,
+      DmDimension dimension,
+      DimensionalModel model,
+      IVariables variables) {
+    if (remarks == null || dimension == null || model == null) {
+      return;
+    }
+    if (dimension.getScdTypeOrDefault() != DmDimensionScdType.TYPE2) {
+      return;
+    }
+    DmSourceConfiguration source = dimension.getSourceOrDefault();
+    if (source.getSourceType() != DmSourceType.SQL) {
+      return;
+    }
+    String sourceSql = source.resolveSourceSql(variables);
+    if (Utils.isEmpty(sourceSql)) {
+      return;
+    }
+    String normalized = sourceSql.toLowerCase(Locale.ROOT);
+    DimensionalConfiguration config = model.getConfigurationOrDefault();
+    String openEnd = config.getOpenEndSentinel();
+    if (variables != null) {
+      openEnd = variables.resolve(openEnd);
+    }
+    String dateToField = config.resolveDateToField(variables).toLowerCase(Locale.ROOT);
+    boolean referencesHistorizedSource =
+        normalized.contains("_bv")
+            || normalized.contains(dateToField)
+            || normalized.contains("x_to_ts")
+            || normalized.contains("x_from_ts");
+    if (!referencesHistorizedSource) {
+      return;
+    }
+    boolean filtersCurrentRows =
+        normalized.contains(openEnd.toLowerCase(Locale.ROOT))
+            || normalized.contains("x_to_ts =")
+            || normalized.contains(dateToField + " =");
+    if (!filtersCurrentRows) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_WARNING,
+              BaseMessages.getString(
+                  PKG,
+                  "DmValidationSupport.CheckResult.Scd2HistorizedSourceMissingCurrentFilter",
+                  dimension.getName()),
+              dimension));
     }
   }
 

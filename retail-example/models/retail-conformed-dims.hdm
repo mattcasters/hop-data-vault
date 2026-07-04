@@ -88,6 +88,7 @@
       <surrogateKeyField>customer_hk</surrogateKeyField>
       <surrogateKeyStrategy>USE_SOURCE_FIELD</surrogateKeyStrategy>
       <surrogateKeySourceField>customer_hk</surrogateKeySourceField>
+      <effectiveDateSourceField>x_from_ts</effectiveDateSourceField>
       <tableName>d_customer</tableName>
       <description/>
       <tableType>DIMENSION</tableType>
@@ -96,7 +97,8 @@
       <sourceSql>SELECT hc.customer_id, sc.*
 FROM   hub_customer hc 
 JOIN   customer_360_bv sc
-  ON   hc.customer_hk = sc.customer_hk</sourceSql>
+  ON   hc.customer_hk = sc.customer_hk
+WHERE  sc.x_to_ts = '9999-12-31 23:59:59'</sourceSql>
       <xloc>128</xloc>
       <yloc>176</yloc>
       <name>d_customer</name>

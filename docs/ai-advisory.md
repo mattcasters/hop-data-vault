@@ -46,7 +46,7 @@ The AI Advisor supports various LLM providers using standard Hop Language Model 
 
 ### Pipelines and workflows
 
-Pipeline and workflow **AI Help** supports multi-turn advisory chat and, when the model suggests concrete edits, **structural proposals** you can review and apply to the open graph. See [Pipeline & Workflow AI Help — M2](hop-ai-assistant-m2.md) for proposal types, validation rules, and bundled Hop standards.
+Pipeline and workflow **AI Help** supports multi-turn advisory chat and, when the model suggests concrete edits, **structural proposals** you can review and apply to the open graph. See [Pipeline & Workflow AI Help — M2](plans/hop-ai-assistant-m2.md) for proposal types, validation rules, and bundled Hop standards.
 
 Open a pipeline (`.hpl`) or workflow (`.hwf`) and use:
 
@@ -88,7 +88,7 @@ You can control what metadata is sent to the LLM to balance response accuracy an
 In addition to providing conversational guidance, the AI can propose specific modifications to your open artifact. When a response contains actionable edits, a **Review … proposed change(s)** button appears in the conversation history.
 
 - **Data Vault model** (`.hdv`): table/hub/link/satellite proposals (`dv_proposals`) — details below.
-- **Pipeline** (`.hpl`) and **workflow** (`.hwf`): graph topology proposals (`hop_proposals`) — see [M2 documentation](hop-ai-assistant-m2.md).
+- **Pipeline** (`.hpl`) and **workflow** (`.hwf`): graph topology proposals (`hop_proposals`) — see [M2 documentation](plans/hop-ai-assistant-m2.md).
 
 ![Proposal Review Dialog](images/data-vault-ai-help-review-proposals-dialog.png)
 
@@ -145,4 +145,4 @@ For headless, automated, or test environments, the underlying AI services can be
 * [PipelineAiProposalValidator](../src/main/java/org/apache/hop/datavault/ai/pipeline/PipelineAiProposalValidator.java) / [WorkflowAiProposalValidator](../src/main/java/org/apache/hop/datavault/ai/workflow/WorkflowAiProposalValidator.java): Topology validation before apply.
 * [PipelineAiProposalApplier](../src/main/java/org/apache/hop/datavault/ai/pipeline/PipelineAiProposalApplier.java) / [WorkflowAiProposalApplier](../src/main/java/org/apache/hop/datavault/ai/workflow/WorkflowAiProposalApplier.java): Applies selected proposals.
 
-Full M2 design and proposal tables: [hop-ai-assistant-m2.md](hop-ai-assistant-m2.md).
+Full M2 design and proposal tables: [plans/hop-ai-assistant-m2.md](plans/hop-ai-assistant-m2.md).

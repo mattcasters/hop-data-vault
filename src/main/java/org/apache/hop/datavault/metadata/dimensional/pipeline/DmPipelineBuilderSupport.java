@@ -438,6 +438,42 @@ public final class DmPipelineBuilderSupport {
     return fields;
   }
 
+  /** Sort keys for SCD2 source collapse: natural keys, attributes, then optional effective date. */
+  public static List<String> scd2CollapseSortFieldNames(
+      BuildContext ctx, DmDimension dimension) {
+    List<String> fields = new ArrayList<>();
+    fields.addAll(naturalKeyFieldNames(dimension, ctx.variables));
+    fields.addAll(scd2AttributeFieldNames(dimension, ctx.variables));
+    String effectiveSource = dimension.resolveEffectiveDateSourceField(ctx.variables);
+    if (!Utils.isEmpty(effectiveSource) && !fields.contains(effectiveSource)) {
+      fields.add(effectiveSource);
+    }
+    return fields;
+  }
+
+  /** Fields aggregated with LAST_INCL_NULL when collapsing duplicate natural keys. */
+  public static List<String> scd2CollapseAggregateFieldNames(
+      BuildContext ctx, DmDimension dimension) {
+    List<String> fields = new ArrayList<>();
+    if (DmSurrogateKeySupport.resolveStrategy(dimension) == DmSurrogateKeyStrategy.USE_SOURCE_FIELD) {
+      String surrogateSource =
+          DmSurrogateKeySupport.resolveSurrogateKeySourceField(dimension, ctx.config, ctx.variables);
+      if (!Utils.isEmpty(surrogateSource)) {
+        fields.add(surrogateSource);
+      }
+    }
+    for (String attribute : scd2AttributeFieldNames(dimension, ctx.variables)) {
+      if (!fields.contains(attribute)) {
+        fields.add(attribute);
+      }
+    }
+    String effectiveSource = dimension.resolveEffectiveDateSourceField(ctx.variables);
+    if (!Utils.isEmpty(effectiveSource) && !fields.contains(effectiveSource)) {
+      fields.add(effectiveSource);
+    }
+    return fields;
+  }
+
   /** Source stream column name on the compare branch for a merge-layout target field. */
   public static String scd2MergeCompareSourceFieldName(
       BuildContext ctx, DmDimension dimension, String targetFieldName) {

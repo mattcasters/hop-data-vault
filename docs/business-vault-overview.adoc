@@ -87,7 +87,7 @@ See link:dv-integration-modes.adoc[Data Vault integration modes].
 
 == Sample models
 
-The `integration-tests/tests//` folder includes:
+The `integration-tests/tests/` folder includes:
 
 * `basic/vault1.hbv` — introductory SCD2 (`sat_customer_hb`) and PIT (`pit_customer`) from one hub and satellite
 * `multi-satellite-bv/customer-360.hdv` / `customer-360.hbv` — four satellites merged into `customer_360_bv`
@@ -98,4 +98,4 @@ image::images/data-vault-model-customer-360.png[Customer 360 raw vault model,ali
 
 image::images/data-vault-model-customer-360-external.png[Customer 360 external raw vault model,align="center"]
 
-See link:../project/PROJECT.md[Sample Hop Data Vault Project] for workflow and validation details.
+See link:../integration-tests/PROJECT.md[Integration tests Hop project] for workflow and validation details.

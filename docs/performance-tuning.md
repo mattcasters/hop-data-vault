@@ -37,7 +37,7 @@ Applied to the generated **Table Output** transform as Hop transform copies. Row
 | Modest overall speedup | Merge Rows and Sort Rows still run on one copy each; DB write is only part of total time |
 | More DB connections | Ensure Postgres `max_connections` and pool limits accommodate copies × concurrent pipelines |
 
-Example from the large synthetic model (`project/files/large/syn-large.hdv`): `targetTableParallelCopies=4`.
+Example from the large synthetic model (`integration-tests/files/large/syn-large.hdv`): `targetTableParallelCopies=4`.
 
 **Future option:** hash-key mod partitioning (same partition count, aligned swimlanes through merge) is described in [hash-key-partitioning-plan.md](hash-key-partitioning-plan.md) — not implemented yet; pick up when loads outgrow round-robin copies.
 

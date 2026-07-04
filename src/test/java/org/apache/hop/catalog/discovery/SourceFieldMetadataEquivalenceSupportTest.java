@@ -98,6 +98,31 @@ class SourceFieldMetadataEquivalenceSupportTest {
   }
 
   @Test
+  void integerLengthsMatchAcrossHopJdbcCanonicalSizes() {
+    SourceField stored = field("demo_score", "Integer", IValueMeta.TYPE_INTEGER);
+    stored.setLength("3");
+    stored.setPrecision("0");
+    SourceField discovered = field("demo_score", "Integer", IValueMeta.TYPE_INTEGER);
+    discovered.setLength("4");
+    discovered.setPrecision("0");
+
+    assertTrue(SourceFieldMetadataEquivalenceSupport.dimensionsEquivalent(stored, discovered));
+    assertNull(SourceFieldMetadataEquivalenceSupport.describeDimensionDifference(stored, discovered));
+  }
+
+  @Test
+  void integerLengthsInDifferentPhysicalFamiliesAreReported() {
+    SourceField stored = field("demo_score", "Integer", IValueMeta.TYPE_INTEGER);
+    stored.setLength("3");
+    stored.setPrecision("0");
+    SourceField discovered = field("demo_score", "Integer", IValueMeta.TYPE_INTEGER);
+    discovered.setLength("9");
+    discovered.setPrecision("0");
+
+    assertFalse(SourceFieldMetadataEquivalenceSupport.dimensionsEquivalent(stored, discovered));
+  }
+
+  @Test
   void stringLengthDifferencesAreReported() {
     SourceField stored = field("segment", "String", IValueMeta.TYPE_STRING);
     stored.setLength("50");

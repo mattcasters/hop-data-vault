@@ -1,0 +1,80 @@
+= Dimensional Update and Publish actions
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+Kimball-style mart loads use two workflow actions: **Dimensional Publish** (draft a `.hdm` from `.hdv`) and **Dimensional Update** (validate, DDL, generate pipelines, orchestrate loads).
+
+See link:dimensional-modeler-overview.adoc[Dimensional modeler overview] for table types and canvas usage.
+
+== Dimensional Update (`DIMENSIONAL_UPDATE`)
+
+Reads a dimensional model (`.hdm` file) and:
+
+* Loads the model from disk
+* Runs `model.check()` — Kimball validation (grains, roles, source SQL, references)
+* Optionally generates CREATE TABLE DDL on the target database
+* Generates per-table update pipelines using native Hop warehouse transforms
+* Stages pipelines and runs them through the **parallel orchestrator**
+* Cleans up the staging folder after a successful run
+
+The action follows the same pattern as link:datavault-update-action.adoc[Data Vault Update] and link:business-vault-update-action.adoc[Business Vault Update].
+
+=== Typical options
+
+[cols="1,3", options="header"]
+|===
+|Option |Description
+
+|Dimensional Model file
+|Path to `.hdm`. Variables supported (`${PROJECT_HOME}/models/retail-warehouse.hdm`).
+
+|Pipeline run configuration
+|Required when data load pipelines run.
+
+|Log model check failures / Abort on model check failures
+|Same semantics as other model update actions.
+
+|Parallel pipeline copies
+|Worker count for staged pipeline execution.
+
+|Update target database structure
+|Generate and execute CREATE TABLE DDL before loads.
+
+|Pipeline staging folder
+|Optional; defaults under `${java.io.tmpdir}` when empty.
+|===
+
+=== Fixtures
+
+* `integration-tests/tests/basic/update-dm-basic-star.hwf` — minimal star schema
+* `integration-tests/tests/basic/update-dm-extended-catalog.hwf` — full Kimball catalog (pipeline/DDL focus)
+* `retail-example/workflows/run-retail-initial.hwf` — production-style DV + BV + DM chain
+
+== Dimensional Publish (`DIMENSIONAL_PUBLISH`)
+
+Converts a **Data Vault model** (`.hdv`) into a **draft** dimensional model (`.hdm`) for human review. Does **not** run ETL.
+
+Mapping rules (starting point):
+
+* Hub → dimension (business keys → natural keys)
+* Hub satellite → dimension attributes (SCD2 when historized)
+* Hub satellite with cross-hub FKs and measures → transaction fact
+* Link (two hubs, no measures) → bridge (configurable)
+* Link otherwise without measures → factless fact
+* Link satellite with measures → fact
+
+Review and edit the draft in the dimensional modeler before running Dimensional Update.
+
+=== GUI equivalent
+
+From a `.hdv` canvas context menu: **Publish draft dimensional model**.
+
+Fixture: `integration-tests/tests/basic/publish-vault1-draft.hwf`
+
+== Related documents
+
+* link:dimensional-modeler-overview.adoc[Dimensional modeler overview]
+* link:date-dimension-generator.adoc[Date Dimension Generator]
+* link:getting-started-retail.adoc[Getting started — retail example]

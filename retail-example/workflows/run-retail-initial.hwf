@@ -86,51 +86,6 @@
       <attributes_hac/>
     </action>
     <action>
-      <filename>${PROJECT_HOME}/pipelines/create-source-tables-from-data-catalog.hpl</filename>
-      <params_from_previous>N</params_from_previous>
-      <exec_per_row>N</exec_per_row>
-      <clear_rows>N</clear_rows>
-      <clear_files>N</clear_files>
-      <create_parent_folder>N</create_parent_folder>
-      <set_logfile>N</set_logfile>
-      <set_append_logfile>N</set_append_logfile>
-      <logfile/>
-      <logext/>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <loglevel>Basic</loglevel>
-      <wait_until_finished>Y</wait_until_finished>
-      <parameters>
-        <pass_all_parameters>Y</pass_all_parameters>
-      </parameters>
-      <run_configuration>local</run_configuration>
-      <name>Create source tables</name>
-      <description/>
-      <type>PIPELINE</type>
-      <attributes/>
-      <xloc>576</xloc>
-      <yloc>32</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <sql/>
-      <connection>Vault</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>Y</sqlfromfile>
-      <sqlfilename>${PROJECT_HOME}/sql/seed-load-control.sql</sqlfilename>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>Seed load control</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>720</xloc>
-      <yloc>32</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
       <sql/>
       <connection>Vault</connection>
       <useVariableSubstitution>N</useVariableSubstitution>
@@ -142,8 +97,8 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>96</xloc>
-      <yloc>128</yloc>
+      <xloc>576</xloc>
+      <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -167,7 +122,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-catalog-sources.py" --project-hom
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>256</xloc>
+      <xloc>96</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -192,7 +147,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>432</xloc>
+      <xloc>272</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -220,7 +175,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>576</xloc>
+      <xloc>768</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -284,6 +239,51 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
+    <action>
+      <filename>${PROJECT_HOME}/pipelines/create-source-tables-from-data-catalog.hpl</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <clear_rows>N</clear_rows>
+      <clear_files>N</clear_files>
+      <create_parent_folder>N</create_parent_folder>
+      <set_logfile>N</set_logfile>
+      <set_append_logfile>N</set_append_logfile>
+      <logfile/>
+      <logext/>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <loglevel>Basic</loglevel>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>Create source tables</name>
+      <description/>
+      <type>PIPELINE</type>
+      <attributes/>
+      <xloc>432</xloc>
+      <yloc>128</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <sql/>
+      <connection>Vault</connection>
+      <useVariableSubstitution>N</useVariableSubstitution>
+      <sqlfromfile>Y</sqlfromfile>
+      <sqlfilename>${PROJECT_HOME}/sql/seed-load-control.sql</sqlfilename>
+      <sqlfilename_encoding/>
+      <sendOneStatement>N</sendOneStatement>
+      <name>Seed load control</name>
+      <description/>
+      <type>SQL</type>
+      <attributes/>
+      <xloc>576</xloc>
+      <yloc>128</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
   </actions>
   <hops>
     <hop>
@@ -301,27 +301,6 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Drop target tables</from>
-      <to>Create source tables</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Create source tables</from>
-      <to>Seed load control</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Seed load control</from>
-      <to>Create staging views</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>Create staging views</from>
       <to>Generate catalog sources</to>
       <evaluation>Y</evaluation>
@@ -331,13 +310,6 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
     <hop>
       <from>Generate catalog sources</from>
       <to>Generate initial data</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Generate initial data</from>
-      <to>Load CSV to CRM</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
@@ -359,6 +331,34 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
     <hop>
       <from>Validate resource definitions</from>
       <to>update-retail-dv-bv-dm</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Drop target tables</from>
+      <to>Create staging views</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Create source tables</from>
+      <to>Seed load control</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Generate initial data</from>
+      <to>Create source tables</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Seed load control</from>
+      <to>Load CSV to CRM</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

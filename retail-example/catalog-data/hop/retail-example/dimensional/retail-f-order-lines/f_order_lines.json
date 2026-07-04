@@ -11,7 +11,7 @@
     "modelElementName" : "f_order_lines",
     "hopProject" : "retail-example",
     "createdAt" : 1783090439623,
-    "updatedAt" : 1783167387402,
+    "updatedAt" : 1783197944189,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "retail-f-order-lines",
@@ -27,5 +27,6 @@
   "tags" : [ "DM FACT", "retail-f-order-lines" ],
   "glossaryTerms" : [ ],
   "customProperties" : { },
+  "validationAcknowledgements" : [ ],
   "dvSource" : null
 }

@@ -48,6 +48,9 @@ import org.apache.hop.pipeline.transforms.calculator.CalculatorMetaFunction;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
+import org.apache.hop.pipeline.transforms.groupby.Aggregation;
+import org.apache.hop.pipeline.transforms.groupby.GroupByMeta;
+import org.apache.hop.pipeline.transforms.groupby.GroupingField;
 import org.apache.hop.datavault.transform.mergerowsplus.MergeRowsPlusMeta;
 import org.apache.hop.pipeline.transforms.mergerows.PassThroughField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
@@ -91,36 +94,44 @@ public final class DmScd2DimensionBuilder {
     pipelineMeta.setName(ctx.pipelineName);
 
     TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
-    TransformMeta sortTransform = addSortNaturalKeys(ctx, pipelineMeta, sourceTransform, dimension);
+    TransformMeta sortTransform = addSortForCollapse(ctx, pipelineMeta, sourceTransform, dimension);
+    TransformMeta collapseTransform =
+        addCollapseSourcePerNaturalKey(ctx, pipelineMeta, sortTransform, dimension);
     TransformMeta compareTransform =
-        addEffectiveDateConstants(ctx, pipelineMeta, loadTimestamp, sortTransform);
+        addEffectiveDates(ctx, pipelineMeta, loadTimestamp, collapseTransform, dimension);
     TransformMeta targetTransform = addTargetTableInput(ctx, pipelineMeta, dimension);
     TransformMeta mergeTransform =
         addMergeRows(ctx, pipelineMeta, compareTransform, targetTransform, dimension);
     TransformMeta filterTransform = addFilterNewOrChanged(pipelineMeta, mergeTransform);
-    TransformMeta versionTransform = addVersionCalculator(ctx, pipelineMeta, filterTransform);
+    TransformMeta versionedFilterTransform =
+        addFilterNeedsVersionedUpdate(ctx, pipelineMeta, filterTransform);
+    TransformMeta inPlaceFilterTransform =
+        addFilterNeedsInPlaceUpdate(ctx, pipelineMeta, filterTransform);
+    TransformMeta versionTransform = addVersionCalculator(ctx, pipelineMeta, versionedFilterTransform);
     TransformMeta controlFieldsTransform =
-        addCurrentFlagConstant(ctx, pipelineMeta, versionTransform, loadTimestamp);
+        addCurrentFlagConstant(ctx, pipelineMeta, versionTransform, loadTimestamp, "");
     IRowMeta targetLayout = dimension.getTargetTableLayout(metadataProvider, variables, model);
     TransformMeta tableOutputTransform =
         addScd2TableOutput(ctx, pipelineMeta, targetLayout, controlFieldsTransform);
     TransformMeta filterPreviousTransform =
         addFilterHasPreviousVersion(pipelineMeta, tableOutputTransform);
     addClosePreviousVersion(ctx, pipelineMeta, filterPreviousTransform, dimension);
+    addInPlaceScd2Update(ctx, pipelineMeta, inPlaceFilterTransform, dimension, loadTimestamp);
 
     DmGeneratedPipelineSupport.applyLayout(pipelineMeta);
     return pipelineMeta;
   }
 
-  private static TransformMeta addSortNaturalKeys(
+  private static TransformMeta addSortForCollapse(
       DmPipelineBuilderSupport.BuildContext ctx,
       PipelineMeta pipelineMeta,
       TransformMeta predecessor,
       DmDimension dimension) {
     SortRowsMeta sortRowsMeta = new SortRowsMeta();
-    for (String naturalKey : DmPipelineBuilderSupport.naturalKeyFieldNames(dimension, ctx.variables)) {
+    for (String sortFieldName :
+        DmPipelineBuilderSupport.scd2CollapseSortFieldNames(ctx, dimension)) {
       SortRowsField sortField = new SortRowsField();
-      sortField.setFieldName(naturalKey);
+      sortField.setFieldName(sortFieldName);
       sortField.setAscending(true);
       sortRowsMeta.getSortFields().add(sortField);
     }
@@ -135,49 +146,106 @@ public final class DmScd2DimensionBuilder {
     return tm;
   }
 
-  private static TransformMeta addEffectiveDateConstants(
+  private static TransformMeta addCollapseSourcePerNaturalKey(
       DmPipelineBuilderSupport.BuildContext ctx,
       PipelineMeta pipelineMeta,
-      Date loadTimestamp,
-      TransformMeta predecessor)
-      throws HopException {
-    String dateFromField = ctx.config.resolveDateFromField(ctx.variables);
-    String dateToField = ctx.config.resolveDateToField(ctx.variables);
-    String loadDateField = ctx.config.resolveLoadDateField(ctx.variables);
-    String openEnd = ctx.config.getOpenEndSentinel();
-    if (ctx.variables != null) {
-      openEnd = ctx.variables.resolve(openEnd);
+      TransformMeta predecessor,
+      DmDimension dimension) {
+    GroupByMeta groupByMeta = new GroupByMeta();
+    for (String naturalKey :
+        DmPipelineBuilderSupport.naturalKeyFieldNames(dimension, ctx.variables)) {
+      groupByMeta.getGroupingFields().add(new GroupingField(naturalKey));
     }
 
-    ValueMetaDate valueMeta = new ValueMetaDate("ld");
-    valueMeta.setConversionMask(ValueMetaBase.DEFAULT_DATE_FORMAT_MASK);
-    String loadDateString = valueMeta.getString(loadTimestamp);
-
-    ConstantMeta constantMeta = new ConstantMeta();
-    ConstantField fromField = new ConstantField(dateFromField, "Date", loadDateString);
-    fromField.setFieldFormat(valueMeta.getConversionMask());
-    constantMeta.getFields().add(fromField);
-
-    ConstantField toField = new ConstantField(dateToField, "String", openEnd);
-    constantMeta.getFields().add(toField);
-
-    ConstantField loadField = new ConstantField(loadDateField, "Date", loadDateString);
-    loadField.setFieldFormat(valueMeta.getConversionMask());
-    constantMeta.getFields().add(loadField);
-
-    String versionField = ctx.config.resolveVersionField(ctx.variables);
-    ConstantField versionConstant = new ConstantField(versionField, "Integer", "0");
-    versionConstant.setFieldLength(MERGE_INTEGER_FIELD_LENGTH);
-    constantMeta.getFields().add(versionConstant);
+    for (String aggregateField :
+        DmPipelineBuilderSupport.scd2CollapseAggregateFieldNames(ctx, dimension)) {
+      Aggregation aggregation = new Aggregation();
+      aggregation.setSubject(aggregateField);
+      aggregation.setField(aggregateField);
+      aggregation.setTypeLabel("LAST_INCL_NULL");
+      groupByMeta.getAggregations().add(aggregation);
+    }
 
     TransformMeta tm =
-        new TransformMeta("Constant", "add_effective_dates", constantMeta);
+        new TransformMeta("GroupBy", "collapse_" + ctx.targetTableName, groupByMeta);
     tm.setLocation(
         predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
         predecessor.getLocation().y);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
     return tm;
+  }
+
+  private static TransformMeta addEffectiveDates(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      Date loadTimestamp,
+      TransformMeta predecessor,
+      DmDimension dimension)
+      throws HopException {
+    String dateFromField = ctx.config.resolveDateFromField(ctx.variables);
+    String dateToField = ctx.config.resolveDateToField(ctx.variables);
+    String loadDateField = ctx.config.resolveLoadDateField(ctx.variables);
+    String openEnd = resolveOpenEndSentinel(ctx);
+    String effectiveSource = dimension.resolveEffectiveDateSourceField(ctx.variables);
+    boolean useSourceEffectiveDate = !Utils.isEmpty(effectiveSource);
+
+    ValueMetaDate loadDateMeta = new ValueMetaDate("ld");
+    loadDateMeta.setConversionMask(ValueMetaBase.DEFAULT_DATE_FORMAT_MASK);
+    String loadDateString = loadDateMeta.getString(loadTimestamp);
+
+    ConstantMeta constantMeta = new ConstantMeta();
+    constantMeta.getFields().add(new ConstantField(dateToField, "String", openEnd));
+
+    String versionField = ctx.config.resolveVersionField(ctx.variables);
+    ConstantField versionConstant = new ConstantField(versionField, "Integer", "0");
+    versionConstant.setFieldLength(MERGE_INTEGER_FIELD_LENGTH);
+    constantMeta.getFields().add(versionConstant);
+
+    if (!useSourceEffectiveDate) {
+      ConstantField fromField = new ConstantField(dateFromField, "Date", loadDateString);
+      fromField.setFieldFormat(loadDateMeta.getConversionMask());
+      constantMeta.getFields().add(fromField);
+    }
+
+    ConstantField loadField = new ConstantField(loadDateField, "Date", loadDateString);
+    loadField.setFieldFormat(loadDateMeta.getConversionMask());
+    constantMeta.getFields().add(loadField);
+
+    TransformMeta constantTransform =
+        new TransformMeta("Constant", "add_effective_dates", constantMeta);
+    constantTransform.setLocation(
+        predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
+        predecessor.getLocation().y);
+    pipelineMeta.addTransform(constantTransform);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, constantTransform));
+
+    TransformMeta current = constantTransform;
+    if (useSourceEffectiveDate && !effectiveSource.equals(dateFromField)) {
+      SelectValuesMeta selectMeta = new SelectValuesMeta();
+      selectMeta.getSelectOption().setSelectingAndSortingUnspecifiedFields(true);
+      SelectField rename = new SelectField();
+      rename.setName(effectiveSource);
+      rename.setRename(dateFromField);
+      selectMeta.getSelectOption().getSelectFields().add(rename);
+
+      TransformMeta selectTransform =
+          new TransformMeta("SelectValues", "map_" + ctx.targetTableName + "_effective_date", selectMeta);
+      selectTransform.setLocation(
+          current.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH, current.getLocation().y);
+      pipelineMeta.addTransform(selectTransform);
+      pipelineMeta.addPipelineHop(new PipelineHopMeta(current, selectTransform));
+      current = selectTransform;
+    }
+    return current;
+  }
+
+  private static String resolveOpenEndSentinel(DmPipelineBuilderSupport.BuildContext ctx) {
+    String openEnd = ctx.config.getOpenEndSentinel();
+    if (ctx.variables != null) {
+      openEnd = ctx.variables.resolve(openEnd);
+    }
+    return openEnd;
   }
 
   private static TransformMeta addTargetTableInput(
@@ -409,6 +477,88 @@ public final class DmScd2DimensionBuilder {
     return tm;
   }
 
+  private static TransformMeta addFilterNeedsVersionedUpdate(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor)
+      throws HopException {
+    String dateFromField = ctx.config.resolveDateFromField(ctx.variables);
+
+    FilterRowsMeta filterRowsMeta = new FilterRowsMeta();
+    try {
+      Condition previousMissing =
+          new Condition(
+              DmPipelineBuilderSupport.PREVIOUS_VERSION_FIELD,
+              Condition.Function.NULL,
+              null,
+              null);
+      Condition effectiveDateAdvanced =
+          new Condition(
+              dateFromField,
+              Condition.Function.LARGER,
+              DmPipelineBuilderSupport.PREVIOUS_VERSION_FIELD,
+              null);
+      effectiveDateAdvanced.setOperator(Condition.Operator.OR);
+
+      Condition condition = new Condition();
+      condition.addCondition(previousMissing);
+      condition.addCondition(effectiveDateAdvanced);
+      filterRowsMeta.getCompare().setCondition(condition);
+    } catch (HopValueException e) {
+      throw new HopException("Error creating SCD2 versioned-update filter condition", e);
+    }
+
+    TransformMeta tm =
+        new TransformMeta("FilterRows", "needs_versioned_update", filterRowsMeta);
+    tm.setLocation(
+        predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
+        predecessor.getLocation().y - 40);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private static TransformMeta addFilterNeedsInPlaceUpdate(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor)
+      throws HopException {
+    String dateFromField = ctx.config.resolveDateFromField(ctx.variables);
+
+    FilterRowsMeta filterRowsMeta = new FilterRowsMeta();
+    try {
+      Condition previousPresent =
+          new Condition(
+              DmPipelineBuilderSupport.PREVIOUS_VERSION_FIELD,
+              Condition.Function.NOT_NULL,
+              null,
+              null);
+      Condition effectiveDateNotAdvanced =
+          new Condition(
+              dateFromField,
+              Condition.Function.SMALLER_EQUAL,
+              DmPipelineBuilderSupport.PREVIOUS_VERSION_FIELD,
+              null);
+      effectiveDateNotAdvanced.setOperator(Condition.Operator.AND);
+
+      Condition condition = new Condition();
+      condition.addCondition(previousPresent);
+      condition.addCondition(effectiveDateNotAdvanced);
+      filterRowsMeta.getCompare().setCondition(condition);
+    } catch (HopValueException e) {
+      throw new HopException("Error creating SCD2 in-place-update filter condition", e);
+    }
+
+    TransformMeta tm =
+        new TransformMeta("FilterRows", "needs_inplace_update", filterRowsMeta);
+    tm.setLocation(
+        predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
+        predecessor.getLocation().y + 40);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
   private static TransformMeta addFilterHasPreviousVersion(
       PipelineMeta pipelineMeta, TransformMeta predecessor) throws HopException {
     FilterRowsMeta filterRowsMeta = new FilterRowsMeta();
@@ -524,7 +674,8 @@ public final class DmScd2DimensionBuilder {
       DmPipelineBuilderSupport.BuildContext ctx,
       PipelineMeta pipelineMeta,
       TransformMeta predecessor,
-      Date loadTimestamp)
+      Date loadTimestamp,
+      String nameSuffix)
       throws HopException {
     if (predecessor == null) {
       return null;
@@ -545,7 +696,8 @@ public final class DmScd2DimensionBuilder {
     constantMeta.getFields().add(loadField);
 
     TransformMeta tm =
-        new TransformMeta("Constant", "set_" + ctx.targetTableName + "_current", constantMeta);
+        new TransformMeta(
+            "Constant", "set_" + ctx.targetTableName + "_current" + nameSuffix, constantMeta);
     tm.setLocation(
         predecessor.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
         predecessor.getLocation().y);
@@ -611,6 +763,53 @@ public final class DmScd2DimensionBuilder {
         predecessor.getLocation().y);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    return tm;
+  }
+
+  private static TransformMeta addInPlaceScd2Update(
+      DmPipelineBuilderSupport.BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      TransformMeta predecessor,
+      DmDimension dimension,
+      Date loadTimestamp)
+      throws HopException {
+    if (predecessor == null) {
+      return null;
+    }
+
+    TransformMeta controlFieldsTransform =
+        addCurrentFlagConstant(ctx, pipelineMeta, predecessor, loadTimestamp, "_inplace");
+
+    String dateToField = ctx.config.resolveDateToField(ctx.variables);
+    String loadDateField = ctx.config.resolveLoadDateField(ctx.variables);
+    String currentFlagField = ctx.config.resolveCurrentFlagField(ctx.variables);
+
+    UpdateMeta updateMeta = new UpdateMeta();
+    updateMeta.setDefault();
+    updateMeta.setConnection(ctx.targetDbName);
+    updateMeta.setCommitSize(ctx.config.resolveTargetTableCommitSize(ctx.variables));
+
+    UpdateLookupField lookup = new UpdateLookupField();
+    lookup.setSchemaName("");
+    lookup.setTableName(ctx.targetTableName);
+    for (String naturalKey : DmPipelineBuilderSupport.naturalKeyFieldNames(dimension, ctx.variables)) {
+      lookup.getLookupKeys().add(new UpdateKeyField(naturalKey, naturalKey, "="));
+    }
+    lookup.getLookupKeys().add(new UpdateKeyField(dateToField, dateToField, "="));
+    for (String attribute : DmPipelineBuilderSupport.scd2AttributeFieldNames(dimension, ctx.variables)) {
+      lookup.getUpdateFields().add(new UpdateField(attribute, attribute));
+    }
+    lookup.getUpdateFields().add(new UpdateField(loadDateField, loadDateField));
+    lookup.getUpdateFields().add(new UpdateField(currentFlagField, currentFlagField));
+    updateMeta.setLookupField(lookup);
+
+    TransformMeta tm =
+        new TransformMeta("Update", "update_" + ctx.targetTableName + "_inplace", updateMeta);
+    tm.setLocation(
+        controlFieldsTransform.getLocation().x + DmPipelineBuilderSupport.SPACING_WIDTH,
+        controlFieldsTransform.getLocation().y);
+    pipelineMeta.addTransform(tm);
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(controlFieldsTransform, tm));
     return tm;
   }
 }

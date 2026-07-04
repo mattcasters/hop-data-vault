@@ -231,7 +231,9 @@ See link:ai-advisory.md[Data Vault AI Help and advisory].
 
 == Getting started
 
-New modelers should follow link:getting-started-modeler.adoc[Getting started — Data Vault and Business Vault modeling] for a hands-on path through the sample `project/`.
+New modelers should follow link:getting-started-retail.adoc[Getting started — retail example] for a hands-on path, then link:getting-started-integration-tests.adoc[integration test fixtures] for Customer 360 patterns.
+
+image::images/data-vault-model-retail-example.png[Retail example Data Vault model — customer, order, product, and warehouse entities,align="center"]
 
 Executives and architects can review link:presentations/hop-data-vault-overview.md[Hop Data Vault overview slides].
 

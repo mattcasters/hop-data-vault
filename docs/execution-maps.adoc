@@ -1,0 +1,46 @@
+= Execution maps
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+An **execution map** (`.hem` file) captures a crawled graph of how workflows, models, generated pipelines, and source datasets connect for a batch or subject area. Open `.hem` files in Hop GUI to explore execution structure and lineage without running the load.
+
+== What gets captured
+
+Starting from a **root artifact** (typically a workflow `.hwf` or model `.hdv`), the crawler discovers:
+
+* **Root workflow** — entry point actions
+* **Nested workflows** and **pipeline** references
+* **Data Vault / Business Vault / Dimensional models** referenced by update actions
+* **Generated pipelines** produced from models (virtual `generated://` paths)
+* **Source datasets** resolved from catalog and CRM connections (`dataset://` paths)
+
+The map stores node positions, parent links, and crawl timestamp for reproducible layout.
+
+== Retail example
+
+`retail-example/execution-maps/` includes:
+
+| File | Root |
+|------|------|
+| `update-retail-dv-bv-dm.hem` | `workflows/update-retail-dv-bv-dm.hwf` |
+| `simulate-12-months.hem` | Simulated multi-month update scenario |
+
+Open a `.hem` file in Hop GUI. Use filters and focus controls to collapse or expand model subtrees and generated pipeline swimlanes.
+
+== Creating and refreshing maps
+
+Maps are produced by crawling from a workflow or model in Hop GUI (execution map perspective / crawl actions) or by tooling that serializes the crawl result to `.hem` XML.
+
+Re-crawl after model or workflow changes so generated pipeline nodes stay current.
+
+== Relationship to lineage export
+
+Execution maps provide **in-project** execution graphs. External lineage systems (Marquez / OpenLineage) are planned separately — see link:plans/marquez-lineage-plan.md[Marquez lineage plan].
+
+== Related documents
+
+* link:getting-started-retail.adoc[Getting started — retail example] (Chapter 7)
+* link:operations.adoc[Operations]
+* link:feature-overview.md[Feature overview]

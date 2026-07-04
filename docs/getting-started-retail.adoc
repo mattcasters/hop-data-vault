@@ -1,0 +1,168 @@
+= Getting started — retail example
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+This is the **primary tutorial** for the hop-datavault plugin. You will run a full retail pipeline: source data → Data Vault → Business Vault → dimensional marts, including an incremental update wave.
+
+For Customer 360 and other regression fixtures, see link:getting-started-integration-tests.adoc[Getting started — integration test fixtures].
+
+Estimated time: 2–3 hours with Hop GUI, or follow command-line steps only in under an hour.
+
+== Prerequisites
+
+. Install Docker with Compose v2 and Python 3 (stdlib only).
+. Build or download plugin **0.0.16-SNAPSHOT** for Apache Hop **2.18.1** (see link:../README.md[repository README]).
+. Register `retail-example/` as a Hop project named **`retail-example`**.
+. Configure database connections **`CRM`** and **`Vault`** from project metadata.
+. Start PostgreSQL: from repo root, `./scripts/run-postgres.sh up`.
+
+If you previously used an older single-database layout, reset once:
+
+[source,bash]
+----
+./scripts/run-postgres.sh reset
+./scripts/run-postgres.sh up
+----
+
+Project details: link:../retail-example/README.md[retail-example/README.md].
+
+== Chapter 1 — Understand the layout
+
+Retail uses two databases on port **54320**:
+
+* **CRM** (`test_source`) — landing tables mimicking a source system
+* **Vault** (`test_edw`) — Data Vault, Business Vault, dimensional tables, load control
+
+Key files:
+
+[cols="2,3", options="header"]
+|===
+|Path |Purpose
+
+|`catalog-data/hop/retail-example/sources/`
+|`DV_SOURCE` record definitions (namespace `hop/retail-example/sources`)
+
+|`models/retail-360.hdv`
+|Data Vault model
+
+|`models/retail-360.hbv`
+|Business Vault model (SCD2 Customer 360)
+
+|`models/retail-warehouse.hdm`
+|Dimensional mart model
+
+|`workflows/run-retail-initial.hwf`
+|Full initial load
+
+|`workflows/run-retail-update.hwf`
+|Incremental monthly-style update
+
+|`execution-maps/update-retail-dv-bv-dm.hem`
+|Optional execution map of the main update graph
+|===
+
+== Chapter 2 — Tour the Data Catalog
+
+. Open Hop GUI with project **retail-example**.
+. Switch to the **Data Catalog** perspective.
+. Expand `hop/retail-example/sources` — entries such as `E2E-customer-hub`, `E2E-order-header`.
+. Open one source — note **physical table** on CRM, **record source** field, and column layout.
+
+Sources are JSON under `catalog-data/`; the namespace in each file must match its folder path (`hop/retail-example/sources`).
+
+If entries appear in the tree but fail to open, press **F5** to refresh the catalog.
+
+Reference: link:data-catalog.adoc[Data catalog], link:datavault-source.adoc[Data Vault sources].
+
+== Chapter 3 — Explore the Data Vault model
+
+. Open `models/retail-360.hdv`.
+. Click **Edit model** — target database **Vault**, hashing and sentinel settings.
+. Inspect hubs, links, and satellites on the canvas.
+. Click **Check model** — resolve any errors before loading.
+
+image::images/data-vault-model-retail-example.png[Retail 360 Data Vault model — hubs, links, and satellites on the Hop canvas,align="center"]
+
+Optional: select a satellite, **Show update pipeline** — same generation logic as **Data Vault Update**.
+
+== Chapter 4 — Run the initial load
+
+From the repository root:
+
+[source,bash]
+----
+./scripts/run-hop.sh retail-example workflows/run-retail-initial.hwf
+----
+
+The workflow drops and recreates schemas, generates CSV source files, loads CRM, then runs Data Vault Update, Business Vault Update, and Dimensional Update.
+
+In Hop GUI you can open `workflows/run-retail-initial.hwf` and run it with a configured pipeline run configuration.
+
+== Chapter 5 — Run an incremental update
+
+[source,bash]
+----
+./scripts/run-hop.sh retail-example workflows/run-retail-update.hwf
+----
+
+Repeat to simulate monthly batches. Load control in Vault tracks `progress_date`; data generation scripts produce update-wave CSVs.
+
+== Chapter 6 — Business Vault and dimensional layers
+
+. Open `models/retail-360.hbv` — linked to `retail-360.hdv`.
+. Inspect SCD2 table **customer_360_bv** (multi-satellite merge).
+. Open `models/retail-warehouse.hdm` — facts `f_orders`, `f_order_lines`, conformed dimensions.
+
+image::images/dimensional-model-f-orders.png[Dimensional model — f_orders,align="center"]
+
+Reference: link:business-vault-overview.adoc[Business Vault overview], link:dimensional-modeler-overview.adoc[Dimensional modeler overview].
+
+== Chapter 7 — Execution map (optional)
+
+. Open `execution-maps/update-retail-dv-bv-dm.hem`.
+. Explore the crawled graph: root workflow → models → generated pipelines → source datasets.
+
+Reference: link:execution-maps.adoc[Execution maps].
+
+== Chapter 8 — Troubleshooting
+
+[cols="1,3", options="header"]
+|===
+|Symptom |What to check
+
+|Connection errors
+|Postgres running on 54320; `environments/local-docker-postgres.json` variables
+
+|Catalog entry won't open
+|Namespace matches folder; refresh catalog (F5)
+
+|Model check type errors
+|CRM tables exist; run initial workflow's CRM load first; validate catalog fields vs live schema
+
+|Stale plugin behavior
+|Restart Hop GUI after installing **0.0.16-SNAPSHOT**
+
+|Need clean slate
+|`./scripts/run-postgres.sh reset` then `up`, rerun initial workflow
+|===
+
+== Next steps
+
+[cols="1,2", options="header"]
+|===
+|Topic |Document
+
+|All major features
+|link:feature-overview.md[feature-overview.md]
+
+|Integration test fixtures (Customer 360, external read-only)
+|link:getting-started-integration-tests.adoc[getting-started-integration-tests.adoc]
+
+|Catalog validation UX
+|link:resource-definition-validation.adoc[resource-definition-validation.adoc]
+
+|Operations (Docker, partial loads)
+|link:operations.adoc[operations.adoc]
+|===

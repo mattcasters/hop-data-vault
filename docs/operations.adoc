@@ -1,0 +1,59 @@
+= Operations
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+Day-to-day operation of hop-datavault loads: environments, Docker runners, batch orchestration, and partial model updates.
+
+== Docker runners
+
+From the repository root:
+
+[source,bash]
+----
+# PostgreSQL on port 54320
+./scripts/run-postgres.sh up
+
+# Run a workflow in a Hop container
+./scripts/run-hop.sh retail-example workflows/run-retail-initial.hwf
+./scripts/run-hop.sh integration-tests tests/run-tests.hwf
+----
+
+See link:../scripts/README.md[scripts/README.md] and link:../integration-tests/PROJECT.md[integration-tests/PROJECT.md] for multi-database CI runs.
+
+== Batch orchestration pattern
+
+Typical production workflow chain:
+
+1. **Data Vault Update** on `.hdv` — raw vault load (skips external read-only tables)
+2. **Business Vault Update** on `.hbv` — rebuild SCD2 / PIT tables
+3. **Dimensional Update** on `.hdm` — load marts
+
+Configure on each action:
+
+* Pipeline run configuration (connection, logging, variables)
+* **Parallel pipeline copies** — throughput vs resource use
+* DDL options — execute on database, export to file, or fail if DDL needed (CI gate)
+* Optional **catalog publish** after DV/BV updates
+
+Retail example: `retail-example/workflows/run-retail-initial.hwf` and `run-retail-update.hwf`.
+
+== Partial loads (record source groups)
+
+Tag `DV_SOURCE` definitions with a **group** (for example `hourly`, `daily`). On **Data Vault Update**, set **Record source group** to load only matching sources. Empty group means all sources participate.
+
+See link:datavault-source.adoc[Data Vault Source] and link:datavault-update-action.adoc[Data Vault Update action].
+
+== Metrics and regression
+
+The integration-tests project collects Data Vault / Business Vault update metrics JSON and runs golden-dataset unit tests. Use it as a reference for CI gates (model check abort, fail-if-DDL-needed).
+
+== Performance
+
+Sort memory, partition copies, and large-model notes: link:performance-tuning.md[performance-tuning.md].
+
+== Related documents
+
+* link:execution-maps.adoc[Execution maps]
+* link:getting-started-retail.adoc[Getting started — retail example]

@@ -17,19 +17,33 @@ limitations under the License.
 
 # Hop Data Vault documentation index
 
-Documentation by audience.
+Documentation for the **hop-datavault** plugin (version **0.0.16-SNAPSHOT**, last 0.0.x release). The **0.1.x** line focuses on hardening, documentation completeness, validation UX, and the retail tutorial — not large new feature drops.
+
+**New here?** Read [feature-overview.md](feature-overview.md), then follow [getting-started-retail.adoc](getting-started-retail.adoc).
+
+## Start here
+
+| Document | Description |
+|----------|-------------|
+| [feature-overview.md](feature-overview.md) | Major plugin capabilities, maturity, and links to deep dives |
+| [getting-started-retail.adoc](getting-started-retail.adoc) | Primary tutorial: retail-example (DV → BV → dimensional) |
+| [getting-started-integration-tests.adoc](getting-started-integration-tests.adoc) | Reference walkthrough: Customer 360 and integration test fixtures |
 
 ## Managers and architects
 
 | Document | Description |
 |----------|-------------|
-| [presentations/hop-data-vault-overview.md](presentations/hop-data-vault-overview.md) | High-level slide deck: goals, architecture, hybrid warehouses, roadmap |
+| [presentations/hop-data-vault-overview.md](presentations/hop-data-vault-overview.md) | High-level slide deck: goals, architecture, hybrid warehouses |
 
-## Modelers (zero to hero)
+## Data Catalog and sources
 
 | Document | Description |
 |----------|-------------|
-| [getting-started-modeler.adoc](getting-started-modeler.adoc) | Hands-on tutorial: DV → BV SCD2 → external tables using `project/` |
+| [data-catalog.adoc](data-catalog.adoc) | Local catalog setup, namespaces, refresh |
+| [datavault-source.adoc](datavault-source.adoc) | `DV_SOURCE` record definitions |
+| [datavault-source-database.adoc](datavault-source-database.adoc) | Database-backed source fields |
+| [resource-definition-validation.adoc](resource-definition-validation.adoc) | Catalog validation, proposals, acknowledgements |
+| [record-definition-input.adoc](record-definition-input.adoc) | Pipeline transform: read catalog definitions as rows |
 
 ## Data Vault reference (AsciiDoc)
 
@@ -37,8 +51,6 @@ Documentation by audience.
 |----------|-------------|
 | [datavault-plugin.adoc](datavault-plugin.adoc) | Plugin overview, visual editor, workflows |
 | [datavault-configuration.adoc](datavault-configuration.adoc) | Embedded `.hdv` configuration |
-| [datavault-source.adoc](datavault-source.adoc) | Record sources |
-| [datavault-source-database.adoc](datavault-source-database.adoc) | Database source tab |
 | [dv-hub.adoc](dv-hub.adoc) | Hub metadata |
 | [dv-link.adoc](dv-link.adoc) | Link metadata |
 | [dv-satellite.adoc](dv-satellite.adoc) | Satellite metadata |
@@ -51,42 +63,45 @@ Documentation by audience.
 |----------|-------------|
 | [business-vault-overview.adoc](business-vault-overview.adoc) | `.hbv` modeler and table types |
 | [business-vault-scd2.adoc](business-vault-scd2.adoc) | SCD2 generation, multi-satellite mappings |
-| [business-vault-pit.adoc](business-vault-pit.adoc) | PIT snapshot schedule, layout, pipelines, as-of consumption |
+| [business-vault-pit.adoc](business-vault-pit.adoc) | PIT snapshot schedule, layout, pipelines |
 | [business-vault-configuration.adoc](business-vault-configuration.adoc) | Embedded `.hbv` configuration |
 | [business-vault-update-action.adoc](business-vault-update-action.adoc) | Business Vault Update workflow action |
 
-## Hop projects in this repository
-
-| Folder | Document |
-|--------|----------|
-| [../integration-tests/PROJECT.md](../integration-tests/PROJECT.md) | Plugin regression suites |
-| [../retail-example/README.md](../retail-example/README.md) | Full-stack retail demo (CSV → DV → BV → DM) |
-| [../scripts/README.md](../scripts/README.md) | Shared Docker runners |
-
-## Pipeline transforms (AsciiDoc)
+## Dimensional modeling
 
 | Document | Description |
 |----------|-------------|
-| [record-definition-input.adoc](record-definition-input.adoc) | Read data catalog record definitions as pipeline rows |
-| [date-dimension-generator.adoc](date-dimension-generator.adoc) | Generate calendar date dimension rows for `dim_date` loads |
+| [dimensional-modeler-overview.adoc](dimensional-modeler-overview.adoc) | `.hdm` modeler, Kimball table types |
+| [dimensional-update-action.adoc](dimensional-update-action.adoc) | Dimensional Update and Publish actions |
+| [date-dimension-generator.adoc](date-dimension-generator.adoc) | Generate `dim_date` rows |
 
-## AI and advanced topics
+## Operations and tooling
 
 | Document | Description |
 |----------|-------------|
-| [ai-advisory.md](ai-advisory.md) | AI Help / advisor setup and usage |
-| [performance-tuning.md](performance-tuning.md) | Sort memory and pipeline tuning notes |
+| [operations.adoc](operations.adoc) | Docker runners, batch orchestration, partial loads |
+| [execution-maps.adoc](execution-maps.adoc) | `.hem` execution and lineage graphs |
+| [performance-tuning.md](performance-tuning.md) | Sort memory and pipeline tuning |
+| [ai-advisory.md](ai-advisory.md) | AI Help setup and usage |
+
+## Sample Hop projects
+
+| Folder | Document | Role |
+|--------|----------|------|
+| [../retail-example/](../retail-example/) | [../retail-example/README.md](../retail-example/README.md) | **Learn** — full-stack retail demo |
+| [../integration-tests/](../integration-tests/) | [../integration-tests/PROJECT.md](../integration-tests/PROJECT.md) | **Reference / CI** — regression suites |
+| [../scripts/](../scripts/) | [../scripts/README.md](../scripts/README.md) | Shared Docker runners |
 
 ## Command-line tools
 
 ### `hop svg`
 
-Export pipelines (`.hpl`), workflows (`.hwf`), Data Vault models (`.hdv`), Business Vault models (`.hbv`), and dimensional models (`.hdm`) to SVG.
+Export pipelines (`.hpl`), workflows (`.hwf`), Data Vault models (`.hdv`), Business Vault models (`.hbv`), dimensional models (`.hdm`), and execution maps (`.hem`) to SVG.
 
-**Docker (no local Hop install):** from `project/`, use `run-svg.sh` (same `docker-hop:latest` image as the test runner):
+**Docker (no local Hop install):** from `integration-tests/`:
 
 ```bash
-cd project
+cd integration-tests
 ./run-svg.sh -f tests/multi-satellite-bv/customer-360.hdv \
              -o ../docs/images/customer-360.svg --no-notes
 ```
@@ -94,30 +109,16 @@ cd project
 **Local Hop** with the plugin installed:
 
 ```bash
-hop svg -f integration-tests/tests//multi-satellite-bv/customer-360.hdv \
+hop svg -f integration-tests/tests/multi-satellite-bv/customer-360.hdv \
         -o docs/images/customer-360-generated.svg --no-notes
-hop svg -s integration-tests/tests//multi-satellite-bv -t /tmp/svg-out -r
-hop svg -f integration-tests/tests//basic/load1.hpl -o /tmp/load1.svg
+hop svg -s integration-tests/tests/multi-satellite-bv -t /tmp/svg-out -r
+hop svg -f integration-tests/tests/basic/load1.hpl -o /tmp/load1.svg
 ```
 
 Options: `--no-notes`, `--magnification`, `--show-hash-keys` (`.hdv` only), `--project-home`.
 
-## Sample project
+## Internal design notes
 
-| Document | Description |
-|----------|-------------|
-| [../project/PROJECT.md](../project/PROJECT.md) | Test suites, Docker runner, prerequisites |
+See [plans/](plans/) — not part of the end-user documentation path.
 
-## Design notes (in progress)
-
-Internal planning documents for features not yet fully productized:
-
-| Document | Topic |
-|----------|-------|
-| [bv-naming-rules-engine-plan.md](bv-naming-rules-engine-plan.md) | BV naming rules engine (ROI-first; health check, acknowledgements, review reports) |
-| [bv-field-dictionary-plan.md](bv-field-dictionary-plan.md) | BV field dictionary (deferred; superseded by naming rules engine plan) |
-| [dimensional-modeler-plan.md](dimensional-modeler-plan.md) | Dimensional modeler plan |
-| [dimensional-modeler-overview.adoc](dimensional-modeler-overview.adoc) | Dimensional modeler overview |
-| [marquez-lineage-plan.md](marquez-lineage-plan.md) | Lineage export |
-
-Screenshots: [images/](images/) — includes Customer 360 DV/BV canvases and SCD2 table dialog tabs
+Screenshots: [images/](images/)

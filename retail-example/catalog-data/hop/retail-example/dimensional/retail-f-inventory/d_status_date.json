@@ -11,7 +11,7 @@
     "modelElementName" : "d_status_date",
     "hopProject" : "retail-example",
     "createdAt" : 1783090442645,
-    "updatedAt" : 1783167400950,
+    "updatedAt" : 1783197958343,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "retail-f-inventory",
@@ -27,5 +27,6 @@
   "tags" : [ "DM DIMENSION_ALIAS", "retail-f-inventory" ],
   "glossaryTerms" : [ ],
   "customProperties" : { },
+  "validationAcknowledgements" : [ ],
   "dvSource" : null
 }

@@ -88,7 +88,7 @@
         <name>demo_score</name>
         <description/>
         <dataType>Integer</dataType>
-        <length>3</length>
+        <length>4</length>
         <precision>0</precision>
         <includeInChangeDataCapture>Y</includeInChangeDataCapture>
       </attributes>

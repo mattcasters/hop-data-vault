@@ -2,7 +2,7 @@
 
 **Status:** Deferred — implement when load performance becomes critical.
 
-Replace round-robin `Table Output` parallelism with **Hop remainder-of-division (ModPartitioner) partitioning on the hash key**, so rows with the same hash key stay in the same swimlane from the first post-hash sort through MergeRows and all the way to Table Output. Partition count equals existing **`targetTableParallelCopies`** (e.g. 4 in `project/files/large/syn-large.hdv`).
+Replace round-robin `Table Output` parallelism with **Hop remainder-of-division (ModPartitioner) partitioning on the hash key**, so rows with the same hash key stay in the same swimlane from the first post-hash sort through MergeRows and all the way to Table Output. Partition count equals existing **`targetTableParallelCopies`** (e.g. 4 in `integration-tests/files/large/syn-large.hdv`).
 
 Reference: [Hop partitioning manual](https://hop.apache.org/manual/latest/pipeline/partitioning.html)
 

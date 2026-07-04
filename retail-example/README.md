@@ -2,6 +2,16 @@
 
 End-to-end retail data vault example demonstrating initial and incremental loads across Data Vault, Business Vault, and dimensional models.
 
+![Retail 360 Data Vault model](../docs/images/data-vault-model-retail-example.png)
+
+## Documentation
+
+- [docs/getting-started-retail.adoc](../docs/getting-started-retail.adoc) — primary tutorial
+- [docs/feature-overview.md](../docs/feature-overview.md) — all plugin capabilities
+- [docs/README.md](../docs/README.md) — full documentation index
+
+DV source catalog entries use namespace **`hop/retail-example/sources`**.
+
 ## Prerequisites
 
 - Docker with Compose v2 (used by `../scripts/run-hop.sh`)

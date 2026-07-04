@@ -49,6 +49,7 @@ import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.datavault.transform.mergerowsplus.MergeRowsPlusMeta;
 import org.apache.hop.pipeline.transforms.metainject.MetaInjectMeta;
+import org.apache.hop.pipeline.transforms.groupby.GroupByMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
 import org.apache.hop.pipeline.transforms.update.UpdateMeta;
@@ -184,6 +185,21 @@ class DmScd2DimensionPipelineTest {
     assertFalse(versionCalculator.getFunctions().get(versionCalculator.getFunctions().size() - 1).isRemovedFromResult());
     assertTrue(
         pipeline.getTransforms().stream()
+            .anyMatch(
+                t ->
+                    t.getName().equals("collapse_d_customer")
+                        && t.getTransform() instanceof GroupByMeta));
+    assertTrue(
+        pipeline.getTransforms().stream()
+            .anyMatch(t -> t.getName().equals("needs_versioned_update")));
+    assertTrue(
+        pipeline.getTransforms().stream()
+            .anyMatch(t -> t.getName().equals("needs_inplace_update")));
+    assertTrue(
+        pipeline.getTransforms().stream()
+            .anyMatch(t -> t.getName().equals("update_d_customer_inplace")));
+    assertTrue(
+        pipeline.getTransforms().stream()
             .anyMatch(t -> t.getName().equals("close_d_customer")));
     assertTrue(
         pipeline.getTransforms().stream()
@@ -216,6 +232,9 @@ class DmScd2DimensionPipelineTest {
                         && "Integer".equals(field.getFieldType())
                         && "0".equals(field.getValue())
                         && field.getFieldLength() == 9));
+    assertTrue(
+        effectiveDates.getFields().stream()
+            .anyMatch(field -> "date_from".equals(field.getFieldName())));
 
     List<String> expectedMergeFields =
         List.of(
@@ -285,6 +304,47 @@ class DmScd2DimensionPipelineTest {
     assertEquals(1, updateMeta.getLookupField().getUpdateFields().size());
     assertEquals("date_to", updateMeta.getLookupField().getUpdateFields().get(0).getUpdateLookup());
     assertEquals("date_from", updateMeta.getLookupField().getUpdateFields().get(0).getUpdateStream());
+  }
+
+  @Test
+  void type2DimensionUsesConfiguredEffectiveDateSourceField() throws Exception {
+    DimensionalModel model = new DimensionalModel();
+    model.getConfigurationOrDefault().setTargetDatabase("Vault");
+    model.getConfigurationOrDefault().setDateFromField("x_from_ts");
+
+    DmDimension dimension = new DmDimension();
+    dimension.setName("d_customer");
+    dimension.setTableName("d_customer");
+    dimension.setScdType(DmDimensionScdType.TYPE2);
+    dimension.setEffectiveDateSourceField("x_from_ts");
+    dimension.getNaturalKeys().add(new DmNaturalKeyField("customer_id"));
+    dimension
+        .getAttributes()
+        .add(new DmDimensionAttribute("cust_segment", DmScdUpdatePolicy.TYPE2));
+    dimension
+        .getSourceOrDefault()
+        .setSourceSql(
+            "SELECT customer_id, cust_segment, x_from_ts FROM customer_360_bv WHERE x_to_ts = '9999-12-31 23:59:59'");
+    model.getTables().add(dimension);
+
+    PipelineMeta pipeline =
+        dimension
+            .generateUpdatePipelines(testMetadataProvider(), new Variables(), model, new Date())
+            .get(0);
+
+    ConstantMeta effectiveDates =
+        (ConstantMeta)
+            pipeline.getTransforms().stream()
+                .filter(t -> t.getName().equals("add_effective_dates"))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+    assertFalse(
+        effectiveDates.getFields().stream()
+            .anyMatch(field -> "x_from_ts".equals(field.getFieldName())));
+    assertFalse(
+        pipeline.getTransforms().stream()
+            .anyMatch(t -> t.getName().equals("map_d_customer_effective_date")));
   }
 
   private static List<String> selectOutputFieldNames(PipelineMeta pipeline, String transformName) {
