@@ -54,6 +54,10 @@ public class RecordDefinition {
 
   @HopMetadataProperty private Map<String, CatalogCustomProperty> customProperties = new HashMap<>();
 
+  @HopMetadataProperty(key = "validation_ack", groupKey = "validation_acks")
+  private List<RecordDefinitionValidationAcknowledgement> validationAcknowledgements =
+      new ArrayList<>();
+
   /** Structured Data Vault source metadata when {@link #type} is {@code DV_SOURCE}. */
   @HopMetadataProperty private DvSourceRecord dvSource;
 

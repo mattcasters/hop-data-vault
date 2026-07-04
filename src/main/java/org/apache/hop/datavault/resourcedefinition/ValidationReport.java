@@ -1,0 +1,141 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.datavault.resourcedefinition;
+
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.hop.catalog.discovery.RecordDefinitionSchemaDiffSupport;
+import org.apache.hop.catalog.model.RecordDefinitionKey;
+
+/** Aggregated validation outcome for a resource definition group. */
+public final class ValidationReport {
+
+  public enum IssueKind {
+    SOURCE_UNAVAILABLE,
+    SOURCE_UNREADABLE,
+    FIELD_ADDED,
+    FIELD_REMOVED,
+    FIELD_TYPE_CHANGED,
+    MAPPING_BROKEN
+  }
+
+  public enum IssueSeverity {
+    BLOCKING,
+    WARNING,
+    INFO
+  }
+
+  public enum ProposalType {
+    REFRESH_CATALOG_CONTRACT,
+    UPDATE_TARGET_COLUMN_LENGTH,
+    ADD_NEW_SATELLITE,
+    EXTEND_EXISTING_SATELLITE,
+    REVIEW_MAPPINGS,
+    BLOCK_UPDATE_UNTIL_RESOLVED
+  }
+
+  public record RemediationProposal(ProposalType type, String summary, String details) {}
+
+  public record ValidationIssue(
+      String issueId,
+      IssueKind kind,
+      IssueSeverity severity,
+      String fieldName,
+      String message,
+      List<RemediationProposal> proposals) {
+
+    public ValidationIssue {
+      proposals = proposals != null ? List.copyOf(proposals) : List.of();
+    }
+  }
+
+  public record RecordDefinitionValidation(
+      RecordDefinitionKey key,
+      String catalogConnection,
+      String sourceType,
+      boolean inSync,
+      RecordDefinitionSchemaDiffSupport.SchemaDiff schemaDiff,
+      List<SourceUsage> usages,
+      List<ValidationIssue> allIssues,
+      List<ValidationIssue> issues,
+      int acknowledgedIssueCount) {
+
+    public RecordDefinitionValidation {
+      usages = usages != null ? List.copyOf(usages) : List.of();
+      allIssues = allIssues != null ? List.copyOf(allIssues) : List.of();
+      issues = issues != null ? List.copyOf(issues) : List.of();
+    }
+
+    public RecordDefinitionValidation(
+        RecordDefinitionKey key,
+        String catalogConnection,
+        String sourceType,
+        boolean inSync,
+        RecordDefinitionSchemaDiffSupport.SchemaDiff schemaDiff,
+        List<SourceUsage> usages,
+        List<ValidationIssue> issues) {
+      this(key, catalogConnection, sourceType, inSync, schemaDiff, usages, issues, issues, 0);
+    }
+
+    public boolean hasBlockingIssues() {
+      return issues.stream().anyMatch(issue -> issue.severity() == IssueSeverity.BLOCKING);
+    }
+  }
+
+  private final String groupName;
+  private final List<RecordDefinitionValidation> recordValidations = new ArrayList<>();
+
+  public ValidationReport(String groupName) {
+    this.groupName = groupName;
+  }
+
+  public String getGroupName() {
+    return groupName;
+  }
+
+  public List<RecordDefinitionValidation> getRecordValidations() {
+    return List.copyOf(recordValidations);
+  }
+
+  public void addRecordValidation(RecordDefinitionValidation validation) {
+    if (validation != null) {
+      recordValidations.add(validation);
+    }
+  }
+
+  public int getTotalDefinitions() {
+    return recordValidations.size();
+  }
+
+  public int getInSyncCount() {
+    return (int) recordValidations.stream().filter(RecordDefinitionValidation::inSync).count();
+  }
+
+  public int getIssueCount() {
+    return recordValidations.stream().mapToInt(v -> v.issues().size()).sum();
+  }
+
+  public int getAcknowledgedIssueCount() {
+    return recordValidations.stream().mapToInt(RecordDefinitionValidation::acknowledgedIssueCount).sum();
+  }
+
+  public boolean hasBlockingIssues() {
+    return recordValidations.stream().anyMatch(RecordDefinitionValidation::hasBlockingIssues);
+  }
+}

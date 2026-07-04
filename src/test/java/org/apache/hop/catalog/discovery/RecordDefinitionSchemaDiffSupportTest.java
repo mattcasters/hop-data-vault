@@ -68,6 +68,49 @@ class RecordDefinitionSchemaDiffSupportTest {
   }
 
   @Test
+  void diff_ignoresTimestampLengthDifferences() {
+    SourceField stored = field("load_date", "Timestamp", IValueMeta.TYPE_TIMESTAMP);
+    stored.setLength("");
+    SourceField discovered = field("load_date", "Timestamp", IValueMeta.TYPE_TIMESTAMP);
+    discovered.setLength("6");
+
+    RecordDefinitionSchemaDiffSupport.SchemaDiff diff =
+        RecordDefinitionSchemaDiffSupport.diff(List.of(stored), List.of(discovered));
+
+    assertTrue(diff.isInSync());
+  }
+
+  @Test
+  void diff_ignoresIntegerPrecisionZeroVsEmpty() {
+    SourceField stored = field("customer_id", "Integer", IValueMeta.TYPE_INTEGER);
+    stored.setLength("9");
+    stored.setPrecision("0");
+    SourceField discovered = field("customer_id", "Integer", IValueMeta.TYPE_INTEGER);
+    discovered.setLength("9");
+    discovered.setPrecision("");
+
+    RecordDefinitionSchemaDiffSupport.SchemaDiff diff =
+        RecordDefinitionSchemaDiffSupport.diff(List.of(stored), List.of(discovered));
+
+    assertTrue(diff.isInSync());
+  }
+
+  @Test
+  void diff_reportsStringLengthChanges() {
+    SourceField stored = field("segment", "String", IValueMeta.TYPE_STRING);
+    stored.setLength("50");
+    SourceField discovered = field("segment", "String", IValueMeta.TYPE_STRING);
+    discovered.setLength("100");
+
+    RecordDefinitionSchemaDiffSupport.SchemaDiff diff =
+        RecordDefinitionSchemaDiffSupport.diff(List.of(stored), List.of(discovered));
+
+    assertTrue(diff.hasChanges());
+    assertEquals(1, diff.changes().size());
+    assertEquals("segment", diff.changes().get(0).fieldName());
+  }
+
+  @Test
   void diffTypesOnly_ignoresLengthAndPrecisionDifferences() {
     SourceField stored = field("name", "String", IValueMeta.TYPE_STRING);
     stored.setLength("50");

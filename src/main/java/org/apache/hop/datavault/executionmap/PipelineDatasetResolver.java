@@ -46,15 +46,18 @@ public final class PipelineDatasetResolver {
         || !context.getOptions().isIncludeDatasetNodes()) {
       return;
     }
+    String originModelNodeId = DatasetNodeSupport.resolveOriginModelNodeId(context, pipelineNodeId);
     for (TransformMeta transformMeta : pipelineMeta.getTransforms()) {
       if (transformMeta == null) {
         continue;
       }
       ITransformMeta transform = transformMeta.getTransform();
       if (transform instanceof TableInputMeta tableInput) {
-        resolveTableInput(context, pipelineNodeId, transformMeta.getName(), tableInput);
+        resolveTableInput(
+            context, pipelineNodeId, originModelNodeId, transformMeta.getName(), tableInput);
       } else if (transform instanceof TableOutputMeta tableOutput) {
-        resolveTableOutput(context, pipelineNodeId, transformMeta.getName(), tableOutput);
+        resolveTableOutput(
+            context, pipelineNodeId, originModelNodeId, transformMeta.getName(), tableOutput);
       }
     }
   }
@@ -62,6 +65,7 @@ public final class PipelineDatasetResolver {
   private static void resolveTableInput(
       ExecutionMapContext context,
       String pipelineNodeId,
+      String originModelNodeId,
       String transformName,
       TableInputMeta tableInput) {
     String connection = DatasetNodeSupport.resolveValue(context.getVariables(), tableInput.getConnection());
@@ -79,12 +83,15 @@ public final class PipelineDatasetResolver {
             pipelineNodeId);
     if (!Utils.isEmpty(datasetNodeId)) {
       context.addEdge(ExecutionMapEdgeType.READS_FROM, datasetNodeId, pipelineNodeId, transformName);
+      DatasetNodeSupport.linkDatasetToModel(
+          context, originModelNodeId, datasetNodeId, transformName);
     }
   }
 
   private static void resolveTableOutput(
       ExecutionMapContext context,
       String pipelineNodeId,
+      String originModelNodeId,
       String transformName,
       TableOutputMeta tableOutput) {
     String connection = DatasetNodeSupport.resolveValue(context.getVariables(), tableOutput.getConnection());
@@ -106,6 +113,8 @@ public final class PipelineDatasetResolver {
             pipelineNodeId);
     if (!Utils.isEmpty(datasetNodeId)) {
       context.addEdge(ExecutionMapEdgeType.WRITES_TO, pipelineNodeId, datasetNodeId, transformName);
+      DatasetNodeSupport.linkDatasetToModel(
+          context, originModelNodeId, datasetNodeId, transformName);
     }
   }
 

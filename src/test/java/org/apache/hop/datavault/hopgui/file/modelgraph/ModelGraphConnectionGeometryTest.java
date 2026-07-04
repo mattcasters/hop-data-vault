@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.hop.core.gui.Point;
-import org.apache.hop.datavault.config.DataVaultConfig;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.Bounds;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry.ConnectionAnchors;
 import org.junit.jupiter.api.Test;
@@ -119,6 +118,15 @@ class ModelGraphConnectionGeometryTest {
     assertEquals(38, ModelGraphConnectionGeometry.effectiveSegmentCount(300, 20));
     assertEquals(38, ModelGraphConnectionGeometry.effectiveSegmentCount(300, 30));
     assertEquals(200, ModelGraphConnectionGeometry.effectiveSegmentCount(5000, 20));
+  }
+
+  @Test
+  void boxCentersSupportDirectConnections() {
+    Bounds below = new Bounds(10, 120, 80, 40);
+    assertEquals(50, BOX_A.centerX());
+    assertEquals(25, BOX_A.centerY());
+    assertEquals(50, below.centerX());
+    assertEquals(140, below.centerY());
   }
 
   @Test

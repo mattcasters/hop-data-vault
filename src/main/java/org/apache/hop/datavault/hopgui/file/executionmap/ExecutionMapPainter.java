@@ -35,6 +35,7 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.command.svg.ExecutionMapExportScope;
 import org.apache.hop.datavault.executionmap.ExecutionMapEdgeRouter;
+import org.apache.hop.datavault.executionmap.ExecutionMapLineStyle;
 import org.apache.hop.datavault.executionmap.ExecutionMapNodeColors;
 import org.apache.hop.datavault.executionmap.ExecutionMapFocusContext;
 import org.apache.hop.datavault.executionmap.ExecutionMapLayoutOptions;
@@ -426,43 +427,20 @@ public class ExecutionMapPainter extends BasePainter {
   }
 
   private void drawFocusedEdge(ExecutionMapEdge edge, List<Bounds> nodeBounds) {
-    if (edge == null) {
-      return;
-    }
-    ExecutionMapNode from = nodeById.get(edge.getFromNodeId());
-    ExecutionMapNode to = nodeById.get(edge.getToNodeId());
-    if (from == null || to == null || from.getLocation() == null || to.getLocation() == null) {
-      return;
-    }
-    Bounds fromBounds = cardBounds(from);
-    Bounds toBounds = cardBounds(to);
-    boolean flowEdge = layoutOptions.usesEdgeForLayout(edge.getEdgeType());
-
-    gc.setLineWidth(1);
-    gc.setLineStyle(flowEdge ? ELineStyle.SOLID : ELineStyle.DASH);
-    gc.setForeground(resolveEdgeColor(edge.getEdgeType(), flowEdge));
-    ModelGraphConnectionGeometry.drawConnectionSpline(gc, fromBounds, toBounds);
-    drawSplineEdgeLabel(edge, fromBounds, toBounds);
-  }
-
-  private void drawSplineEdgeLabel(ExecutionMapEdge edge, Bounds fromBounds, Bounds toBounds) {
-    if (Utils.isEmpty(edge.getLabel()) || edge.getEdgeType() == ExecutionMapEdgeType.REFERENCES) {
-      return;
-    }
-    String label = edge.getLabel();
-    if (label.length() > 28) {
-      label = label.substring(0, 25) + "...";
-    }
-    int labelX = (fromBounds.centerX() + toBounds.centerX()) / 2;
-    int labelY = (fromBounds.centerY() + toBounds.centerY()) / 2;
-    gc.setFont(EFont.SMALL);
-    gc.setForeground(EColor.DARKGRAY);
-    gc.drawText(label, labelX, labelY, true);
+    drawRenderedEdge(edge, true, nodeBounds, null);
   }
 
   private void drawLegacyEdge(
       ExecutionMapEdge edge,
       boolean flowEdge,
+      List<Bounds> nodeBounds,
+      Map<String, Integer> laneIndexBySource) {
+    drawRenderedEdge(edge, false, nodeBounds, laneIndexBySource);
+  }
+
+  private void drawRenderedEdge(
+      ExecutionMapEdge edge,
+      boolean useCardBounds,
       List<Bounds> nodeBounds,
       Map<String, Integer> laneIndexBySource) {
     if (edge == null) {
@@ -473,21 +451,66 @@ public class ExecutionMapPainter extends BasePainter {
     if (from == null || to == null || from.getLocation() == null || to.getLocation() == null) {
       return;
     }
-    Bounds fromBounds = legacyNodeBounds(from);
-    Bounds toBounds = legacyNodeBounds(to);
+    Bounds fromBounds = useCardBounds ? cardBounds(from) : legacyNodeBounds(from);
+    Bounds toBounds = useCardBounds ? cardBounds(to) : legacyNodeBounds(to);
+    boolean flowEdge = layoutOptions.usesEdgeForLayout(edge.getEdgeType());
 
     gc.setLineWidth(1);
-    gc.setLineStyle(flowEdge ? ELineStyle.SOLID : ELineStyle.DASH);
     gc.setForeground(resolveEdgeColor(edge.getEdgeType(), flowEdge));
+    drawEdgeGeometry(
+        edge, fromBounds, toBounds, flowEdge, nodeBounds, laneIndexBySource);
+    drawCenterEdgeLabel(edge, fromBounds, toBounds);
+  }
 
+  private void drawEdgeGeometry(
+      ExecutionMapEdge edge,
+      Bounds fromBounds,
+      Bounds toBounds,
+      boolean flowEdge,
+      List<Bounds> nodeBounds,
+      Map<String, Integer> laneIndexBySource) {
+    switch (ExecutionMapLineStyle.configured()) {
+      case DIRECT_CENTER -> {
+        gc.setLineStyle(ELineStyle.DOT);
+        ModelGraphConnectionGeometry.drawConnectionCenterLine(gc, fromBounds, toBounds);
+      }
+      case SPLINE -> {
+        gc.setLineStyle(flowEdge ? ELineStyle.SOLID : ELineStyle.DASH);
+        ModelGraphConnectionGeometry.drawConnectionSpline(gc, fromBounds, toBounds);
+      }
+      case ORTHOGONAL -> drawOrthogonalEdgeGeometry(
+          edge, fromBounds, toBounds, flowEdge, nodeBounds, laneIndexBySource);
+      default -> {
+        gc.setLineStyle(ELineStyle.DOT);
+        ModelGraphConnectionGeometry.drawConnectionCenterLine(gc, fromBounds, toBounds);
+      }
+    }
+  }
+
+  private void drawOrthogonalEdgeGeometry(
+      ExecutionMapEdge edge,
+      Bounds fromBounds,
+      Bounds toBounds,
+      boolean flowEdge,
+      List<Bounds> nodeBounds,
+      Map<String, Integer> laneIndexBySource) {
     if (flowEdge) {
+      gc.setLineStyle(ELineStyle.SOLID);
       ModelGraphConnectionGeometry.drawConnectionSpline(gc, fromBounds, toBounds);
       return;
     }
-
-    int laneIndex = laneIndexBySource.getOrDefault(edge.getFromNodeId(), 0);
-    laneIndexBySource.put(edge.getFromNodeId(), laneIndex + 1);
-    List<Bounds> obstacles = ExecutionMapEdgeRouter.obstaclesForEdge(nodeBounds, fromBounds, toBounds);
+    gc.setLineStyle(ELineStyle.DASH);
+    int laneIndex =
+        laneIndexBySource != null
+            ? laneIndexBySource.getOrDefault(edge.getFromNodeId(), 0)
+            : 0;
+    if (laneIndexBySource != null) {
+      laneIndexBySource.put(edge.getFromNodeId(), laneIndex + 1);
+    }
+    List<Bounds> obstacles =
+        nodeBounds != null
+            ? ExecutionMapEdgeRouter.obstaclesForEdge(nodeBounds, fromBounds, toBounds)
+            : List.of();
     int[] polyline =
         ExecutionMapEdgeRouter.routeOrthogonal(
             new ExecutionMapEdgeRouter.RouteRequest(
@@ -497,29 +520,18 @@ public class ExecutionMapPainter extends BasePainter {
                 laneIndex,
                 toBounds.x() >= fromBounds.x() + fromBounds.width() / 2));
     ExecutionMapEdgeRouter.drawRoutedEdge(gc, polyline);
-    drawEdgeLabel(edge, polyline);
   }
 
-  private void drawEdgeLabel(ExecutionMapEdge edge, int[] polyline) {
-    if (Utils.isEmpty(edge.getLabel()) || polyline == null || polyline.length < 4) {
-      return;
-    }
-    if (edge.getEdgeType() == ExecutionMapEdgeType.REFERENCES) {
+  private void drawCenterEdgeLabel(ExecutionMapEdge edge, Bounds fromBounds, Bounds toBounds) {
+    if (Utils.isEmpty(edge.getLabel()) || edge.getEdgeType() == ExecutionMapEdgeType.REFERENCES) {
       return;
     }
     String label = edge.getLabel();
     if (label.length() > 28) {
       label = label.substring(0, 25) + "...";
     }
-    int labelX;
-    int labelY;
-    if (polyline.length >= 8) {
-      labelX = polyline[4] + 4;
-      labelY = (polyline[5] + polyline[3]) / 2;
-    } else {
-      labelX = (polyline[0] + polyline[polyline.length - 2]) / 2;
-      labelY = (polyline[1] + polyline[polyline.length - 1]) / 2;
-    }
+    int labelX = (fromBounds.centerX() + toBounds.centerX()) / 2;
+    int labelY = (fromBounds.centerY() + toBounds.centerY()) / 2;
     gc.setFont(EFont.SMALL);
     gc.setForeground(EColor.DARKGRAY);
     gc.drawText(label, labelX, labelY, true);

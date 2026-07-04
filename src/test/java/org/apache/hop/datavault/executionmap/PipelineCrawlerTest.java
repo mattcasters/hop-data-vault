@@ -75,7 +75,10 @@ class PipelineCrawlerTest {
     ExecutionMapDocument document = new ExecutionMapDocument();
     ExecutionMapContext context =
         new ExecutionMapContext(
-            document, new Variables(), null, CrawlOptions.builder().build());
+            document,
+            new Variables(),
+            null,
+            CrawlOptions.builder().includePipelineTransforms(true).build());
 
     PipelineMeta pipelineMeta = buildSamplePipeline();
 

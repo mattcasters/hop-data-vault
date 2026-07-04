@@ -104,6 +104,34 @@ public final class DmSurrogateKeySupport {
     return resolveStrategy(dimension) == DmSurrogateKeyStrategy.USE_SOURCE_FIELD;
   }
 
+  public static boolean supportsExplicitSkipDimensionLookup(DmDimension dimension) {
+    if (dimension == null) {
+      return false;
+    }
+    DmSurrogateKeyStrategy strategy = resolveStrategy(dimension);
+    if (strategy == DmSurrogateKeyStrategy.USE_SOURCE_FIELD) {
+      return true;
+    }
+    return isNaturalKeyOnlyDimension(dimension);
+  }
+
+  public static boolean isNaturalKeyOnlyDimension(DmDimension dimension) {
+    if (dimension == null) {
+      return false;
+    }
+    if (resolveStrategy(dimension) != DmSurrogateKeyStrategy.NONE) {
+      return false;
+    }
+    if (dimension.getScdTypeOrDefault() != DmDimensionScdType.TYPE1) {
+      return false;
+    }
+    if (dimensionUsesHybridAttributes(dimension)) {
+      return false;
+    }
+    return dimension.getNaturalKeysOrEmpty().stream()
+        .anyMatch(key -> key != null && !Utils.isEmpty(key.getFieldName()));
+  }
+
   public static boolean shouldSkipFactDimensionLookup(
       DmFactDimensionRole role,
       DmDimension dimension,
@@ -118,7 +146,8 @@ public final class DmSurrogateKeySupport {
     if (role.isSkipDimensionLookup()) {
       return true;
     }
-    return autoDetectSurrogateKeyPassthrough(role, dimension, config, variables);
+    return autoDetectSurrogateKeyPassthrough(role, dimension, config, variables)
+        || autoDetectNaturalKeyPassthrough(role, dimension, config, variables);
   }
 
   public static boolean autoDetectSurrogateKeyPassthrough(
@@ -137,6 +166,29 @@ public final class DmSurrogateKeySupport {
     }
     String sourceField = resolveFactRoleSourceField(role, dimension, variables);
     return !Utils.isEmpty(sourceField) && sourceField.equals(surrogateSource);
+  }
+
+  public static boolean autoDetectNaturalKeyPassthrough(
+      DmFactDimensionRole role,
+      DmDimension dimension,
+      DimensionalConfiguration config,
+      IVariables variables) {
+    if (!isNaturalKeyOnlyDimension(dimension)) {
+      return false;
+    }
+    String lookupKey = DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, variables);
+    if (Utils.isEmpty(lookupKey)) {
+      return false;
+    }
+    String sourceField = resolveFactRoleSourceField(role, dimension, variables);
+    if (Utils.isEmpty(sourceField) || !sourceField.equals(lookupKey)) {
+      return false;
+    }
+    String fkColumn = resolve(role.getForeignKeyColumn(), variables);
+    if (Utils.isEmpty(fkColumn)) {
+      fkColumn = lookupKey;
+    }
+    return fkColumn.equals(lookupKey);
   }
 
   public static String resolveFactRoleSourceField(

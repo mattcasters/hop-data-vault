@@ -1,5 +1,5 @@
 {
-  "namespace" : "hop/project/sources",
+  "namespace" : "hop/integration-tests/sources",
   "name" : "CRM-load-end-date",
   "type" : "DV_SOURCE",
   "description" : "Customer source for load end date satellite test case",

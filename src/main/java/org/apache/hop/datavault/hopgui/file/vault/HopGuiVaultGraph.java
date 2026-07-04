@@ -83,6 +83,7 @@ import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
 import org.apache.hop.datavault.metadata.DvUpdateExecutionSupport;
+import org.apache.hop.datavault.hopgui.ModelGeneratedArtifactOpenSupport;
 import org.apache.hop.datavault.hopgui.ModelTableLayoutPreviewSupport;
 import org.apache.hop.datavault.hopgui.ModelUpdateActionAuditSupport;
 import org.apache.hop.datavault.hopgui.ModelUpdateWorkflowClipboardSupport;
@@ -906,7 +907,8 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
   private void openAndRunDataVaultUpdateWorkflow(ActionDataVaultUpdate updateAction)
       throws HopException {
     WorkflowMeta workflowMeta = buildDataVaultUpdateWorkflow(updateAction);
-    IHopFileTypeHandler handler = HopGui.getExplorerPerspective().addWorkflow(workflowMeta);
+    IHopFileTypeHandler handler =
+        ModelGeneratedArtifactOpenSupport.openGeneratedWorkflow(workflowMeta);
     if (handler instanceof HopGuiWorkflowGraph workflowGraph) {
       workflowGraph.workflowRunDelegate.executeWorkflow(
           workflowGraph.getVariables(), workflowMeta, null);
@@ -1088,7 +1090,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       WorkflowMeta masterWorkflow =
           DvUpdateWorkflowSupport.buildMasterWorkflow(
               descriptors, config, debugVariables, "local", model.getName());
-      HopGui.getExplorerPerspective().addWorkflow(masterWorkflow);
+      ModelGeneratedArtifactOpenSupport.openGeneratedWorkflow(masterWorkflow);
     } catch (Exception e) {
       new ErrorDialog(
           hopGui.getShell(),
@@ -1157,14 +1159,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
 
   private void openReloadedPipeline(PipelineMeta pipelineMeta, IVariables debugVariables)
       throws Exception {
-    // Serialize to XML and back before opening.
-    // This ensures the transforms are loaded via the Hop plugin registry / proper classloaders
-    // (instead of direct compile-time classes) which prevents class loading issues when
-    // opening e.g. the Table Input transform dialog in the generated pipeline.
-    String xml = pipelineMeta.getXml(debugVariables);
-    Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
-    PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
-    HopGui.getExplorerPerspective().addPipeline(reloaded);
+    ModelGeneratedArtifactOpenSupport.openGeneratedPipeline(hopGui, pipelineMeta, debugVariables);
   }
 
   /**

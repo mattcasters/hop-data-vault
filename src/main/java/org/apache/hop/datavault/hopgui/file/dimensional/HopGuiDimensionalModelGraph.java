@@ -59,6 +59,7 @@ import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
+import org.apache.hop.datavault.hopgui.ModelGeneratedArtifactOpenSupport;
 import org.apache.hop.datavault.hopgui.ModelTableLayoutPreviewSupport;
 import org.apache.hop.datavault.hopgui.ModelUpdateActionAuditSupport;
 import org.apache.hop.datavault.hopgui.ModelUpdateWorkflowClipboardSupport;
@@ -347,9 +348,11 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     }
     byte[] beforeChange = captureUndoSnapshot();
     boolean accepted =
-        new HopGuiDmTableDialog(
-                getShell(), table, model, variables, hopGui.getMetadataProvider())
-            .open();
+        table instanceof DmRangeDimension rangeDimension
+            ? new HopGuiDmRangeDimensionDialog(getShell(), rangeDimension, variables).open()
+            : new HopGuiDmTableDialog(
+                    getShell(), table, model, variables, hopGui.getMetadataProvider())
+                .open();
     if (accepted) {
       commitDialogUndo(beforeChange);
       setChanged();
@@ -1616,10 +1619,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
         if (pipelineMeta == null) {
           continue;
         }
-        String xml = pipelineMeta.getXml(debugVariables);
-        Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
-        PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
-        HopGui.getExplorerPerspective().addPipeline(reloaded);
+        ModelGeneratedArtifactOpenSupport.openGeneratedPipeline(hopGui, pipelineMeta, debugVariables);
       }
     } catch (Exception e) {
       new ErrorDialog(
@@ -1685,7 +1685,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       WorkflowMeta masterWorkflow =
           DvUpdateWorkflowSupport.buildMasterWorkflow(
               descriptors, config, debugVariables, "local", model.getName());
-      HopGui.getExplorerPerspective().addWorkflow(masterWorkflow);
+      ModelGeneratedArtifactOpenSupport.openGeneratedWorkflow(masterWorkflow);
     } catch (Exception e) {
       new ErrorDialog(
           hopGui.getShell(),
@@ -1697,10 +1697,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
 
   private void openReloadedPipeline(PipelineMeta pipelineMeta, IVariables debugVariables)
       throws HopException {
-    String xml = pipelineMeta.getXml(debugVariables);
-    Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
-    PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
-    HopGui.getExplorerPerspective().addPipeline(reloaded);
+    ModelGeneratedArtifactOpenSupport.openGeneratedPipeline(hopGui, pipelineMeta, debugVariables);
   }
 
   private void showCheckResultsDialog(List<ICheckResult> remarks) {

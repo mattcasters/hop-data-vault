@@ -1,0 +1,31 @@
+{
+  "namespace" : "hop/retail-example/dimensional/retail-f-inventory",
+  "name" : "qty_class",
+  "type" : "DIM_TABLE",
+  "description" : "",
+  "rowMetaXml" : "<row-meta></row-meta>",
+  "origin" : {
+    "modelType" : "DIMENSIONAL_MODEL",
+    "modelName" : "retail-f-inventory",
+    "modelFilename" : "/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-f-inventory.hdm",
+    "modelElementName" : "qty_class",
+    "hopProject" : "retail-example",
+    "createdAt" : 1783115539892,
+    "updatedAt" : 1783167400950,
+    "lastDiscoveredAt" : null,
+    "updatedBy" : null,
+    "lastWorkflow" : "retail-f-inventory",
+    "lastPipeline" : null
+  },
+  "physicalTable" : {
+    "databaseMetaName" : "Vault",
+    "schemaName" : null,
+    "tableName" : "qty_class"
+  },
+  "physicalFile" : null,
+  "physicalIcebergTable" : null,
+  "tags" : [ "DM RANGE_DIMENSION", "retail-f-inventory" ],
+  "glossaryTerms" : [ ],
+  "customProperties" : { },
+  "dvSource" : null
+}

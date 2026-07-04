@@ -1,0 +1,20 @@
+{
+  "data_vault_model": [
+    "${PROJECT_HOME}/models/retail-360.hdv"
+  ],
+  "virtualPath": "",
+  "detailedDataTypeChecking": true,
+  "name": "retail-sources",
+  "previewRowLimit": 1000,
+  "dataCatalogConnection": "local-catalog",
+  "description": "",
+  "business_vault_model": [
+    "${PROJECT_HOME}/models/retail-360.hbv"
+  ],
+  "dimensional_model": [
+    "${PROJECT_HOME}/models/retail-conformed-dims.hdm",
+    "${PROJECT_HOME}/models/retail-f-inventory.hdm",
+    "${PROJECT_HOME}/models/retail-f-order-lines.hdm",
+    "${PROJECT_HOME}/models/retail-f-orders.hdm"
+  ]
+}

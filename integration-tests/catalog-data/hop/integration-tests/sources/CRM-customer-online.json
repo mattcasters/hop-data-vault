@@ -1,5 +1,5 @@
 {
-  "namespace" : "hop/project/sources",
+  "namespace" : "hop/integration-tests/sources",
   "name" : "CRM-customer-online",
   "type" : "DV_SOURCE",
   "description" : "Online CRM customer feed for multi-source hub test",

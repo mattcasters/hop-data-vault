@@ -27,6 +27,12 @@ import org.junit.jupiter.api.Test;
 class ExecutionMapNodeColorsTest {
 
   @Test
+  void dataVaultModelNodesUseDarkCustomFill() {
+    assertNotNull(ExecutionMapNodeColors.fillRgb(ExecutionMapNodeType.DATA_VAULT_MODEL));
+    assertNotNull(ExecutionMapNodeColors.fillRgb(ExecutionMapNodeType.DV_UPDATE));
+  }
+
+  @Test
   void dimensionalModelNodesUseDarkCustomFill() {
     assertNotNull(ExecutionMapNodeColors.fillRgb(ExecutionMapNodeType.DIMENSIONAL_MODEL));
     assertNotNull(ExecutionMapNodeColors.fillRgb(ExecutionMapNodeType.DM_UPDATE));
@@ -40,7 +46,14 @@ class ExecutionMapNodeColorsTest {
   }
 
   @Test
-  void workflowNodesUseEnumFillOnly() {
-    assertNull(ExecutionMapNodeColors.fillRgb(ExecutionMapNodeType.WORKFLOW));
+  void workflowNodesUseDarkCustomFill() {
+    assertNotNull(ExecutionMapNodeColors.fillRgb(ExecutionMapNodeType.WORKFLOW));
+    assertNotNull(ExecutionMapNodeColors.fillRgb(ExecutionMapNodeType.ROOT_WORKFLOW));
+  }
+
+  @Test
+  void pipelineNodesUseEnumFillOnly() {
+    assertNull(ExecutionMapNodeColors.fillRgb(ExecutionMapNodeType.PIPELINE));
+    assertNull(ExecutionMapNodeColors.fillRgb(ExecutionMapNodeType.ROOT_PIPELINE));
   }
 }

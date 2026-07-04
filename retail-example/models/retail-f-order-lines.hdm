@@ -1,5 +1,5 @@
 <dimensional-model>
-  <filename>${PROJECT_HOME}/models/retail-f-order-lines.hdm</filename>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-f-order-lines.hdm</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description/>
   <configuration>
@@ -46,16 +46,16 @@
       <dimension_roles>
         <dimension_role>
           <dimensionTableName>d_order</dimensionTableName>
-          <foreignKeyColumn>order_hk</foreignKeyColumn>
+          <foreignKeyColumn>order_id</foreignKeyColumn>
           <sourceFieldName>order_id</sourceFieldName>
           <truncateToDateKey>N</truncateToDateKey>
-          <preloadLookupCache>Y</preloadLookupCache>
-          <skipDimensionLookup>N</skipDimensionLookup>
+          <preloadLookupCache>N</preloadLookupCache>
+          <skipDimensionLookup>Y</skipDimensionLookup>
           <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
         <dimension_role>
           <dimensionTableName>d_product</dimensionTableName>
-          <foreignKeyColumn>product_hk</foreignKeyColumn>
+          <foreignKeyColumn>product_id</foreignKeyColumn>
           <sourceFieldName>product_id</sourceFieldName>
           <truncateToDateKey>N</truncateToDateKey>
           <preloadLookupCache>Y</preloadLookupCache>
@@ -152,8 +152,14 @@ JOIN   (
          WHERE  rn = 1
        ) slol ON lol.lnk_order_line_hk = slol.lnk_order_line_hk;
 </sourceSql>
+      <sourcePipelineFile/>
+      <sourcePipelineTransform/>
+      <sourcePipelineRunConfiguration/>
+      <sourceCatalogConnection/>
+      <sourceRecordNamespace/>
+      <sourceRecordName/>
       <dimensionLookupDateField>order_date</dimensionLookupDateField>
-      <xloc>384</xloc>
+      <xloc>400</xloc>
       <yloc>256</yloc>
       <name>f_order_lines</name>
     </table>

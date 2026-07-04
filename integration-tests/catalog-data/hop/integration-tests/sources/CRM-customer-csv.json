@@ -1,5 +1,5 @@
 {
-  "namespace" : "hop/project/sources",
+  "namespace" : "hop/integration-tests/sources",
   "name" : "CRM-customer-csv",
   "type" : "DV_SOURCE",
   "description" : "Customer CSV source for csv-basic integration tests",

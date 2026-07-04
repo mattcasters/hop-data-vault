@@ -33,6 +33,7 @@ import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
 import org.apache.hop.catalog.model.RecordDefinitionType;
+import org.apache.hop.catalog.model.RecordDefinitionValidationAcknowledgement;
 import org.apache.hop.catalog.model.RecordOrigin;
 import org.apache.hop.catalog.util.RowMetaCatalogSupport;
 import org.apache.hop.core.exception.HopException;
@@ -56,6 +57,8 @@ class RecordDefinitionDocument {
   private List<String> tags = new ArrayList<>();
   private List<String> glossaryTerms = new ArrayList<>();
   private Map<String, CatalogCustomProperty> customProperties = new HashMap<>();
+  private List<RecordDefinitionValidationAcknowledgement> validationAcknowledgements =
+      new ArrayList<>();
   private DvSourceRecord dvSource;
 
   static RecordDefinitionDocument from(RecordDefinition definition) throws HopException {
@@ -81,6 +84,9 @@ class RecordDefinitionDocument {
       doc.customProperties = new HashMap<>(definition.getCustomProperties());
     }
     doc.dvSource = definition.getDvSource();
+    if (definition.getValidationAcknowledgements() != null) {
+      doc.validationAcknowledgements = new ArrayList<>(definition.getValidationAcknowledgements());
+    }
     return doc;
   }
 
@@ -100,6 +106,10 @@ class RecordDefinitionDocument {
     definition.setCustomProperties(
         customProperties != null ? new HashMap<>(customProperties) : new HashMap<>());
     definition.setDvSource(dvSource);
+    definition.setValidationAcknowledgements(
+        validationAcknowledgements != null
+            ? new ArrayList<>(validationAcknowledgements)
+            : new ArrayList<>());
     return definition;
   }
 

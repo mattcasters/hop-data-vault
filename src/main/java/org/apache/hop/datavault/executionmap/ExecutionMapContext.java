@@ -156,6 +156,22 @@ public final class ExecutionMapContext {
     return edge;
   }
 
+  public ExecutionMapEdge addEdgeIfAbsent(
+      ExecutionMapEdgeType edgeType, String fromNodeId, String toNodeId, String label) {
+    if (Utils.isEmpty(fromNodeId) || Utils.isEmpty(toNodeId)) {
+      return null;
+    }
+    for (ExecutionMapEdge edge : document.getEdgesOrEmpty()) {
+      if (edge == null || edge.getEdgeType() != edgeType) {
+        continue;
+      }
+      if (fromNodeId.equals(edge.getFromNodeId()) && toNodeId.equals(edge.getToNodeId())) {
+        return edge;
+      }
+    }
+    return addEdge(edgeType, fromNodeId, toNodeId, label);
+  }
+
   public String captureSnapshot(
       ExecutionMapArtifactType artifactType, String sourcePath, String xml) {
     if (!options.isCaptureSnapshots() || Utils.isEmpty(xml)) {

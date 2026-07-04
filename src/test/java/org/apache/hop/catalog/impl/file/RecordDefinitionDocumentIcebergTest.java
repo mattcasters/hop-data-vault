@@ -42,6 +42,7 @@ class RecordDefinitionDocumentIcebergTest {
     RecordDefinitionDocument doc =
         MAPPER.readValue(Files.readString(catalogJson), RecordDefinitionDocument.class);
 
+    assertEquals("hop/integration-tests/sources", doc.getNamespace());
     assertEquals("CRM-customer-iceberg", doc.getName());
     assertEquals("ICEBERG", doc.getDvSource().getSourceType());
     assertNotNull(doc.getPhysicalIcebergTable());

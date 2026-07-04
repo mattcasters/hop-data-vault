@@ -1,0 +1,120 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package org.apache.hop.catalog.discovery;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.apache.hop.core.row.IValueMeta;
+import org.apache.hop.datavault.metadata.SourceField;
+import org.junit.jupiter.api.Test;
+
+class SourceFieldMetadataEquivalenceSupportTest {
+
+  @Test
+  void timestampLengthDifferencesAreIgnored() {
+    SourceField stored = field("load_date", "Timestamp", IValueMeta.TYPE_TIMESTAMP);
+    stored.setLength("");
+    SourceField discovered = field("load_date", "Timestamp", IValueMeta.TYPE_TIMESTAMP);
+    discovered.setLength("6");
+
+    assertTrue(SourceFieldMetadataEquivalenceSupport.dimensionsEquivalent(stored, discovered));
+    assertNull(SourceFieldMetadataEquivalenceSupport.describeDimensionDifference(stored, discovered));
+  }
+
+  @Test
+  void dateLengthDifferencesAreIgnored() {
+    SourceField stored = field("order_date", "Date", IValueMeta.TYPE_DATE);
+    stored.setLength("10");
+    SourceField discovered = field("order_date", "Date", IValueMeta.TYPE_DATE);
+    discovered.setLength("");
+
+    assertTrue(SourceFieldMetadataEquivalenceSupport.dimensionsEquivalent(stored, discovered));
+  }
+
+  @Test
+  void integerPrecisionZeroAndEmptyAreEquivalent() {
+    SourceField stored = field("customer_id", "Integer", IValueMeta.TYPE_INTEGER);
+    stored.setLength("9");
+    stored.setPrecision("0");
+    SourceField discovered = field("customer_id", "Integer", IValueMeta.TYPE_INTEGER);
+    discovered.setLength("9");
+    discovered.setPrecision("");
+
+    assertTrue(SourceFieldMetadataEquivalenceSupport.dimensionsEquivalent(stored, discovered));
+  }
+
+  @Test
+  void decimalNumberDimensionsMatchWhenHopNormalized() {
+    SourceField stored = field("unit_price", "Number", IValueMeta.TYPE_NUMBER);
+    stored.setLength("9");
+    stored.setPrecision("2");
+    SourceField discovered = field("unit_price", "Number", IValueMeta.TYPE_NUMBER);
+    discovered.setLength("9");
+    discovered.setPrecision("2");
+
+    assertTrue(SourceFieldMetadataEquivalenceSupport.dimensionsEquivalent(stored, discovered));
+  }
+
+  @Test
+  void decimalNumberDimensionsMatchWhenOneSideUsesJdbcTotalDigits() {
+    SourceField stored = field("unit_price", "Number", IValueMeta.TYPE_NUMBER);
+    stored.setLength("11");
+    stored.setPrecision("2");
+    SourceField discovered = field("unit_price", "Number", IValueMeta.TYPE_NUMBER);
+    discovered.setLength("9");
+    discovered.setPrecision("2");
+
+    assertTrue(SourceFieldMetadataEquivalenceSupport.dimensionsEquivalent(stored, discovered));
+  }
+
+  @Test
+  void floatingNumberUnsetDimensionsAreEquivalent() {
+    SourceField stored = field("ratio", "Double", IValueMeta.TYPE_NUMBER);
+    stored.setLength("");
+    stored.setPrecision("");
+    SourceField discovered = field("ratio", "Double", IValueMeta.TYPE_NUMBER);
+    discovered.setLength("-1");
+    discovered.setPrecision("0");
+
+    assertTrue(SourceFieldMetadataEquivalenceSupport.dimensionsEquivalent(stored, discovered));
+  }
+
+  @Test
+  void stringLengthDifferencesAreReported() {
+    SourceField stored = field("segment", "String", IValueMeta.TYPE_STRING);
+    stored.setLength("50");
+    SourceField discovered = field("segment", "String", IValueMeta.TYPE_STRING);
+    discovered.setLength("100");
+
+    assertFalse(SourceFieldMetadataEquivalenceSupport.dimensionsEquivalent(stored, discovered));
+    assertTrue(
+        SourceFieldMetadataEquivalenceSupport
+            .describeDimensionDifference(stored, discovered)
+            .contains("length"));
+  }
+
+  private static SourceField field(String name, String sourceDataType, int hopType) {
+    SourceField field = new SourceField(name);
+    field.setSourceDataType(sourceDataType);
+    field.setHopType(hopType);
+    return field;
+  }
+}

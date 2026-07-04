@@ -11,7 +11,7 @@
     "modelElementName" : "lnk_customer_product",
     "hopProject" : "integration-tests",
     "createdAt" : 1782887176163,
-    "updatedAt" : 1782887382369,
+    "updatedAt" : 1783193112399,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "update link-satellite.hdv",
@@ -32,5 +32,6 @@
       "value" : "x_record_source"
     }
   },
+  "validationAcknowledgements" : [ ],
   "dvSource" : null
 }

@@ -105,6 +105,15 @@ public final class ExecutionMapService {
     return new RefreshResult(document, diff, crawlResult.getWarnings());
   }
 
+  public static String defaultLineageOutputPath(String hemPath) {
+    if (Utils.isEmpty(hemPath)) {
+      return "lineage.json";
+    }
+    int dot = hemPath.lastIndexOf('.');
+    String stem = dot > 0 ? hemPath.substring(0, dot) : hemPath;
+    return stem + "-lineage.json";
+  }
+
   public static void exportLineage(
       ExecutionMapDocument document, String outputPath, IVariables variables)
       throws HopException {

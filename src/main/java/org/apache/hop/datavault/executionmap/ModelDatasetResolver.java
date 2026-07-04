@@ -222,7 +222,7 @@ public final class ModelDatasetResolver {
       }
     }
     if (!Utils.isEmpty(datasetNodeId)) {
-      context.addEdge(ExecutionMapEdgeType.CONTAINS, modelNodeId, datasetNodeId, edgeLabel);
+      DatasetNodeSupport.linkDatasetToModel(context, modelNodeId, datasetNodeId, edgeLabel);
     }
   }
 
@@ -305,7 +305,7 @@ public final class ModelDatasetResolver {
             modelNodeId,
             catalogConnectionName);
     if (!Utils.isEmpty(datasetNodeId)) {
-      context.addEdge(ExecutionMapEdgeType.CONTAINS, modelNodeId, datasetNodeId, tableLabel);
+      DatasetNodeSupport.linkDatasetToModel(context, modelNodeId, datasetNodeId, tableLabel);
     }
   }
 }

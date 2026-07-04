@@ -20,7 +20,7 @@
     <catalog_connection>local-catalog</catalog_connection>
     <record_definition_type>DV_SOURCE</record_definition_type>
     <select_from_input>N</select_from_input>
-    <namespace_value>hop/project/sources</namespace_value>
+    <namespace_value>hop/integration-tests/sources</namespace_value>
     <name_value>TEST-missing-file</name_value>
     <write_to_catalog>Y</write_to_catalog>
     <fail_if_no_fields>Y</fail_if_no_fields>

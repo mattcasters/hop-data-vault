@@ -1,5 +1,5 @@
 <dimensional-model>
-  <filename>${PROJECT_HOME}/models/retail-f-inventory.hdm</filename>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-f-inventory.hdm</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description/>
   <configuration>
@@ -44,8 +44,8 @@
         </dimension_role>
         <dimension_role>
           <dimensionTableName>d_warehouse</dimensionTableName>
-          <foreignKeyColumn>warehouse_hk</foreignKeyColumn>
-          <sourceFieldName>warehouse_hk</sourceFieldName>
+          <foreignKeyColumn>warehouse_id</foreignKeyColumn>
+          <sourceFieldName>warehouse_id</sourceFieldName>
           <truncateToDateKey>N</truncateToDateKey>
           <preloadLookupCache>N</preloadLookupCache>
           <skipDimensionLookup>Y</skipDimensionLookup>
@@ -54,11 +54,11 @@
         <dimension_role>
           <dimensionTableName>d_product</dimensionTableName>
           <foreignKeyColumn>product_hk</foreignKeyColumn>
-          <sourceFieldName>product_id</sourceFieldName>
+          <sourceFieldName>product_hk</sourceFieldName>
           <truncateToDateKey>N</truncateToDateKey>
           <preloadLookupCache>Y</preloadLookupCache>
-          <skipDimensionLookup>N</skipDimensionLookup>
-          <forceDimensionLookup>Y</forceDimensionLookup>
+          <skipDimensionLookup>Y</skipDimensionLookup>
+          <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
       </dimension_roles>
       <measures>
@@ -72,7 +72,13 @@
         </measure>
       </measures>
       <degenerate_dimensions/>
-      <range_dimension_roles/>
+      <range_dimension_roles>
+        <range_dimension_role>
+          <rangeDimensionTableName>qty_class</rangeDimensionTableName>
+          <sourceFieldName>stock_qty</sourceFieldName>
+          <targetFieldName>qty_class</targetFieldName>
+        </range_dimension_role>
+      </range_dimension_roles>
       <junk_dimension_roles/>
       <tableName>f_pit_inventory</tableName>
       <description/>
@@ -103,8 +109,8 @@ JOIN hub_product hp ON lwp.product_hk = hp.product_hk </sourceSql>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
       <sourceType>SQL</sourceType>
-      <xloc>96</xloc>
-      <yloc>80</yloc>
+      <xloc>192</xloc>
+      <yloc>48</yloc>
       <name>d_warehouse</name>
     </table>
     <table>
@@ -114,7 +120,7 @@ JOIN hub_product hp ON lwp.product_hk = hp.product_hk </sourceSql>
       <description/>
       <tableType>DIMENSION_ALIAS</tableType>
       <sourceType>SQL</sourceType>
-      <xloc>560</xloc>
+      <xloc>528</xloc>
       <yloc>96</yloc>
       <name>d_status_date</name>
     </table>
@@ -126,8 +132,35 @@ JOIN hub_product hp ON lwp.product_hk = hp.product_hk </sourceSql>
       <tableType>DIMENSION_ALIAS</tableType>
       <sourceType>SQL</sourceType>
       <xloc>384</xloc>
-      <yloc>352</yloc>
+      <yloc>336</yloc>
       <name>d_product</name>
+    </table>
+    <table>
+      <fallBackLabel>unknown</fallBackLabel>
+      <bands>
+        <band>
+          <lowerBound>0</lowerBound>
+          <upperBound>500</upperBound>
+          <label>low</label>
+        </band>
+        <band>
+          <lowerBound>500</lowerBound>
+          <upperBound>3500</upperBound>
+          <label>medium</label>
+        </band>
+        <band>
+          <lowerBound>3500</lowerBound>
+          <upperBound>9999</upperBound>
+          <label>high</label>
+        </band>
+      </bands>
+      <tableName>qty_class</tableName>
+      <description/>
+      <tableType>RANGE_DIMENSION</tableType>
+      <sourceType>SQL</sourceType>
+      <xloc>80</xloc>
+      <yloc>256</yloc>
+      <name>qty_class</name>
     </table>
   </tables>
   <conformed_dimensions/>

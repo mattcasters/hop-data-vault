@@ -11,7 +11,7 @@
     "modelElementName" : "lnk_warehouse_product",
     "hopProject" : "retail-example",
     "createdAt" : 1783090351252,
-    "updatedAt" : 1783112977322,
+    "updatedAt" : 1783187711011,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "retail-360 initial DV",
@@ -32,5 +32,6 @@
       "value" : "x_record_source"
     }
   },
+  "validationAcknowledgements" : [ ],
   "dvSource" : null
 }

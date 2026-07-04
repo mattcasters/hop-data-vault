@@ -123,7 +123,7 @@ def build_source(name: str, prefix: str, fields: list[tuple]) -> dict:
         dv_fields.append(entry)
 
     return {
-        "namespace": "hop/project/sources",
+        "namespace": "hop/integration-tests/sources",
         "name": name,
         "type": "DV_SOURCE",
         "description": f"Customer 360 CSV source for {prefix} satellite integration tests",

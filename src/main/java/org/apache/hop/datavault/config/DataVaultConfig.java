@@ -20,6 +20,7 @@ package org.apache.hop.datavault.config;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.hop.datavault.executionmap.ExecutionMapLineStyle;
 import org.apache.hop.datavault.layout.ElkLayout;
 
 @Getter
@@ -36,6 +37,7 @@ public class DataVaultConfig {
   private boolean suppressLocalCatalogOffer;
   private String defaultPipelineRunConfiguration;
   private String defaultWorkflowRunConfiguration;
+  private ExecutionMapLineStyle executionMapLineStyle = ExecutionMapLineStyle.DIRECT_CENTER;
 
   public DataVaultConfig() {
     drawingHashKeysInModel = true;
@@ -50,6 +52,7 @@ public class DataVaultConfig {
     setElkLayout(new ElkLayout(config.getElkLayout()));
     defaultPipelineRunConfiguration = config.defaultPipelineRunConfiguration;
     defaultWorkflowRunConfiguration = config.defaultWorkflowRunConfiguration;
+    setExecutionMapLineStyle(config.getExecutionMapLineStyleOrDefault());
   }
 
   public DmDefaultFieldNames getDimensionalDefaultFieldNames() {
@@ -80,5 +83,18 @@ public class DataVaultConfig {
 
   public void setElkLayout(ElkLayout elkLayout) {
     this.elkLayout = elkLayout != null ? elkLayout : ElkLayout.createDefault();
+  }
+
+  public ExecutionMapLineStyle getExecutionMapLineStyleOrDefault() {
+    return executionMapLineStyle != null
+        ? executionMapLineStyle
+        : ExecutionMapLineStyle.DIRECT_CENTER;
+  }
+
+  public void setExecutionMapLineStyle(ExecutionMapLineStyle executionMapLineStyle) {
+    this.executionMapLineStyle =
+        executionMapLineStyle != null
+            ? executionMapLineStyle
+            : ExecutionMapLineStyle.DIRECT_CENTER;
   }
 }

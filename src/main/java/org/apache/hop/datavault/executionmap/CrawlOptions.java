@@ -38,7 +38,7 @@ public class CrawlOptions {
 
   @Builder.Default private final boolean includeDatasetNodes = true;
 
-  @Builder.Default private final boolean includeWorkflowActions = true;
+  @Builder.Default private final boolean includeWorkflowActions = false;
 
-  @Builder.Default private final boolean includePipelineTransforms = true;
+  @Builder.Default private final boolean includePipelineTransforms = false;
 }

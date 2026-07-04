@@ -52,7 +52,7 @@ integration-tests/
 |------|---------|
 | `metadata/data-vault-configuration/` | Hash / naming / satellite strategy (`vault-config`, `load-end-date-config`) |
 | `metadata/data-catalog/` | Data catalog connections (`local-catalog` → `catalog-data/`, `vault-catalog` → `vault-catalog/`) |
-| `catalog-data/hop/integration-tests/sources/` | DV record sources (CRM feeds, field layouts, groups) — read by pipelines and DV Update |
+| `catalog-data/hop/integration-tests/sources/` | DV record sources (CRM feeds, field layouts, groups) under namespace `hop/integration-tests/sources` — read by pipelines and DV Update |
 | `vault-catalog/` | Runtime catalog output from Data Vault Update publish (gitignored) |
 
 **Two catalogs:** `local-catalog` holds stable, version-controlled DV source record definitions. Data Vault Update actions with **Update data catalog** enabled publish only target table snapshots (`hop/project/models/`) to `vault-catalog` so test runs do not dirty `catalog-data/` in git.

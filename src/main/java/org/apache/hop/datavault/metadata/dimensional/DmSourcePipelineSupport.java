@@ -31,6 +31,7 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.datavault.metadata.pipeline.HeadlessPipelineFieldSupport;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transforms.metainject.MetaInjectMeta;
@@ -118,7 +119,9 @@ public final class DmSourcePipelineSupport {
     }
 
     try {
-      IRowMeta rowMeta = pipelineMeta.getTransformFields(variables, transformName);
+      IRowMeta rowMeta =
+          HeadlessPipelineFieldSupport.resolveTransformFields(
+              pipelineMeta, variables, transformName);
       if (rowMeta == null || rowMeta.isEmpty()) {
         throw new HopException(
             BaseMessages.getString(

@@ -89,7 +89,7 @@
             <value>
               <name>constant</name>
               <type>String</type>
-              <text>hop/project/sources</text>
+              <text>hop/integration-tests/sources</text>
               <length>-1</length>
               <precision>-1</precision>
               <isnull>N</isnull>

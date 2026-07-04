@@ -50,7 +50,11 @@ class ExecutionMapCrawlerTest {
   void crawlRetailUpdateWorkflowDiscoversDvBvDmActions() throws Exception {
     Variables variables = retailVariables();
     CrawlOptions options =
-        CrawlOptions.builder().includeGeneratedPipelines(false).captureSnapshots(true).build();
+        CrawlOptions.builder()
+            .includeGeneratedPipelines(false)
+            .includeWorkflowActions(true)
+            .captureSnapshots(true)
+            .build();
 
     ExecutionMapCrawler.CrawlResult result =
         ExecutionMapCrawler.crawl(

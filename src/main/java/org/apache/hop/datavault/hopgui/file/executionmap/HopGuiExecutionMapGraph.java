@@ -44,7 +44,7 @@ import org.apache.hop.datavault.command.executionmap.ExecutionMapService;
 import org.apache.hop.datavault.command.svg.ExecutionMapExportScope;
 import org.apache.hop.datavault.command.svg.SvgExportService;
 import org.apache.hop.datavault.command.svg.SvgRenderOptions;
-import org.apache.hop.datavault.executionmap.CrawlOptions;
+import org.apache.hop.datavault.hopgui.executionmap.ExecutionMapGenerationDialog;
 import org.apache.hop.datavault.executionmap.ExecutionMapFocusContext;
 import org.apache.hop.datavault.executionmap.ExecutionMapViewSupport;
 
@@ -623,10 +623,19 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
           null);
       return;
     }
+    ExecutionMapGenerationDialog.Result generationOptions =
+        ExecutionMapGenerationDialog.open(
+            hopGui.getShell(), ExecutionMapGenerationDialog.Purpose.REFRESH);
+    if (generationOptions == null) {
+      return;
+    }
     try {
       ExecutionMapService.RefreshResult result =
           ExecutionMapService.refresh(
-              document, variables, hopGui.getMetadataProvider(), CrawlOptions.builder().build());
+              document,
+              variables,
+              hopGui.getMetadataProvider(),
+              generationOptions.getCrawlOptions());
       this.document = result.getDocument();
       syncMaximumFromDocument();
       ExecutionMapDiffViewer.showDiff(hopGui.getShell(), result.getDiff());

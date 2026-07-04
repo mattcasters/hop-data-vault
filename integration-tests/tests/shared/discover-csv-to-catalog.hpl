@@ -17,7 +17,7 @@
       </parameter>
       <parameter>
         <name>CATALOG_NAMESPACE</name>
-        <default_value>hop/project/sources</default_value>
+        <default_value>hop/integration-tests/sources</default_value>
       </parameter>
     </parameters>
     <name>discover-csv-to-catalog</name>

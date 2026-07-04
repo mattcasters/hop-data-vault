@@ -53,6 +53,7 @@ import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.command.svg.SvgExportService;
 import org.apache.hop.datavault.command.svg.SvgRenderOptions;
 import org.apache.hop.datavault.config.DataVaultConfigSingleton;
+import org.apache.hop.datavault.hopgui.ModelGeneratedArtifactOpenSupport;
 import org.apache.hop.datavault.hopgui.ModelTableLayoutPreviewSupport;
 import org.apache.hop.datavault.hopgui.ModelUpdateActionAuditSupport;
 import org.apache.hop.datavault.hopgui.ModelUpdateWorkflowClipboardSupport;
@@ -1546,10 +1547,8 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
 
       for (PipelineMeta pipelineMeta : pipelineMetas) {
         if (pipelineMeta != null) {
-          String xml = pipelineMeta.getXml(debugVariables);
-          Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
-          PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
-          HopGui.getExplorerPerspective().addPipeline(reloaded);
+          ModelGeneratedArtifactOpenSupport.openGeneratedPipeline(
+              hopGui, pipelineMeta, debugVariables);
         }
       }
 
@@ -1584,7 +1583,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       WorkflowMeta masterWorkflow =
           DvUpdateWorkflowSupport.buildMasterWorkflow(
               descriptors, config, debugVariables, "local", model.getName());
-      HopGui.getExplorerPerspective().addWorkflow(masterWorkflow);
+      ModelGeneratedArtifactOpenSupport.openGeneratedWorkflow(masterWorkflow);
     } catch (Exception e) {
       new ErrorDialog(
           hopGui.getShell(),
@@ -1613,10 +1612,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
           continue;
         }
 
-        String xml = pipelineMeta.getXml(debugVariables);
-        Node pipelineNode = XmlHandler.loadXmlString(xml, PipelineMeta.XML_TAG);
-        PipelineMeta reloaded = new PipelineMeta(pipelineNode, hopGui.getMetadataProvider());
-        HopGui.getExplorerPerspective().addPipeline(reloaded);
+        ModelGeneratedArtifactOpenSupport.openGeneratedPipeline(hopGui, pipelineMeta, debugVariables);
       }
     } catch (Exception e) {
       new ErrorDialog(
@@ -1853,6 +1849,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
 
   @Override
   protected void navigateToNoteLinkTable(String tableName) {
+    navigateToTable(tableName);
+  }
+
+  /** Selects and centers a business vault table or DV reference on this graph canvas. */
+  public void navigateToTable(String tableName) {
     if (model == null || Utils.isEmpty(tableName)) {
       return;
     }

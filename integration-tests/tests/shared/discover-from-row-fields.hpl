@@ -42,7 +42,7 @@
     </fields>
     <data>
       <line>
-        <item>hop/project/sources</item>
+        <item>hop/integration-tests/sources</item>
         <item>TEST-discover-row-csv</item>
         <item>${PROJECT_HOME}/files/csv-basic/customer_load1.csv</item>
       </line>

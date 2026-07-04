@@ -31,8 +31,6 @@ import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
 /** Lays out a focused parent node and its direct children in two columns. */
 public final class ExecutionMapTwoLevelLayout {
 
-  private static final int CHILD_VERTICAL_SPACING = 32;
-
   private ExecutionMapTwoLevelLayout() {}
 
   public static void layout(
@@ -48,6 +46,12 @@ public final class ExecutionMapTwoLevelLayout {
     }
     ExecutionMapNode parent = visible.get(0);
     List<ExecutionMapNode> children = new ArrayList<>(visible.subList(1, visible.size()));
+
+    if (DatasetNodeSupport.isModelNodeType(parent.getNodeType())) {
+      ExecutionMapModelPipelineLayout.layout(document, parent, children, cardMetricsById);
+      return;
+    }
+
     children.sort(nodeComparator());
 
     ElkLayout defaults = ElkLayout.createForExecutionMap();
@@ -66,11 +70,11 @@ public final class ExecutionMapTwoLevelLayout {
       childHeights.add(height);
       totalChildHeight += height;
       if (!children.isEmpty()) {
-        totalChildHeight += CHILD_VERTICAL_SPACING;
+        totalChildHeight += ExecutionMapMetrics.CHILD_VERTICAL_SPACING;
       }
     }
     if (!children.isEmpty()) {
-      totalChildHeight -= CHILD_VERTICAL_SPACING;
+      totalChildHeight -= ExecutionMapMetrics.CHILD_VERTICAL_SPACING;
     }
 
     int parentY = originY;
@@ -83,7 +87,7 @@ public final class ExecutionMapTwoLevelLayout {
     for (int i = 0; i < children.size(); i++) {
       ExecutionMapNode child = children.get(i);
       child.setLocation(childColumnX, childY);
-      childY += childHeights.get(i) + CHILD_VERTICAL_SPACING;
+      childY += childHeights.get(i) + ExecutionMapMetrics.CHILD_VERTICAL_SPACING;
     }
   }
 

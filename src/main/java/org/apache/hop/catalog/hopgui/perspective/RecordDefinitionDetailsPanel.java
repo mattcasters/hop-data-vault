@@ -35,6 +35,7 @@ import org.apache.hop.catalog.discovery.RecordDefinitionPhysicalRefSupport;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewRunner;
 import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewSupport;
+import org.apache.hop.catalog.hopgui.navigation.RecordOriginNavigationSupport;
 import org.apache.hop.catalog.model.RecordDefinitionType;
 import org.apache.hop.catalog.model.RecordOrigin;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
@@ -45,6 +46,7 @@ import org.apache.hop.datavault.metadata.DvSourceDeliveryType;
 import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.datavault.metadata.SourceFieldInputOptions;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.row.IRowMeta;
@@ -117,6 +119,7 @@ public class RecordDefinitionDetailsPanel {
   private Text wUpdatedBy;
   private Text wLastWorkflow;
   private Text wLastPipeline;
+  private Button wGoToOrigin;
   private Text wDatabaseMetaName;
   private Text wSchemaName;
   private Text wTableName;
@@ -309,11 +312,23 @@ public class RecordDefinitionDetailsPanel {
             wLastWorkflow);
     wLastPipeline = (Text) lastControl;
 
+    wGoToOrigin = new Button(wPropertiesComp, SWT.PUSH);
+    wGoToOrigin.setText(BaseMessages.getString(PKG, messageKey("Origin.GoToOrigin.Label")));
+    wGoToOrigin.setToolTipText(
+        BaseMessages.getString(PKG, messageKey("Origin.GoToOrigin.ToolTip")));
+    PropsUi.setLook(wGoToOrigin);
+    FormData fdGoToOrigin = new FormData();
+    fdGoToOrigin.right = new FormAttachment(100, 0);
+    fdGoToOrigin.top = new FormAttachment(wLastPipeline, margin);
+    wGoToOrigin.setLayoutData(fdGoToOrigin);
+    wGoToOrigin.addListener(SWT.Selection, e -> goToOrigin());
+    lastControl = wGoToOrigin;
+
     lastControl =
         addSectionLabel(
             wPropertiesComp,
             messageKey("PhysicalTable.Label"),
-            wLastPipeline,
+            lastControl,
             margin,
             physicalTableSectionControls);
     lastControl =
@@ -1062,6 +1077,7 @@ public class RecordDefinitionDetailsPanel {
       wUpdatedBy.setText(Const.NVL(origin.getUpdatedBy(), ""));
       wLastWorkflow.setText(Const.NVL(origin.getLastWorkflow(), ""));
       wLastPipeline.setText(Const.NVL(origin.getLastPipeline(), ""));
+      wGoToOrigin.setEnabled(RecordOriginNavigationSupport.canNavigateToOrigin(origin, variables));
     } else {
       clearOriginFields();
     }
@@ -1415,6 +1431,23 @@ public class RecordDefinitionDetailsPanel {
     wUpdatedBy.setText("");
     wLastWorkflow.setText("");
     wLastPipeline.setText("");
+    wGoToOrigin.setEnabled(false);
+  }
+
+  private void goToOrigin() {
+    if (definition == null || definition.getOrigin() == null) {
+      return;
+    }
+    try {
+      RecordOriginNavigationSupport.navigateToOrigin(
+          HopGui.getInstance(), definition.getOrigin(), variables);
+    } catch (Exception e) {
+      new ErrorDialog(
+          parent.getShell(),
+          BaseMessages.getString(PKG, messageKey("Origin.GoToOrigin.Error.Title")),
+          BaseMessages.getString(PKG, messageKey("Origin.GoToOrigin.Error.Message")),
+          e instanceof HopException ? e : new HopException(e));
+    }
   }
 
   private static String formatDate(Date date) {

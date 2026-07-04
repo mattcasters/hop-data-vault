@@ -83,14 +83,14 @@ public class ExecutionMapCommand implements Runnable, IHopCommand, IHasHopMetada
   private boolean noDatasets;
 
   @CommandLine.Option(
-      names = {"--no-actions"},
-      description = "Skip workflow action nodes (still crawl action references)")
-  private boolean noActions;
+      names = {"--include-actions"},
+      description = "Include workflow action nodes in the execution map (still crawl action references when omitted)")
+  private boolean includeActions;
 
   @CommandLine.Option(
-      names = {"--no-transforms"},
-      description = "Skip pipeline transform nodes (still crawl transform references)")
-  private boolean noTransforms;
+      names = {"--include-transforms"},
+      description = "Include pipeline transform nodes in the execution map (still crawl transform references when omitted)")
+  private boolean includeTransforms;
 
   @CommandLine.Option(
       names = {"--export-lineage"},
@@ -119,8 +119,8 @@ public class ExecutionMapCommand implements Runnable, IHopCommand, IHasHopMetada
           CrawlOptions.builder()
               .includeGeneratedPipelines(!noGeneratedPipelines)
               .includeDatasetNodes(!noDatasets)
-              .includeWorkflowActions(!noActions)
-              .includePipelineTransforms(!noTransforms)
+              .includeWorkflowActions(includeActions)
+              .includePipelineTransforms(includeTransforms)
               .build();
       GenerateResult result =
           ExecutionMapService.generate(file, output, variables, metadataProvider, options);
@@ -130,7 +130,7 @@ public class ExecutionMapCommand implements Runnable, IHopCommand, IHasHopMetada
               + " nodes to "
               + result.getOutputPath());
       if (exportLineage) {
-        String lineagePath = lineageOutputPath(result.getOutputPath());
+        String lineagePath = ExecutionMapService.defaultLineageOutputPath(result.getOutputPath());
         ExecutionMapService.exportLineage(result.getDocument(), lineagePath, variables);
         log.logBasic("Wrote OpenLineage JSON to " + lineagePath);
       }
@@ -158,12 +158,4 @@ public class ExecutionMapCommand implements Runnable, IHopCommand, IHasHopMetada
     }
   }
 
-  private static String lineageOutputPath(String hemPath) {
-    if (org.apache.hop.core.util.Utils.isEmpty(hemPath)) {
-      return "lineage.json";
-    }
-    int dot = hemPath.lastIndexOf('.');
-    String stem = dot > 0 ? hemPath.substring(0, dot) : hemPath;
-    return stem + "-lineage.json";
-  }
 }

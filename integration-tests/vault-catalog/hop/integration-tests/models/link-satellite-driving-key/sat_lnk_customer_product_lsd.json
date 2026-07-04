@@ -11,7 +11,7 @@
     "modelElementName" : "sat_lnk_customer_product_lsd",
     "hopProject" : "integration-tests",
     "createdAt" : 1782887178298,
-    "updatedAt" : 1782887384455,
+    "updatedAt" : 1783193114615,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "update link-satellite-driving-key.hdv",
@@ -32,5 +32,6 @@
       "value" : "x_record_source"
     }
   },
+  "validationAcknowledgements" : [ ],
   "dvSource" : null
 }

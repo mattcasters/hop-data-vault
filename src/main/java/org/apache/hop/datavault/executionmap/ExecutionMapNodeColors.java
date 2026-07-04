@@ -26,6 +26,12 @@ import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
 /** Node fill colors for execution map painting. */
 public final class ExecutionMapNodeColors {
 
+  /** Dark navy fill for workflow nodes; readable with light text. */
+  private static final int[] WORKFLOW_FILL_RGB = {30, 54, 88};
+
+  /** Dark forest green fill for DV model and update nodes; readable with light text. */
+  private static final int[] DV_FILL_RGB = {34, 58, 42};
+
   /** Dark amber fill for DM nodes; readable with light text in dark mode. */
   private static final int[] DM_FILL_RGB = {100, 62, 36};
 
@@ -42,6 +48,8 @@ public final class ExecutionMapNodeColors {
       return null;
     }
     return switch (nodeType) {
+      case ROOT_WORKFLOW, WORKFLOW -> WORKFLOW_FILL_RGB;
+      case DV_UPDATE, DATA_VAULT_MODEL -> DV_FILL_RGB;
       case DM_UPDATE, DM_PUBLISH, DIMENSIONAL_MODEL -> DM_FILL_RGB;
       case TARGET_DATASET -> TARGET_DATASET_FILL_RGB;
       case SOURCE_DATASET -> SOURCE_DATASET_FILL_RGB;

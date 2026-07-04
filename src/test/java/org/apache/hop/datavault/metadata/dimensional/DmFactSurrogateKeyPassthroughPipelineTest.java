@@ -168,9 +168,12 @@ class DmFactSurrogateKeyPassthroughPipelineTest {
   }
 
   @Test
-  void explicitSkipOnNonSourceFieldDimensionFailsValidation() throws HopException {
+  void explicitSkipOnAutoIncrementDimensionFailsValidation() throws HopException {
     DimensionalModel model = buildHashKeyPassthroughModel(true, false);
     DmFact fact = (DmFact) model.findTable("fact_inventory");
+    DmDimension customer = (DmDimension) model.findTable("dim_customer");
+    customer.setSurrogateKeyStrategy(DmSurrogateKeyStrategy.AUTO_INCREMENT);
+    customer.setSurrogateKeyField("customer_key");
     fact.getDimensionRoles().get(0).setSkipDimensionLookup(true);
 
     List<ICheckResult> remarks = new ArrayList<>();
@@ -184,6 +187,86 @@ class DmFactSurrogateKeyPassthroughPipelineTest {
                     remark.getType() == ICheckResult.TYPE_RESULT_ERROR
                         && remark.getText() != null
                         && remark.getText().contains("USE_SOURCE_FIELD")));
+  }
+
+  @Test
+  void explicitSkipOnNaturalKeyType1DimensionPassesValidation() throws HopException {
+    DimensionalModel model = buildNaturalKeyPassthroughModel(true);
+    DmFact fact = (DmFact) model.findTable("fact_inventory");
+
+    List<ICheckResult> remarks = new ArrayList<>();
+    DmValidationSupport.validateFact(
+        remarks, fact, model, new MemoryMetadataProvider(), new Variables());
+
+    assertFalse(
+        remarks.stream()
+            .anyMatch(
+                remark ->
+                    remark.getType() == ICheckResult.TYPE_RESULT_ERROR
+                        && remark.getText() != null
+                        && (remark.getText().contains("USE_SOURCE_FIELD")
+                            || remark.getText().contains("natural key"))));
+  }
+
+  @Test
+  void naturalKeyPassthroughSkipsWarehouseLookup() throws Exception {
+    DimensionalModel model = buildNaturalKeyPassthroughModel(true);
+    DmFact fact = (DmFact) model.findTable("fact_inventory");
+    IHopMetadataProvider metadataProvider = testMetadataProvider();
+
+    PipelineMeta pipelineMeta =
+        fact.generateUpdatePipelines(metadataProvider, new Variables(), model, new Date()).get(0);
+
+    assertTrue(
+        pipelineMeta.getTransforms().stream()
+            .anyMatch(t -> "map_surrogate_keys".equals(t.getName())));
+    assertFalse(
+        pipelineMeta.getTransforms().stream()
+            .anyMatch(t -> "lookup_Warehouse".equals(t.getName())));
+
+    SelectValuesMeta passthroughMeta =
+        (SelectValuesMeta)
+            pipelineMeta.getTransforms().stream()
+                .filter(t -> "map_surrogate_keys".equals(t.getName()))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+    assertEquals(1, passthroughMeta.getSelectOption().getSelectFields().size());
+    assertEquals(
+        "warehouse_id", passthroughMeta.getSelectOption().getSelectFields().get(0).getName());
+  }
+
+  private static DimensionalModel buildNaturalKeyPassthroughModel(boolean explicitWarehouseSkip) {
+    DimensionalModel model = new DimensionalModel();
+    model.getConfigurationOrDefault().setTargetDatabase("Vault");
+
+    DmDimension warehouse = new DmDimension();
+    warehouse.setName("dim_warehouse");
+    warehouse.setTableName("d_warehouse");
+    warehouse.setScdType(DmDimensionScdType.TYPE1);
+    warehouse.setSurrogateKeyStrategy(DmSurrogateKeyStrategy.NONE);
+    warehouse.getNaturalKeys().add(new DmNaturalKeyField("warehouse_id"));
+    warehouse.getAttributes().add(new DmDimensionAttribute("warehouse_name", DmScdUpdatePolicy.TYPE1));
+    warehouse
+        .getSourceOrDefault()
+        .setSourceSql("SELECT warehouse_id, warehouse_name FROM stg_warehouse");
+    model.getTables().add(warehouse);
+
+    DmFact fact = new DmFact();
+    fact.setName("fact_inventory");
+    fact.setTableName("f_inventory");
+    fact.getSourceOrDefault()
+        .setSourceSql("SELECT warehouse_id, stock_qty FROM stg_inventory");
+
+    DmFactDimensionRole warehouseRole =
+        new DmFactDimensionRole("dim_warehouse", "Warehouse", "warehouse_id");
+    warehouseRole.setSourceFieldName("warehouse_id");
+    warehouseRole.setSkipDimensionLookup(explicitWarehouseSkip);
+    fact.getDimensionRoles().add(warehouseRole);
+
+    fact.getMeasures().add(new DmFactMeasure("stock_qty", true));
+    model.getTables().add(fact);
+    return model;
   }
 
   private static DimensionalModel buildHashKeyPassthroughModel(

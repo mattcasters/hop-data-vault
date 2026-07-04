@@ -11,7 +11,7 @@
     "modelElementName" : "pit_customer",
     "hopProject" : "integration-tests",
     "createdAt" : 1782887173806,
-    "updatedAt" : 1782887380076,
+    "updatedAt" : 1783193109383,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "Business Vault Update",
@@ -27,5 +27,6 @@
   "tags" : [ "BV PIT", "vault1" ],
   "glossaryTerms" : [ ],
   "customProperties" : { },
+  "validationAcknowledgements" : [ ],
   "dvSource" : null
 }

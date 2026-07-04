@@ -49,9 +49,15 @@ class PipelineDatasetResolverTest {
         new ExecutionMapContext(
             document, new Variables(), null, CrawlOptions.builder().build());
 
+    ExecutionMapNode modelNode = new ExecutionMapNode();
+    modelNode.setNodeType(ExecutionMapNodeType.DATA_VAULT_MODEL);
+    modelNode.setName("retail-360");
+    context.addNode(modelNode);
+
     ExecutionMapNode pipelineNode = new ExecutionMapNode();
-    pipelineNode.setNodeType(ExecutionMapNodeType.PIPELINE);
+    pipelineNode.setNodeType(ExecutionMapNodeType.GENERATED_PIPELINE);
     pipelineNode.setName("load");
+    pipelineNode.setParentNodeId(modelNode.getId());
     context.addNode(pipelineNode);
 
     PipelineMeta pipelineMeta = new PipelineMeta();
@@ -102,7 +108,30 @@ class PipelineDatasetResolverTest {
             .filter(node -> node.getNodeType() == ExecutionMapNodeType.SOURCE_DATASET)
             .findFirst()
             .orElseThrow();
-    assertEquals("dataset://CRM/customer", sourceDataset.getPath());
+    assertEquals("dataset://CRM::customer", sourceDataset.getPath());
     assertEquals("DATABASE", sourceDataset.getProperty("datasetKind"));
+    assertEquals(modelNode.getId(), sourceDataset.getParentNodeId());
+
+    ExecutionMapNode targetDataset =
+        document.getNodesOrEmpty().stream()
+            .filter(node -> node.getNodeType() == ExecutionMapNodeType.TARGET_DATASET)
+            .findFirst()
+            .orElseThrow();
+    assertEquals(modelNode.getId(), targetDataset.getParentNodeId());
+
+    assertTrue(
+        document.getEdgesOrEmpty().stream()
+            .anyMatch(
+                edge ->
+                    edge.getEdgeType() == ExecutionMapEdgeType.CONTAINS
+                        && modelNode.getId().equals(edge.getFromNodeId())
+                        && sourceDataset.getId().equals(edge.getToNodeId())));
+    assertTrue(
+        document.getEdgesOrEmpty().stream()
+            .anyMatch(
+                edge ->
+                    edge.getEdgeType() == ExecutionMapEdgeType.CONTAINS
+                        && modelNode.getId().equals(edge.getFromNodeId())
+                        && targetDataset.getId().equals(edge.getToNodeId())));
   }
 }

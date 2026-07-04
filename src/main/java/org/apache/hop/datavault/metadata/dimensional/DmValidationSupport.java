@@ -1664,6 +1664,8 @@ public final class DmValidationSupport {
     if (role.isTruncateToDateKey()
         && (role.isSkipDimensionLookup()
             || DmSurrogateKeySupport.autoDetectSurrogateKeyPassthrough(
+                role, dimension, config, variables)
+            || DmSurrogateKeySupport.autoDetectNaturalKeyPassthrough(
                 role, dimension, config, variables))) {
       remarks.add(
           new CheckResult(
@@ -1676,7 +1678,7 @@ public final class DmValidationSupport {
               source));
     }
     if (role.isSkipDimensionLookup()
-        && DmSurrogateKeySupport.resolveStrategy(dimension) != DmSurrogateKeyStrategy.USE_SOURCE_FIELD) {
+        && !DmSurrogateKeySupport.supportsExplicitSkipDimensionLookup(dimension)) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_ERROR,
@@ -1686,6 +1688,27 @@ public final class DmValidationSupport {
                   tableName,
                   dimensionName),
               source));
+    }
+    if (role.isSkipDimensionLookup()
+        && DmSurrogateKeySupport.isNaturalKeyOnlyDimension(dimension)) {
+      String lookupKey =
+          DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, variables);
+      String fkColumn = resolve(role.getForeignKeyColumn(), variables);
+      if (!Utils.isEmpty(lookupKey)
+          && !Utils.isEmpty(fkColumn)
+          && !lookupKey.equals(fkColumn)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "DmValidationSupport.CheckResult.SkipLookupNaturalKeyFkMismatch",
+                    tableName,
+                    dimensionName,
+                    fkColumn,
+                    lookupKey),
+                source));
+      }
     }
     if (DmSurrogateKeySupport.shouldSkipFactDimensionLookup(role, dimension, config, variables)
         && Utils.isEmpty(DmSurrogateKeySupport.resolveFactRoleSourceField(role, dimension, variables))) {

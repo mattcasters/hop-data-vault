@@ -1,5 +1,5 @@
 {
-  "namespace" : "hop/project/sources",
+  "namespace" : "hop/integration-tests/sources",
   "name" : "CRM-customer-product-line",
   "type" : "DV_SOURCE",
   "description" : "Customer-product line source for multi-active link satellite test case",

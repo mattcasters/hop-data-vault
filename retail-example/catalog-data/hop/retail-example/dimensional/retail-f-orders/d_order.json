@@ -11,7 +11,7 @@
     "modelElementName" : "d_order",
     "hopProject" : "retail-example",
     "createdAt" : 1783090401775,
-    "updatedAt" : 1783113082886,
+    "updatedAt" : 1783187729897,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "retail-f-orders.hdm",
@@ -27,5 +27,6 @@
   "tags" : [ "DM DIMENSION_ALIAS", "retail-f-orders" ],
   "glossaryTerms" : [ ],
   "customProperties" : { },
+  "validationAcknowledgements" : [ ],
   "dvSource" : null
 }

@@ -24,7 +24,6 @@ import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.action.GuiActionType;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
 import org.apache.hop.datavault.command.executionmap.ExecutionMapService;
-import org.apache.hop.datavault.executionmap.CrawlOptions;
 import org.apache.hop.datavault.executionmap.ExecutionMapSubRootSupport;
 import org.apache.hop.datavault.hopgui.file.executionmap.HopExecutionMapFileType;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
@@ -210,6 +209,13 @@ public class ExecutionMapGuiPlugin {
 
   private static void generateAndOpen(
       HopGui hopGui, org.apache.hop.core.variables.IVariables variables, String sourcePath, String suggestedOutput) {
+    ExecutionMapGenerationDialog.Result generationOptions =
+        ExecutionMapGenerationDialog.open(
+            hopGui.getShell(), ExecutionMapGenerationDialog.Purpose.GENERATE);
+    if (generationOptions == null) {
+      return;
+    }
+
     FileDialog dialog = new FileDialog(hopGui.getShell(), SWT.SAVE);
     dialog.setFilterExtensions(new String[] {"*.hem"});
     dialog.setFileName(Path.of(suggestedOutput).getFileName().toString());
@@ -221,20 +227,31 @@ public class ExecutionMapGuiPlugin {
       return;
     }
     try {
-      ExecutionMapService.generate(
-          sourcePath,
-          outputPath,
-          variables,
-          hopGui.getMetadataProvider(),
-          CrawlOptions.builder().build());
+      ExecutionMapService.GenerateResult result =
+          ExecutionMapService.generate(
+              sourcePath,
+              outputPath,
+              variables,
+              hopGui.getMetadataProvider(),
+              generationOptions.getCrawlOptions());
+      if (generationOptions.isExportLineage()) {
+        String lineagePath = ExecutionMapService.defaultLineageOutputPath(result.getOutputPath());
+        ExecutionMapService.exportLineage(result.getDocument(), lineagePath, variables);
+      }
       HopExecutionMapFileType fileType = new HopExecutionMapFileType();
       IHopFileTypeHandler handler = fileType.openFile(hopGui, outputPath, variables);
       if (handler != null) {
         HopGui.getExplorerPerspective().setActiveFileTypeHandler(handler);
       }
+      StringBuilder message = new StringBuilder("Execution map written to:\n").append(outputPath);
+      if (generationOptions.isExportLineage()) {
+        message
+            .append("\nOpenLineage JSON written to:\n")
+            .append(ExecutionMapService.defaultLineageOutputPath(outputPath));
+      }
       MessageBox box = new MessageBox(hopGui.getShell(), SWT.ICON_INFORMATION | SWT.OK);
       box.setText("Execution map");
-      box.setMessage("Execution map written to:\n" + outputPath);
+      box.setMessage(message.toString());
       box.open();
     } catch (Exception e) {
       new ErrorDialog(hopGui.getShell(), "Execution map", "Failed to generate execution map", e);

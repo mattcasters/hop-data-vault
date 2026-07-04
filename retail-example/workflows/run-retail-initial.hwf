@@ -46,7 +46,7 @@
       <description/>
       <type>SPECIAL</type>
       <attributes/>
-      <xloc>80</xloc>
+      <xloc>96</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -63,7 +63,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>240</xloc>
+      <xloc>256</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -80,7 +80,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>416</xloc>
+      <xloc>432</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -108,7 +108,7 @@
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>560</xloc>
+      <xloc>576</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -125,7 +125,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>704</xloc>
+      <xloc>720</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -142,7 +142,7 @@
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>80</xloc>
+      <xloc>96</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -167,7 +167,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-catalog-sources.py" --project-hom
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>240</xloc>
+      <xloc>256</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -192,7 +192,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>416</xloc>
+      <xloc>432</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -220,7 +220,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>560</xloc>
+      <xloc>576</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -251,7 +251,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>80</xloc>
+      <xloc>320</xloc>
       <yloc>240</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -268,7 +268,18 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>256</xloc>
+      <xloc>496</xloc>
+      <yloc>240</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
+      <failOnWarnings>Y</failOnWarnings>
+      <name>Validate resource definitions</name>
+      <type>VALIDATE_RESOURCE_DEFINITIONS</type>
+      <attributes/>
+      <xloc>96</xloc>
       <yloc>240</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -332,15 +343,22 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Load CSV to CRM</from>
-      <to>update-retail-dv-bv-dm</to>
+      <from>update-retail-dv-bv-dm</from>
+      <to>Advance load control</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>update-retail-dv-bv-dm</from>
-      <to>Advance load control</to>
+      <from>Load CSV to CRM</from>
+      <to>Validate resource definitions</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Validate resource definitions</from>
+      <to>update-retail-dv-bv-dm</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

@@ -11,7 +11,7 @@
     "modelElementName" : "customer_360_bv",
     "hopProject" : "retail-example",
     "createdAt" : 1783090353184,
-    "updatedAt" : 1783112979451,
+    "updatedAt" : 1783187713217,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "retail-360.hbv",
@@ -27,5 +27,6 @@
   "tags" : [ "BV SCD2", "retail-360" ],
   "glossaryTerms" : [ ],
   "customProperties" : { },
+  "validationAcknowledgements" : [ ],
   "dvSource" : null
 }

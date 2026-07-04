@@ -159,26 +159,11 @@ public final class RecordDefinitionSchemaDiffSupport {
               stored.getSourceDataType(),
               discovered.getSourceDataType()));
     }
-    if (!equalsNormalized(stored.getLength(), discovered.getLength())) {
-      parts.add(
-          BaseMessages.getString(
-              PKG,
-              "RecordDefinitionSchemaDiffSupport.Detail.Length",
-              Const.NVL(stored.getLength(), ""),
-              Const.NVL(discovered.getLength(), "")));
-    }
-    if (!equalsNormalized(stored.getPrecision(), discovered.getPrecision())) {
-      parts.add(
-          BaseMessages.getString(
-              PKG,
-              "RecordDefinitionSchemaDiffSupport.Detail.Precision",
-              Const.NVL(stored.getPrecision(), ""),
-              Const.NVL(discovered.getPrecision(), "")));
+    String dimensionDetails =
+        SourceFieldMetadataEquivalenceSupport.describeDimensionDifference(stored, discovered);
+    if (!Utils.isEmpty(dimensionDetails)) {
+      parts.add(dimensionDetails);
     }
     return parts.isEmpty() ? null : String.join("; ", parts);
-  }
-
-  private static boolean equalsNormalized(String left, String right) {
-    return Const.NVL(left, "").trim().equals(Const.NVL(right, "").trim());
   }
 }

@@ -1,5 +1,5 @@
 {
-  "namespace" : "hop/project/sources",
+  "namespace" : "hop/integration-tests/sources",
   "name" : "CRM-customer-legacy",
   "type" : "DV_SOURCE",
   "description" : "Legacy CRM customer feed for multi-source hub test",

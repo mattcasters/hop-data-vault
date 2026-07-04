@@ -1877,7 +1877,7 @@ public class HopGuiDmTableDialog {
     if (!Utils.isEmpty(input.getDescription())) {
       wDescription.setText(input.getDescription());
     }
-    if (!dimensionAlias) {
+    if (!dimensionAlias && !range) {
       EnumDialogSupport.selectCombo(
           wSourceType, input.getSourceOrDefault().resolveSourceType());
       if (!Utils.isEmpty(input.getSourceOrDefault().getSourceConnection())) {

@@ -1,5 +1,5 @@
 {
-  "namespace" : "hop/project/sources",
+  "namespace" : "hop/integration-tests/sources",
   "name" : "CRM-customer-parquet",
   "type" : "DV_SOURCE",
   "description" : "Customer Parquet source for parquet-basic integration tests",

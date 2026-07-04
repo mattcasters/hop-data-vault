@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
 import org.junit.jupiter.api.Test;
 
@@ -74,6 +75,28 @@ class DatasetNodeSupportTest {
     assertEquals(
         "local-catalog",
         document.findNodeById(nodeId).getProperty(DatasetNodeSupport.PROPERTY_CATALOG_CONNECTION));
+  }
+
+  @Test
+  void resolvesOriginModelFromGeneratedPipelineParentChain() {
+    ExecutionMapDocument document = new ExecutionMapDocument();
+    ExecutionMapContext context =
+        new ExecutionMapContext(document, new Variables(), null, CrawlOptions.builder().build());
+
+    ExecutionMapNode modelNode = new ExecutionMapNode();
+    modelNode.setNodeType(ExecutionMapNodeType.DATA_VAULT_MODEL);
+    modelNode.setName("retail-360");
+    context.addNode(modelNode);
+
+    ExecutionMapNode pipelineNode = new ExecutionMapNode();
+    pipelineNode.setNodeType(ExecutionMapNodeType.GENERATED_PIPELINE);
+    pipelineNode.setName("hub-hub_customer");
+    pipelineNode.setParentNodeId(modelNode.getId());
+    context.addNode(pipelineNode);
+
+    assertEquals(
+        modelNode.getId(),
+        DatasetNodeSupport.resolveOriginModelNodeId(context, pipelineNode.getId()));
   }
 
   @Test

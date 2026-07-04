@@ -11,7 +11,7 @@
     "modelElementName" : "sat_customer_sts",
     "hopProject" : "integration-tests",
     "createdAt" : 1782887181900,
-    "updatedAt" : 1782887388094,
+    "updatedAt" : 1783193118910,
     "lastDiscoveredAt" : null,
     "updatedBy" : null,
     "lastWorkflow" : "update status-tracking.hdv",
@@ -32,5 +32,6 @@
       "value" : "x_record_source"
     }
   },
+  "validationAcknowledgements" : [ ],
   "dvSource" : null
 }

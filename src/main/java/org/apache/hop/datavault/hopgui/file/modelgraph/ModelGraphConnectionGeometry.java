@@ -171,6 +171,18 @@ public final class ModelGraphConnectionGeometry {
     return polyline;
   }
 
+  /** Draws a straight line between the centers of two table bounds. */
+  public static void drawConnectionCenterLine(IGc gc, Bounds fromBounds, Bounds toBounds) {
+    if (gc == null || fromBounds == null || toBounds == null) {
+      return;
+    }
+    gc.drawLine(
+        fromBounds.centerX(),
+        fromBounds.centerY(),
+        toBounds.centerX(),
+        toBounds.centerY());
+  }
+
   /** Draws a spline between the edge anchors on two table bounds. */
   public static void drawConnectionSpline(IGc gc, Bounds fromBounds, Bounds toBounds) {
     ConnectionAnchors anchors = anchorsBetween(fromBounds, toBounds);

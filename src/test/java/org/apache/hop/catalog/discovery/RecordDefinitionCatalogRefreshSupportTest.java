@@ -54,7 +54,7 @@ class RecordDefinitionCatalogRefreshSupportTest {
   @Test
   void applyDiscoveredFieldsUpdatesContractAndProvenance() throws Exception {
     RecordDefinition definition = new RecordDefinition();
-    definition.setKey(new RecordDefinitionKey("hop/project/sources", "CRM-customer"));
+    definition.setKey(new RecordDefinitionKey("hop/integration-tests/sources", "CRM-customer"));
     definition.setType(RecordDefinitionType.DV_SOURCE);
     DvSourceRecord dvSource = new DvSourceRecord();
     dvSource.setSourceType("ICEBERG");
@@ -85,7 +85,7 @@ class RecordDefinitionCatalogRefreshSupportTest {
 
   private static RecordDefinition icebergDefinition() {
     RecordDefinition definition = new RecordDefinition();
-    definition.setKey(new RecordDefinitionKey("hop/project/sources", "CRM-customer-iceberg"));
+    definition.setKey(new RecordDefinitionKey("hop/integration-tests/sources", "CRM-customer-iceberg"));
     definition.setType(RecordDefinitionType.DV_SOURCE);
     DvSourceRecord dvSource = new DvSourceRecord();
     dvSource.setSourceType("ICEBERG");

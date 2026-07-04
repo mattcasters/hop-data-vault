@@ -1,5 +1,5 @@
 {
-  "namespace" : "hop/project/sources",
+  "namespace" : "hop/integration-tests/sources",
   "name" : "syn-order",
   "type" : "DV_SOURCE",
   "description" : "CSV record definition imported from syn-order.csv",

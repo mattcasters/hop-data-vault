@@ -1,5 +1,5 @@
 {
-  "namespace": "hop/project/sources",
+  "namespace": "hop/integration-tests/sources",
   "name": "CRM-c360-contact",
   "type": "DV_SOURCE",
   "description": "Customer 360 CSV source for contact satellite integration tests",

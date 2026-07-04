@@ -53,7 +53,7 @@ class RecordDefinitionPhysicalRefSupportTest {
 
   private static RecordDefinition icebergDefinition() {
     RecordDefinition definition = new RecordDefinition();
-    definition.setKey(new RecordDefinitionKey("hop/project/sources", "CRM-customer-iceberg"));
+    definition.setKey(new RecordDefinitionKey("hop/integration-tests/sources", "CRM-customer-iceberg"));
     definition.setType(RecordDefinitionType.DV_SOURCE);
     DvSourceRecord dvSource = new DvSourceRecord();
     dvSource.setSourceType("ICEBERG");

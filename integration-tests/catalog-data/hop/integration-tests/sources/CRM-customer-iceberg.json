@@ -1,5 +1,5 @@
 {
-  "namespace" : "hop/project/sources",
+  "namespace" : "hop/integration-tests/sources",
   "name" : "CRM-customer-iceberg",
   "type" : "DV_SOURCE",
   "description" : "Customer Iceberg source for iceberg-basic integration tests",

@@ -1,5 +1,5 @@
 <dimensional-model>
-  <filename>${PROJECT_HOME}/models/retail-f-orders.hdm</filename>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-f-orders.hdm</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description>Retail warehouse star schema with date role-playing and extended catalog tables</description>
   <configuration>
@@ -38,8 +38,8 @@
           <foreignKeyColumn>order_hk</foreignKeyColumn>
           <sourceFieldName>order_id</sourceFieldName>
           <truncateToDateKey>N</truncateToDateKey>
-          <preloadLookupCache>Y</preloadLookupCache>
-          <skipDimensionLookup>N</skipDimensionLookup>
+          <preloadLookupCache>N</preloadLookupCache>
+          <skipDimensionLookup>Y</skipDimensionLookup>
           <forceDimensionLookup>N</forceDimensionLookup>
         </dimension_role>
         <dimension_role>

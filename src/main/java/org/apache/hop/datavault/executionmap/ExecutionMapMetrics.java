@@ -30,6 +30,9 @@ public final class ExecutionMapMetrics {
   public static final int CONTAINER_PADDING = 16;
   public static final int HUB_GUTTER = 48;
   public static final int BUS_LANE_WIDTH = 48;
+  public static final int CHILD_VERTICAL_SPACING = 32;
+  public static final int PIPELINE_ROW_SPACING = 32;
+  public static final int ORPHAN_GRID_COLUMNS = 3;
 
   private ExecutionMapMetrics() {}
 }

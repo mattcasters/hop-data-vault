@@ -20,6 +20,7 @@ package org.apache.hop.datavault.executionmap;
 
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.executionmap.ExecutionMapEdgeType;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
 
@@ -114,5 +115,45 @@ public final class DatasetNodeSupport {
         && Utils.isEmpty(existing.getProperty(PROPERTY_CATALOG_CONNECTION))) {
       existing.setProperty(PROPERTY_CATALOG_CONNECTION, catalogConnectionName);
     }
+  }
+
+  public static boolean isModelNodeType(ExecutionMapNodeType nodeType) {
+    if (nodeType == null) {
+      return false;
+    }
+    return switch (nodeType) {
+      case DATA_VAULT_MODEL, BUSINESS_VAULT_MODEL, DIMENSIONAL_MODEL -> true;
+      default -> false;
+    };
+  }
+
+  public static String resolveOriginModelNodeId(ExecutionMapContext context, String nodeId) {
+    if (context == null || Utils.isEmpty(nodeId)) {
+      return null;
+    }
+    String currentId = nodeId;
+    while (!Utils.isEmpty(currentId)) {
+      ExecutionMapNode node = context.getDocument().findNodeById(currentId);
+      if (node == null) {
+        return null;
+      }
+      if (isModelNodeType(node.getNodeType())) {
+        return node.getId();
+      }
+      currentId = node.getParentNodeId();
+    }
+    return null;
+  }
+
+  public static void linkDatasetToModel(
+      ExecutionMapContext context, String modelNodeId, String datasetNodeId, String label) {
+    if (context == null || Utils.isEmpty(modelNodeId) || Utils.isEmpty(datasetNodeId)) {
+      return;
+    }
+    ExecutionMapNode datasetNode = context.getDocument().findNodeById(datasetNodeId);
+    if (datasetNode != null) {
+      datasetNode.setParentNodeId(modelNodeId);
+    }
+    context.addEdgeIfAbsent(ExecutionMapEdgeType.CONTAINS, modelNodeId, datasetNodeId, label);
   }
 }
