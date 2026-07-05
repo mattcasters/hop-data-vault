@@ -21,6 +21,7 @@ AGENTS.md
 
 retail-example/files/.dv-load-date
 retail-example/files/.load-control
+retail-example/files/.period-label
 retail-example/files/.period-table
 
 retail-example/catalog-data/hop/retail-example/business-vault/

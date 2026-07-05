@@ -33,6 +33,7 @@ public class DmAiRequest {
   private final boolean includeCheckResults;
   private final boolean includeModelXml;
   @Builder.Default private final boolean includeLoadRunMetrics = false;
+  @Builder.Default private final boolean includeExecutionInfo = false;
   private final String logsExcerpt;
   @Builder.Default private final boolean followUp = false;
   @Singular("appliedChangeSummary")

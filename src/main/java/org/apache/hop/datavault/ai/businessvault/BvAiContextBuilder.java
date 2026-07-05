@@ -37,6 +37,7 @@ import org.apache.hop.datavault.metadata.businessvault.BvScd2SatelliteConfig;
 import org.apache.hop.datavault.metadata.businessvault.BvScd2Table;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
 import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
+import org.apache.hop.datavault.metrics.ExecutionInfoAiContextBuilder;
 import org.apache.hop.datavault.metrics.MetricsAiContextBuilder;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
@@ -89,6 +90,15 @@ public final class BvAiContextBuilder {
             GeneratedPipelineMetadataConstants.MODEL_TYPE_BV,
             metadataProvider,
             variables);
+    String executionInfoJson =
+        ExecutionInfoAiContextBuilder.buildExecutionInfoContext(
+            request.isIncludeExecutionInfo(),
+            scenario == BvAiScenario.PERFORMANCE_TUNING,
+            request.getUserPrompt(),
+            model.getName(),
+            GeneratedPipelineMetadataConstants.MODEL_TYPE_BV,
+            metadataProvider,
+            variables);
 
     return BvAiContextBundle.builder()
         .scenario(scenario)
@@ -100,6 +110,7 @@ public final class BvAiContextBuilder {
         .hopMetadataJson(serializeHopMetadata(model, metadataProvider, variables))
         .checkResultsJson(checkResultsJson)
         .loadRunMetricsJson(loadRunMetricsJson)
+        .executionInfoJson(executionInfoJson)
         .logsExcerpt(truncate(request.getLogsExcerpt(), MAX_LOG_CHARS))
         .followUp(request.isFollowUp())
         .appliedChangeSummaries(

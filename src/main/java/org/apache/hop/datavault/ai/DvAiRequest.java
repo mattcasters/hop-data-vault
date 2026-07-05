@@ -35,6 +35,8 @@ public class DvAiRequest {
   private final boolean includeModelXml;
   /** When true, attach recent load-run metrics from the operations database. */
   @Builder.Default private final boolean includeLoadRunMetrics = false;
+  /** When true, attach execution logs and transform metrics from the Execution Information Location. */
+  @Builder.Default private final boolean includeExecutionInfo = false;
   private final String logsExcerpt;
   /** Catalog record definition names chosen for the advisory context (GUI picker). */
   @Singular("catalogSourceName")

@@ -107,7 +107,8 @@ class LoadRunMetricsDatabasePublishTest {
             false,
             true,
             true,
-            LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD);
+            LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD,
+            null);
 
     LoadRunMetricsCatalogPublisher.publish(
         LogChannel.GENERAL,

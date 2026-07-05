@@ -30,6 +30,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
 import org.apache.hop.datavault.metrics.LoadRunMetricsPipelineSupport;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.engine.IWorkflowEngine;
@@ -95,6 +96,7 @@ public final class DvModelBulkUpdateExecutionSupport {
       IHopMetadataProvider metadataProvider)
       throws HopException {
     LogChannel log = new LogChannel(parent);
+    metricsPublishContext = enrichPublishContext(metricsPublishContext, realRunConfig);
     String stagingFolder =
         variables.resolve(
             DvPipelineOrchestratorSupport.resolveStagingFolder(
@@ -188,7 +190,47 @@ public final class DvModelBulkUpdateExecutionSupport {
       ILoggingObject parent,
       IHopMetadataProvider metadataProvider)
       throws HopException {
+    return executeStagingFileUpdate(
+        result,
+        modelName,
+        pipelineConfig,
+        allPipelineMetas,
+        realRunConfig,
+        realWorkflowRunConfig,
+        pipelineLogLevel,
+        pipelineStagingFolder,
+        targetDatabase,
+        targetDbName,
+        null,
+        null,
+        success,
+        totalErrors,
+        variables,
+        parent,
+        metadataProvider);
+  }
+
+  public static ExecutionOutcome executeStagingFileUpdate(
+      Result result,
+      String modelName,
+      IDvTargetLoadConfiguration pipelineConfig,
+      List<PipelineMeta> allPipelineMetas,
+      String realRunConfig,
+      String realWorkflowRunConfig,
+      LogLevel pipelineLogLevel,
+      String pipelineStagingFolder,
+      DatabaseMeta targetDatabase,
+      String targetDbName,
+      String metricsOutputFolder,
+      DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext,
+      boolean success,
+      int totalErrors,
+      IVariables variables,
+      ILoggingObject parent,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
     LogChannel log = new LogChannel(parent);
+    metricsPublishContext = enrichPublishContext(metricsPublishContext, realRunConfig);
     if (targetDatabase == null || Utils.isEmpty(targetDbName)) {
       log.logError(
           BaseMessages.getString(PKG, "DvModelBulkUpdateExecutionSupport.Error.NoTargetDatabase"));
@@ -214,9 +256,20 @@ public final class DvModelBulkUpdateExecutionSupport {
             "DvModelBulkUpdateExecutionSupport.Log.StagingBulkDataFolder",
             bulkStagingFolderResolved));
 
+    String metricsRunId = null;
+    boolean metricsCollectionEnabled =
+        LoadRunMetricsPipelineSupport.isMetricsCollectionEnabled(
+            metricsOutputFolder, metricsPublishContext);
+
     try {
       DvPipelineOrchestratorSupport.prepareStagingFolder(
           pipelineStagingFolderResolved, variables);
+      if (metricsCollectionEnabled) {
+        metricsRunId =
+            DvPipelineOrchestratorSupport.initializeMetricsRun(
+                variables, modelName, metricsPublishContext);
+        LoadRunMetricsPipelineSupport.enableTransformPerformanceCapture(allPipelineMetas);
+      }
       DvPipelineOrchestratorSupport.stagePipelines(
           pipelineStagingFolderResolved, variables, allPipelineMetas, true);
       DvUpdateWorkflowSupport.prepareBulkStagingFolder(bulkStagingFolderResolved, variables);
@@ -253,16 +306,31 @@ public final class DvModelBulkUpdateExecutionSupport {
               masterWorkflow.getName(),
               descriptors.size()));
 
-      Result workflowResult =
-          DvUpdateWorkflowSupport.runMasterWorkflow(
+      DvUpdateWorkflowSupport.MasterWorkflowRunOutcome workflowOutcome =
+          DvUpdateWorkflowSupport.runMasterWorkflowWithLogChannel(
               masterWorkflow,
               realWorkflowRunConfig,
               pipelineLogLevel != null ? pipelineLogLevel : parent.getLogLevel(),
               parent,
               variables,
               metadataProvider);
+      Result workflowResult = workflowOutcome.result();
 
       DvPipelineOrchestratorSupport.mergeResult(result, workflowResult);
+
+      if (metricsRunId != null) {
+        DvPipelineOrchestratorSupport.finalizeMetricsRun(
+            log,
+            metricsRunId,
+            modelName,
+            pipelineLogLevel != null ? pipelineLogLevel : parent.getLogLevel(),
+            metricsOutputFolder,
+            workflowOutcome.workflowLogChannelId(),
+            variables,
+            metadataProvider,
+            metricsPublishContext,
+            workflowResult);
+      }
 
       if (workflowResult.getNrErrors() > 0 || !workflowResult.getResult()) {
         log.logError(
@@ -304,5 +372,14 @@ public final class DvModelBulkUpdateExecutionSupport {
       }
     }
     return new ExecutionOutcome(success, totalErrors);
+  }
+
+  private static DvUpdateMetricsCollector.LoadRunPublishContext enrichPublishContext(
+      DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext,
+      String pipelineRunConfiguration) {
+    if (metricsPublishContext == null || Utils.isEmpty(pipelineRunConfiguration)) {
+      return metricsPublishContext;
+    }
+    return metricsPublishContext.withPipelineRunConfiguration(pipelineRunConfiguration);
   }
 }

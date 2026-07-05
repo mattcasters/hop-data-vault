@@ -35,6 +35,7 @@ public class DmAiContextBundle {
   private final String hopMetadataJson;
   private final String checkResultsJson;
   private final String loadRunMetricsJson;
+  private final String executionInfoJson;
   private final String logsExcerpt;
   private final boolean followUp;
   private final List<String> appliedChangeSummaries;

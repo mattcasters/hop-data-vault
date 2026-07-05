@@ -392,7 +392,26 @@ public final class DvUpdateMetricsCollector {
       boolean publishCatalogDefinitions,
       boolean publishDatabaseRows,
       boolean autoCreateTables,
-      long dimLookupPreloadRatioThreshold) {
+      long dimLookupPreloadRatioThreshold,
+      String pipelineRunConfiguration) {
+
+    public LoadRunPublishContext withPipelineRunConfiguration(String pipelineRunConfiguration) {
+      if (Utils.isEmpty(pipelineRunConfiguration)
+          || pipelineRunConfiguration.equals(this.pipelineRunConfiguration)) {
+        return this;
+      }
+      return new LoadRunPublishContext(
+          catalogConnectionName,
+          targetDatabaseName,
+          operationsSchema,
+          workflowName,
+          modelType,
+          publishCatalogDefinitions,
+          publishDatabaseRows,
+          autoCreateTables,
+          dimLookupPreloadRatioThreshold,
+          pipelineRunConfiguration);
+    }
 
     public static LoadRunPublishContext withDefaults(
         String catalogConnectionName,
@@ -408,7 +427,8 @@ public final class DvUpdateMetricsCollector {
           true,
           true,
           true,
-          LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD);
+          LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD,
+          null);
     }
   }
 }

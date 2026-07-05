@@ -35,7 +35,7 @@ import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.database.dialog.PreviewTableSettingsDialog;
 import org.apache.hop.ui.core.dialog.EnterTextDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
-import org.apache.hop.ui.core.dialog.PreviewRowsDialog;
+import org.apache.hop.datavault.hopgui.dialog.ShowRowsDialog;
 import org.apache.hop.ui.pipeline.dialog.PipelinePreviewProgressDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Shell;
@@ -142,16 +142,18 @@ public final class DmSourcePipelineGuiSupport {
           etd.setReadOnly();
           etd.open();
         } else {
-          PreviewRowsDialog prd =
-              new PreviewRowsDialog(
+          new ShowRowsDialog(
                   shell,
                   variables,
-                  SWT.NONE,
-                  transformName,
+                  BaseMessages.getString(PKG, "DmSourcePipelineGuiSupport.PreviewData.Title"),
+                  BaseMessages.getString(
+                      PKG,
+                      "DmSourcePipelineGuiSupport.PreviewData.Message",
+                      transformName,
+                      resolvedFile),
                   progressDialog.getPreviewRowsMeta(transformName),
-                  progressDialog.getPreviewRows(transformName),
-                  loggingText);
-          prd.open();
+                  progressDialog.getPreviewRows(transformName))
+              .open();
         }
       }
     } catch (Exception e) {

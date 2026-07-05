@@ -1,0 +1,14 @@
+{
+  "executionInfoLocation": {
+    "caching-file-location": {
+      "createParentFolder": true,
+      "persistenceDelay": "5000",
+      "rootFolder": "${java.io.tmpdir}/executions/",
+      "maxCacheAge": "86400000"
+    }
+  },
+  "dataLoggingDelay": "2000",
+  "name": "tmp-executions",
+  "description": "",
+  "dataLoggingInterval": "5000"
+}

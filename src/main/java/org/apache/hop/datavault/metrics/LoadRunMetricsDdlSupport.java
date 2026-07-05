@@ -46,6 +46,7 @@ public final class LoadRunMetricsDdlSupport {
     }
     String schema = resolveSchema(operationsSchema);
     if (allMetricsTablesExist(db, schema)) {
+      ensureLoadRunPipelineRunConfigurationColumn(db, schema, databaseMeta, log);
       return;
     }
 
@@ -100,9 +101,10 @@ public final class LoadRunMetricsDdlSupport {
           model_type       VARCHAR(16)  NULL,
           model_name       VARCHAR(255) NULL,
           workflow_name    VARCHAR(255) NULL,
-          log_channel_id   VARCHAR(64)  NULL,
-          success          BOOLEAN      NULL,
-          error_count      BIGINT       NULL,
+          log_channel_id              VARCHAR(64)  NULL,
+          pipeline_run_configuration  VARCHAR(255) NULL,
+          success                     BOOLEAN      NULL,
+          error_count                 BIGINT       NULL,
           PRIMARY KEY (run_id)
         )"""
             .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN));
@@ -169,9 +171,10 @@ public final class LoadRunMetricsDdlSupport {
           model_type       VARCHAR(16)  NULL,
           model_name       VARCHAR(255) NULL,
           workflow_name    VARCHAR(255) NULL,
-          log_channel_id   VARCHAR(64)  NULL,
-          success          TINYINT(1)   NULL,
-          error_count      BIGINT       NULL,
+          log_channel_id              VARCHAR(64)  NULL,
+          pipeline_run_configuration  VARCHAR(255) NULL,
+          success                     TINYINT(1)   NULL,
+          error_count                 BIGINT       NULL,
           PRIMARY KEY (run_id)
         )"""
             .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN));
@@ -224,5 +227,34 @@ public final class LoadRunMetricsDdlSupport {
         )"""
             .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_INSIGHT));
     return statements;
+  }
+
+  static void ensureLoadRunPipelineRunConfigurationColumn(
+      Database db, String schema, DatabaseMeta databaseMeta, ILogChannel log) throws HopException {
+    if (db == null || databaseMeta == null) {
+      return;
+    }
+    String resolvedSchema = resolveSchema(schema);
+    if (!db.checkTableExists(resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN)) {
+      return;
+    }
+    if (db.checkColumnExists(
+        resolvedSchema,
+        LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN,
+        "pipeline_run_configuration")) {
+      return;
+    }
+    String qualifiedTable =
+        databaseMeta.getQuotedSchemaTableCombination(
+            db, resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN);
+    String alterSql = "ALTER TABLE " + qualifiedTable + " ADD pipeline_run_configuration VARCHAR(255) NULL";
+    if (log != null) {
+      log.logBasic(
+          "Adding pipeline_run_configuration column to "
+              + resolvedSchema
+              + "."
+              + LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN);
+    }
+    db.execStatement(alterSql);
   }
 }

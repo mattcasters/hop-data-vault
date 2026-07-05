@@ -55,6 +55,7 @@ import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphHit;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphMouseInteractions;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphSnapshotUndo;
 import org.apache.hop.datavault.metadata.DvDdlSupport;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
@@ -163,6 +164,10 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       "HopGuiDimensionalModelGraph-ToolBar-10070-Debug";
   public static final String TOOLBAR_ITEM_GENERATE_DDL =
       "HopGuiDimensionalModelGraph-ToolBar-10080-Generate-Ddl";
+  public static final String TOOLBAR_ITEM_TOGGLE_DURATIONS =
+      "HopGuiDimensionalModelGraph-ToolBar-10086-Toggle-Durations";
+  public static final String TOOLBAR_ITEM_REFRESH_DURATIONS =
+      "HopGuiDimensionalModelGraph-ToolBar-10087-Refresh-Durations";
   public static final String TOOLBAR_ITEM_SELECT_ALL =
       "HopGuiDimensionalModelGraph-ToolBar-20010-Select-All";
   public static final String TOOLBAR_ITEM_UNSELECT_ALL =
@@ -214,16 +219,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     setLayout(new FormLayout());
     addToolBar();
 
-    canvas = new Canvas(this, SWT.NO_BACKGROUND);
-    FormData fdCanvas = new FormData();
-    fdCanvas.left = new FormAttachment(0, 0);
-    fdCanvas.top = new FormAttachment(0, toolBar.getBounds().height);
-    fdCanvas.right = new FormAttachment(100, 0);
-    fdCanvas.bottom = new FormAttachment(100, 0);
-    canvas.setLayoutData(fdCanvas);
-
-    canvas.addPaintListener(this::paintControl);
-    registerCanvasMouseListeners();
+    createModelGraphBody(toolBar, () -> canvas.addPaintListener(this::paintControl));
 
     hopGui.replaceKeyboardShortcutListeners(this);
     canvas.setFocus();
@@ -363,6 +359,30 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
   @Override
   protected ModelGraphMouseInteractions createMouseInteractions() {
     return new DimensionalMouseInteractions();
+  }
+
+  @Override
+  protected String getMetricsModelName() {
+    return model != null ? model.getName() : null;
+  }
+
+  @Override
+  protected String getMetricsModelType() {
+    return GeneratedPipelineMetadataConstants.MODEL_TYPE_DM;
+  }
+
+  @Override
+  protected List<String> getMetricsTableNames() {
+    if (model == null || model.getTables() == null) {
+      return List.of();
+    }
+    List<String> names = new ArrayList<>();
+    for (IDmTable table : model.getTables()) {
+      if (table != null && !Utils.isEmpty(table.getName())) {
+        names.add(table.getName());
+      }
+    }
+    return names;
   }
 
   private @Nullable IDmTable getAreaOwnerTable(AreaOwner areaOwner) {
@@ -1423,6 +1443,24 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
         perspective.updateTabItem(this);
       }
     }
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_TOGGLE_DURATIONS,
+      toolTip = "i18n::ModelLoadDurationPane.Toggle.Tooltip",
+      image = "ui/images/show-results.svg")
+  public void toggleLoadDurationPanelToolbar() {
+    toggleLoadDurationPanel();
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_REFRESH_DURATIONS,
+      toolTip = "i18n::ModelLoadDurationPane.Refresh.Tooltip",
+      image = "ui/images/refresh.svg")
+  public void refreshLoadDurationOverviewToolbar() {
+    refreshLoadDurationOverview();
   }
 
   @GuiToolbarElement(

@@ -84,7 +84,8 @@ public final class ExecutionMetricsProfileResolver {
             profile.isPublishCatalogDefinitions(),
             profile.isPublishDatabaseRows(),
             profile.isAutoCreateTables(),
-            profile.getDimLookupPreloadRatioThreshold());
+            profile.getDimLookupPreloadRatioThreshold(),
+            null);
 
     return new ResolvedExecutionMetrics(true, metricsFolder, publishContext);
   }

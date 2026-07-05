@@ -270,7 +270,15 @@ Persist insights to `load_insight`; expose in Hop GUI (catalog record preview or
 - GUI checkbox auto-enables when Performance tuning scenario is selected
 - `BvAiContextBuilder` + `BvAiAdvisorService` load-run metrics prompt section
 
-### Phase 4 — Optional exports
+### Phase 4 — GUI duration overview
+
+- Horizontal `SashForm` on DV/BV/DM model graphs: model canvas left (~65%), duration bars right (~35%)
+- `LoadRunDurationMetricsLoader` queries `load_transform_metric` (sum `duration_ms` per `element_name` per run)
+- `LoadRunDurationOverviewPainter` — Airflow-style vertical bars, one row per model table, one column per recent run
+- `ModelLoadDurationPane` — scrollable metrics canvas with refresh and hover tooltips
+- Toolbar toggle + refresh on DV/BV/DM graphs
+
+### Phase 5 — Optional exports
 
 - Thin JSON mirror for CI (`collect-metrics-results.hpl`)
 - OpenLineage correlation with [marquez-lineage-plan.md](marquez-lineage-plan.md) using same `run_id`
@@ -326,3 +334,4 @@ For `dm-fact-f_orders` with `lookup_d_customer`:
 - [x] **insight-rule-catalog** — LoadRunInsightRuleCatalog for AI context
 - [x] **ai-metrics-gui** — Include load-run metrics checkbox in DV/DM/BV AI advisor dialogs
 - [x] **bv-ai-metrics** — BvAiContextBuilder + BvAiAdvisorService metrics integration
+- [ ] **gui-duration-overview** — LoadRunDurationOverviewPainter + ModelLoadDurationPane on DV/BV/DM graphs (Phase 4)

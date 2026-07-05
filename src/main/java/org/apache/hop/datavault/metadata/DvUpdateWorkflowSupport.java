@@ -216,8 +216,25 @@ public final class DvUpdateWorkflowSupport {
     return workflowMeta;
   }
 
+  /** Result of a generated bulk-update master workflow execution. */
+  public record MasterWorkflowRunOutcome(Result result, String workflowLogChannelId) {}
+
   /** Runs the master workflow and returns its result. */
   public static Result runMasterWorkflow(
+      WorkflowMeta workflowMeta,
+      String workflowRunConfiguration,
+      LogLevel logLevel,
+      ILoggingObject parent,
+      IVariables variables,
+      org.apache.hop.metadata.api.IHopMetadataProvider metadataProvider)
+      throws HopException {
+    return runMasterWorkflowWithLogChannel(
+            workflowMeta, workflowRunConfiguration, logLevel, parent, variables, metadataProvider)
+        .result();
+  }
+
+  /** Runs the master workflow and returns the result plus the workflow engine log channel id. */
+  public static MasterWorkflowRunOutcome runMasterWorkflowWithLogChannel(
       WorkflowMeta workflowMeta,
       String workflowRunConfiguration,
       LogLevel logLevel,
@@ -236,7 +253,7 @@ public final class DvUpdateWorkflowSupport {
     if (workflowResult == null) {
       workflowResult = new Result();
     }
-    return workflowResult;
+    return new MasterWorkflowRunOutcome(workflowResult, engine.getLogChannelId());
   }
 
   private static DvStagingLoadDescriptor inspectStagedPipeline(

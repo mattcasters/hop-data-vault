@@ -56,6 +56,7 @@ import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvModelBulkUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
+import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
 import org.apache.hop.datavault.metrics.ExecutionMetricsProfileResolver;
 import org.apache.hop.datavault.metrics.ResolvedExecutionMetrics;
 import org.apache.hop.datavault.metrics.metadata.ExecutionMetricsProfileMeta;
@@ -549,6 +550,21 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
       }
 
       if (!allPipelineMetas.isEmpty()) {
+        ResolvedExecutionMetrics executionMetrics =
+            ExecutionMetricsProfileResolver.resolve(
+                resolve(executionMetricsProfile),
+                resolve(metricsOutputFolder),
+                resolve(dataCatalogConnection),
+                pipelineConfig.getTargetDatabase(),
+                GeneratedPipelineMetadataConstants.MODEL_TYPE_BV,
+                getParentWorkflow(),
+                getVariables(),
+                getMetadataProvider());
+        String resolvedMetricsOutputFolder =
+            executionMetrics.enabled() ? executionMetrics.metricsOutputFolder() : null;
+        DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext =
+            executionMetrics.enabled() ? executionMetrics.publishContext() : null;
+
         DvModelBulkUpdateExecutionSupport.ExecutionOutcome outcome;
         if (pipelineConfig.resolveTargetLoadMode() == DvTargetLoadMode.STAGING_FILE) {
           DatabaseMeta targetDatabase =
@@ -565,22 +581,14 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
                   pipelineStagingFolder,
                   targetDatabase,
                   pipelineConfig.getTargetDatabase(),
+                  resolvedMetricsOutputFolder,
+                  metricsPublishContext,
                   success,
                   totalErrors,
                   getVariables(),
                   this,
                   getMetadataProvider());
         } else {
-          ResolvedExecutionMetrics executionMetrics =
-              ExecutionMetricsProfileResolver.resolve(
-                  resolve(executionMetricsProfile),
-                  resolve(metricsOutputFolder),
-                  resolve(dataCatalogConnection),
-                  pipelineConfig.getTargetDatabase(),
-                  GeneratedPipelineMetadataConstants.MODEL_TYPE_BV,
-                  getParentWorkflow(),
-                  getVariables(),
-                  getMetadataProvider());
           outcome =
               DvModelBulkUpdateExecutionSupport.executeOrchestratorUpdate(
                   result,
@@ -590,8 +598,8 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
                   getLogLevel(),
                   pipelineStagingFolder,
                   parallelPipelineCopies,
-                  executionMetrics.enabled() ? executionMetrics.metricsOutputFolder() : null,
-                  executionMetrics.enabled() ? executionMetrics.publishContext() : null,
+                  resolvedMetricsOutputFolder,
+                  metricsPublishContext,
                   success,
                   totalErrors,
                   getVariables(),

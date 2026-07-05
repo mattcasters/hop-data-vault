@@ -222,8 +222,49 @@ public final class DvPipelineOrchestratorSupport {
       IVariables variables,
       IHopMetadataProvider metadataProvider)
       throws HopException {
-    String metricsRunId = UUID.randomUUID().toString();
     String modelName = resolveOrchestratorModelName(orchestrator);
+    String metricsRunId = initializeMetricsRun(variables, modelName, metricsPublishContext);
+
+    IPipelineEngine<PipelineMeta> engine =
+        PipelineEngineFactory.createPipelineEngine(
+            variables, runConfiguration, metadataProvider, orchestrator);
+
+    if (logLevel != null) {
+      engine.setLogLevel(logLevel);
+    }
+    engine.setParent(parent);
+    engine.setParentWorkflow(parentWorkflow);
+    engine.execute();
+    engine.waitUntilFinished();
+
+    Result orchestratorResult = engine.getResult();
+    if (orchestratorResult == null) {
+      orchestratorResult = new Result();
+    }
+    finalizeMetricsRun(
+        engine.getLogChannel(),
+        metricsRunId,
+        modelName,
+        logLevel,
+        metricsOutputFolder,
+        engine.getLogChannelId(),
+        variables,
+        metadataProvider,
+        metricsPublishContext,
+        orchestratorResult);
+    applyChildPipelineFailures(engine, orchestratorResult);
+    return orchestratorResult;
+  }
+
+  /**
+   * Assigns run-scoped variables used by {@link
+   * org.apache.hop.datavault.metrics.DvUpdatePipelineCompletedExtensionPoint}.
+   */
+  public static String initializeMetricsRun(
+      IVariables variables,
+      String modelName,
+      DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext) {
+    String metricsRunId = UUID.randomUUID().toString();
     if (variables != null) {
       variables.setVariable(DvUpdateMetricsConstants.VAR_RUN_ID, metricsRunId);
       variables.setVariable(DvUpdateMetricsConstants.VAR_MODEL_NAME, modelName);
@@ -246,38 +287,37 @@ public final class DvPipelineOrchestratorSupport {
             metricsPublishContext.catalogConnectionName());
       }
     }
+    return metricsRunId;
+  }
 
-    IPipelineEngine<PipelineMeta> engine =
-        PipelineEngineFactory.createPipelineEngine(
-            variables, runConfiguration, metadataProvider, orchestrator);
-
-    if (logLevel != null) {
-      engine.setLogLevel(logLevel);
-    }
-    engine.setParent(parent);
-    engine.setParentWorkflow(parentWorkflow);
-    engine.execute();
-    engine.waitUntilFinished();
-
+  /** Publishes collected metrics and applies aggregated totals to a Hop result. */
+  public static LoadRunPublishSummary finalizeMetricsRun(
+      org.apache.hop.core.logging.ILogChannel log,
+      String metricsRunId,
+      String modelName,
+      LogLevel logLevel,
+      String metricsOutputFolder,
+      String logChannelId,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext,
+      Result result)
+      throws HopException {
     LoadRunPublishSummary metricsSummary =
         DvUpdateMetricsCollector.publishRunSummary(
-            engine.getLogChannel(),
+            log,
             metricsRunId,
             modelName,
             logLevel,
             metricsOutputFolder,
-            engine.getLogChannelId(),
+            logChannelId,
             variables,
             metadataProvider,
             metricsPublishContext);
-
-    Result orchestratorResult = engine.getResult();
-    if (orchestratorResult == null) {
-      orchestratorResult = new Result();
+    if (result != null) {
+      DvUpdateMetricsCollector.applyToResult(result, metricsSummary);
     }
-    DvUpdateMetricsCollector.applyToResult(orchestratorResult, metricsSummary);
-    applyChildPipelineFailures(engine, orchestratorResult);
-    return orchestratorResult;
+    return metricsSummary;
   }
 
   /**

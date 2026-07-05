@@ -88,6 +88,7 @@ import org.apache.hop.datavault.hopgui.ModelUpdateWorkflowClipboardSupport;
 import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
 import org.apache.hop.datavault.metadata.DvTableBase;
 import org.apache.hop.datavault.metadata.DvTableType;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.workflow.actions.datavaultupdate.ActionDataVaultUpdate;
 import org.apache.hop.datavault.workflow.actions.datavaultupdate.ActionDataVaultUpdateDialog;
@@ -194,6 +195,10 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
 
   public static final String TOOLBAR_ITEM_IMPORT_RECORD_DEFINITIONS =
       "HopGuiVaultGraph-ToolBar-10085-Import-Record-Definitions";
+  public static final String TOOLBAR_ITEM_TOGGLE_DURATIONS =
+      "HopGuiVaultGraph-ToolBar-10086-Toggle-Durations";
+  public static final String TOOLBAR_ITEM_REFRESH_DURATIONS =
+      "HopGuiVaultGraph-ToolBar-10087-Refresh-Durations";
 
   private final HopVaultFileType fileType;
   private final HopGuiVaultClipboardDelegate clipboardDelegate;
@@ -256,18 +261,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
     // Add a tool-bar at the top of the composite (like HopGuiPipelineGraph / HopGuiWorkflowGraph)
     addToolBar();
 
-    // Create the canvas for drawing, positioned below the toolbar
-    canvas = new Canvas(this, SWT.NO_BACKGROUND);
-    FormData fdCanvas = new FormData();
-    fdCanvas.left = new FormAttachment(0, 0);
-    fdCanvas.top = new FormAttachment(0, toolBar.getBounds().height);
-    fdCanvas.right = new FormAttachment(100, 0);
-    fdCanvas.bottom = new FormAttachment(100, 0);
-    canvas.setLayoutData(fdCanvas);
-
-    // Paint listener to draw the model
-    canvas.addPaintListener(this::paintControl);
-    registerCanvasMouseListeners();
+    createModelGraphBody(toolBar, () -> canvas.addPaintListener(this::paintControl));
 
     hopGui.replaceKeyboardShortcutListeners(this);
 
@@ -284,6 +278,30 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
   @Override
   protected ModelGraphMouseInteractions createMouseInteractions() {
     return new VaultMouseInteractions();
+  }
+
+  @Override
+  protected String getMetricsModelName() {
+    return model != null ? model.getName() : null;
+  }
+
+  @Override
+  protected String getMetricsModelType() {
+    return GeneratedPipelineMetadataConstants.MODEL_TYPE_DV;
+  }
+
+  @Override
+  protected List<String> getMetricsTableNames() {
+    if (model == null || model.getTables() == null) {
+      return List.of();
+    }
+    List<String> names = new ArrayList<>();
+    for (IDvTable table : model.getTables()) {
+      if (table != null && !Utils.isEmpty(table.getName())) {
+        names.add(table.getName());
+      }
+    }
+    return names;
   }
 
   private @Nullable IDvTable getAreaOwnerTable(AreaOwner areaOwner) {
@@ -661,6 +679,24 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
     if (dcp != null) {
       DataCatalogImportMenu.open(hopGui, model, null, () -> dcp.refresh());
     }
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_TOGGLE_DURATIONS,
+      toolTip = "i18n::ModelLoadDurationPane.Toggle.Tooltip",
+      image = "ui/images/show-results.svg")
+  public void toggleLoadDurationPanelToolbar() {
+    toggleLoadDurationPanel();
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_REFRESH_DURATIONS,
+      toolTip = "i18n::ModelLoadDurationPane.Refresh.Tooltip",
+      image = "ui/images/refresh.svg")
+  public void refreshLoadDurationOverviewToolbar() {
+    refreshLoadDurationOverview();
   }
 
   @GuiToolbarElement(

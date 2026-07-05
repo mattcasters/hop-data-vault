@@ -39,6 +39,8 @@ class LoadRunMetricsDdlSupportTest {
         statements.stream()
             .anyMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS dv_ops.load_run")));
     assertTrue(
+        statements.stream().anyMatch(sql -> sql.contains("pipeline_run_configuration")));
+    assertTrue(
         statements.stream()
             .anyMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS dv_ops.load_insight")));
   }

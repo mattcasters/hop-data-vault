@@ -31,6 +31,7 @@ import org.apache.hop.core.gui.IRedrawable;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.Rectangle;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.hopgui.file.metrics.ModelLoadDurationPane;
 import org.apache.hop.datavault.hopgui.file.vault.BasePainter;
 import org.apache.hop.datavault.hopgui.file.vault.DvNoteDialog;
 import org.apache.hop.datavault.hopgui.file.vault.DvNoteLinkHit;
@@ -47,9 +48,15 @@ import org.apache.hop.ui.hopgui.file.shared.HopGuiAbstractGraph;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.util.EnvironmentUtils;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.graphics.Cursor;
+import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.layout.FormAttachment;
+import org.eclipse.swt.layout.FormData;
+import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
 import org.jspecify.annotations.Nullable;
@@ -89,12 +96,81 @@ public abstract class HopGuiModelGraphBase extends HopGuiAbstractGraph implement
 
   private ModelGraphMouseInteractions mouseInteractions;
 
+  protected SashForm modelSash;
+  protected ModelLoadDurationPane loadDurationPane;
+  protected boolean loadDurationPanelVisible = true;
+
   protected HopGuiModelGraphBase(HopGui hopGui, Composite parent, ExplorerPerspective perspective) {
     super(hopGui, parent, SWT.NO_BACKGROUND);
     this.perspective = perspective;
   }
 
   protected abstract ModelGraphMouseInteractions createMouseInteractions();
+
+  protected abstract String getMetricsModelName();
+
+  protected abstract String getMetricsModelType();
+
+  protected abstract List<String> getMetricsTableNames();
+
+  /**
+   * Creates the horizontal split between the model canvas (left) and load duration overview
+   * (right). Call after the toolbar is created; {@code registerPaintListener} should attach the
+   * subclass paint listener to {@link #canvas}.
+   */
+  protected void createModelGraphBody(Control toolBar, Runnable registerPaintListener) {
+    modelSash = new SashForm(this, SWT.HORIZONTAL);
+    PropsUi.setLook(modelSash);
+    FormData fdSash = new FormData();
+    fdSash.left = new FormAttachment(0, 0);
+    fdSash.top = new FormAttachment(toolBar, 0);
+    fdSash.right = new FormAttachment(100, 0);
+    fdSash.bottom = new FormAttachment(100, 0);
+    modelSash.setLayoutData(fdSash);
+
+    Composite canvasHolder = new Composite(modelSash, SWT.NONE);
+    canvasHolder.setLayout(new FillLayout());
+    PropsUi.setLook(canvasHolder);
+
+    canvas = new Canvas(canvasHolder, SWT.NO_BACKGROUND);
+    registerPaintListener.run();
+    registerCanvasMouseListeners();
+
+    loadDurationPane =
+        new ModelLoadDurationPane(
+            modelSash,
+            hopGui,
+            variables,
+            this::getMetricsModelName,
+            this::getMetricsModelType,
+            this::getMetricsTableNames);
+
+    modelSash.setWeights(new int[] {65, 35});
+  }
+
+  public void toggleLoadDurationPanel() {
+    if (modelSash == null || canvas == null || loadDurationPane == null) {
+      return;
+    }
+    loadDurationPanelVisible = !loadDurationPanelVisible;
+    Composite canvasHolder = canvas.getParent();
+    if (loadDurationPanelVisible) {
+      modelSash.setMaximizedControl(null);
+      loadDurationPane.setVisible(true);
+      modelSash.setWeights(new int[] {65, 35});
+      refreshLoadDurationOverview();
+    } else {
+      modelSash.setMaximizedControl(canvasHolder);
+      loadDurationPane.setVisible(false);
+    }
+    modelSash.layout(true, true);
+  }
+
+  public void refreshLoadDurationOverview() {
+    if (loadDurationPane != null && loadDurationPanelVisible) {
+      loadDurationPane.refresh();
+    }
+  }
 
   protected ModelGraphMouseInteractions mouseInteractions() {
     if (mouseInteractions == null) {

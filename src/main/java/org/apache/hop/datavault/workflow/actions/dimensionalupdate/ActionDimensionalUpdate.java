@@ -534,6 +534,21 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
       }
 
       if (!allPipelineMetas.isEmpty()) {
+        ResolvedExecutionMetrics executionMetrics =
+            ExecutionMetricsProfileResolver.resolve(
+                resolve(executionMetricsProfile),
+                resolve(metricsOutputFolder),
+                resolve(dataCatalogConnection),
+                pipelineConfig.getTargetDatabase(),
+                GeneratedPipelineMetadataConstants.MODEL_TYPE_DM,
+                getParentWorkflow(),
+                getVariables(),
+                getMetadataProvider());
+        String resolvedMetricsOutputFolder =
+            executionMetrics.enabled() ? executionMetrics.metricsOutputFolder() : null;
+        DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext =
+            executionMetrics.enabled() ? executionMetrics.publishContext() : null;
+
         DvModelBulkUpdateExecutionSupport.ExecutionOutcome outcome;
         if (pipelineConfig.resolveTargetLoadMode() == DvTargetLoadMode.STAGING_FILE) {
           DatabaseMeta targetDatabase =
@@ -550,22 +565,14 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
                   pipelineStagingFolder,
                   targetDatabase,
                   pipelineConfig.getTargetDatabase(),
+                  resolvedMetricsOutputFolder,
+                  metricsPublishContext,
                   success,
                   totalErrors,
                   getVariables(),
                   this,
                   getMetadataProvider());
         } else {
-          ResolvedExecutionMetrics executionMetrics =
-              ExecutionMetricsProfileResolver.resolve(
-                  resolve(executionMetricsProfile),
-                  resolve(metricsOutputFolder),
-                  resolve(dataCatalogConnection),
-                  pipelineConfig.getTargetDatabase(),
-                  GeneratedPipelineMetadataConstants.MODEL_TYPE_DM,
-                  getParentWorkflow(),
-                  getVariables(),
-                  getMetadataProvider());
           outcome =
               DvModelBulkUpdateExecutionSupport.executeOrchestratorUpdate(
                   result,
@@ -575,8 +582,8 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
                   getLogLevel(),
                   pipelineStagingFolder,
                   parallelPipelineCopies,
-                  executionMetrics.enabled() ? executionMetrics.metricsOutputFolder() : null,
-                  executionMetrics.enabled() ? executionMetrics.publishContext() : null,
+                  resolvedMetricsOutputFolder,
+                  metricsPublishContext,
                   success,
                   totalErrors,
                   getVariables(),

@@ -82,6 +82,7 @@ public class DvAiAdvisorDialog {
   private Button wIncludeCatalog;
   private Button wIncludeModelXml;
   private Button wIncludeLoadRunMetrics;
+  private Button wIncludeExecutionInfo;
   private Button wChangeCatalogSources;
   private Button wSend;
   private Label wlStatusMessage;
@@ -238,7 +239,17 @@ public class DvAiAdvisorDialog {
     fdLoadRunMetrics.top = new FormAttachment(wIncludeChecks, margin);
     wIncludeLoadRunMetrics.setLayoutData(fdLoadRunMetrics);
 
-    return wIncludeLoadRunMetrics;
+    wIncludeExecutionInfo = new Button(shell, SWT.CHECK);
+    wIncludeExecutionInfo.setText(
+        BaseMessages.getString(PKG, "DvAiAdvisorDialog.IncludeExecutionInfo.Label"));
+    wIncludeExecutionInfo.setSelection(false);
+    PropsUi.setLook(wIncludeExecutionInfo);
+    FormData fdExecutionInfo = new FormData();
+    fdExecutionInfo.left = new FormAttachment(wIncludeLoadRunMetrics, margin);
+    fdExecutionInfo.top = new FormAttachment(wIncludeChecks, margin);
+    wIncludeExecutionInfo.setLayoutData(fdExecutionInfo);
+
+    return wIncludeExecutionInfo;
   }
 
   private Control createScenarioWidgets(int margin) {
@@ -280,14 +291,15 @@ public class DvAiAdvisorDialog {
     } else {
       lastScenarioIndex = wScenario.getSelectionIndex();
     }
-    syncLoadRunMetricsForScenario();
+    syncPerformanceOptionsForScenario();
   }
 
-  private void syncLoadRunMetricsForScenario() {
+  private void syncPerformanceOptionsForScenario() {
     DvAiScenario scenario =
         EnumDialogSupport.readCombo(wScenario, DvAiScenario.class, DvAiScenario.GENERAL);
     if (scenario == DvAiScenario.PERFORMANCE_TUNING) {
       wIncludeLoadRunMetrics.setSelection(true);
+      wIncludeExecutionInfo.setSelection(true);
     }
   }
 
@@ -380,6 +392,7 @@ public class DvAiAdvisorDialog {
             .includeCatalogSources(wIncludeCatalog.getSelection())
             .includeModelXml(wIncludeModelXml.getSelection())
             .includeLoadRunMetrics(wIncludeLoadRunMetrics.getSelection())
+            .includeExecutionInfo(wIncludeExecutionInfo.getSelection())
             .followUp(followUp);
     for (String catalogSource : catalogSources) {
       requestBuilder.catalogSourceName(catalogSource);

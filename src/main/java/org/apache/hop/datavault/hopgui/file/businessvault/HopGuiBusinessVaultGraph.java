@@ -76,6 +76,7 @@ import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguratio
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvModelResolver;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvReferenceSupport;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.businessvault.BvBusinessTable;
@@ -160,6 +161,10 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   public static final String TOOLBAR_ITEM_DEBUG = "HopGuiBusinessVaultGraph-ToolBar-10080-Debug";
   public static final String TOOLBAR_ITEM_GENERATE_DDL =
       "HopGuiBusinessVaultGraph-ToolBar-10085-Generate-Ddl";
+  public static final String TOOLBAR_ITEM_TOGGLE_DURATIONS =
+      "HopGuiBusinessVaultGraph-ToolBar-10086-Toggle-Durations";
+  public static final String TOOLBAR_ITEM_REFRESH_DURATIONS =
+      "HopGuiBusinessVaultGraph-ToolBar-10087-Refresh-Durations";
   public static final String TOOLBAR_ITEM_SELECT_ALL =
       "HopGuiBusinessVaultGraph-ToolBar-20010-Select-All";
   public static final String TOOLBAR_ITEM_UNSELECT_ALL =
@@ -223,16 +228,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     setLayout(new FormLayout());
     addToolBar();
 
-    canvas = new Canvas(this, SWT.NO_BACKGROUND);
-    FormData fdCanvas = new FormData();
-    fdCanvas.left = new FormAttachment(0, 0);
-    fdCanvas.top = new FormAttachment(0, toolBar.getBounds().height);
-    fdCanvas.right = new FormAttachment(100, 0);
-    fdCanvas.bottom = new FormAttachment(100, 0);
-    canvas.setLayoutData(fdCanvas);
-
-    canvas.addPaintListener(this::paintControl);
-    registerCanvasMouseListeners();
+    createModelGraphBody(toolBar, () -> canvas.addPaintListener(this::paintControl));
 
     hopGui.replaceKeyboardShortcutListeners(this);
     canvas.setFocus();
@@ -380,6 +376,30 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   @Override
   protected ModelGraphMouseInteractions createMouseInteractions() {
     return new BusinessVaultMouseInteractions();
+  }
+
+  @Override
+  protected String getMetricsModelName() {
+    return model != null ? model.getName() : null;
+  }
+
+  @Override
+  protected String getMetricsModelType() {
+    return GeneratedPipelineMetadataConstants.MODEL_TYPE_BV;
+  }
+
+  @Override
+  protected List<String> getMetricsTableNames() {
+    if (model == null || model.getTables() == null) {
+      return List.of();
+    }
+    List<String> names = new ArrayList<>();
+    for (IBvTable table : model.getTables()) {
+      if (table != null && !Utils.isEmpty(table.getName())) {
+        names.add(table.getName());
+      }
+    }
+    return names;
   }
 
   private boolean isBvTableInLassoScreenRect(
@@ -1278,6 +1298,24 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
         perspective.updateTabItem(this);
       }
     }
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_TOGGLE_DURATIONS,
+      toolTip = "i18n::ModelLoadDurationPane.Toggle.Tooltip",
+      image = "ui/images/show-results.svg")
+  public void toggleLoadDurationPanelToolbar() {
+    toggleLoadDurationPanel();
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_REFRESH_DURATIONS,
+      toolTip = "i18n::ModelLoadDurationPane.Refresh.Tooltip",
+      image = "ui/images/refresh.svg")
+  public void refreshLoadDurationOverviewToolbar() {
+    refreshLoadDurationOverview();
   }
 
   @GuiToolbarElement(

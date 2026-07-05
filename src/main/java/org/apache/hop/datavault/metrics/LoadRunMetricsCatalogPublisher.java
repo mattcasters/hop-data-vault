@@ -115,6 +115,7 @@ public final class LoadRunMetricsCatalogPublisher {
           modelType,
           workflowName,
           logChannelId,
+          publishContext.pipelineRunConfiguration(),
           success,
           errorCount,
           finishedAt,
@@ -243,6 +244,7 @@ public final class LoadRunMetricsCatalogPublisher {
     fields.addValueMeta(stringMeta("model_name", 255));
     fields.addValueMeta(stringMeta("workflow_name", 255));
     fields.addValueMeta(stringMeta("log_channel_id", 64));
+    fields.addValueMeta(stringMeta("pipeline_run_configuration", 255));
     fields.addValueMeta(new ValueMetaBoolean("success"));
     fields.addValueMeta(new ValueMetaInteger("error_count"));
 
@@ -383,6 +385,7 @@ public final class LoadRunMetricsCatalogPublisher {
       String modelType,
       String workflowName,
       String logChannelId,
+      String pipelineRunConfiguration,
       boolean success,
       long errorCount,
       Date finishedAt,
@@ -404,6 +407,7 @@ public final class LoadRunMetricsCatalogPublisher {
           modelType,
           workflowName,
           logChannelId,
+          pipelineRunConfiguration,
           success,
           errorCount,
           finishedAt);
@@ -442,6 +446,7 @@ public final class LoadRunMetricsCatalogPublisher {
       String modelType,
       String workflowName,
       String logChannelId,
+      String pipelineRunConfiguration,
       boolean success,
       long errorCount,
       Date finishedAt)
@@ -451,7 +456,7 @@ public final class LoadRunMetricsCatalogPublisher {
     String sql =
         "INSERT INTO "
             + qualifiedTable
-            + " (run_id, started_at, finished_at, model_type, model_name, workflow_name, log_channel_id, success, error_count) VALUES ("
+            + " (run_id, started_at, finished_at, model_type, model_name, workflow_name, log_channel_id, pipeline_run_configuration, success, error_count) VALUES ("
             + sqlLiteral(runId)
             + ", "
             + sqlTimestampLiteral(finishedAt)
@@ -465,6 +470,8 @@ public final class LoadRunMetricsCatalogPublisher {
             + sqlLiteral(workflowName)
             + ", "
             + sqlLiteral(logChannelId)
+            + ", "
+            + sqlLiteral(pipelineRunConfiguration)
             + ", "
             + (success ? "TRUE" : "FALSE")
             + ", "

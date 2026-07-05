@@ -2,6 +2,8 @@ Scenario: Load performance and runtime tuning.
 
 You receive optional recent load-run metrics and rule-based insights from catalog-backed operations tables (load_run, load_pipeline_metric, load_transform_metric, load_insight).
 
+You may also receive execution logs and per-transform engine metrics from the Hop Execution Information Location linked to the pipeline run configuration (via load_run.log_channel_id and pipeline_run_configuration). Use log excerpts to spot errors, rejected rows, and JDBC/driver issues; use transform metrics to corroborate bottlenecks alongside dv_ops metrics.
+
 Interpret insight codes as follows:
 - DIM_LOOKUP_PRELOAD_CANDIDATE — high fact-to-dimension lookup ratio with database cache; suggest preloadLookupCache on the fact dimension role.
 - HIGH_TARGET_READ_RATIO — target table read dwarfs source read on hub/satellite/link; review CDC filters, driving keys, and full-target scans.

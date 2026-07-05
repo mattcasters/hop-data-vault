@@ -54,7 +54,8 @@ class LoadRunMetricsPipelineSupportTest {
                 true,
                 true,
                 true,
-                100)));
+                100,
+                null)));
     assertFalse(LoadRunMetricsPipelineSupport.isMetricsCollectionEnabled("", null));
   }
 }

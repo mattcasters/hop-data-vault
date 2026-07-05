@@ -44,6 +44,7 @@ import org.apache.hop.datavault.metadata.SatelliteAttribute;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
 import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.datavault.metrics.ExecutionInfoAiContextBuilder;
 import org.apache.hop.datavault.metrics.MetricsAiContextBuilder;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
@@ -98,6 +99,15 @@ public final class DvAiContextBuilder {
             GeneratedPipelineMetadataConstants.MODEL_TYPE_DV,
             metadataProvider,
             variables);
+    String executionInfoJson =
+        ExecutionInfoAiContextBuilder.buildExecutionInfoContext(
+            request.isIncludeExecutionInfo(),
+            scenario == DvAiScenario.PERFORMANCE_TUNING,
+            request.getUserPrompt(),
+            model.getName(),
+            GeneratedPipelineMetadataConstants.MODEL_TYPE_DV,
+            metadataProvider,
+            variables);
 
     return DvAiContextBundle.builder()
         .scenario(scenario)
@@ -109,6 +119,7 @@ public final class DvAiContextBuilder {
         .hopMetadataJson(serializeHopMetadata(model, metadataProvider, variables))
         .checkResultsJson(checkResultsJson)
         .loadRunMetricsJson(loadRunMetricsJson)
+        .executionInfoJson(executionInfoJson)
         .logsExcerpt(truncate(request.getLogsExcerpt(), MAX_LOG_CHARS))
         .followUp(request.isFollowUp())
         .appliedChangeSummaries(

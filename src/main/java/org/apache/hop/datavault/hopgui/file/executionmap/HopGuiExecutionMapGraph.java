@@ -271,6 +271,20 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
   }
 
   @Override
+  protected String getMetricsModelName() {
+    return null;
+  }
+
+  @Override
+  protected String getMetricsModelType() {
+    return null;
+  }
+
+  @Override
+  protected List<String> getMetricsTableNames() {
+    return List.of();
+  }
+
   protected ModelGraphMouseInteractions createMouseInteractions() {
     return new ExecutionMapReadOnlyInteractions(this);
   }

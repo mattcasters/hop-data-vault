@@ -88,7 +88,8 @@ class LoadRunMetricsCatalogPublisherTest {
             true,
             false,
             false,
-            LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD);
+            LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD,
+            null);
 
     List<DvUpdateTableMetrics> pipelines =
         List.of(

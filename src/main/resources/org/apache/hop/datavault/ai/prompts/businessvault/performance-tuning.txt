@@ -2,6 +2,8 @@ Scenario: Business Vault load performance and runtime tuning.
 
 Use recent load-run metrics and insights when provided. BV pipelines often include analytic/collapse legs and SCD2/PIT derivations — prioritize sort memory, target reads, and write-path observations from the metrics JSON.
 
+When execution info JSON is present, use pipeline log excerpts and per-transform engine metrics from the Execution Information Location (resolved via load_run.log_channel_id and pipeline_run_configuration) to corroborate failures and bottlenecks.
+
 Map insight codes to BV-relevant configuration: sortRowsSize, targetTableParallelCopies, targetLoadMode, bulkLoadStagingFolder, and workflow parallelPipelineCopies.
 
 When insights reference specific BV tables or pipelines, anchor proposals to those element names.

@@ -20,9 +20,13 @@ package org.apache.hop.datavault.metadata;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.hop.core.Result;
+import org.apache.hop.core.variables.Variables;
+import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
+import org.apache.hop.datavault.metrics.DvUpdateMetricsConstants;
 import org.junit.jupiter.api.Test;
 
 class DvPipelineOrchestratorSupportTest {
@@ -38,6 +42,29 @@ class DvPipelineOrchestratorSupportTest {
     assertEquals(
         "hub-customer.hpl",
         DvPipelineOrchestratorSupport.buildStagedPipelineFilename("hub-customer", 1, false));
+  }
+
+  @Test
+  void initializeMetricsRunSetsRunScopedVariables() {
+    Variables variables = new Variables();
+    DvUpdateMetricsCollector.LoadRunPublishContext publishContext =
+        DvUpdateMetricsCollector.LoadRunPublishContext.withDefaults(
+            "local-catalog", "Vault", "update-retail-dv-bv-dm", "dm");
+
+    String runId =
+        DvPipelineOrchestratorSupport.initializeMetricsRun(
+            variables, "retail-f-orders", publishContext);
+
+    assertNotNull(runId);
+    assertEquals(runId, variables.getVariable(DvUpdateMetricsConstants.VAR_RUN_ID));
+    assertEquals("retail-f-orders", variables.getVariable(DvUpdateMetricsConstants.VAR_MODEL_NAME));
+    assertEquals("dm", variables.getVariable(DvUpdateMetricsConstants.VAR_MODEL_TYPE));
+    assertEquals(
+        "update-retail-dv-bv-dm", variables.getVariable(DvUpdateMetricsConstants.VAR_WORKFLOW_NAME));
+    assertEquals("Vault", variables.getVariable(DvUpdateMetricsConstants.VAR_METRICS_DATABASE));
+    assertEquals(
+        "local-catalog",
+        variables.getVariable(DvUpdateMetricsConstants.VAR_METRICS_CATALOG_CONNECTION));
   }
 
   @Test

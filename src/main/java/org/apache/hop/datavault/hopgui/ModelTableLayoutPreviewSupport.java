@@ -39,8 +39,7 @@ import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
-import org.apache.hop.ui.core.dialog.PreviewRowsDialog;
-import org.eclipse.swt.SWT;
+import org.apache.hop.datavault.hopgui.dialog.ShowRowsDialog;
 import org.eclipse.swt.widgets.Shell;
 
 /** Previews the projected target table layout for DV, BV, and DM model tables. */
@@ -195,16 +194,14 @@ public final class ModelTableLayoutPreviewSupport {
   private static void openLayoutPreview(
       Shell shell, IVariables variables, String tableLabel, IRowMeta layout) {
     MetadataPreview preview = buildMetadataPreviewRows(layout);
-    PreviewRowsDialog dialog =
-        new PreviewRowsDialog(
+    new ShowRowsDialog(
             shell,
             variables,
-            SWT.NONE,
-            tableLabel,
+            BaseMessages.getString(PKG, "ModelTableLayoutPreviewSupport.Preview.Title"),
+            BaseMessages.getString(PKG, "ModelTableLayoutPreviewSupport.Preview.Message", tableLabel),
             preview.previewMeta(),
-            preview.previewRows(),
-            "");
-    dialog.open();
+            preview.previewRows())
+        .open();
   }
 
   private static void showLayoutError(Shell shell, HopException exception) {

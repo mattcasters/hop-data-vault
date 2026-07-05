@@ -63,6 +63,7 @@ import org.apache.hop.datavault.metadata.DvIntegrationSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvLoadDateSupport;
 import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
+import org.apache.hop.datavault.metadata.DvModelBulkUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
 import org.apache.hop.datavault.metrics.ExecutionMetricsProfileResolver;
 import org.apache.hop.datavault.metrics.ResolvedExecutionMetrics;
@@ -71,7 +72,7 @@ import org.apache.hop.datavault.config.DvRunConfigurationSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
 import org.apache.hop.workflow.config.WorkflowRunConfiguration;
 import org.apache.hop.datavault.metadata.DvUpdateExecutionSupport;
-import org.apache.hop.datavault.metadata.DvUpdateWorkflowSupport;
+
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
@@ -711,17 +712,39 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
         DvTargetLoadMode targetLoadMode = pipelineConfig.resolveTargetLoadMode();
         UpdateExecutionOutcome outcome;
         if (targetLoadMode == DvTargetLoadMode.STAGING_FILE) {
-          outcome =
-              executeStagingFileUpdate(
+          ResolvedExecutionMetrics executionMetrics =
+              ExecutionMetricsProfileResolver.resolve(
+                  resolve(executionMetricsProfile),
+                  resolve(metricsOutputFolder),
+                  resolve(dataCatalogConnection),
+                  pipelineConfig.getTargetDatabase(),
+                  GeneratedPipelineMetadataConstants.MODEL_TYPE_DV,
+                  getParentWorkflow(),
+                  getVariables(),
+                  getMetadataProvider());
+          DatabaseMeta targetDatabase =
+              DvSpecialRecordSupport.loadTargetDatabase(getMetadataProvider(), pipelineConfig);
+          DvModelBulkUpdateExecutionSupport.ExecutionOutcome bulkOutcome =
+              DvModelBulkUpdateExecutionSupport.executeStagingFileUpdate(
                   result,
-                  model,
+                  model.getName(),
                   pipelineConfig,
                   allPipelineMetas,
                   realRunConfig,
                   realWorkflowRunConfig,
                   pipelineLogLevel,
+                  pipelineStagingFolder,
+                  targetDatabase,
+                  pipelineConfig.getTargetDatabase(),
+                  executionMetrics.enabled() ? executionMetrics.metricsOutputFolder() : null,
+                  executionMetrics.enabled() ? executionMetrics.publishContext() : null,
                   success,
-                  totalErrors);
+                  totalErrors,
+                  getVariables(),
+                  this,
+                  getMetadataProvider());
+          outcome =
+              new UpdateExecutionOutcome(bulkOutcome.success(), bulkOutcome.totalErrors());
         } else {
           outcome =
               executeOrchestratorUpdate(
@@ -833,139 +856,6 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
         logError(
             BaseMessages.getString(
                 PKG, "ActionDataVaultUpdate.Error.StagingCleanupFailed", stagingFolder),
-            e);
-      }
-    }
-    return new UpdateExecutionOutcome(success, totalErrors);
-  }
-
-  private UpdateExecutionOutcome executeStagingFileUpdate(
-      Result result,
-      DataVaultModel model,
-      DataVaultConfiguration pipelineConfig,
-      List<PipelineMeta> allPipelineMetas,
-      String realRunConfig,
-      String realWorkflowRunConfig,
-      LogLevel pipelineLogLevel,
-      boolean success,
-      int totalErrors)
-      throws HopException {
-    DatabaseMeta targetDatabase =
-        DvSpecialRecordSupport.loadTargetDatabase(getMetadataProvider(), pipelineConfig);
-    if (targetDatabase == null || Utils.isEmpty(pipelineConfig.getTargetDatabase())) {
-      logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.NoTargetDatabase"));
-      return new UpdateExecutionOutcome(false, totalErrors + 1);
-    }
-    String targetDbName = pipelineConfig.getTargetDatabase();
-
-    String pipelineStagingFolderResolved =
-        resolve(
-            DvPipelineOrchestratorSupport.resolveStagingFolder(
-                pipelineStagingFolder, getVariables(), model.getName()));
-    String bulkStagingFolderResolved =
-        resolve(pipelineConfig.resolveBulkLoadStagingFolder(getVariables(), model.getName()));
-
-    logBasic(
-        BaseMessages.getString(
-            PKG,
-            "ActionDataVaultUpdate.Log.StagingPipelines",
-            pipelineStagingFolderResolved,
-            allPipelineMetas.size()));
-    logBasic(
-        BaseMessages.getString(
-            PKG,
-            "ActionDataVaultUpdate.Log.StagingBulkDataFolder",
-            bulkStagingFolderResolved));
-
-    try {
-      DvPipelineOrchestratorSupport.prepareStagingFolder(
-          pipelineStagingFolderResolved, getVariables());
-      DvPipelineOrchestratorSupport.stagePipelines(
-          pipelineStagingFolderResolved, getVariables(), allPipelineMetas, true);
-      DvUpdateWorkflowSupport.prepareBulkStagingFolder(
-          bulkStagingFolderResolved, getVariables());
-
-      List<DvUpdateWorkflowSupport.DvStagingLoadDescriptor> descriptors =
-          DvUpdateWorkflowSupport.buildStagingDescriptors(
-              pipelineConfig,
-              getVariables(),
-              model.getName(),
-              targetDatabase,
-              targetDbName,
-              allPipelineMetas);
-
-      org.apache.hop.workflow.WorkflowMeta masterWorkflow =
-          DvUpdateWorkflowSupport.buildMasterWorkflow(
-              descriptors,
-              pipelineConfig,
-              getVariables(),
-              realRunConfig,
-              model.getName());
-
-      String savedWorkflowFile =
-          DvGeneratedPipelineSupport.saveWorkflowBeforeExecution(
-              pipelineConfig, getVariables(), masterWorkflow);
-      if (!Utils.isEmpty(savedWorkflowFile)) {
-        logBasic(
-            BaseMessages.getString(
-                PKG,
-                "ActionDataVaultUpdate.Log.SavedGeneratedWorkflow",
-                masterWorkflow.getName(),
-                savedWorkflowFile));
-      }
-
-      logBasic(
-          BaseMessages.getString(
-              PKG,
-              "ActionDataVaultUpdate.Log.RunningBulkWorkflow",
-              masterWorkflow.getName(),
-              descriptors.size()));
-
-      Result workflowResult =
-          DvUpdateWorkflowSupport.runMasterWorkflow(
-              masterWorkflow,
-              realWorkflowRunConfig,
-              pipelineLogLevel != null ? pipelineLogLevel : getLogLevel(),
-              this,
-              getVariables(),
-              getMetadataProvider());
-
-      DvPipelineOrchestratorSupport.mergeResult(result, workflowResult);
-
-      if (workflowResult.getNrErrors() > 0 || !workflowResult.getResult()) {
-        logError(BaseMessages.getString(PKG, "ActionDataVaultUpdate.Error.BulkWorkflowFailed"));
-        success = false;
-        totalErrors += workflowResult.getNrErrors();
-      }
-    } finally {
-      try {
-        DvPipelineOrchestratorSupport.cleanupStagingFolder(
-            pipelineStagingFolderResolved, getVariables());
-        logBasic(
-            BaseMessages.getString(
-                PKG, "ActionDataVaultUpdate.Log.StagingCleanup", pipelineStagingFolderResolved));
-      } catch (HopException e) {
-        logError(
-            BaseMessages.getString(
-                PKG,
-                "ActionDataVaultUpdate.Error.StagingCleanupFailed",
-                pipelineStagingFolderResolved),
-            e);
-      }
-      try {
-        DvUpdateWorkflowSupport.cleanupBulkStagingFolder(
-            bulkStagingFolderResolved, getVariables());
-        logBasic(
-            BaseMessages.getString(
-                PKG,
-                "ActionDataVaultUpdate.Log.BulkStagingCleanup",
-                bulkStagingFolderResolved));
-      } catch (HopException e) {
-        logError(
-            BaseMessages.getString(
-                PKG,
-                "ActionDataVaultUpdate.Error.BulkStagingCleanupFailed",
-                bulkStagingFolderResolved),
             e);
       }
     }

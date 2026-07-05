@@ -34,6 +34,7 @@ public class BvAiRequest {
   private final boolean includeLinkedDvModel;
   private final boolean includeModelXml;
   @Builder.Default private final boolean includeLoadRunMetrics = false;
+  @Builder.Default private final boolean includeExecutionInfo = false;
   private final String logsExcerpt;
   @Builder.Default private final boolean followUp = false;
   @Singular("appliedChangeSummary")

@@ -82,6 +82,7 @@ public class DmAiAdvisorDialog {
   private Button wIncludeChecks;
   private Button wIncludeModelXml;
   private Button wIncludeLoadRunMetrics;
+  private Button wIncludeExecutionInfo;
   private Button wSend;
   private Label wlStatusMessage;
   private HopAiTranscriptPanel transcriptPanel;
@@ -216,7 +217,17 @@ public class DmAiAdvisorDialog {
     fdLoadRunMetrics.top = new FormAttachment(wIncludeChecks, margin);
     wIncludeLoadRunMetrics.setLayoutData(fdLoadRunMetrics);
 
-    return wIncludeLoadRunMetrics;
+    wIncludeExecutionInfo = new Button(shell, SWT.CHECK);
+    wIncludeExecutionInfo.setText(
+        BaseMessages.getString(PKG, "DmAiAdvisorDialog.IncludeExecutionInfo.Label"));
+    wIncludeExecutionInfo.setSelection(false);
+    PropsUi.setLook(wIncludeExecutionInfo);
+    FormData fdExecutionInfo = new FormData();
+    fdExecutionInfo.left = new FormAttachment(wIncludeLoadRunMetrics, margin);
+    fdExecutionInfo.top = new FormAttachment(wIncludeChecks, margin);
+    wIncludeExecutionInfo.setLayoutData(fdExecutionInfo);
+
+    return wIncludeExecutionInfo;
   }
 
   private Control createScenarioWidgets(int margin) {
@@ -258,14 +269,15 @@ public class DmAiAdvisorDialog {
     } else {
       lastScenarioIndex = wScenario.getSelectionIndex();
     }
-    syncLoadRunMetricsForScenario();
+    syncPerformanceOptionsForScenario();
   }
 
-  private void syncLoadRunMetricsForScenario() {
+  private void syncPerformanceOptionsForScenario() {
     DmAiScenario scenario =
         EnumDialogSupport.readCombo(wScenario, DmAiScenario.class, DmAiScenario.GENERAL);
     if (scenario == DmAiScenario.PERFORMANCE_TUNING) {
       wIncludeLoadRunMetrics.setSelection(true);
+      wIncludeExecutionInfo.setSelection(true);
     }
   }
 
@@ -332,6 +344,7 @@ public class DmAiAdvisorDialog {
             .includeCheckResults(wIncludeChecks.getSelection())
             .includeModelXml(wIncludeModelXml.getSelection())
             .includeLoadRunMetrics(wIncludeLoadRunMetrics.getSelection())
+            .includeExecutionInfo(wIncludeExecutionInfo.getSelection())
             .followUp(followUp);
     for (String summary : session.consumePendingAppliedSummaries()) {
       requestBuilder.appliedChangeSummary(summary);

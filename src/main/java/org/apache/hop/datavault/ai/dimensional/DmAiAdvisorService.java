@@ -118,6 +118,11 @@ public final class DmAiAdvisorService {
           .append(context.getLoadRunMetricsJson())
           .append("\n\n");
     }
+    if (!Utils.isEmpty(context.getExecutionInfoJson())) {
+      prompt.append("Recent execution logs and transform metrics JSON:\n")
+          .append(context.getExecutionInfoJson())
+          .append("\n\n");
+    }
 
     appendAppliedSummaries(prompt, context.getAppliedChangeSummaries());
     return prompt.toString();

@@ -19,6 +19,7 @@
 package org.apache.hop.catalog.hopgui.preview;
 
 import org.apache.hop.catalog.model.RecordDefinition;
+import org.apache.hop.catalog.model.RecordDefinitionKey;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.IVariables;
@@ -31,7 +32,7 @@ import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.database.dialog.PreviewTableSettingsDialog;
 import org.apache.hop.ui.core.dialog.EnterTextDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
-import org.apache.hop.ui.core.dialog.PreviewRowsDialog;
+import org.apache.hop.datavault.hopgui.dialog.ShowRowsDialog;
 import org.apache.hop.ui.pipeline.dialog.PipelinePreviewProgressDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Shell;
@@ -95,16 +96,17 @@ public final class RecordDefinitionPreviewRunner {
           etd.setReadOnly();
           etd.open();
         } else {
-          PreviewRowsDialog prd =
-              new PreviewRowsDialog(
+          new ShowRowsDialog(
                   shell,
                   variables,
-                  SWT.NONE,
-                  previewTransformName,
+                  BaseMessages.getString(PKG, "RecordDefinitionPreviewRunner.Preview.Title"),
+                  BaseMessages.getString(
+                      PKG,
+                      "RecordDefinitionPreviewRunner.Preview.Message",
+                      resolveDefinitionLabel(definition)),
                   progressDialog.getPreviewRowsMeta(previewTransformName),
-                  progressDialog.getPreviewRows(previewTransformName),
-                  loggingText);
-          prd.open();
+                  progressDialog.getPreviewRows(previewTransformName))
+              .open();
         }
       }
     } catch (Exception e) {
@@ -114,5 +116,13 @@ public final class RecordDefinitionPreviewRunner {
           BaseMessages.getString(PKG, "RecordDefinitionPreviewRunner.Error.Message"),
           e instanceof HopException ? e : new HopException(e));
     }
+  }
+
+  private static String resolveDefinitionLabel(RecordDefinition definition) {
+    if (definition == null) {
+      return "";
+    }
+    RecordDefinitionKey key = definition.getKey();
+    return key != null ? key.toString() : "";
   }
 }
