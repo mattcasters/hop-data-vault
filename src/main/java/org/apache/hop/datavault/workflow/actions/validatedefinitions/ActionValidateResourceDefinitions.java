@@ -41,7 +41,7 @@ import org.apache.hop.workflow.action.IAction;
     id = "VALIDATE_RESOURCE_DEFINITIONS",
     name = "i18n::ActionValidateResourceDefinitions.Name",
     description = "i18n::ActionValidateResourceDefinitions.Description",
-    image = "datavault_model.svg",
+    image = "datavault-model.svg",
     categoryDescription = "i18n:org.apache.hop.workflow:ActionCategory.Category.General",
     keywords = "i18n::ActionValidateResourceDefinitions.Keywords",
     documentationUrl = "/workflow/actions/validatedefinitions.html")

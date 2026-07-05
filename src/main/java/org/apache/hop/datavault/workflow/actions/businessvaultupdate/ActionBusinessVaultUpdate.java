@@ -43,7 +43,6 @@ import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.logging.ILoggingObject;
-import org.apache.hop.core.logging.LogLevel;
 import org.apache.hop.core.logging.LoggingObjectType;
 import org.apache.hop.core.logging.SimpleLoggingObject;
 import org.apache.hop.core.util.Utils;
@@ -57,7 +56,6 @@ import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvModelBulkUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
-import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
 import org.apache.hop.datavault.metrics.ExecutionMetricsProfileResolver;
 import org.apache.hop.datavault.metrics.ResolvedExecutionMetrics;
 import org.apache.hop.datavault.metrics.metadata.ExecutionMetricsProfileMeta;
@@ -87,7 +85,7 @@ import org.w3c.dom.Node;
     id = "BUSINESS_VAULT_UPDATE",
     name = "i18n::ActionBusinessVaultUpdate.Name",
     description = "i18n::ActionBusinessVaultUpdate.Description",
-    image = "business_vault_model.svg",
+    image = "business-vault-model.svg",
     categoryDescription = "i18n:org.apache.hop.workflow:ActionCategory.Category.General",
     keywords = "i18n::ActionBusinessVaultUpdate.Keywords",
     documentationUrl = "/workflow/actions/businessvaultupdate.html")

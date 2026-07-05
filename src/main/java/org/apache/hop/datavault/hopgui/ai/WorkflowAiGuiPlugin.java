@@ -38,7 +38,7 @@ public class WorkflowAiGuiPlugin {
       root = HopGuiWorkflowGraph.GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_AI_HELP,
       toolTip = "i18n::WorkflowAiGuiPlugin.Toolbar.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg")
+      image = "datavault-ai-help.svg")
   public void openAiAdvisorToolbar() {
     HopGui hopGui = HopGui.getInstance();
     HopGuiWorkflowGraph workflowGraph = HopGui.getActiveWorkflowGraph();
@@ -54,7 +54,7 @@ public class WorkflowAiGuiPlugin {
       type = GuiActionType.Modify,
       name = "i18n::WorkflowAiGuiPlugin.AiHelp.Name",
       tooltip = "i18n::WorkflowAiGuiPlugin.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg",
+      image = "datavault-ai-help.svg",
       category = "i18n:org.apache.hop.ui.hopgui.file.workflow:HopGuiWorkflowGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
   public void openAiAdvisorWorkflowContext(HopGuiWorkflowContext context) {
@@ -69,7 +69,7 @@ public class WorkflowAiGuiPlugin {
       type = GuiActionType.Modify,
       name = "i18n::WorkflowAiGuiPlugin.AiHelp.Name",
       tooltip = "i18n::WorkflowAiGuiPlugin.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg",
+      image = "datavault-ai-help.svg",
       category = "i18n:org.apache.hop.ui.hopgui.file.workflow:HopGuiWorkflowGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
   public void openAiAdvisorActionContext(HopGuiWorkflowActionContext context) {

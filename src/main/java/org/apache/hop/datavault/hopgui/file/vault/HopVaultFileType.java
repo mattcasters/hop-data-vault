@@ -61,7 +61,7 @@ import org.w3c.dom.Node;
     id = "HopFile-Vault-Plugin",
     name = "Data Vault Model",
     description = "The Data Vault model file information for the Hop GUI",
-    image = "datavault_model.svg")
+    image = "datavault-model.svg")
 public class HopVaultFileType extends HopFileTypeBase {
 
   public static final Class<?> PKG = HopVaultFileType.class; // for i18n
@@ -256,7 +256,7 @@ public class HopVaultFileType extends HopFileTypeBase {
             GuiActionType.Create,
             BaseMessages.getString(PKG, "HopVaultFileType.GuiAction.New.Name"),
             BaseMessages.getString(PKG, "HopVaultFileType.GuiAction.New.Tooltip"),
-            "datavault_model.svg",
+                "datavault-model.svg",
             (shift, ctrl, params) -> {
               try {
                 this.newFile(hopGui, hopGui.getVariables());
@@ -277,7 +277,7 @@ public class HopVaultFileType extends HopFileTypeBase {
 
   @Override
   public String getFileTypeImage() {
-    return "datavault_model.svg";
+    return "datavault-model.svg";
   }
 
   // Helper for save called from the graph handler

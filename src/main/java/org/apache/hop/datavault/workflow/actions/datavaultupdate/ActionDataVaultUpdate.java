@@ -64,7 +64,6 @@ import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvLoadDateSupport;
 import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
 import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
-import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
 import org.apache.hop.datavault.metrics.ExecutionMetricsProfileResolver;
 import org.apache.hop.datavault.metrics.ResolvedExecutionMetrics;
 import org.apache.hop.datavault.metrics.metadata.ExecutionMetricsProfileMeta;
@@ -92,7 +91,7 @@ import org.w3c.dom.Node;
     id = "DATA_VAULT_UPDATE",
     name = "i18n::ActionDataVaultUpdate.Name",
     description = "i18n::ActionDataVaultUpdate.Description",
-    image = "datavault_model.svg",
+    image = "datavault-model.svg",
     categoryDescription = "i18n:org.apache.hop.workflow:ActionCategory.Category.General",
     keywords = "i18n::ActionDataVaultUpdate.Keywords",
     documentationUrl = "/workflow/actions/datavaultupdate.html")

@@ -37,13 +37,13 @@ public final class DvTableDisplaySupport {
 
   public static String getImagePath(DvTableType type) {
     if (type == null) {
-      return "datavault_model.svg";
+      return "datavault-model.svg";
     }
     return switch (type) {
-      case HUB -> "datavault_hub.svg";
-      case LINK -> "datavault_link.svg";
-      case SATELLITE -> "datavault_satellite.svg";
-      default -> "datavault_model.svg";
+      case HUB -> "datavault-hub.svg";
+      case LINK -> "datavault-link.svg";
+      case SATELLITE -> "datavault-satellite.svg";
+      default -> "datavault-model.svg";
     };
   }
 

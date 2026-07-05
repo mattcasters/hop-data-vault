@@ -37,7 +37,7 @@ import org.apache.hop.pipeline.transform.TransformMeta;
 
 @Transform(
     id = "DateDimensionGenerator",
-    image = "date_dimension.svg",
+    image = "date-dimension.svg",
     name = "i18n::DateDimensionGenerator.Name",
     description = "i18n::DateDimensionGenerator.Description",
     categoryDescription = "i18n:org.apache.hop.pipeline.transform:BaseTransform.Category.Input",

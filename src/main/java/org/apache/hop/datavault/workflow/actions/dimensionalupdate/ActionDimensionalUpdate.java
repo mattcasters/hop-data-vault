@@ -87,7 +87,7 @@ import org.w3c.dom.Node;
     id = "DIMENSIONAL_UPDATE",
     name = "i18n::ActionDimensionalUpdate.Name",
     description = "i18n::ActionDimensionalUpdate.Description",
-    image = "dimensional_model.svg",
+    image = "dimensional-model.svg",
     categoryDescription = "i18n:org.apache.hop.workflow:ActionCategory.Category.General",
     keywords = "i18n::ActionDimensionalUpdate.Keywords",
     documentationUrl = "/workflow/actions/dimensionalupdate.html")

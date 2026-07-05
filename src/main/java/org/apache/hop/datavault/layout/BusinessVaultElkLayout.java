@@ -40,7 +40,7 @@ public class BusinessVaultElkLayout {
       root = HopGuiBusinessVaultGraph.GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = ID_TOOLBAR_ITEM_ELK_LAYOUT,
       toolTip = "i18n::BusinessVaultElkLayout.Toolbar.Layout.Tooltip",
-      image = "elk_layout.svg")
+      image = "elk-layout.svg")
   public void layoutActiveBusinessVaultModel() {
     HopGui hopGui = HopGui.getInstance();
     HopGuiBusinessVaultGraph graph = HopGuiBusinessVaultGraph.getInstance();

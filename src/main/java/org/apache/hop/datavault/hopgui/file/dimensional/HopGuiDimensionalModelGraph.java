@@ -919,7 +919,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       type = GuiActionType.Modify,
       name = "i18n::HopGuiDimensionalModelGraph.AiHelp.Name",
       tooltip = "i18n::HopGuiDimensionalModelGraph.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg",
+      image = "datavault-ai-help.svg",
       category = "Help",
       categoryOrder = "1")
   public void openAiAdvisorContext(HopGuiDimensionalContext context) {
@@ -1408,7 +1408,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_EDIT_MODEL,
       toolTip = "i18n::HopGuiDimensionalModelGraph.Toolbar.EditModel.Tooltip",
-      image = "dimensional_model.svg")
+      image = "dimensional-model.svg")
   public void editModelProperties() {
     if (model == null) {
       return;
@@ -1441,7 +1441,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_AI_HELP,
       toolTip = "i18n::HopGuiDimensionalModelGraph.Toolbar.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg")
+      image = "datavault-ai-help.svg")
   public void openAiAdvisor() {
     if (model == null) {
       return;

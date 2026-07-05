@@ -17,7 +17,7 @@
     <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
     <targetTableBatchSize>1000</targetTableBatchSize>
     <targetTableParallelCopies>4</targetTableParallelCopies>
-    <target_load_mode>Table Output</target_load_mode>
+    <target_load_mode>Native bulk loader</target_load_mode>
     <bulkLoadStagingFolder>${java.io.tmpdir}/dv2/bulk/</bulkLoadStagingFolder>
     <bulkLoadDelimiter>,</bulkLoadDelimiter>
     <bulkLoadEnclosure>"</bulkLoadEnclosure>

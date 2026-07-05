@@ -38,7 +38,7 @@ public class PipelineAiGuiPlugin {
       root = HopGuiPipelineGraph.GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_AI_HELP,
       toolTip = "i18n::PipelineAiGuiPlugin.Toolbar.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg")
+      image = "datavault-ai-help.svg")
   public void openAiAdvisorToolbar() {
     HopGui hopGui = HopGui.getInstance();
     HopGuiPipelineGraph pipelineGraph = HopGui.getActivePipelineGraph();
@@ -54,7 +54,7 @@ public class PipelineAiGuiPlugin {
       type = GuiActionType.Modify,
       name = "i18n::PipelineAiGuiPlugin.AiHelp.Name",
       tooltip = "i18n::PipelineAiGuiPlugin.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg",
+      image = "datavault-ai-help.svg",
       category = "i18n:org.apache.hop.ui.hopgui.file.pipeline:HopGuiPipelineGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
   public void openAiAdvisorPipelineContext(HopGuiPipelineContext context) {
@@ -69,7 +69,7 @@ public class PipelineAiGuiPlugin {
       type = GuiActionType.Modify,
       name = "i18n::PipelineAiGuiPlugin.AiHelp.Name",
       tooltip = "i18n::PipelineAiGuiPlugin.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg",
+      image = "datavault-ai-help.svg",
       category = "i18n:org.apache.hop.ui.hopgui.file.pipeline:HopGuiPipelineGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
   public void openAiAdvisorTransformContext(HopGuiPipelineTransformContext context) {

@@ -57,7 +57,7 @@ import org.w3c.dom.Node;
 
 @Transform(
     id = "JunkDimension",
-    image = "junkdimension.svg",
+    image = "junk-dimension.svg",
     name = "i18n::JunkDimension.Name",
     description = "i18n::JunkDimension.Description",
     categoryDescription =

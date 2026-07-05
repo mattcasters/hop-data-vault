@@ -60,7 +60,7 @@ import org.w3c.dom.Node;
     id = "HopFile-BusinessVault-Plugin",
     name = "Business Vault Model",
     description = "The Business Vault model file information for the Hop GUI",
-    image = "business_vault_model.svg")
+    image = "business-vault-model.svg")
 public class HopBusinessVaultFileType extends HopFileTypeBase {
 
   public static final Class<?> PKG = HopBusinessVaultFileType.class;
@@ -220,7 +220,7 @@ public class HopBusinessVaultFileType extends HopFileTypeBase {
             GuiActionType.Create,
             BaseMessages.getString(PKG, "HopBusinessVaultFileType.GuiAction.New.Name"),
             BaseMessages.getString(PKG, "HopBusinessVaultFileType.GuiAction.New.Tooltip"),
-            "business_vault_model.svg",
+                "business-vault-model.svg",
             (shift, ctrl, params) -> {
               try {
                 this.newFile(hopGui, hopGui.getVariables());
@@ -241,7 +241,7 @@ public class HopBusinessVaultFileType extends HopFileTypeBase {
 
   @Override
   public String getFileTypeImage() {
-    return "business_vault_model.svg";
+    return "business-vault-model.svg";
   }
 
   public void saveFile(HopGui hopGui, HopGuiBusinessVaultGraph graph) throws HopException {

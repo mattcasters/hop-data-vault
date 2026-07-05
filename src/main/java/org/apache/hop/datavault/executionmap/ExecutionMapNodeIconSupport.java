@@ -28,7 +28,7 @@ public final class ExecutionMapNodeIconSupport {
 
   public static String getIconPath(ExecutionMapNodeType nodeType) {
     if (nodeType == null) {
-      return "execution_map.svg";
+      return "execution-map.svg";
     }
     return switch (nodeType) {
       case ROOT_WORKFLOW, WORKFLOW -> "ui/images/workflow.svg";
@@ -38,17 +38,17 @@ public final class ExecutionMapNodeIconSupport {
           GENERATED_PIPELINE,
           ORCHESTRATOR_PIPELINE,
           BULK_MASTER_WORKFLOW -> "ui/images/pipeline.svg";
-      case DATA_VAULT_MODEL, DV_UPDATE -> "datavault_model.svg";
-      case BUSINESS_VAULT_MODEL, BV_UPDATE -> "business_vault_model.svg";
-      case DIMENSIONAL_MODEL, DM_UPDATE, DM_PUBLISH -> "dimensional_model.svg";
+      case DATA_VAULT_MODEL, DV_UPDATE -> "datavault-model.svg";
+      case BUSINESS_VAULT_MODEL, BV_UPDATE -> "business-vault-model.svg";
+      case DIMENSIONAL_MODEL, DM_UPDATE, DM_PUBLISH -> "dimensional-model.svg";
       case WORKFLOW_ACTION -> "action.svg";
       case PIPELINE_TRANSFORM,
           PIPELINE_EXECUTOR,
           WORKFLOW_EXECUTOR,
           MAPPING,
           META_INJECT -> "transform.svg";
-      case SOURCE_DATASET, TARGET_DATASET -> "data_catalog.svg";
-      default -> "execution_map.svg";
+      case SOURCE_DATASET, TARGET_DATASET -> "data-catalog.svg";
+      default -> "execution-map.svg";
     };
   }
 

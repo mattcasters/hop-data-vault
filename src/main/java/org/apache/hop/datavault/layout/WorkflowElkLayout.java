@@ -42,7 +42,7 @@ public class WorkflowElkLayout {
       root = HopGuiWorkflowGraph.GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = ID_TOOLBAR_ITEM_ELK_LAYOUT,
       toolTip = "i18n::WorkflowElkLayout.Toolbar.Layout.Tooltip",
-      image = "elk_layout.svg")
+      image = "elk-layout.svg")
   public void layoutActiveWorkflow() {
     HopGui hopGui = HopGui.getInstance();
     HopGuiWorkflowGraph workflowGraph = HopGui.getActiveWorkflowGraph();

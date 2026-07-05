@@ -50,7 +50,7 @@ import org.apache.hop.workflow.action.IAction;
     id = "DIMENSIONAL_PUBLISH",
     name = "i18n::ActionDimensionalPublish.Name",
     description = "i18n::ActionDimensionalPublish.Description",
-    image = "dimensional_model.svg",
+    image = "dimensional-model.svg",
     categoryDescription = "i18n:org.apache.hop.workflow:ActionCategory.Category.General",
     keywords = "i18n::ActionDimensionalPublish.Keywords",
     documentationUrl = "/workflow/actions/dimensionalpublish.html")

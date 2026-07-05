@@ -24,7 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +43,6 @@ import org.apache.hop.core.gui.AreaOwner;
 import org.apache.hop.core.gui.IGc;
 
 import org.apache.hop.core.gui.Point;
-import org.apache.hop.core.gui.Rectangle;
 import org.apache.hop.core.gui.SnapAllignDistribute;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.IGuiRefresher;
@@ -124,7 +122,6 @@ import org.apache.hop.ui.hopgui.file.workflow.HopGuiWorkflowGraph;
 import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 import org.apache.hop.ui.hopgui.shared.SwtGc;
-import org.apache.hop.ui.util.EnvironmentUtils;
 import org.apache.hop.workflow.WorkflowHopMeta;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.action.ActionMeta;
@@ -132,14 +129,12 @@ import org.apache.hop.workflow.action.IAction;
 import org.apache.hop.workflow.actions.start.ActionStart;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.PaintEvent;
-import org.eclipse.swt.graphics.Cursor;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Canvas;
-import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Event;
@@ -651,7 +646,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_EDIT_MODEL,
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.EditModel.Tooltip",
-      image = "datavault_model.svg")
+      image = "datavault-model.svg")
   public void editModelProperties() {
     editModelProperties(model);
   }
@@ -660,7 +655,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_IMPORT_RECORD_DEFINITIONS,
       toolTip = "i18n::HopGuiVaultGraph.ImportSources.Tooltip",
-      image = "data_catalog.svg")
+      image = "data-catalog.svg")
   public void importCatalogRecordDefinitions() {
     DataCatalogPerspective dcp = DataCatalogPerspective.getInstance();
     if (dcp != null) {
@@ -684,7 +679,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_AI_HELP,
       toolTip = "i18n::HopGuiVaultGraph.Toolbar.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg")
+      image = "datavault-ai-help.svg")
   public void openAiAdvisor() {
     if (model == null) {
       return;
@@ -1292,7 +1287,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "Add Hub",
       tooltip = "Add a new Hub table at the click location",
-      image = "datavault_hub.svg",
+      image = "datavault-hub.svg",
       category = "Data Vault",
       categoryOrder = "1")
   public void addHub(HopGuiVaultContext context) {
@@ -1315,7 +1310,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "Add Satellite",
       tooltip = "Add a new Satellite table at the click location",
-      image = "datavault_satellite.svg",
+      image = "datavault-satellite.svg",
       category = "Data Vault",
       categoryOrder = "2")
   public void addSatellite(HopGuiVaultContext context) {
@@ -1338,7 +1333,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "Add Link",
       tooltip = "Add a new Link table at the click location",
-      image = "datavault_link.svg",
+      image = "datavault-link.svg",
       category = "Data Vault",
       categoryOrder = "3")
   public void addLink(HopGuiVaultContext context) {
@@ -1420,7 +1415,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Modify,
       name = "Edit model properties",
       tooltip = "Edit the properties of this Data Vault model",
-      image = "datavault_model.svg",
+      image = "datavault-model.svg",
       category = "Data Vault",
       categoryOrder = "10")
   public void editModelProperties(HopGuiVaultContext context) {
@@ -1437,7 +1432,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiVaultGraph.PublishDimensional.Name",
       tooltip = "i18n::HopGuiVaultGraph.PublishDimensional.Tooltip",
-      image = "dimensional_model.svg",
+      image = "dimensional-model.svg",
       category = "Export",
       categoryOrder = "2")
   public void publishDimensionalDraft(HopGuiVaultContext context) {
@@ -1453,7 +1448,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiVaultGraph.ImportSources.Name",
       tooltip = "i18n::HopGuiVaultGraph.ImportSources.Tooltip",
-      image = "data_catalog.svg",
+      image = "data-catalog.svg",
       category = "Import",
       categoryOrder = "1")
   public void importDatabaseSourceTables(HopGuiVaultContext context) {
@@ -1466,7 +1461,7 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Modify,
       name = "i18n::HopGuiVaultGraph.AiHelp.Name",
       tooltip = "i18n::HopGuiVaultGraph.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg",
+      image = "datavault-ai-help.svg",
       category = "Help",
       categoryOrder = "1")
   public void openAiAdvisorContext(HopGuiVaultContext context) {

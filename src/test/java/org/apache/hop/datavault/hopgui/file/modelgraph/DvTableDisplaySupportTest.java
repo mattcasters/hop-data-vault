@@ -71,9 +71,9 @@ class DvTableDisplaySupportTest {
 
   @Test
   void imagePathMapsTableTypes() {
-    assertEquals("datavault_hub.svg", DvTableDisplaySupport.getImagePath(DvTableType.HUB));
+    assertEquals("datavault-hub.svg", DvTableDisplaySupport.getImagePath(DvTableType.HUB));
     assertEquals(
-        "datavault_satellite.svg", DvTableDisplaySupport.getImagePath(DvTableType.SATELLITE));
+            "datavault-satellite.svg", DvTableDisplaySupport.getImagePath(DvTableType.SATELLITE));
     assertTrue(DvTableDisplaySupport.getImagePath(null).endsWith(".svg"));
   }
 }

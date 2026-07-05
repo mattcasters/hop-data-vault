@@ -48,7 +48,7 @@ import org.w3c.dom.Node;
     id = "HopFile-ExecutionMap-Plugin",
     name = "Hop Execution Map",
     description = "Read-only graph of connected Hop workflows, pipelines, and DV/BV/DM artifacts",
-    image = "execution_map.svg")
+    image = "execution-map.svg")
 public class HopExecutionMapFileType extends HopFileTypeBase {
 
   public static final Class<?> PKG = HopGuiExecutionMapGraph.class;
@@ -153,7 +153,7 @@ public class HopExecutionMapFileType extends HopFileTypeBase {
 
   @SuppressWarnings("unchecked")
   public String getFileTypeImage() {
-    return "execution_map.svg";
+    return "execution-map.svg";
   }
 
   private static void addToItemsList(

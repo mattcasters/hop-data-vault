@@ -42,7 +42,7 @@ public class PipelineElkLayout {
       root = HopGuiPipelineGraph.GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = ID_TOOLBAR_ITEM_ELK_LAYOUT,
       toolTip = "i18n::PipelineElkLayout.Toolbar.Layout.Tooltip",
-      image = "elk_layout.svg")
+      image = "elk-layout.svg")
   public void layoutActivePipeline() {
     HopGui hopGui = HopGui.getInstance();
     HopGuiPipelineGraph pipelineGraph = HopGui.getActivePipelineGraph();

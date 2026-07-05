@@ -41,7 +41,7 @@ public class VaultElkLayout {
       root = HopGuiVaultGraph.GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = ID_TOOLBAR_ITEM_ELK_LAYOUT,
       toolTip = "i18n::VaultElkLayout.Toolbar.Layout.Tooltip",
-      image = "elk_layout.svg")
+      image = "elk-layout.svg")
   public void layoutActiveVaultModel() {
     HopGui hopGui = HopGui.getInstance();
     HopGuiVaultGraph vaultGraph = HopGuiVaultGraph.getInstance();

@@ -51,7 +51,7 @@ public class ExecutionMapGuiPlugin {
       root = HopGuiWorkflowGraph.GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM,
       toolTip = "i18n::ExecutionMapGuiPlugin.Toolbar.Tooltip",
-      image = "execution_map.svg")
+      image = "execution-map.svg")
   public void generateFromWorkflowToolbar() {
     HopGuiWorkflowGraph workflowGraph = HopGui.getActiveWorkflowGraph();
     if (workflowGraph != null) {
@@ -63,7 +63,7 @@ public class ExecutionMapGuiPlugin {
       root = HopGuiPipelineGraph.GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = "HopGuiPipelineGraph-ToolBar-10047-execution-map",
       toolTip = "i18n::ExecutionMapGuiPlugin.Toolbar.Tooltip",
-      image = "execution_map.svg")
+      image = "execution-map.svg")
   public void generateFromPipelineToolbar() {
     HopGuiPipelineGraph pipelineGraph = HopGui.getActivePipelineGraph();
     if (pipelineGraph != null) {
@@ -77,7 +77,7 @@ public class ExecutionMapGuiPlugin {
       type = GuiActionType.Modify,
       name = "i18n::ExecutionMapGuiPlugin.Action.Name",
       tooltip = "i18n::ExecutionMapGuiPlugin.Action.Tooltip",
-      image = "execution_map.svg",
+      image = "execution-map.svg",
       category =
           "i18n:org.apache.hop.ui.hopgui.file.workflow:HopGuiWorkflowGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
@@ -93,7 +93,7 @@ public class ExecutionMapGuiPlugin {
       type = GuiActionType.Modify,
       name = "i18n::ExecutionMapGuiPlugin.Action.Name",
       tooltip = "i18n::ExecutionMapGuiPlugin.Action.Tooltip",
-      image = "execution_map.svg",
+      image = "execution-map.svg",
       category =
           "i18n:org.apache.hop.ui.hopgui.file.pipeline:HopGuiPipelineGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
@@ -109,7 +109,7 @@ public class ExecutionMapGuiPlugin {
       type = GuiActionType.Modify,
       name = "i18n::ExecutionMapGuiPlugin.SubRoot.Action.Name",
       tooltip = "i18n::ExecutionMapGuiPlugin.SubRoot.Action.Tooltip",
-      image = "execution_map.svg",
+      image = "execution-map.svg",
       category =
           "i18n:org.apache.hop.ui.hopgui.file.workflow:HopGuiWorkflowGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")
@@ -144,7 +144,7 @@ public class ExecutionMapGuiPlugin {
       type = GuiActionType.Modify,
       name = "i18n::ExecutionMapGuiPlugin.SubRoot.Action.Name",
       tooltip = "i18n::ExecutionMapGuiPlugin.SubRoot.Action.Tooltip",
-      image = "execution_map.svg",
+      image = "execution-map.svg",
       category =
           "i18n:org.apache.hop.ui.hopgui.file.pipeline:HopGuiPipelineGraph.ContextualAction.Category.Basic.Text",
       categoryOrder = "1")

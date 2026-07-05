@@ -29,7 +29,6 @@ import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewSupport;
 import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
-import org.apache.hop.catalog.model.RecordDefinitionQuery;
 import org.apache.hop.catalog.model.RecordDefinitionRef;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
 import org.apache.hop.core.Const;
@@ -75,7 +74,7 @@ import org.eclipse.swt.widgets.TreeItem;
     id = "350-DataCatalogPerspective",
     name = "i18n::DataCatalogPerspective.Name",
     description = "i18n::DataCatalogPerspective.Description",
-    image = "data_catalog.svg")
+    image = "data-catalog.svg")
 @GuiPlugin(
     name = "i18n::DataCatalogPerspective.Name",
     description = "i18n::DataCatalogPerspective.GuiPlugin.Description")

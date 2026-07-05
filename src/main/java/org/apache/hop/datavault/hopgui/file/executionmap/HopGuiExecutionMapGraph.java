@@ -511,7 +511,7 @@ public class HopGuiExecutionMapGraph extends HopGuiModelGraphBase
       type = GuiActionType.Modify,
       name = "i18n::HopGuiExecutionMapGraph.Context.OpenInCatalog.Name",
       tooltip = "i18n::HopGuiExecutionMapGraph.Context.OpenInCatalog.Tooltip",
-      image = "data_catalog.svg",
+      image = "data-catalog.svg",
       category = "Execution map",
       categoryOrder = "3")
   public void openInCatalogFromContext(HopGuiExecutionMapNodeContext context) {

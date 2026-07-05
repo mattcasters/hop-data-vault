@@ -61,7 +61,7 @@ import org.w3c.dom.Node;
     id = "HopFile-Dimensional-Plugin",
     name = "Dimensional Model",
     description = "The Kimball dimensional model file information for the Hop GUI",
-    image = "dimensional_model.svg")
+    image = "dimensional-model.svg")
 public class HopDimensionalFileType extends HopFileTypeBase {
 
   public static final Class<?> PKG = HopDimensionalFileType.class;
@@ -220,7 +220,7 @@ public class HopDimensionalFileType extends HopFileTypeBase {
             GuiActionType.Create,
             BaseMessages.getString(PKG, "HopDimensionalFileType.GuiAction.New.Name"),
             BaseMessages.getString(PKG, "HopDimensionalFileType.GuiAction.New.Tooltip"),
-            "dimensional_model.svg",
+            "dimensional-model.svg",
             (shift, ctrl, params) -> {
               try {
                 this.newFile(hopGui, hopGui.getVariables());
@@ -241,7 +241,7 @@ public class HopDimensionalFileType extends HopFileTypeBase {
 
   @Override
   public String getFileTypeImage() {
-    return "dimensional_model.svg";
+    return "dimensional-model.svg";
   }
 
   public void saveFile(HopGui hopGui, HopGuiDimensionalModelGraph graph) throws HopException {

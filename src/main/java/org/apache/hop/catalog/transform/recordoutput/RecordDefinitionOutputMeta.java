@@ -41,7 +41,7 @@ import org.apache.hop.core.annotations.Transform;
 
 @Transform(
     id = "RecordDefinitionOutput",
-    image = "data_catalog.svg",
+    image = "data-catalog.svg",
     name = "i18n::RecordDefinitionOutput.Name",
     description = "i18n::RecordDefinitionOutput.Description",
     categoryDescription = "i18n:org.apache.hop.pipeline.transform:BaseTransform.Category.Output",

@@ -36,7 +36,7 @@ import org.apache.hop.metadata.api.IHopMetadata;
     key = "resource-definition-group",
     name = "i18n::ResourceDefinitionGroupMeta.name",
     description = "i18n::ResourceDefinitionGroupMeta.description",
-    image = "datavault_model.svg",
+    image = "datavault-model.svg",
     documentationUrl = "/metadata-types/resource-definition-group.html",
     hopMetadataPropertyType = HopMetadataPropertyType.NONE)
 @Getter

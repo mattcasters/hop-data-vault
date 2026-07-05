@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.hopgui.ai;
 
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.hopgui.widget.MarkdownStyledTextComp;
 import org.apache.hop.ui.core.PropsUi;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.ScrolledComposite;
@@ -122,15 +123,39 @@ public final class HopAiTranscriptPanel {
   }
 
   public Control appendText(String text, boolean userMessage) {
+    if (userMessage) {
+      return appendPlainText(text, USER_TEXT_MIN_HEIGHT, USER_TEXT_MAX_HEIGHT);
+    }
+    return appendMarkdown(text);
+  }
+
+  public Control appendMarkdown(String markdown) {
+    int width = Math.max(200, transcriptScroll.getClientArea().width - 2 * PropsUi.getMargin());
+    MarkdownStyledTextComp markdownComp = new MarkdownStyledTextComp(transcriptContent, SWT.NONE);
+    markdownComp.setMarkdown(markdown != null ? markdown : "");
+    int height =
+        Math.clamp(
+            markdownComp.getPreferredHeight(width),
+            ADVICE_TEXT_MIN_HEIGHT,
+            ADVICE_TEXT_MAX_HEIGHT);
+    FormData fd = new FormData();
+    fd.left = new FormAttachment(0, PropsUi.getMargin());
+    fd.right = new FormAttachment(100, -PropsUi.getMargin());
+    fd.top = new FormAttachment(lastControl, PropsUi.getMargin());
+    fd.height = height;
+    markdownComp.setLayoutData(fd);
+    lastControl = markdownComp;
+    refreshScroll();
+    return markdownComp;
+  }
+
+  private Control appendPlainText(String text, int minHeight, int maxHeight) {
     Text box =
         new Text(
             transcriptContent, SWT.BORDER | SWT.MULTI | SWT.V_SCROLL | SWT.READ_ONLY | SWT.WRAP);
     box.setText(text != null ? text : "");
     PropsUi.setLook(box);
-    int height =
-        userMessage
-            ? computeTextHeight(text, USER_TEXT_MIN_HEIGHT, USER_TEXT_MAX_HEIGHT)
-            : computeTextHeight(text, ADVICE_TEXT_MIN_HEIGHT, ADVICE_TEXT_MAX_HEIGHT);
+    int height = computeTextHeight(text, minHeight, maxHeight);
     FormData fd = new FormData();
     fd.left = new FormAttachment(0, PropsUi.getMargin());
     fd.right = new FormAttachment(100, -PropsUi.getMargin());

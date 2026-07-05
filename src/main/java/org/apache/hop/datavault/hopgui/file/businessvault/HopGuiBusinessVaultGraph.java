@@ -902,7 +902,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiBusinessVaultGraph.Context.AddHubReference.Name",
       tooltip = "i18n::HopGuiBusinessVaultGraph.Context.AddHubReference.Tooltip",
-      image = "datavault_hub.svg",
+      image = "datavault-hub.svg",
       category = "Data Vault",
       categoryOrder = "1")
   public void addHubReference(HopGuiBusinessVaultContext context) {
@@ -920,7 +920,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiBusinessVaultGraph.Context.AddSatelliteReference.Name",
       tooltip = "i18n::HopGuiBusinessVaultGraph.Context.AddSatelliteReference.Tooltip",
-      image = "datavault_satellite.svg",
+      image = "datavault-satellite.svg",
       category = "Data Vault",
       categoryOrder = "2")
   public void addSatelliteReference(HopGuiBusinessVaultContext context) {
@@ -938,7 +938,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiBusinessVaultGraph.Context.AddLinkReference.Name",
       tooltip = "i18n::HopGuiBusinessVaultGraph.Context.AddLinkReference.Tooltip",
-      image = "datavault_link.svg",
+      image = "datavault-link.svg",
       category = "Data Vault",
       categoryOrder = "3")
   public void addLinkReference(HopGuiBusinessVaultContext context) {
@@ -984,7 +984,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiBusinessVaultGraph.Context.AddScd2.Name",
       tooltip = "i18n::HopGuiBusinessVaultGraph.Context.AddScd2.Tooltip",
-      image = "business_vault_model.svg",
+      image = "business-vault-model.svg",
       category = "Business Vault",
       categoryOrder = "1")
   public void addScd2Table(HopGuiBusinessVaultContext context) {
@@ -1004,7 +1004,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiBusinessVaultGraph.Context.AddPit.Name",
       tooltip = "i18n::HopGuiBusinessVaultGraph.Context.AddPit.Tooltip",
-      image = "business_vault_model.svg",
+      image = "business-vault-model.svg",
       category = "Business Vault",
       categoryOrder = "2")
   public void addPitTable(HopGuiBusinessVaultContext context) {
@@ -1024,7 +1024,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Create,
       name = "i18n::HopGuiBusinessVaultGraph.Context.AddBusinessTable.Name",
       tooltip = "i18n::HopGuiBusinessVaultGraph.Context.AddBusinessTable.Tooltip",
-      image = "business_vault_model.svg",
+      image = "business-vault-model.svg",
       category = "Business Vault",
       categoryOrder = "3")
   public void addBusinessTable(HopGuiBusinessVaultContext context) {
@@ -1110,7 +1110,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       type = GuiActionType.Modify,
       name = "i18n::HopGuiBusinessVaultGraph.AiHelp.Name",
       tooltip = "i18n::HopGuiBusinessVaultGraph.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg",
+      image = "datavault-ai-help.svg",
       category = "Help",
       categoryOrder = "1")
   public void openAiAdvisorContext(HopGuiBusinessVaultContext context) {
@@ -1262,7 +1262,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_EDIT_MODEL,
       toolTip = "i18n::HopGuiBusinessVaultGraph.Toolbar.EditModel.Tooltip",
-      image = "business_vault_model.svg")
+      image = "business-vault-model.svg")
   public void editModelProperties() {
     if (model == null) {
       return;
@@ -1296,7 +1296,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_AI_HELP,
       toolTip = "i18n::HopGuiBusinessVaultGraph.Toolbar.AiHelp.Tooltip",
-      image = "datavault_ai_help.svg")
+      image = "datavault-ai-help.svg")
   public void openAiAdvisor() {
     if (model == null) {
       return;
@@ -1377,7 +1377,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_RELOAD_DV,
       toolTip = "i18n::HopGuiBusinessVaultGraph.Toolbar.ReloadDv.Tooltip",
-      image = "datavault_model.svg")
+      image = "datavault-model.svg")
   public void reloadDvModel() {
     reloadDataVaultModel();
     if (!Utils.isEmpty(dataVaultLoadError)) {

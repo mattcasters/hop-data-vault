@@ -48,13 +48,11 @@ import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.custom.ScrolledComposite;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
-import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
@@ -67,11 +65,6 @@ import org.jspecify.annotations.NonNull;
 public class BvAiAdvisorDialog {
 
   private static final Class<?> PKG = BvAiAdvisorDialog.class;
-  private static final int USER_TEXT_MIN_HEIGHT = (int) (60 * PropsUi.getNativeZoomFactor());
-  private static final int USER_TEXT_MAX_HEIGHT = (int) (100 * PropsUi.getNativeZoomFactor());
-  private static final int ADVICE_TEXT_MIN_HEIGHT = (int) (140 * PropsUi.getNativeZoomFactor());
-  private static final int ADVICE_TEXT_MAX_HEIGHT = (int) (420 * PropsUi.getNativeZoomFactor());
-  private static final int TEXT_LINE_HEIGHT = (int) (16 * PropsUi.getNativeZoomFactor());
 
   private final Shell parent;
   private final HopGui hopGui;
@@ -92,11 +85,9 @@ public class BvAiAdvisorDialog {
   private Button wIncludeLoadRunMetrics;
   private Button wSend;
   private Label wlStatusMessage;
-  private ScrolledComposite transcriptScroll;
-  private Composite transcriptContent;
+  private HopAiTranscriptPanel transcriptPanel;
   private boolean working;
   private int lastScenarioIndex = BvAiScenario.GENERAL.ordinal();
-  private Control lastControl;
 
   public BvAiAdvisorDialog(
       Shell parent,
@@ -126,8 +117,6 @@ public class BvAiAdvisorDialog {
     shell.setLayout(layout);
     int margin = PropsUi.getMargin();
 
-    lastControl = null;
-
     Button wNewConversation = new Button(shell, SWT.PUSH);
     wNewConversation.setText(
         BaseMessages.getString(PKG, "BvAiAdvisorDialog.NewConversation.Label"));
@@ -149,9 +138,15 @@ public class BvAiAdvisorDialog {
     previousControl = addHorizontalSeparator(previousControl, margin);
 
     createPromptArea(margin);
-    createConversationCompositeArea(previousControl, margin);
+    transcriptPanel =
+        new HopAiTranscriptPanel(
+            shell,
+            previousControl,
+            wPrompt,
+            margin,
+            BaseMessages.getString(PKG, "BvAiAdvisorDialog.Conversation.Label"));
 
-    shell.addListener(SWT.Resize, e -> refreshTranscriptScroll());
+    shell.addListener(SWT.Resize, e -> transcriptPanel.refreshScroll());
 
     BaseTransformDialog.setSize(shell, 1000, 750);
     shell.open();
@@ -168,34 +163,6 @@ public class BvAiAdvisorDialog {
         new FormDataBuilder().left().right().top(lastControl, 2 * margin).build();
     wlSeparator1.setLayoutData(fdlSeparator1);
     return wlSeparator1;
-  }
-
-  private @NonNull Label createConversationCompositeArea(Control lastControl, int margin) {
-    Label wlConversation = new Label(shell, SWT.LEFT);
-    wlConversation.setText(BaseMessages.getString(PKG, "BvAiAdvisorDialog.Conversation.Label"));
-    PropsUi.setLook(wlConversation);
-    FormData fdlConversation = new FormData();
-    fdlConversation.left = new FormAttachment(0, 0);
-    fdlConversation.top = new FormAttachment(lastControl, margin);
-    wlConversation.setLayoutData(fdlConversation);
-
-    transcriptScroll = new ScrolledComposite(shell, SWT.V_SCROLL | SWT.H_SCROLL | SWT.BORDER);
-    PropsUi.setLook(transcriptScroll);
-    transcriptScroll.setExpandHorizontal(true);
-    transcriptScroll.setExpandVertical(true);
-    FormData fdScroll = new FormData();
-    fdScroll.left = new FormAttachment(0, 0);
-    fdScroll.right = new FormAttachment(100, 0);
-    fdScroll.top = new FormAttachment(wlConversation, margin);
-    fdScroll.bottom = new FormAttachment(wPrompt, -margin);
-    transcriptScroll.setLayoutData(fdScroll);
-
-    transcriptContent = new Composite(transcriptScroll, SWT.NONE);
-    PropsUi.setLook(transcriptContent);
-    transcriptContent.setLayout(new FormLayout());
-    transcriptScroll.setContent(transcriptContent);
-
-    return wlConversation;
   }
 
   private Control createStatusWidgets(Control lastControl, int margin) {
@@ -383,10 +350,8 @@ public class BvAiAdvisorDialog {
     }
     BvAiRequest request = requestBuilder.build();
 
-    lastControl =
-        appendTranscriptHeading(
-            lastControl, BaseMessages.getString(PKG, "BvAiAdvisorDialog.Transcript.You"));
-    lastControl = appendTranscriptText(lastControl, question.trim(), true);
+    transcriptPanel.appendHeading(BaseMessages.getString(PKG, "BvAiAdvisorDialog.Transcript.You"));
+    transcriptPanel.appendText(question.trim(), true);
     wPrompt.setText("");
 
     working = true;
@@ -441,26 +406,20 @@ public class BvAiAdvisorDialog {
     session.recordTurn(userPrompt, llmUserMessage, response);
     int turnIndex = session.getTurns().size() - 1;
 
-    lastControl =
-        appendTranscriptHeading(
-            lastControl, BaseMessages.getString(PKG, "BvAiAdvisorDialog.Transcript.Ai"));
+    transcriptPanel.appendHeading(BaseMessages.getString(PKG, "BvAiAdvisorDialog.Transcript.Ai"));
     String advice = response.getMarkdownAdvice() != null ? response.getMarkdownAdvice() : "";
-    lastControl = appendTranscriptText(lastControl, advice, false);
+    transcriptPanel.appendText(advice, false);
 
     boolean hasProposals = response.getProposals() != null && !response.getProposals().isEmpty();
     if (hasProposals) {
       int count = response.getProposals().size();
       Button reviewButton =
-          appendTranscriptButton(
-              lastControl,
+          transcriptPanel.appendButton(
               BaseMessages.getString(PKG, "BvAiAdvisorDialog.ReviewTurn.Label", count));
-      lastControl = reviewButton;
       reviewButton.addListener(SWT.Selection, e -> reviewProposalsForTurn(turnIndex));
     } else if (session.getTurns().get(turnIndex).isProposalsDropped()) {
-      lastControl =
-          appendTranscriptSystemLine(
-              lastControl,
-              BaseMessages.getString(PKG, "BvAiAdvisorDialog.ProposalsDropped.Message"));
+      transcriptPanel.appendSystemLine(
+          BaseMessages.getString(PKG, "BvAiAdvisorDialog.ProposalsDropped.Message"));
     }
 
     working = false;
@@ -503,12 +462,10 @@ public class BvAiAdvisorDialog {
         onModelChanged.run();
       }
       session.recordApplied(turnIndex, selected);
-      lastControl =
-          appendTranscriptSystemLine(
-              lastControl,
-              BaseMessages.getString(PKG, "BvAiAdvisorDialog.Transcript.Applied", selected.size()));
+      transcriptPanel.appendSystemLine(
+          BaseMessages.getString(PKG, "BvAiAdvisorDialog.Transcript.Applied", selected.size()));
       wlStatusMessage.setText(BaseMessages.getString(PKG, "BvAiAdvisorDialog.Status.Applied"));
-      refreshTranscriptScroll();
+      transcriptPanel.refreshScroll();
     } catch (Exception e) {
       new ErrorDialog(
           shell,
@@ -542,104 +499,7 @@ public class BvAiAdvisorDialog {
     lastScenarioIndex = wScenario.getSelectionIndex();
     session.setScenario(
         EnumDialogSupport.readCombo(wScenario, BvAiScenario.class, BvAiScenario.GENERAL));
-    for (Control child : transcriptContent.getChildren()) {
-      child.dispose();
-    }
-    refreshTranscriptScroll();
+    transcriptPanel.clear();
     wlStatusMessage.setText(statusMessage());
-  }
-
-  private Control appendTranscriptHeading(Control previous, String heading) {
-    Label label = new Label(transcriptContent, SWT.LEFT);
-    label.setText(heading);
-    PropsUi.setLook(label);
-    FormData fd = new FormData();
-    fd.left = new FormAttachment(0, PropsUi.getMargin());
-    fd.right = new FormAttachment(100, -PropsUi.getMargin());
-    fd.top = new FormAttachment(previous, PropsUi.getMargin());
-    label.setLayoutData(fd);
-    refreshTranscriptScroll();
-
-    return label;
-  }
-
-  private Control appendTranscriptText(Control lastControl, String text, boolean userMessage) {
-    Text box =
-        new Text(
-            transcriptContent, SWT.BORDER | SWT.MULTI | SWT.V_SCROLL | SWT.READ_ONLY | SWT.WRAP);
-    box.setText(text != null ? text : "");
-    PropsUi.setLook(box);
-    int height =
-        userMessage
-            ? computeTextHeight(text, USER_TEXT_MIN_HEIGHT, USER_TEXT_MAX_HEIGHT)
-            : computeTextHeight(text, ADVICE_TEXT_MIN_HEIGHT, ADVICE_TEXT_MAX_HEIGHT);
-    FormData fd = new FormData();
-    fd.left = new FormAttachment(0, PropsUi.getMargin());
-    fd.right = new FormAttachment(100, -PropsUi.getMargin());
-    fd.top = new FormAttachment(lastControl, PropsUi.getMargin());
-    fd.height = height;
-    box.setLayoutData(fd);
-    refreshTranscriptScroll();
-
-    return box;
-  }
-
-  private static int computeTextHeight(String text, int minHeight, int maxHeight) {
-    if (Utils.isEmpty(text)) {
-      return minHeight;
-    }
-    int lines = 0;
-    for (String line : text.split("\n", -1)) {
-      int wrapped = Math.max(1, (line.length() + 88) / 89);
-      lines += wrapped;
-    }
-    int height = lines * TEXT_LINE_HEIGHT + 12;
-    return Math.clamp(height, minHeight, maxHeight);
-  }
-
-  private Button appendTranscriptButton(Control previous, String labelText) {
-    Button button = new Button(transcriptContent, SWT.PUSH);
-    button.setText(labelText);
-    PropsUi.setLook(button);
-    FormData fd = new FormData();
-    fd.left = new FormAttachment(0, PropsUi.getMargin());
-    fd.top = new FormAttachment(previous, PropsUi.getMargin());
-    button.setLayoutData(fd);
-    refreshTranscriptScroll();
-    return button;
-  }
-
-  private Control appendTranscriptSystemLine(Control previous, String text) {
-    Label label = new Label(transcriptContent, SWT.LEFT);
-    label.setText(text);
-    PropsUi.setLook(label);
-    FormData fd = new FormData();
-    fd.left = new FormAttachment(0, PropsUi.getMargin());
-    fd.right = new FormAttachment(100, -PropsUi.getMargin());
-    if (previous == null) {
-      fd.top = new FormAttachment(0, PropsUi.getMargin());
-    } else {
-      fd.top = new FormAttachment(previous, PropsUi.getMargin());
-    }
-    label.setLayoutData(fd);
-    refreshTranscriptScroll();
-    return label;
-  }
-
-  private void refreshTranscriptScroll() {
-    if (transcriptScroll == null || transcriptScroll.isDisposed() || transcriptContent == null) {
-      return;
-    }
-    transcriptContent.layout(true, true);
-    int width = Math.max(200, transcriptScroll.getClientArea().width - 2);
-    int contentHeight =
-        Math.max(
-            (int) (400 * PropsUi.getNativeZoomFactor()),
-            transcriptContent.computeSize(width, SWT.DEFAULT).y);
-    transcriptContent.setSize(width, contentHeight);
-    transcriptScroll.setMinSize(width, contentHeight);
-    transcriptScroll.layout(true, true);
-    int viewportHeight = transcriptScroll.getClientArea().height;
-    transcriptScroll.setOrigin(0, Math.max(0, contentHeight - viewportHeight));
   }
 }
