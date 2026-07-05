@@ -46,33 +46,28 @@ public class MarkdownStyledTextComp extends Composite {
   private final Font boldFont;
   private final Font defaultFont;
   private final Font codeFont;
-  private final Color heading1Color;
-  private final Color heading2Color;
-  private final Color heading3Color;
-  private final Color codeForeground;
-  private final Color codeBackground;
-  private final Color codeBlockBackground;
-  private final Color linkColor;
+  private final GuiResource resources;
+  private Color heading1Color;
+  private Color heading2Color;
+  private Color heading3Color;
+  private Color codeForeground;
+  private Color codeBackground;
+  private Color codeBlockBackground;
+  private Color linkColor;
 
   public MarkdownStyledTextComp(Composite parent, int style) {
     super(parent, style);
     PropsUi.setLook(this);
     setLayout(new FormLayout());
 
-    GuiResource resources = GuiResource.getInstance();
+    resources = GuiResource.getInstance();
     heading1Font = resources.getFontLarge();
     heading2Font = resources.getFontMediumBold();
     heading3Font = resources.getFontBold();
     boldFont = resources.getFontBold();
     defaultFont = resources.getFontDefault();
     codeFont = resolveCodeFont(resources);
-    heading1Color = MarkdownStylePalette.heading1(resources);
-    heading2Color = MarkdownStylePalette.heading2(resources);
-    heading3Color = MarkdownStylePalette.heading3(resources);
-    codeForeground = MarkdownStylePalette.codeForeground(resources);
-    codeBackground = MarkdownStylePalette.codeBackground(resources);
-    codeBlockBackground = MarkdownStylePalette.codeBlockBackground(resources);
-    linkColor = MarkdownStylePalette.link(resources);
+    refreshThemeColors();
 
     styledText =
         new StyledText(
@@ -88,9 +83,20 @@ public class MarkdownStyledTextComp extends Composite {
   }
 
   public void setMarkdown(String markdown) {
+    refreshThemeColors();
     RenderedMarkdown rendered = MarkdownStyleRenderer.render(markdown);
     styledText.setText(rendered.displayText());
     styledText.setStyleRanges(toStyleRanges(rendered.spans()));
+  }
+
+  private void refreshThemeColors() {
+    heading1Color = MarkdownStylePalette.heading1(resources);
+    heading2Color = MarkdownStylePalette.heading2(resources);
+    heading3Color = MarkdownStylePalette.heading3(resources);
+    codeForeground = MarkdownStylePalette.codeForeground(resources);
+    codeBackground = MarkdownStylePalette.codeBackground(resources);
+    codeBlockBackground = MarkdownStylePalette.codeBlockBackground(resources);
+    linkColor = MarkdownStylePalette.link(resources);
   }
 
   public int getPreferredHeight(int width) {
