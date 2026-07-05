@@ -62,7 +62,12 @@ import org.apache.hop.datavault.metadata.DvGeneratedPipelineSupport;
 import org.apache.hop.datavault.metadata.DvIntegrationSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvLoadDateSupport;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
 import org.apache.hop.datavault.metadata.DvPipelineOrchestratorSupport;
+import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
+import org.apache.hop.datavault.metrics.ExecutionMetricsProfileResolver;
+import org.apache.hop.datavault.metrics.ResolvedExecutionMetrics;
+import org.apache.hop.datavault.metrics.metadata.ExecutionMetricsProfileMeta;
 import org.apache.hop.datavault.config.DvRunConfigurationSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
 import org.apache.hop.workflow.config.WorkflowRunConfiguration;
@@ -185,14 +190,16 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
   private String pipelineStagingFolder;
 
   @GuiWidgetElement(
-      order = "0370",
-      type = GuiElementType.FOLDER,
-      variables = true,
-      label = "i18n::ActionDataVaultUpdate.MetricsOutputFolder.Label",
-      toolTip = "i18n::ActionDataVaultUpdate.MetricsOutputFolder.ToolTip",
+      order = "0365",
+      type = GuiElementType.METADATA,
+      metadata = ExecutionMetricsProfileMeta.class,
+      label = "i18n::ActionDataVaultUpdate.ExecutionMetricsProfile.Label",
+      toolTip = "i18n::ActionDataVaultUpdate.ExecutionMetricsProfile.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
-  private String metricsOutputFolder;
+  private String executionMetricsProfile;
+
+  @HopMetadataProperty private String metricsOutputFolder;
 
   @GuiWidgetElement(
       order = "0380",
@@ -306,6 +313,7 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
     this.loadDate = meta.loadDate;
     this.parallelPipelineCopies = meta.parallelPipelineCopies;
     this.pipelineStagingFolder = meta.pipelineStagingFolder;
+    this.executionMetricsProfile = meta.executionMetricsProfile;
     this.metricsOutputFolder = meta.metricsOutputFolder;
     this.publishToCatalog = meta.publishToCatalog;
     this.dataCatalogConnection = meta.dataCatalogConnection;
@@ -785,12 +793,25 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
               orchestrator.getName(),
               realRunConfig));
 
+      DataVaultConfiguration pipelineConfig = model.getConfigurationOrDefault();
+      ResolvedExecutionMetrics executionMetrics =
+          ExecutionMetricsProfileResolver.resolve(
+              resolve(executionMetricsProfile),
+              resolve(metricsOutputFolder),
+              resolve(dataCatalogConnection),
+              pipelineConfig != null ? pipelineConfig.getTargetDatabase() : null,
+              GeneratedPipelineMetadataConstants.MODEL_TYPE_DV,
+              getParentWorkflow(),
+              getVariables(),
+              getMetadataProvider());
+
       Result orchestratorResult =
           DvPipelineOrchestratorSupport.runOrchestrator(
               orchestrator,
               realRunConfig,
               pipelineLogLevel != null ? pipelineLogLevel : getLogLevel(),
-              resolve(metricsOutputFolder),
+              executionMetrics.enabled() ? executionMetrics.metricsOutputFolder() : null,
+              executionMetrics.enabled() ? executionMetrics.publishContext() : null,
               this,
               getParentWorkflow(),
               getVariables(),

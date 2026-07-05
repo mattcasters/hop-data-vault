@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
@@ -51,9 +52,18 @@ public final class DmInsertUpdateBuilder {
 
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
+    GeneratedPipelineMetadataSupport.stampDmTablePipeline(pipelineMeta, ctx);
 
     TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     TransformMeta insertUpdateTransform = addInsertUpdate(ctx, pipelineMeta, sourceTransform, dimension);
+    if (insertUpdateTransform != null) {
+      GeneratedPipelineMetadataSupport.stampWriteTarget(
+          insertUpdateTransform,
+          "dimension",
+          dimension.getName(),
+          ctx.targetTableName,
+          ctx.targetDbName);
+    }
 
     DmGeneratedPipelineSupport.applyLayout(pipelineMeta);
     return pipelineMeta;

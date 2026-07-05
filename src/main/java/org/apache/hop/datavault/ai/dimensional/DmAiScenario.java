@@ -30,6 +30,8 @@ public enum DmAiScenario implements IEnumHasCodeAndDescription {
   DM_MODELING("DM_MODELING", "DmAiScenario.DmModeling", "dm-modeling"),
   HOP_INTEGRATION("HOP_INTEGRATION", "DmAiScenario.HopIntegration", "hop-integration"),
   ERROR_DIAGNOSIS("ERROR_DIAGNOSIS", "DmAiScenario.ErrorDiagnosis", "error-diagnosis"),
+  PERFORMANCE_TUNING(
+      "PERFORMANCE_TUNING", "DmAiScenario.PerformanceTuning", "performance-tuning"),
   GENERAL("GENERAL", "DmAiScenario.General", "general");
 
   private final String code;

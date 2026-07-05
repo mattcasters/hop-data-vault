@@ -35,6 +35,7 @@ public class DvAiContextBundle {
   private final String recordDefinitionsJson;
   private final String hopMetadataJson;
   private final String checkResultsJson;
+  private final String loadRunMetricsJson;
   private final String logsExcerpt;
   /** True when this is a follow-up turn in an ongoing conversation. */
   private final boolean followUp;

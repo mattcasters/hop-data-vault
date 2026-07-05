@@ -76,7 +76,7 @@
       <sqlfilename>${PROJECT_HOME}/sql/drop-target-tables.sql</sqlfilename>
       <sqlfilename_encoding/>
       <sendOneStatement>N</sendOneStatement>
-      <name>Drop target tables</name>
+      <name>drop-target-tables.sql</name>
       <description/>
       <type>SQL</type>
       <attributes/>
@@ -93,11 +93,11 @@
       <sqlfilename>${PROJECT_HOME}/sql/create-staging-views.sql</sqlfilename>
       <sqlfilename_encoding/>
       <sendOneStatement>N</sendOneStatement>
-      <name>Create staging views</name>
+      <name>create-staging-views.sql</name>
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>576</xloc>
+      <xloc>608</xloc>
       <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -118,7 +118,7 @@
       <insertScript>Y</insertScript>
       <script>#!/bin/sh
 exec python3 "${PROJECT_HOME}/scripts/generate-catalog-sources.py" --project-home "${PROJECT_HOME}"</script>
-      <name>Generate catalog sources</name>
+      <name>generate-catalog-sources.py</name>
       <description/>
       <type>SHELL</type>
       <attributes/>
@@ -143,7 +143,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-catalog-sources.py" --project-hom
       <insertScript>Y</insertScript>
       <script>#!/bin/sh
 exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --project-home "${PROJECT_HOME}"</script>
-      <name>Generate initial data</name>
+      <name>generate-retail-data.py</name>
       <description/>
       <type>SHELL</type>
       <attributes/>
@@ -175,7 +175,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>768</xloc>
+      <xloc>736</xloc>
       <yloc>128</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -219,7 +219,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <sqlfilename>${PROJECT_HOME}/sql/advance-load-control.sql</sqlfilename>
       <sqlfilename_encoding/>
       <sendOneStatement>N</sendOneStatement>
-      <name>Advance load control</name>
+      <name>advance-load-control.sql</name>
       <description/>
       <type>SQL</type>
       <attributes/>
@@ -275,12 +275,29 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <sqlfilename>${PROJECT_HOME}/sql/seed-load-control.sql</sqlfilename>
       <sqlfilename_encoding/>
       <sendOneStatement>N</sendOneStatement>
-      <name>Seed load control</name>
+      <name>seed-load-control.sql</name>
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>576</xloc>
+      <xloc>592</xloc>
       <yloc>128</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <sql/>
+      <connection>OPS</connection>
+      <useVariableSubstitution>N</useVariableSubstitution>
+      <sqlfromfile>Y</sqlfromfile>
+      <sqlfilename>${PROJECT_HOME}/sql/create-load-metrics-tables.sql</sqlfilename>
+      <sqlfilename_encoding/>
+      <sendOneStatement>N</sendOneStatement>
+      <name>create-load-metrics-tables.sql</name>
+      <description/>
+      <type>SQL</type>
+      <attributes/>
+      <xloc>800</xloc>
+      <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -295,28 +312,21 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
     </hop>
     <hop>
       <from>Drop source tables</from>
-      <to>Drop target tables</to>
+      <to>drop-target-tables.sql</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Create staging views</from>
-      <to>Generate catalog sources</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Generate catalog sources</from>
-      <to>Generate initial data</to>
+      <from>generate-catalog-sources.py</from>
+      <to>generate-retail-data.py</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
       <from>update-retail-dv-bv-dm</from>
-      <to>Advance load control</to>
+      <to>advance-load-control.sql</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
@@ -336,29 +346,43 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Drop target tables</from>
-      <to>Create staging views</to>
+      <from>drop-target-tables.sql</from>
+      <to>create-staging-views.sql</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
       <from>Create source tables</from>
-      <to>Seed load control</to>
+      <to>seed-load-control.sql</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Generate initial data</from>
+      <from>generate-retail-data.py</from>
       <to>Create source tables</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Seed load control</from>
+      <from>seed-load-control.sql</from>
       <to>Load CSV to CRM</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>create-staging-views.sql</from>
+      <to>create-load-metrics-tables.sql</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>create-load-metrics-tables.sql</from>
+      <to>generate-catalog-sources.py</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

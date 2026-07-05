@@ -489,24 +489,42 @@ public class DvSatellite extends DvTableBase
 
       PipelineMeta pipelineMeta = new PipelineMeta();
       pipelineMeta.setName(ctx.pipelineName);
+      String sourceName = resolvedRecordSource != null ? resolvedRecordSource.getName() : "";
+      GeneratedPipelineMetadataSupport.stampDvSatellitePipeline(
+          pipelineMeta, model, this, ctx.targetTableName, sourceName);
 
       // Source TableInput (from record source) - hub/link bks + sat attrs + record source
       TransformMeta sourceInputTransform =
           addSourceTableInput(ctx, resolvedRecordSource, pipelineMeta);
+      if (sourceInputTransform != null) {
+        GeneratedPipelineMetadataSupport.stampSourceRead(sourceInputTransform, ctx.sourceDbName);
+      }
 
       TransformMeta hashChainEndTransform =
           ctx.linkSatellite
               ? addLinkHashKeyChain(ctx, pipelineMeta, sourceInputTransform)
               : addDvHashKey(ctx, pipelineMeta, sourceInputTransform);
+      if (hashChainEndTransform != null) {
+        GeneratedPipelineMetadataSupport.stampHashKey(
+            hashChainEndTransform, "satellite", getName(), ctx.targetTableName);
+      }
 
       TransformMeta sourceSelectTransform =
           addSourceSelectRows(ctx, pipelineMeta, hashChainEndTransform);
 
       // Sort the records by hash key
       TransformMeta sortHkTransform = addSortRows(ctx, pipelineMeta, sourceSelectTransform);
+      if (sortHkTransform != null) {
+        GeneratedPipelineMetadataSupport.stampSort(
+            sortHkTransform, "satellite", getName(), ctx.targetTableName);
+      }
 
       // Target TableInput (hash + attributes from sat table, for diff + value comparison)
       TransformMeta targetInputTransform = addTargetTableInput(ctx, pipelineMeta);
+      if (targetInputTransform != null) {
+        GeneratedPipelineMetadataSupport.stampTargetRead(
+            targetInputTransform, "satellite", getName(), ctx.targetTableName, ctx.targetDbName);
+      }
 
       // Compare leg: with end-dating the load date is added before the diff; otherwise after filter.
       TransformMeta compareTransform =
@@ -517,11 +535,19 @@ public class DvSatellite extends DvTableBase
       // Perform CDC with a merge rows (diff) transform
       TransformMeta mergeTransform =
           addMergeRows(ctx, pipelineMeta, compareTransform, targetInputTransform);
+      if (mergeTransform != null) {
+        GeneratedPipelineMetadataSupport.stampCdcMerge(
+            mergeTransform, "satellite", getName(), ctx.targetTableName, ctx.targetDbName);
+      }
 
       // Filter Rows: keep rows that are not 'identical' (i.e. new or changed attribute values
       // for an existing hub in the satellite). We achieve this by testing for 'identical' and
       // negating the condition.
       TransformMeta filterTransform = addFilterNewRows(pipelineMeta, mergeTransform);
+      if (filterTransform != null) {
+        GeneratedPipelineMetadataSupport.stampFilter(
+            filterTransform, "satellite", getName(), ctx.targetTableName);
+      }
 
       TransformMeta insertPredecessor = filterTransform;
       if (!useLoadEndDate(ctx)) {
@@ -542,6 +568,10 @@ public class DvSatellite extends DvTableBase
               insertPredecessor,
               Set.of("flag", PREVIOUS_LOAD_DATE_FIELD));
       TransformMeta tableOutputTransform = targetLoadResult.transformMeta;
+      if (tableOutputTransform != null) {
+        GeneratedPipelineMetadataSupport.stampWriteTarget(
+            tableOutputTransform, "satellite", getName(), ctx.targetTableName, ctx.targetDbName);
+      }
 
       if (useLoadEndDate(ctx)) {
         TransformMeta filterPreviousTransform =
@@ -1658,9 +1688,19 @@ public class DvSatellite extends DvTableBase
         ctx.config.buildStsPipelineName(
             ctx.variables, stsTableName, ctx.dataVaultSource.getName());
     pipelineMeta.setName(pipelineName);
+    GeneratedPipelineMetadataSupport.stampDvElementPipeline(
+        pipelineMeta,
+        ctx.model,
+        "sts",
+        getName(),
+        stsTableName,
+        ctx.dataVaultSource != null ? ctx.dataVaultSource.getName() : "");
 
     TransformMeta sourceInputTransform =
         addSourceTableInput(ctx, ctx.dataVaultSource, pipelineMeta, LOCATION_STS_LINE_2);
+    if (sourceInputTransform != null) {
+      GeneratedPipelineMetadataSupport.stampSourceRead(sourceInputTransform, ctx.sourceDbName);
+    }
 
     TransformMeta hashChainEndTransform =
         ctx.linkSatellite
@@ -1685,6 +1725,10 @@ public class DvSatellite extends DvTableBase
             "sts_active_output_fields");
 
     TransformMeta stsTargetInput = addStsTargetTableInput(ctx, pipelineMeta, stsTableName);
+    if (stsTargetInput != null) {
+      GeneratedPipelineMetadataSupport.stampTargetRead(
+          stsTargetInput, "sts", getName(), stsTableName, ctx.targetDbName);
+    }
     TransformMeta deletedStatusTransform = null;
     if (stsTargetInput != null) {
       TransformMeta sortedStsKeys =
@@ -1712,7 +1756,12 @@ public class DvSatellite extends DvTableBase
     TransformMeta withLoadDate =
         addConstantForLoadDate(ctx, pipelineMeta, loadDate, unionTransform);
     IRowMeta stsLayout = getStatusTargetTableLayout(ctx.metadataProvider, ctx.variables, ctx.model);
-    addStsTableOutput(ctx, pipelineMeta, stsTableName, stsLayout, withLoadDate);
+    TransformMeta stsWriteTransform =
+        addStsTableOutput(ctx, pipelineMeta, stsTableName, stsLayout, withLoadDate);
+    if (stsWriteTransform != null) {
+      GeneratedPipelineMetadataSupport.stampWriteTarget(
+          stsWriteTransform, "sts", getName(), stsTableName, ctx.targetDbName);
+    }
 
     return pipelineMeta;
   }

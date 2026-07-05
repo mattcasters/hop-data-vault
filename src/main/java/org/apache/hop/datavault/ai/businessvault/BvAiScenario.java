@@ -30,6 +30,8 @@ public enum BvAiScenario implements IEnumHasCodeAndDescription {
   BV_MODELING("BV_MODELING", "BvAiScenario.BvModeling", "bv-modeling"),
   HOP_INTEGRATION("HOP_INTEGRATION", "BvAiScenario.HopIntegration", "hop-integration"),
   ERROR_DIAGNOSIS("ERROR_DIAGNOSIS", "BvAiScenario.ErrorDiagnosis", "error-diagnosis"),
+  PERFORMANCE_TUNING(
+      "PERFORMANCE_TUNING", "BvAiScenario.PerformanceTuning", "performance-tuning"),
   GENERAL("GENERAL", "BvAiScenario.General", "general");
 
   private final String code;

@@ -34,6 +34,7 @@ import org.apache.hop.core.row.value.ValueMetaFactory;
 import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.DvSqlSupport;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
@@ -92,6 +93,7 @@ public final class DmScd2DimensionBuilder {
 
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
+    GeneratedPipelineMetadataSupport.stampDmTablePipeline(pipelineMeta, ctx);
 
     TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     TransformMeta sortTransform = addSortForCollapse(ctx, pipelineMeta, sourceTransform, dimension);
@@ -100,8 +102,24 @@ public final class DmScd2DimensionBuilder {
     TransformMeta compareTransform =
         addEffectiveDates(ctx, pipelineMeta, loadTimestamp, collapseTransform, dimension);
     TransformMeta targetTransform = addTargetTableInput(ctx, pipelineMeta, dimension);
+    if (targetTransform != null) {
+      GeneratedPipelineMetadataSupport.stampTargetRead(
+          targetTransform,
+          "dimension",
+          dimension.getName(),
+          ctx.targetTableName,
+          ctx.targetDbName);
+    }
     TransformMeta mergeTransform =
         addMergeRows(ctx, pipelineMeta, compareTransform, targetTransform, dimension);
+    if (mergeTransform != null) {
+      GeneratedPipelineMetadataSupport.stampCdcMerge(
+          mergeTransform,
+          "dimension",
+          dimension.getName(),
+          ctx.targetTableName,
+          ctx.targetDbName);
+    }
     TransformMeta filterTransform = addFilterNewOrChanged(pipelineMeta, mergeTransform);
     TransformMeta versionedFilterTransform =
         addFilterNeedsVersionedUpdate(ctx, pipelineMeta, filterTransform);
@@ -113,6 +131,14 @@ public final class DmScd2DimensionBuilder {
     IRowMeta targetLayout = dimension.getTargetTableLayout(metadataProvider, variables, model);
     TransformMeta tableOutputTransform =
         addScd2TableOutput(ctx, pipelineMeta, targetLayout, controlFieldsTransform);
+    if (tableOutputTransform != null) {
+      GeneratedPipelineMetadataSupport.stampWriteTarget(
+          tableOutputTransform,
+          "dimension",
+          dimension.getName(),
+          ctx.targetTableName,
+          ctx.targetDbName);
+    }
     TransformMeta filterPreviousTransform =
         addFilterHasPreviousVersion(pipelineMeta, tableOutputTransform);
     addClosePreviousVersion(ctx, pipelineMeta, filterPreviousTransform, dimension);

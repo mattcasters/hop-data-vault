@@ -61,15 +61,19 @@ public class DvUpdatePipelineCompletedExtensionPoint
 
     Optional<DvUpdateMetricsParser.ParsedPipeline> parsed =
         DvUpdateMetricsParser.parse(pipelineName);
-    if (parsed.isEmpty()) {
-      return;
-    }
 
     String modelName =
         resolveVariable(variables, engine, DvUpdateMetricsConstants.VAR_MODEL_NAME);
 
-    DvUpdateTableMetrics metrics =
-        DvUpdateMetricsExtractor.extract(engine, runId, modelName, parsed.get());
+    DvUpdateTableMetrics metrics;
+    if (parsed.isPresent()) {
+      metrics = MetadataMetricsResolver.resolve(engine, runId, modelName, parsed);
+    } else {
+      metrics = MetadataMetricsResolver.resolve(engine, runId, modelName, Optional.empty());
+      if (Utils.isEmpty(metrics.getTableType()) && Utils.isEmpty(metrics.getTableName())) {
+        return;
+      }
+    }
     DvUpdateMetricsCollector.record(metrics);
   }
 

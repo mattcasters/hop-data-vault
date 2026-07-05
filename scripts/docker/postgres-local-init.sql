@@ -16,6 +16,8 @@
  *
  */
 
--- Retail-example source and EDW databases (integration-tests uses bootstrap DB "test").
-CREATE DATABASE test_source;
-CREATE DATABASE test_edw;
+-- Retail-example source, EDW, and operations/metrics databases (integration-tests uses bootstrap DB "test").
+-- POSTGRES_USER (test) owns these databases and has full access; explicit OWNER keeps intent clear.
+CREATE DATABASE test_source OWNER test;
+CREATE DATABASE test_edw OWNER test;
+CREATE DATABASE test_ops OWNER test;

@@ -50,4 +50,20 @@ class DvUpdateMetricsCollectorTest {
     assertEquals(0, result.getNrErrors());
     assertTrue(result.getResult());
   }
+
+  @Test
+  void applyToResultSummarySetsLogText() {
+    Result result = new Result();
+    result.setResult(true);
+
+    DvUpdateMetricsCollector.applyToResult(
+        result,
+        new LoadRunPublishSummary(new DvUpdateRunTotals(1000, 250, 0), "run-123", 4, 2));
+
+    assertEquals(1000, result.getNrLinesInput());
+    assertEquals(250, result.getNrLinesOutput());
+    assertTrue(result.getLogText().contains("run-123"));
+    assertTrue(result.getLogText().contains("pipelines=4"));
+    assertTrue(result.getLogText().contains("insights=2"));
+  }
 }

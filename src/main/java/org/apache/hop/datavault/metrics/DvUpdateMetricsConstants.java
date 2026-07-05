@@ -27,7 +27,29 @@ public final class DvUpdateMetricsConstants {
   /** Optional model name for log context (set together with {@link #VAR_RUN_ID}). */
   public static final String VAR_MODEL_NAME = "DV_UPDATE_MODEL_NAME";
 
+  /** Model layer for metrics publishing: {@code dv}, {@code bv}, or {@code dm}. */
+  public static final String VAR_MODEL_TYPE = "DV_UPDATE_MODEL_TYPE";
+
+  /** Workflow name recorded on the load run row. */
+  public static final String VAR_WORKFLOW_NAME = "DV_UPDATE_WORKFLOW_NAME";
+
+  /**
+   * Target database connection for load metrics tables (defaults to model target DB when unset).
+   */
+  public static final String VAR_METRICS_DATABASE = "DV_UPDATE_METRICS_DATABASE";
+
+  /**
+   * Data catalog connection for operations record definitions (optional; skipped when empty).
+   */
+  public static final String VAR_METRICS_CATALOG_CONNECTION = "DV_UPDATE_METRICS_CATALOG_CONNECTION";
+
   public static final String ORCHESTRATOR_NAME_PREFIX = "DV Update Orchestrator - ";
+
+  public static final String BULK_WRITE_TRANSFORM_PREFIX = "bulk_load_to_";
+
+  public static final String STAGING_WRITE_TRANSFORM_PREFIX = "stage_to_";
+
+  public static final String STS_TARGET_TRANSFORM_PREFIX = "sts_target_";
 
   public static final String SOURCE_TRANSFORM_PREFIX = "source ";
 
@@ -35,6 +57,9 @@ public final class DvUpdateMetricsConstants {
   public static final String DIMENSIONAL_SOURCE_TRANSFORM_PREFIX = "source_";
 
   public static final String TARGET_TRANSFORM_PREFIX = "target_";
+
+  /** Dimensional SCD2 pipelines use {@code target_<tableName>} table inputs. */
+  public static final String DIMENSIONAL_TARGET_TRANSFORM_PREFIX = "target_";
 
   public static final String TARGET_TRANSFORM_DB_PREFIX = "target ";
 

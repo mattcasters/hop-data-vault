@@ -30,6 +30,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.datavault.metrics.LoadRunMetricsPipelineSupport;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.engine.IWorkflowEngine;
 
@@ -58,6 +59,41 @@ public final class DvModelBulkUpdateExecutionSupport {
       IWorkflowEngine<WorkflowMeta> parentWorkflow,
       IHopMetadataProvider metadataProvider)
       throws HopException {
+    return executeOrchestratorUpdate(
+        result,
+        modelName,
+        allPipelineMetas,
+        realRunConfig,
+        pipelineLogLevel,
+        pipelineStagingFolder,
+        parallelPipelineCopies,
+        metricsOutputFolder,
+        null,
+        success,
+        totalErrors,
+        variables,
+        parent,
+        parentWorkflow,
+        metadataProvider);
+  }
+
+  public static ExecutionOutcome executeOrchestratorUpdate(
+      Result result,
+      String modelName,
+      List<PipelineMeta> allPipelineMetas,
+      String realRunConfig,
+      LogLevel pipelineLogLevel,
+      String pipelineStagingFolder,
+      String parallelPipelineCopies,
+      String metricsOutputFolder,
+      org.apache.hop.datavault.metrics.DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext,
+      boolean success,
+      int totalErrors,
+      IVariables variables,
+      ILoggingObject parent,
+      IWorkflowEngine<WorkflowMeta> parentWorkflow,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
     LogChannel log = new LogChannel(parent);
     String stagingFolder =
         variables.resolve(
@@ -78,6 +114,10 @@ public final class DvModelBulkUpdateExecutionSupport {
 
     try {
       DvPipelineOrchestratorSupport.prepareStagingFolder(stagingFolder, variables);
+      if (LoadRunMetricsPipelineSupport.isMetricsCollectionEnabled(
+          metricsOutputFolder, metricsPublishContext)) {
+        LoadRunMetricsPipelineSupport.enableTransformPerformanceCapture(allPipelineMetas);
+      }
       DvPipelineOrchestratorSupport.stagePipelines(
           stagingFolder, variables, allPipelineMetas, true);
 
@@ -98,6 +138,7 @@ public final class DvModelBulkUpdateExecutionSupport {
               realRunConfig,
               pipelineLogLevel != null ? pipelineLogLevel : parent.getLogLevel(),
               metricsOutputFolder,
+              metricsPublishContext,
               parent,
               parentWorkflow,
               variables,

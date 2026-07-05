@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
 import org.apache.hop.datavault.metrics.DvUpdateMetricsConstants;
-import org.apache.hop.datavault.metrics.DvUpdateRunTotals;
+import org.apache.hop.datavault.metrics.LoadRunPublishSummary;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.exception.HopException;
@@ -199,11 +199,52 @@ public final class DvPipelineOrchestratorSupport {
       IVariables variables,
       IHopMetadataProvider metadataProvider)
       throws HopException {
+    return runOrchestrator(
+        orchestrator,
+        runConfiguration,
+        logLevel,
+        metricsOutputFolder,
+        null,
+        parent,
+        parentWorkflow,
+        variables,
+        metadataProvider);
+  }
+
+  public static Result runOrchestrator(
+      PipelineMeta orchestrator,
+      String runConfiguration,
+      LogLevel logLevel,
+      String metricsOutputFolder,
+      DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext,
+      ILoggingObject parent,
+      IWorkflowEngine<WorkflowMeta> parentWorkflow,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
     String metricsRunId = UUID.randomUUID().toString();
     String modelName = resolveOrchestratorModelName(orchestrator);
     if (variables != null) {
       variables.setVariable(DvUpdateMetricsConstants.VAR_RUN_ID, metricsRunId);
       variables.setVariable(DvUpdateMetricsConstants.VAR_MODEL_NAME, modelName);
+      if (metricsPublishContext != null) {
+        setVariableIfPresent(
+            variables,
+            DvUpdateMetricsConstants.VAR_MODEL_TYPE,
+            metricsPublishContext.modelType());
+        setVariableIfPresent(
+            variables,
+            DvUpdateMetricsConstants.VAR_WORKFLOW_NAME,
+            metricsPublishContext.workflowName());
+        setVariableIfPresent(
+            variables,
+            DvUpdateMetricsConstants.VAR_METRICS_DATABASE,
+            metricsPublishContext.targetDatabaseName());
+        setVariableIfPresent(
+            variables,
+            DvUpdateMetricsConstants.VAR_METRICS_CATALOG_CONNECTION,
+            metricsPublishContext.catalogConnectionName());
+      }
     }
 
     IPipelineEngine<PipelineMeta> engine =
@@ -218,7 +259,7 @@ public final class DvPipelineOrchestratorSupport {
     engine.execute();
     engine.waitUntilFinished();
 
-    DvUpdateRunTotals metricsTotals =
+    LoadRunPublishSummary metricsSummary =
         DvUpdateMetricsCollector.publishRunSummary(
             engine.getLogChannel(),
             metricsRunId,
@@ -226,13 +267,15 @@ public final class DvPipelineOrchestratorSupport {
             logLevel,
             metricsOutputFolder,
             engine.getLogChannelId(),
-            variables);
+            variables,
+            metadataProvider,
+            metricsPublishContext);
 
     Result orchestratorResult = engine.getResult();
     if (orchestratorResult == null) {
       orchestratorResult = new Result();
     }
-    DvUpdateMetricsCollector.applyToResult(orchestratorResult, metricsTotals);
+    DvUpdateMetricsCollector.applyToResult(orchestratorResult, metricsSummary);
     applyChildPipelineFailures(engine, orchestratorResult);
     return orchestratorResult;
   }
@@ -278,6 +321,12 @@ public final class DvPipelineOrchestratorSupport {
       }
     }
     return total;
+  }
+
+  private static void setVariableIfPresent(IVariables variables, String name, String value) {
+    if (variables != null && !Utils.isEmpty(value)) {
+      variables.setVariable(name, value);
+    }
   }
 
   private static String resolveOrchestratorModelName(PipelineMeta orchestrator) {

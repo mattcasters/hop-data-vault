@@ -362,25 +362,69 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
           pipelineMeta.setName(baseName);
         }
 
+        GeneratedPipelineMetadataSupport.stampDvHubPipeline(
+            pipelineMeta, model, this, ctx.targetTableName, src.getName());
+
         // Source TableInput (from record source)
         TransformMeta sourceInputTransform = addSourceTableInput(ctx, src, pipelineMeta);
+        GeneratedPipelineMetadataSupport.stampSourceRead(sourceInputTransform, ctx.targetDbName);
 
         // Target TableInput (from target DB, for diff). Includes business key at start and
         // hash at end (per request) so that when combined with passthroughs the layouts align
         // as much as possible.
         TransformMeta targetInputTransform = addTargetTableInput(ctx, pipelineMeta);
+        if (targetInputTransform != null) {
+          GeneratedPipelineMetadataSupport.stampTargetRead(
+              targetInputTransform, "hub", getName(), ctx.targetTableName, ctx.targetDbName);
+        }
 
         // MergeRowsPlus (diff) if we have a target side. The source table input is the compare leg
         // (direct hop, per request).
         TransformMeta mergeTransform =
             addMergeRows(ctx, pipelineMeta, sourceInputTransform, targetInputTransform);
+        if (mergeTransform != null) {
+          GeneratedPipelineMetadataSupport.stampTransform(
+              mergeTransform,
+              new GeneratedPipelineMetadataSupport.TransformContext(
+                  GeneratedPipelineMetadataConstants.ROLE_CDC_MERGE,
+                  "hub",
+                  getName(),
+                  null,
+                  ctx.targetTableName,
+                  null,
+                  null));
+        }
 
         // Filter Rows: keep only "new" rows coming out of the diff (for insert into target hub)
         TransformMeta filterTransform = addFilterNewRows(pipelineMeta, mergeTransform);
+        if (filterTransform != null) {
+          GeneratedPipelineMetadataSupport.stampTransform(
+              filterTransform,
+              new GeneratedPipelineMetadataSupport.TransformContext(
+                  GeneratedPipelineMetadataConstants.ROLE_FILTER,
+                  "hub",
+                  getName(),
+                  null,
+                  ctx.targetTableName,
+                  null,
+                  null));
+        }
 
         // DvHashKey after the filter (only for new rows). The result type (STRING/HEX/BINARY) and
         // length in the final layout still reflect the HashKeyDataType choice from configuration.
         TransformMeta checkSumTransform = addDvHashKey(ctx, pipelineMeta, filterTransform);
+        if (checkSumTransform != null) {
+          GeneratedPipelineMetadataSupport.stampTransform(
+              checkSumTransform,
+              new GeneratedPipelineMetadataSupport.TransformContext(
+                  GeneratedPipelineMetadataConstants.ROLE_HASH_KEY,
+                  "hub",
+                  getName(),
+                  null,
+                  ctx.targetTableName,
+                  null,
+                  null));
+        }
 
         // Add Constant transform for the static load date (provided to the method)
         TransformMeta constantTransform =
@@ -388,12 +432,21 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
         // Write new rows to the target (all target fields except "flag")
         IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
-        DvTargetLoadSupport.addTargetLoad(
-            buildTargetLoadContext(ctx, pipelineMeta.getName()),
-            pipelineMeta,
-            targetLayout,
-            constantTransform,
-            Set.of("flag"));
+        DvTargetLoadSupport.TargetLoadResult writeResult =
+            DvTargetLoadSupport.addTargetLoad(
+                buildTargetLoadContext(ctx, pipelineMeta.getName()),
+                pipelineMeta,
+                targetLayout,
+                constantTransform,
+                Set.of("flag"));
+        if (writeResult != null && writeResult.transformMeta != null) {
+          GeneratedPipelineMetadataSupport.stampWriteTarget(
+              writeResult.transformMeta,
+              "hub",
+              getName(),
+              ctx.targetTableName,
+              ctx.targetDbName);
+        }
 
         result.add(pipelineMeta);
       }

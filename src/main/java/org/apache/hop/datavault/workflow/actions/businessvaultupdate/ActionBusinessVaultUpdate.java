@@ -56,6 +56,11 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.datavault.metadata.DvIntegerSettingValidationSupport;
 import org.apache.hop.datavault.metadata.DvModelBulkUpdateExecutionSupport;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
+import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
+import org.apache.hop.datavault.metrics.ExecutionMetricsProfileResolver;
+import org.apache.hop.datavault.metrics.ResolvedExecutionMetrics;
+import org.apache.hop.datavault.metrics.metadata.ExecutionMetricsProfileMeta;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvModelResolver;
@@ -167,14 +172,16 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
   private String pipelineStagingFolder;
 
   @GuiWidgetElement(
-      order = "0700",
-      type = GuiElementType.FOLDER,
-      variables = true,
-      label = "i18n::ActionBusinessVaultUpdate.MetricsOutputFolder.Label",
-      toolTip = "i18n::ActionBusinessVaultUpdate.MetricsOutputFolder.ToolTip",
+      order = "0695",
+      type = GuiElementType.METADATA,
+      metadata = ExecutionMetricsProfileMeta.class,
+      label = "i18n::ActionBusinessVaultUpdate.ExecutionMetricsProfile.Label",
+      toolTip = "i18n::ActionBusinessVaultUpdate.ExecutionMetricsProfile.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_MODEL_TAB_ID)
   @HopMetadataProperty
-  private String metricsOutputFolder;
+  private String executionMetricsProfile;
+
+  @HopMetadataProperty private String metricsOutputFolder;
 
   @GuiWidgetElement(
       order = "0800",
@@ -258,6 +265,7 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
     this.abortOnModelCheckFailures = meta.abortOnModelCheckFailures;
     this.parallelPipelineCopies = meta.parallelPipelineCopies;
     this.pipelineStagingFolder = meta.pipelineStagingFolder;
+    this.executionMetricsProfile = meta.executionMetricsProfile;
     this.metricsOutputFolder = meta.metricsOutputFolder;
     this.publishToCatalog = meta.publishToCatalog;
     this.dataCatalogConnection = meta.dataCatalogConnection;
@@ -565,6 +573,16 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
                   this,
                   getMetadataProvider());
         } else {
+          ResolvedExecutionMetrics executionMetrics =
+              ExecutionMetricsProfileResolver.resolve(
+                  resolve(executionMetricsProfile),
+                  resolve(metricsOutputFolder),
+                  resolve(dataCatalogConnection),
+                  pipelineConfig.getTargetDatabase(),
+                  GeneratedPipelineMetadataConstants.MODEL_TYPE_BV,
+                  getParentWorkflow(),
+                  getVariables(),
+                  getMetadataProvider());
           outcome =
               DvModelBulkUpdateExecutionSupport.executeOrchestratorUpdate(
                   result,
@@ -574,7 +592,8 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
                   getLogLevel(),
                   pipelineStagingFolder,
                   parallelPipelineCopies,
-                  resolve(metricsOutputFolder),
+                  executionMetrics.enabled() ? executionMetrics.metricsOutputFolder() : null,
+                  executionMetrics.enabled() ? executionMetrics.publishContext() : null,
                   success,
                   totalErrors,
                   getVariables(),

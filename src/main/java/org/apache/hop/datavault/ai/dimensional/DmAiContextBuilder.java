@@ -41,6 +41,8 @@ import org.apache.hop.datavault.metadata.dimensional.DmFactMeasure;
 import org.apache.hop.datavault.metadata.dimensional.DmNaturalKeyField;
 import org.apache.hop.datavault.metadata.dimensional.IDmFactLikeTable;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
+import org.apache.hop.datavault.metrics.MetricsAiContextBuilder;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 
@@ -78,6 +80,16 @@ public final class DmAiContextBuilder {
       checkResultsJson = serializeCheckResults(model.check(metadataProvider, variables));
     }
 
+    String loadRunMetricsJson =
+        MetricsAiContextBuilder.buildMetricsContext(
+            request.isIncludeLoadRunMetrics(),
+            scenario == DmAiScenario.PERFORMANCE_TUNING,
+            request.getUserPrompt(),
+            model.getName(),
+            GeneratedPipelineMetadataConstants.MODEL_TYPE_DM,
+            metadataProvider,
+            variables);
+
     return DmAiContextBundle.builder()
         .scenario(scenario)
         .userPrompt(request.getUserPrompt())
@@ -86,6 +98,7 @@ public final class DmAiContextBuilder {
         .modelStructureJson(serializeModelStructure(model))
         .hopMetadataJson(serializeHopMetadata(model, metadataProvider, variables))
         .checkResultsJson(checkResultsJson)
+        .loadRunMetricsJson(loadRunMetricsJson)
         .logsExcerpt(truncate(request.getLogsExcerpt(), MAX_LOG_CHARS))
         .followUp(request.isFollowUp())
         .appliedChangeSummaries(

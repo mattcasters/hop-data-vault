@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmAccumulatingSnapshotFact;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmFactMeasure;
@@ -55,6 +56,7 @@ public final class DmAccumulatingSnapshotLoadBuilder {
 
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
+    GeneratedPipelineMetadataSupport.stampDmTablePipeline(pipelineMeta, ctx);
 
     TransformMeta predecessor = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     try {
@@ -77,7 +79,15 @@ public final class DmAccumulatingSnapshotLoadBuilder {
           "Accumulating snapshot " + fact.getName() + ": " + e.getMessage(), e);
     }
 
-    addInsertUpdate(ctx, pipelineMeta, predecessor, fact);
+    TransformMeta writeTransform = addInsertUpdate(ctx, pipelineMeta, predecessor, fact);
+    if (writeTransform != null) {
+      GeneratedPipelineMetadataSupport.stampWriteTarget(
+          writeTransform,
+          "accumulating_snapshot_fact",
+          fact.getName(),
+          ctx.targetTableName,
+          ctx.targetDbName);
+    }
 
     DmGeneratedPipelineSupport.applyLayout(pipelineMeta);
     return pipelineMeta;

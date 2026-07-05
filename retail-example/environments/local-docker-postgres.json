@@ -31,6 +31,11 @@
       "description" : "PostgreSQL database for Data Vault / Business Vault / dimensional targets"
     },
     {
+      "name" : "DB_OPS_NAME",
+      "value" : "test_ops",
+      "description" : "PostgreSQL database for execution metrics / load-run operations tables"
+    },
+    {
       "name" : "OUTPUT_COPIES",
       "value" : "2",
       "description" : "Number of data load threads"

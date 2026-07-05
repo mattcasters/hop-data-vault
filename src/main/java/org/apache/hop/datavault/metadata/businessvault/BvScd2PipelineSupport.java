@@ -48,6 +48,7 @@ import org.apache.hop.datavault.metadata.HashKeyDataType;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -151,12 +152,25 @@ public final class BvScd2PipelineSupport {
       throws HopException {
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
+    GeneratedPipelineMetadataSupport.stampBvElementPipeline(
+        pipelineMeta,
+        ctx.bvModel,
+        "scd2",
+        ctx.scd2Table.getName(),
+        ctx.bvTargetTableName);
 
     TransformMeta tableInput = addSatelliteTableInput(ctx, pipelineMeta);
+    if (tableInput != null) {
+      GeneratedPipelineMetadataSupport.stampSourceRead(tableInput, ctx.sourceDbName);
+    }
     TransformMeta analyticQuery = addAnalyticQuery(ctx, pipelineMeta, tableInput);
     TransformMeta ifNull = addIfNull(ctx, pipelineMeta, analyticQuery);
     TransformMeta groupBy = addGroupBy(ctx, pipelineMeta, ifNull);
-    addTableOutput(ctx, pipelineMeta, groupBy);
+    TransformMeta writeTransform = addTableOutput(ctx, pipelineMeta, groupBy);
+    if (writeTransform != null) {
+      GeneratedPipelineMetadataSupport.stampWriteTarget(
+          writeTransform, "scd2", ctx.scd2Table.getName(), ctx.bvTargetTableName, ctx.targetDbName);
+    }
 
     BvGeneratedPipelineSupport.applyScd2Layout(pipelineMeta);
     return pipelineMeta;
@@ -166,6 +180,12 @@ public final class BvScd2PipelineSupport {
       throws HopException {
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
+    GeneratedPipelineMetadataSupport.stampBvElementPipeline(
+        pipelineMeta,
+        ctx.bvModel,
+        "scd2",
+        ctx.scd2Table.getName(),
+        ctx.bvTargetTableName);
 
     List<TransformMeta> legOutputs = new ArrayList<>();
     for (int legIndex = 0; legIndex < ctx.legs.size(); legIndex++) {
@@ -184,7 +204,11 @@ public final class BvScd2PipelineSupport {
     TransformMeta analyticQuery = addAnalyticQuery(ctx, pipelineMeta, postRepeatSelect);
     TransformMeta ifNull = addIfNull(ctx, pipelineMeta, analyticQuery);
     TransformMeta groupBy = addGroupBy(ctx, pipelineMeta, ifNull);
-    addTableOutput(ctx, pipelineMeta, groupBy);
+    TransformMeta writeTransform = addTableOutput(ctx, pipelineMeta, groupBy);
+    if (writeTransform != null) {
+      GeneratedPipelineMetadataSupport.stampWriteTarget(
+          writeTransform, "scd2", ctx.scd2Table.getName(), ctx.bvTargetTableName, ctx.targetDbName);
+    }
 
     BvGeneratedPipelineSupport.applyScd2Layout(pipelineMeta);
     return pipelineMeta;

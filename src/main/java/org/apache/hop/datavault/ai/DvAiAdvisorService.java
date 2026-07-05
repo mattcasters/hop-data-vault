@@ -128,6 +128,11 @@ public final class DvAiAdvisorService {
           .append(context.getCheckResultsJson())
           .append("\n\n");
     }
+    if (!Utils.isEmpty(context.getLoadRunMetricsJson())) {
+      prompt.append("Recent load-run metrics and insights JSON:\n")
+          .append(context.getLoadRunMetricsJson())
+          .append("\n\n");
+    }
 
     appendAppliedSummaries(prompt, context.getAppliedChangeSummaries());
     return prompt.toString();

@@ -30,6 +30,8 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DvSqlSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadSupport;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
@@ -200,13 +202,18 @@ public final class DmPipelineBuilderSupport {
 
   public static TransformMeta addSourceInput(BuildContext ctx, PipelineMeta pipelineMeta)
       throws HopException {
+    TransformMeta sourceTransform;
     if (ctx.source.isPipelineSource()) {
-      return addSourceMetaInject(ctx, pipelineMeta);
+      sourceTransform = addSourceMetaInject(ctx, pipelineMeta);
+    } else if (ctx.source.isRecordDefinitionSource()) {
+      sourceTransform = addSourceRecordDefinition(ctx, pipelineMeta);
+    } else {
+      sourceTransform = addSourceTableInput(ctx, pipelineMeta);
     }
-    if (ctx.source.isRecordDefinitionSource()) {
-      return addSourceRecordDefinition(ctx, pipelineMeta);
+    if (sourceTransform != null) {
+      GeneratedPipelineMetadataSupport.stampSourceRead(sourceTransform, ctx.sourceDbName);
     }
-    return addSourceTableInput(ctx, pipelineMeta);
+    return sourceTransform;
   }
 
   public static TransformMeta addSourceRecordDefinition(BuildContext ctx, PipelineMeta pipelineMeta)
@@ -310,6 +317,15 @@ public final class DmPipelineBuilderSupport {
             predecessor,
             resolvedExcludeFields,
             truncate);
+    if (result != null && result.transformMeta != null) {
+      GeneratedPipelineMetadataSupport.stampWriteTarget(
+          result.transformMeta,
+          GeneratedPipelineMetadataSupport.getPipelineAttribute(
+              pipelineMeta, GeneratedPipelineMetadataConstants.ELEMENT_TYPE),
+          ctx.table != null ? ctx.table.getName() : null,
+          ctx.targetTableName,
+          ctx.targetDbName);
+    }
     return result.transformMeta;
   }
 

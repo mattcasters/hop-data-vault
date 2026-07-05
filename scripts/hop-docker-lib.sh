@@ -97,6 +97,30 @@ wait_for_local_postgres() {
   return 1
 }
 
+LOCAL_POSTGRES_CONTAINER="${LOCAL_POSTGRES_CONTAINER:-hop-data-vault-postgres-local}"
+
+# Creates retail-example databases missing from volumes initialized before init.sql was updated.
+ensure_local_postgres_retail_databases() {
+  if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "${LOCAL_POSTGRES_CONTAINER}"; then
+    return 0
+  fi
+
+  for db in test_source test_edw test_ops; do
+    exists="$(
+      docker exec "${LOCAL_POSTGRES_CONTAINER}" \
+        psql -U "${LOCAL_POSTGRES_USER}" -p "${LOCAL_POSTGRES_PORT}" -d "${LOCAL_POSTGRES_DB}" -tAc \
+        "SELECT 1 FROM pg_database WHERE datname = '${db}'" 2>/dev/null \
+        | tr -d '[:space:]'
+    )"
+    if [ "${exists}" != "1" ]; then
+      echo "Creating missing PostgreSQL database: ${db}"
+      docker exec "${LOCAL_POSTGRES_CONTAINER}" \
+        psql -U "${LOCAL_POSTGRES_USER}" -p "${LOCAL_POSTGRES_PORT}" -d "${LOCAL_POSTGRES_DB}" \
+        -c "CREATE DATABASE ${db} OWNER ${LOCAL_POSTGRES_USER};" >/dev/null
+    fi
+  done
+}
+
 require_local_postgres() {
   if local_postgres_ready; then
     return 0

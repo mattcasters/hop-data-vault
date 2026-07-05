@@ -35,6 +35,7 @@ import org.apache.hop.catalog.model.RecordDefinitionQuery;
 import org.apache.hop.catalog.model.RecordDefinitionRef;
 import org.apache.hop.catalog.spi.IDataCatalog;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
@@ -159,14 +160,10 @@ public class FileDataCatalog implements IDataCatalog {
                     results.add(RecordDefinitionRef.of(connectionName, definition));
                   }
                 } catch (HopException e) {
-                  throw new RuntimeException(e);
+                  LogChannel.GENERAL.logError(
+                      "Skipping unreadable catalog record definition: " + path, e);
                 }
               });
-    } catch (RuntimeException e) {
-      if (e.getCause() instanceof HopException hopException) {
-        throw hopException;
-      }
-      throw e;
     } catch (IOException e) {
       throw new HopException("Unable to list record definitions under " + resolvedRoot, e);
     }

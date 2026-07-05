@@ -31,6 +31,7 @@ class DvAiScenarioTest {
     assertEquals("General help", DvAiScenario.GENERAL.getDescription());
     assertEquals("Data Vault modeling", DvAiScenario.DV_MODELING.getDescription());
     assertEquals("Source analysis", DvAiScenario.SOURCE_ANALYSIS.getDescription());
+    assertEquals("Performance tuning", DvAiScenario.PERFORMANCE_TUNING.getDescription());
   }
 
   @Test

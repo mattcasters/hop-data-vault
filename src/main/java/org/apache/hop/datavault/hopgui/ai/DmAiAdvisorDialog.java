@@ -88,6 +88,7 @@ public class DmAiAdvisorDialog {
   private Text wPrompt;
   private Button wIncludeChecks;
   private Button wIncludeModelXml;
+  private Button wIncludeLoadRunMetrics;
   private Button wSend;
   private Label wlStatusMessage;
   private ScrolledComposite transcriptScroll;
@@ -238,7 +239,17 @@ public class DmAiAdvisorDialog {
     fdModelXml.top = new FormAttachment(wIncludeChecks, 0, SWT.CENTER);
     wIncludeModelXml.setLayoutData(fdModelXml);
 
-    return wIncludeModelXml;
+    wIncludeLoadRunMetrics = new Button(shell, SWT.CHECK);
+    wIncludeLoadRunMetrics.setText(
+        BaseMessages.getString(PKG, "DmAiAdvisorDialog.IncludeLoadRunMetrics.Label"));
+    wIncludeLoadRunMetrics.setSelection(false);
+    PropsUi.setLook(wIncludeLoadRunMetrics);
+    FormData fdLoadRunMetrics = new FormData();
+    fdLoadRunMetrics.left = new FormAttachment(0, 0);
+    fdLoadRunMetrics.top = new FormAttachment(wIncludeChecks, margin);
+    wIncludeLoadRunMetrics.setLayoutData(fdLoadRunMetrics);
+
+    return wIncludeLoadRunMetrics;
   }
 
   private Control createScenarioWidgets(int margin) {
@@ -279,6 +290,15 @@ public class DmAiAdvisorDialog {
       }
     } else {
       lastScenarioIndex = wScenario.getSelectionIndex();
+    }
+    syncLoadRunMetricsForScenario();
+  }
+
+  private void syncLoadRunMetricsForScenario() {
+    DmAiScenario scenario =
+        EnumDialogSupport.readCombo(wScenario, DmAiScenario.class, DmAiScenario.GENERAL);
+    if (scenario == DmAiScenario.PERFORMANCE_TUNING) {
+      wIncludeLoadRunMetrics.setSelection(true);
     }
   }
 
@@ -344,6 +364,7 @@ public class DmAiAdvisorDialog {
                 EnumDialogSupport.readCombo(wScenario, DmAiScenario.class, DmAiScenario.GENERAL))
             .includeCheckResults(wIncludeChecks.getSelection())
             .includeModelXml(wIncludeModelXml.getSelection())
+            .includeLoadRunMetrics(wIncludeLoadRunMetrics.getSelection())
             .followUp(followUp);
     for (String summary : session.consumePendingAppliedSummaries()) {
       requestBuilder.appliedChangeSummary(summary);

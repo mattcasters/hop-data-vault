@@ -24,6 +24,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAttribute;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
@@ -91,6 +92,7 @@ public final class DmDimensionLookupBuilder {
         predecessor.getLocation().y);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
+    GeneratedPipelineMetadataSupport.stampDimensionLookup(tm, ctx, dimension, role);
     return tm;
   }
 

@@ -36,7 +36,7 @@ import org.apache.hop.metadata.api.IHopMetadata;
     key = "data-catalog",
     name = "i18n::DataCatalogMeta.name",
     description = "i18n::DataCatalogMeta.description",
-    image = "datavault_model.svg",
+    image = "data-catalog.svg",
     documentationUrl = "/metadata-types/data-catalog.html",
     hopMetadataPropertyType = HopMetadataPropertyType.NONE)
 @Getter

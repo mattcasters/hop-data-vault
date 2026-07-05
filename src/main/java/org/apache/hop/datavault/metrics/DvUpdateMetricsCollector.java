@@ -31,6 +31,7 @@ import org.apache.hop.core.logging.LogLevel;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /** Thread-safe in-memory collector for metrics gathered during one Data Vault update run. */
 public final class DvUpdateMetricsCollector {
@@ -98,9 +99,14 @@ public final class DvUpdateMetricsCollector {
    * target table inserts map to output; target table reads are not included.
    */
   public static void applyToResult(Result result, DvUpdateRunTotals totals) {
-    if (result == null || totals == null) {
+    applyToResult(result, new LoadRunPublishSummary(totals, null, 0, 0));
+  }
+
+  public static void applyToResult(Result result, LoadRunPublishSummary summary) {
+    if (result == null || summary == null || summary.getTotals() == null) {
       return;
     }
+    DvUpdateRunTotals totals = summary.getTotals();
     result.setNrLinesInput(totals.getSourceRowsRead());
     result.setNrLinesOutput(totals.getTargetRowsInserted());
     result.setNrLinesRead(0);
@@ -110,6 +116,22 @@ public final class DvUpdateMetricsCollector {
       result.setNrErrors(result.getNrErrors() + metricsErrors);
       result.setResult(false);
     }
+    if (summary.hasMetrics()) {
+      result.setLogText(formatResultLogText(summary));
+    }
+  }
+
+  static String formatResultLogText(LoadRunPublishSummary summary) {
+    DvUpdateRunTotals totals = summary.getTotals();
+    return BaseMessages.getString(
+        PKG,
+        "DvUpdateMetricsCollector.Log.ActionResultSummary",
+        safe(summary.getRunId()),
+        Integer.toString(summary.getPipelineCount()),
+        Integer.toString(summary.getInsightCount()),
+        Long.toString(totals.getSourceRowsRead()),
+        Long.toString(totals.getTargetRowsInserted()),
+        Long.toString(totals.getErrors()));
   }
 
   /**
@@ -123,9 +145,9 @@ public final class DvUpdateMetricsCollector {
    * @param metricsOutputFolder optional folder for JSON output; skipped when empty
    * @param logChannelId orchestrator pipeline log channel id used in the JSON filename
    * @param variables variables for folder resolution
-   * @return aggregated metrics for the run, or {@link DvUpdateRunTotals#EMPTY} when none collected
+   * @return aggregated metrics for the run, or {@link LoadRunPublishSummary#EMPTY} when none collected
    */
-  public static DvUpdateRunTotals publishRunSummary(
+  public static LoadRunPublishSummary publishRunSummary(
       ILogChannel log,
       String runId,
       String modelName,
@@ -134,12 +156,35 @@ public final class DvUpdateMetricsCollector {
       String logChannelId,
       IVariables variables)
       throws HopException {
+    return publishRunSummary(
+        log,
+        runId,
+        modelName,
+        logLevel,
+        metricsOutputFolder,
+        logChannelId,
+        variables,
+        null,
+        null);
+  }
+
+  public static LoadRunPublishSummary publishRunSummary(
+      ILogChannel log,
+      String runId,
+      String modelName,
+      LogLevel logLevel,
+      String metricsOutputFolder,
+      String logChannelId,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      LoadRunPublishContext publishContext)
+      throws HopException {
     if (log == null || Utils.isEmpty(runId)) {
-      return DvUpdateRunTotals.EMPTY;
+      return LoadRunPublishSummary.EMPTY;
     }
     List<DvUpdateTableMetrics> metrics = removeRun(runId);
     if (metrics.isEmpty()) {
-      return DvUpdateRunTotals.EMPTY;
+      return LoadRunPublishSummary.EMPTY;
     }
 
     DvUpdateRunTotals totals = aggregateTotals(metrics);
@@ -160,7 +205,17 @@ public final class DvUpdateMetricsCollector {
       logAtLevel(log, effectiveLevel, line);
     }
 
-    if (!Utils.isEmpty(metricsOutputFolder)) {
+    long lookupRatioThreshold =
+        publishContext != null
+            ? publishContext.dimLookupPreloadRatioThreshold()
+            : LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD;
+    List<LoadRunInsight> insights = LoadRunInsightEngine.evaluate(metrics, lookupRatioThreshold);
+    for (LoadRunInsight insight : insights) {
+      logAtLevel(log, effectiveLevel, "Load insight [" + insight.getCode() + "]: " + insight.getMessage());
+    }
+
+    boolean metricsEnabled = !Utils.isEmpty(metricsOutputFolder);
+    if (metricsEnabled) {
       DvUpdateMetricsReport report =
           DvUpdateMetricsReport.builder()
               .runId(runId)
@@ -168,6 +223,7 @@ public final class DvUpdateMetricsCollector {
               .logChannelId(logChannelId)
               .pipelineCount(metrics.size())
               .pipelines(metrics)
+              .insights(insights)
               .build();
       String jsonPath =
           DvUpdateMetricsJsonWriter.writeReport(
@@ -178,9 +234,53 @@ public final class DvUpdateMetricsCollector {
             effectiveLevel,
             BaseMessages.getString(PKG, "DvUpdateMetricsCollector.Log.MetricsWritten", jsonPath));
       }
+
+      if (publishContext != null && metadataProvider != null) {
+        String modelType =
+            resolvePublishValue(publishContext.modelType(), variables, DvUpdateMetricsConstants.VAR_MODEL_TYPE);
+        String workflowName =
+            resolvePublishValue(
+                publishContext.workflowName(), variables, DvUpdateMetricsConstants.VAR_WORKFLOW_NAME);
+        String catalogConnection =
+            resolvePublishValue(
+                publishContext.catalogConnectionName(),
+                variables,
+                DvUpdateMetricsConstants.VAR_METRICS_CATALOG_CONNECTION);
+        String targetDatabase =
+            resolvePublishValue(
+                publishContext.targetDatabaseName(),
+                variables,
+                DvUpdateMetricsConstants.VAR_METRICS_DATABASE);
+        boolean runSuccess = totals.getErrors() == 0;
+        try {
+          LoadRunMetricsCatalogPublisher.publish(
+              log,
+              publishContext,
+              runId,
+              modelName,
+              modelType,
+              workflowName,
+              logChannelId,
+              runSuccess,
+              totals.getErrors(),
+              metrics,
+              insights,
+              variables,
+              metadataProvider);
+        } catch (HopException e) {
+          logAtLevel(
+              log,
+              effectiveLevel,
+              "Load-run metrics catalog/database publish failed; update result unchanged: "
+                  + e.getMessage());
+          if (log != null) {
+            log.logError("Load-run metrics catalog/database publish failed", e);
+          }
+        }
+      }
     }
 
-    return totals;
+    return new LoadRunPublishSummary(totals, runId, metrics.size(), insights.size());
   }
 
   private static List<String> formatMetricsTable(List<DvUpdateTableMetrics> metrics) {
@@ -269,5 +369,46 @@ public final class DvUpdateMetricsCollector {
 
   private static String safe(String value) {
     return value == null ? "" : value;
+  }
+
+  private static String resolvePublishValue(
+      String configured, IVariables variables, String variableName) {
+    if (!Utils.isEmpty(configured)) {
+      return configured;
+    }
+    if (variables != null && !Utils.isEmpty(variables.getVariable(variableName))) {
+      return variables.getVariable(variableName);
+    }
+    return null;
+  }
+
+  /** Optional catalog/database targets when metrics collection is enabled. */
+  public record LoadRunPublishContext(
+      String catalogConnectionName,
+      String targetDatabaseName,
+      String operationsSchema,
+      String workflowName,
+      String modelType,
+      boolean publishCatalogDefinitions,
+      boolean publishDatabaseRows,
+      boolean autoCreateTables,
+      long dimLookupPreloadRatioThreshold) {
+
+    public static LoadRunPublishContext withDefaults(
+        String catalogConnectionName,
+        String targetDatabaseName,
+        String workflowName,
+        String modelType) {
+      return new LoadRunPublishContext(
+          catalogConnectionName,
+          targetDatabaseName,
+          LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME,
+          workflowName,
+          modelType,
+          true,
+          true,
+          true,
+          LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD);
+    }
   }
 }

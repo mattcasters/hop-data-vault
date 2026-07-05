@@ -48,4 +48,19 @@ class DvUpdateMetricsParserTest {
     assertTrue(
         DvUpdateMetricsParser.parse("DV Update Orchestrator - retail-conformed-dims").isEmpty());
   }
+
+  @Test
+  void parsesBusinessVaultScd2PipelineNames() {
+    DvUpdateMetricsParser.ParsedPipeline parsed =
+        DvUpdateMetricsParser.parse("bv-scd2-customer_360").orElseThrow();
+    assertEquals("scd2", parsed.tableType());
+    assertEquals("customer_360", parsed.tableName());
+    assertEquals("", parsed.sourceName());
+  }
+
+  @Test
+  void parsesBulkAndStagingWriteTransformsViaExtractorConstants() {
+    assertEquals("bulk_load_to_hub_customer", DvUpdateMetricsConstants.BULK_WRITE_TRANSFORM_PREFIX + "hub_customer");
+    assertEquals("stage_to_hub_customer", DvUpdateMetricsConstants.STAGING_WRITE_TRANSFORM_PREFIX + "hub_customer");
+  }
 }

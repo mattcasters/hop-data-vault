@@ -18,7 +18,10 @@
 
 package org.apache.hop.datavault.metrics;
 
+import java.util.Collections;
+import java.util.List;
 import lombok.Builder;
+import lombok.Singular;
 import lombok.Value;
 
 /** Row-level metrics for one generated Data Vault update pipeline (one table, one source). */
@@ -27,6 +30,7 @@ import lombok.Value;
 public class DvUpdateTableMetrics {
   String runId;
   String modelName;
+  String modelType;
   String pipelineName;
   String tableType;
   String tableName;
@@ -36,4 +40,11 @@ public class DvUpdateTableMetrics {
   long targetRowsInserted;
   long errors;
   boolean success;
+
+  @Singular("transform")
+  List<TransformRunMetrics> transforms;
+
+  public List<TransformRunMetrics> getTransforms() {
+    return transforms != null ? transforms : Collections.emptyList();
+  }
 }

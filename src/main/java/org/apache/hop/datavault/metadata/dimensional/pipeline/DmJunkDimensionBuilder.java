@@ -29,6 +29,7 @@ import org.apache.hop.datavault.metadata.dimensional.DmJunkDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkDimensionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkHashCodeStrategy;
 import org.apache.hop.datavault.metadata.dimensional.DmJunkSurrogateKeyStrategy;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmNaturalKeyField;
 import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeySupport;
 import org.apache.hop.datavault.transform.junkdimension.JunkDimensionMeta;
@@ -60,6 +61,7 @@ public final class DmJunkDimensionBuilder {
 
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
+    GeneratedPipelineMetadataSupport.stampDmTablePipeline(pipelineMeta, ctx);
 
     TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
     addJunkDimension(ctx, pipelineMeta, sourceTransform, junkDimension, null);

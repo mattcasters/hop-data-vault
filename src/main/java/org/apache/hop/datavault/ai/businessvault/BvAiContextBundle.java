@@ -35,6 +35,7 @@ public class BvAiContextBundle {
   private final String linkedDvModelStructureJson;
   private final String hopMetadataJson;
   private final String checkResultsJson;
+  private final String loadRunMetricsJson;
   private final String logsExcerpt;
   private final boolean followUp;
   private final List<String> appliedChangeSummaries;

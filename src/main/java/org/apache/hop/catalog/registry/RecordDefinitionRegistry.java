@@ -72,12 +72,22 @@ public final class RecordDefinitionRegistry {
       throws HopException {
     List<RecordDefinitionRef> results = new ArrayList<>();
     for (DataCatalogMeta meta : listEnabledConnections(metadataProvider)) {
-      IDataCatalog catalog = getConnectedCatalog(meta, variables, metadataProvider);
-      List<RecordDefinitionRef> refs = catalog.list(query);
-      for (RecordDefinitionRef ref : refs) {
-        ref.setCatalogConnectionName(meta.getName());
-        results.add(ref);
-      }
+      results.addAll(list(meta.getName(), query, variables, metadataProvider));
+    }
+    return results;
+  }
+
+  public List<RecordDefinitionRef> list(
+      String catalogConnectionName,
+      RecordDefinitionQuery query,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
+    IDataCatalog catalog = getConnectedCatalog(catalogConnectionName, variables, metadataProvider);
+    List<RecordDefinitionRef> results = new ArrayList<>();
+    for (RecordDefinitionRef ref : catalog.list(query)) {
+      ref.setCatalogConnectionName(catalogConnectionName);
+      results.add(ref);
     }
     return results;
   }
@@ -144,16 +154,21 @@ public final class RecordDefinitionRegistry {
     if (Utils.isEmpty(connectionName)) {
       throw new HopException("Catalog connection name is required");
     }
-    return connectedCatalogs.computeIfAbsent(
-        connectionName,
-        name -> {
-          try {
-            DataCatalogMeta meta = loadConnection(name, metadataProvider);
-            return DataCatalogPluginFactory.createConnected(meta, variables, metadataProvider);
-          } catch (HopException e) {
-            throw new RuntimeException(e);
-          }
-        });
+    IDataCatalog cached = connectedCatalogs.get(connectionName);
+    if (cached != null) {
+      return cached;
+    }
+    synchronized (connectedCatalogs) {
+      cached = connectedCatalogs.get(connectionName);
+      if (cached != null) {
+        return cached;
+      }
+      DataCatalogMeta meta = loadConnection(connectionName, metadataProvider);
+      IDataCatalog catalog =
+          DataCatalogPluginFactory.createConnected(meta, variables, metadataProvider);
+      connectedCatalogs.put(connectionName, catalog);
+      return catalog;
+    }
   }
 
   private IDataCatalog getConnectedCatalog(

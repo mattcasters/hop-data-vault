@@ -33,6 +33,7 @@ import org.apache.hop.datavault.metadata.DvSqlSupport;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
@@ -223,9 +224,26 @@ public final class BvPitPipelineSupport {
   public static PipelineMeta generatePipeline(PitBuildContext ctx) throws HopException {
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName());
+    GeneratedPipelineMetadataSupport.stampBvElementPipeline(
+        pipelineMeta,
+        ctx.bvModel(),
+        "pit",
+        ctx.pitTable().getName(),
+        ctx.bvTargetTableName());
 
     TransformMeta tableInput = addTableInput(ctx, pipelineMeta);
-    addTableOutput(ctx, pipelineMeta, tableInput);
+    if (tableInput != null) {
+      GeneratedPipelineMetadataSupport.stampSourceRead(tableInput, ctx.sourceDbName());
+    }
+    TransformMeta writeTransform = addTableOutput(ctx, pipelineMeta, tableInput);
+    if (writeTransform != null) {
+      GeneratedPipelineMetadataSupport.stampWriteTarget(
+          writeTransform,
+          "pit",
+          ctx.pitTable().getName(),
+          ctx.bvTargetTableName(),
+          ctx.targetDbName());
+    }
 
     BvGeneratedPipelineSupport.applyLayout(pipelineMeta);
     return pipelineMeta;

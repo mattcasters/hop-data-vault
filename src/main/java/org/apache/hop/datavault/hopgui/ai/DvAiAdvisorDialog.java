@@ -88,6 +88,7 @@ public class DvAiAdvisorDialog {
   private Button wIncludeChecks;
   private Button wIncludeCatalog;
   private Button wIncludeModelXml;
+  private Button wIncludeLoadRunMetrics;
   private Button wChangeCatalogSources;
   private Button wSend;
   private Label wlStatusMessage;
@@ -268,7 +269,17 @@ public class DvAiAdvisorDialog {
     fdChangeCatalog.top = new FormAttachment(wIncludeChecks, 0, SWT.CENTER);
     wChangeCatalogSources.setLayoutData(fdChangeCatalog);
 
-    return wChangeCatalogSources;
+    wIncludeLoadRunMetrics = new Button(shell, SWT.CHECK);
+    wIncludeLoadRunMetrics.setText(
+        BaseMessages.getString(PKG, "DvAiAdvisorDialog.IncludeLoadRunMetrics.Label"));
+    wIncludeLoadRunMetrics.setSelection(false);
+    PropsUi.setLook(wIncludeLoadRunMetrics);
+    FormData fdLoadRunMetrics = new FormData();
+    fdLoadRunMetrics.left = new FormAttachment(0, 0);
+    fdLoadRunMetrics.top = new FormAttachment(wIncludeChecks, margin);
+    wIncludeLoadRunMetrics.setLayoutData(fdLoadRunMetrics);
+
+    return wIncludeLoadRunMetrics;
   }
 
   private Control createScenarioWidgets(int margin) {
@@ -309,6 +320,15 @@ public class DvAiAdvisorDialog {
       }
     } else {
       lastScenarioIndex = wScenario.getSelectionIndex();
+    }
+    syncLoadRunMetricsForScenario();
+  }
+
+  private void syncLoadRunMetricsForScenario() {
+    DvAiScenario scenario =
+        EnumDialogSupport.readCombo(wScenario, DvAiScenario.class, DvAiScenario.GENERAL);
+    if (scenario == DvAiScenario.PERFORMANCE_TUNING) {
+      wIncludeLoadRunMetrics.setSelection(true);
     }
   }
 
@@ -400,6 +420,7 @@ public class DvAiAdvisorDialog {
             .includeCheckResults(wIncludeChecks.getSelection())
             .includeCatalogSources(wIncludeCatalog.getSelection())
             .includeModelXml(wIncludeModelXml.getSelection())
+            .includeLoadRunMetrics(wIncludeLoadRunMetrics.getSelection())
             .followUp(followUp);
     for (String catalogSource : catalogSources) {
       requestBuilder.catalogSourceName(catalogSource);

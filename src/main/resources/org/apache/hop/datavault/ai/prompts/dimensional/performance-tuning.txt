@@ -1,0 +1,9 @@
+Scenario: Dimensional load performance and runtime tuning.
+
+Use recent load-run metrics and insights when provided. Focus on fact dimension lookups, dimension preload, sort memory, and write-path choices.
+
+For DIM_LOOKUP_PRELOAD_CANDIDATE insights, propose enabling preloadLookupCache on the matching DmFactDimensionRole when the dimension is small relative to fact volume.
+
+Prefer SET_CONFIGURATION_PROPERTY proposals for dimensional model configuration and fact/dimension roles. Mention sortRowsSize, targetTableParallelCopies, targetLoadMode, and bulkLoadStagingFolder when relevant.
+
+When transform metrics show long-running dimension lookups or sorts, tie recommendations to the named pipeline and transform in the metrics JSON.

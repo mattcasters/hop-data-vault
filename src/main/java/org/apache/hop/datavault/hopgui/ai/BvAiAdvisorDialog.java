@@ -89,6 +89,7 @@ public class BvAiAdvisorDialog {
   private Button wIncludeChecks;
   private Button wIncludeLinkedDv;
   private Button wIncludeModelXml;
+  private Button wIncludeLoadRunMetrics;
   private Button wSend;
   private Label wlStatusMessage;
   private ScrolledComposite transcriptScroll;
@@ -249,7 +250,17 @@ public class BvAiAdvisorDialog {
     fdModelXml.top = new FormAttachment(wIncludeChecks, 0, SWT.CENTER);
     wIncludeModelXml.setLayoutData(fdModelXml);
 
-    return wIncludeModelXml;
+    wIncludeLoadRunMetrics = new Button(shell, SWT.CHECK);
+    wIncludeLoadRunMetrics.setText(
+        BaseMessages.getString(PKG, "BvAiAdvisorDialog.IncludeLoadRunMetrics.Label"));
+    wIncludeLoadRunMetrics.setSelection(false);
+    PropsUi.setLook(wIncludeLoadRunMetrics);
+    FormData fdLoadRunMetrics = new FormData();
+    fdLoadRunMetrics.left = new FormAttachment(0, 0);
+    fdLoadRunMetrics.top = new FormAttachment(wIncludeChecks, margin);
+    wIncludeLoadRunMetrics.setLayoutData(fdLoadRunMetrics);
+
+    return wIncludeLoadRunMetrics;
   }
 
   private Control createScenarioWidgets(int margin) {
@@ -290,6 +301,15 @@ public class BvAiAdvisorDialog {
       }
     } else {
       lastScenarioIndex = wScenario.getSelectionIndex();
+    }
+    syncLoadRunMetricsForScenario();
+  }
+
+  private void syncLoadRunMetricsForScenario() {
+    BvAiScenario scenario =
+        EnumDialogSupport.readCombo(wScenario, BvAiScenario.class, BvAiScenario.GENERAL);
+    if (scenario == BvAiScenario.PERFORMANCE_TUNING) {
+      wIncludeLoadRunMetrics.setSelection(true);
     }
   }
 
@@ -356,6 +376,7 @@ public class BvAiAdvisorDialog {
             .includeCheckResults(wIncludeChecks.getSelection())
             .includeLinkedDvModel(wIncludeLinkedDv.getSelection())
             .includeModelXml(wIncludeModelXml.getSelection())
+            .includeLoadRunMetrics(wIncludeLoadRunMetrics.getSelection())
             .followUp(followUp);
     for (String summary : session.consumePendingAppliedSummaries()) {
       requestBuilder.appliedChangeSummary(summary);

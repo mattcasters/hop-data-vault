@@ -36,6 +36,8 @@ import org.apache.hop.datavault.metadata.businessvault.BvPitTable;
 import org.apache.hop.datavault.metadata.businessvault.BvScd2SatelliteConfig;
 import org.apache.hop.datavault.metadata.businessvault.BvScd2Table;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
+import org.apache.hop.datavault.metrics.MetricsAiContextBuilder;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 
@@ -78,6 +80,16 @@ public final class BvAiContextBuilder {
       linkedDvModelStructureJson = serializeLinkedDvModelStructure(model, variables, metadataProvider);
     }
 
+    String loadRunMetricsJson =
+        MetricsAiContextBuilder.buildMetricsContext(
+            request.isIncludeLoadRunMetrics(),
+            scenario == BvAiScenario.PERFORMANCE_TUNING,
+            request.getUserPrompt(),
+            model.getName(),
+            GeneratedPipelineMetadataConstants.MODEL_TYPE_BV,
+            metadataProvider,
+            variables);
+
     return BvAiContextBundle.builder()
         .scenario(scenario)
         .userPrompt(request.getUserPrompt())
@@ -87,6 +99,7 @@ public final class BvAiContextBuilder {
         .linkedDvModelStructureJson(linkedDvModelStructureJson)
         .hopMetadataJson(serializeHopMetadata(model, metadataProvider, variables))
         .checkResultsJson(checkResultsJson)
+        .loadRunMetricsJson(loadRunMetricsJson)
         .logsExcerpt(truncate(request.getLogsExcerpt(), MAX_LOG_CHARS))
         .followUp(request.isFollowUp())
         .appliedChangeSummaries(

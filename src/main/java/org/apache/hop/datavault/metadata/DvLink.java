@@ -534,8 +534,17 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         String baseName = ctx.pipelineName;
         String srcName = linkSource.getSourceName();
         pipelineMeta.setName(baseName + "_" + srcName);
+        GeneratedPipelineMetadataSupport.stampDvLinkPipeline(
+            pipelineMeta, model, this, ctx.targetTableName, srcName);
 
         TransformMeta sourceInputTransform = addSourceTableInput(ctx, pipelineMeta, linkSource);
+        if (sourceInputTransform != null) {
+          String sourceConnection =
+              ctx.dvSource instanceof org.apache.hop.datavault.metadata.database.DvDatabaseSource dbSource
+                  ? dbSource.getDatabaseName()
+                  : null;
+          GeneratedPipelineMetadataSupport.stampSourceRead(sourceInputTransform, sourceConnection);
+        }
         TransformMeta predecessorTransform = sourceInputTransform;
 
         // Compute hub hashes for each participating hub (from their BKs in the source)
@@ -574,6 +583,10 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
                 index);
         pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessorTransform, linkHashCalc));
         predecessorTransform = linkHashCalc;
+        if (linkHashCalc != null) {
+          GeneratedPipelineMetadataSupport.stampHashKey(
+              linkHashCalc, "link", getName(), ctx.targetTableName);
+        }
 
         TransformMeta selectTransform =
             addSourceSelectRows(ctx, pipelineMeta, predecessorTransform);
@@ -581,25 +594,46 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         // Target side
         TransformMeta targetInputTransform =
             addTargetTableInput(ctx, pipelineMeta);
+        if (targetInputTransform != null) {
+          GeneratedPipelineMetadataSupport.stampTargetRead(
+              targetInputTransform, "link", getName(), ctx.targetTableName, ctx.targetDbName);
+        }
 
         TransformMeta sortTransform =
             addSortRows(ctx, pipelineMeta, selectTransform, linkHashKeyFieldName);
+        if (sortTransform != null) {
+          GeneratedPipelineMetadataSupport.stampSort(
+              sortTransform, "link", getName(), ctx.targetTableName);
+        }
 
         TransformMeta mergeTransform =
             addMergeRows(ctx, pipelineMeta, sortTransform, targetInputTransform);
+        if (mergeTransform != null) {
+          GeneratedPipelineMetadataSupport.stampCdcMerge(
+              mergeTransform, "link", getName(), ctx.targetTableName, ctx.targetDbName);
+        }
 
         TransformMeta filterTransform = addFilterNewRows(pipelineMeta, mergeTransform);
+        if (filterTransform != null) {
+          GeneratedPipelineMetadataSupport.stampFilter(
+              filterTransform, "link", getName(), ctx.targetTableName);
+        }
         TransformMeta constantTransform =
             addConstantForLoadDate(ctx, pipelineMeta, loadDate, filterTransform);
 
         IRowMeta targetLayout = getTargetTableLayout(metadataProvider, variables, model);
 
-        DvTargetLoadSupport.addTargetLoad(
-            buildTargetLoadContext(ctx, pipelineMeta.getName()),
-            pipelineMeta,
-            targetLayout,
-            constantTransform,
-            Set.of("flag"));
+        DvTargetLoadSupport.TargetLoadResult writeResult =
+            DvTargetLoadSupport.addTargetLoad(
+                buildTargetLoadContext(ctx, pipelineMeta.getName()),
+                pipelineMeta,
+                targetLayout,
+                constantTransform,
+                Set.of("flag"));
+        if (writeResult != null && writeResult.transformMeta != null) {
+          GeneratedPipelineMetadataSupport.stampWriteTarget(
+              writeResult.transformMeta, "link", getName(), ctx.targetTableName, ctx.targetDbName);
+        }
 
         result.add(pipelineMeta);
       }

@@ -37,7 +37,9 @@ import org.apache.hop.catalog.model.RecordDefinitionValidationAcknowledgement;
 import org.apache.hop.catalog.model.RecordOrigin;
 import org.apache.hop.catalog.util.RowMetaCatalogSupport;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.row.IRowMeta;
+import org.apache.hop.core.row.RowMeta;
 
 /** JSON-serializable document stored by {@link FileDataCatalog}. */
 @Getter
@@ -95,7 +97,7 @@ class RecordDefinitionDocument {
     definition.setKey(new RecordDefinitionKey(namespace, name));
     definition.setType(parseType(type));
     definition.setDescription(description);
-    definition.setFields(RowMetaCatalogSupport.fromXml(rowMetaXml));
+    definition.setFields(readFieldsLenient());
     definition.setOrigin(origin);
     definition.setPhysicalTable(physicalTable);
     definition.setPhysicalFile(physicalFile);
@@ -111,6 +113,21 @@ class RecordDefinitionDocument {
             ? new ArrayList<>(validationAcknowledgements)
             : new ArrayList<>());
     return definition;
+  }
+
+  private IRowMeta readFieldsLenient() {
+    try {
+      return RowMetaCatalogSupport.fromXml(rowMetaXml);
+    } catch (HopException e) {
+      LogChannel.GENERAL.logError(
+          "Unable to deserialize row metadata for catalog record "
+              + namespace
+              + "/"
+              + name
+              + "; continuing without field layout",
+          e);
+      return new RowMeta();
+    }
   }
 
   private static RecordDefinitionType parseType(String raw) {

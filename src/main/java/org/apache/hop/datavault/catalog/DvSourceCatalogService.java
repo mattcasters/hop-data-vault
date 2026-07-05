@@ -113,12 +113,10 @@ public final class DvSourceCatalogService {
     query.setNamespacePrefix(projectSourcesNamespace(variables));
     query.setType(RecordDefinitionType.DV_SOURCE);
     List<RecordDefinitionRef> refs =
-        RecordDefinitionRegistry.getInstance().listAll(query, variables, metadataProvider);
+        RecordDefinitionRegistry.getInstance().list(connectionName, query, variables, metadataProvider);
     List<String> names = new ArrayList<>();
     for (RecordDefinitionRef ref : refs) {
-      if (ref == null
-          || ref.getKey() == null
-          || !connectionName.equals(ref.getCatalogConnectionName())) {
+      if (ref == null || ref.getKey() == null) {
         continue;
       }
       names.add(ref.getKey().getName());

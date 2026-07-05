@@ -31,4 +31,5 @@ public class DvUpdateMetricsReport {
   String logChannelId;
   int pipelineCount;
   List<DvUpdateTableMetrics> pipelines;
+  List<LoadRunInsight> insights;
 }

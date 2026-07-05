@@ -96,6 +96,12 @@ public final class DvUpdateMetricsExtractor {
     if (name.equals(DvUpdateMetricsConstants.TARGET_TRANSFORM_PREFIX + tableName)) {
       return true;
     }
+    if (name.equals(DvUpdateMetricsConstants.DIMENSIONAL_TARGET_TRANSFORM_PREFIX + tableName)) {
+      return true;
+    }
+    if (name.equals(DvUpdateMetricsConstants.STS_TARGET_TRANSFORM_PREFIX + tableName)) {
+      return true;
+    }
     if (name.startsWith(DvUpdateMetricsConstants.TARGET_TRANSFORM_DB_PREFIX)) {
       return name.endsWith("." + tableName);
     }
@@ -103,7 +109,11 @@ public final class DvUpdateMetricsExtractor {
   }
 
   private static boolean isWriteTransform(String name, String tableName) {
-    return name != null
-        && name.equals(DvUpdateMetricsConstants.WRITE_TRANSFORM_PREFIX + tableName);
+    if (name == null || tableName == null) {
+      return false;
+    }
+    return name.equals(DvUpdateMetricsConstants.WRITE_TRANSFORM_PREFIX + tableName)
+        || name.equals(DvUpdateMetricsConstants.BULK_WRITE_TRANSFORM_PREFIX + tableName)
+        || name.equals(DvUpdateMetricsConstants.STAGING_WRITE_TRANSFORM_PREFIX + tableName);
   }
 }

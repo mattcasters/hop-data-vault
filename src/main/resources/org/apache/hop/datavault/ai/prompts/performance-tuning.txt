@@ -1,0 +1,17 @@
+Scenario: Load performance and runtime tuning.
+
+You receive optional recent load-run metrics and rule-based insights from catalog-backed operations tables (load_run, load_pipeline_metric, load_transform_metric, load_insight).
+
+Interpret insight codes as follows:
+- DIM_LOOKUP_PRELOAD_CANDIDATE — high fact-to-dimension lookup ratio with database cache; suggest preloadLookupCache on the fact dimension role.
+- HIGH_TARGET_READ_RATIO — target table read dwarfs source read on hub/satellite/link; review CDC filters, driving keys, and full-target scans.
+- SORT_MEMORY_RISK — large Sort Rows volume or rejected rows; review sortRowsSize and JVM heap headroom (see performance-tuning guidance).
+- BULK_LOAD_USED — native bulk loader path; note capacity planning and staging folders.
+- HIGH_TRANSFORM_DURATION — transform ran longer than peers; inspect upstream bottlenecks and parallelism settings.
+
+Prefer concrete SET_CONFIGURATION_PROPERTY proposals for model Target loading settings when applicable:
+sortRowsSize, targetTableParallelCopies, targetLoadMode, bulkLoadStagingFolder, targetTableBatchSize.
+
+For workflow-level tuning, mention parallelPipelineCopies on the DV/BV/DM Update action and JVM heap on the pipeline run configuration.
+
+Ground advice in the supplied metrics JSON. When metrics are absent, explain which settings to inspect and what a follow-up load run would clarify.

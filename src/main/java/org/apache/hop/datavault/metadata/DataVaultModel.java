@@ -246,10 +246,31 @@ public class DataVaultModel extends HopMetadataBase
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_ERROR,
-              BaseMessages.getString(PKG, "DataVaultModel.CheckResult.ErrorLoadingMetadata"),
+              BaseMessages.getString(
+                  PKG,
+                  "DataVaultModel.CheckResult.ErrorLoadingMetadata",
+                  describeCatalogLoadFailure(e)),
               null));
       return new ArrayList<>();
     }
+  }
+
+  private static String describeCatalogLoadFailure(Exception exception) {
+    Throwable current = exception;
+    String message = null;
+    while (current != null) {
+      if (!Utils.isEmpty(current.getMessage())) {
+        message = current.getMessage();
+        if (current instanceof HopException) {
+          break;
+        }
+      }
+      current = current.getCause();
+    }
+    if (!Utils.isEmpty(message)) {
+      return message;
+    }
+    return exception.getClass().getSimpleName();
   }
 
   private void checkTargetLoadMode(

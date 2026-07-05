@@ -50,7 +50,8 @@
       <detailedDataTypeChecking>Y</detailedDataTypeChecking>
       <parallelPipelineCopies>${PIPELINE_COPIES}</parallelPipelineCopies>
       <pipelineStagingFolder/>
-      <metricsOutputFolder>${METRICS_FOLDER}</metricsOutputFolder>
+      <executionMetricsProfile>retail-execution-metrics</executionMetricsProfile>
+      <metricsOutputFolder/>
       <publishToCatalog>Y</publishToCatalog>
       <dataCatalogConnection>local-catalog</dataCatalogConnection>
       <updateTargetDatabaseStructure>Y</updateTargetDatabaseStructure>
@@ -77,6 +78,7 @@
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
       <parallelPipelineCopies>1</parallelPipelineCopies>
       <pipelineStagingFolder/>
+      <executionMetricsProfile>retail-execution-metrics</executionMetricsProfile>
       <metricsOutputFolder/>
       <publishToCatalog>Y</publishToCatalog>
       <dataCatalogConnection>local-catalog</dataCatalogConnection>
@@ -112,6 +114,7 @@
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
       <parallelPipelineCopies>1</parallelPipelineCopies>
       <pipelineStagingFolder/>
+      <executionMetricsProfile>retail-execution-metrics</executionMetricsProfile>
       <metricsOutputFolder/>
       <selectedTableNames/>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
@@ -137,6 +140,7 @@
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
       <parallelPipelineCopies>1</parallelPipelineCopies>
       <pipelineStagingFolder/>
+      <executionMetricsProfile>retail-execution-metrics</executionMetricsProfile>
       <metricsOutputFolder/>
       <selectedTableNames/>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
@@ -162,6 +166,7 @@
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
       <parallelPipelineCopies>1</parallelPipelineCopies>
       <pipelineStagingFolder/>
+      <executionMetricsProfile>retail-execution-metrics</executionMetricsProfile>
       <metricsOutputFolder/>
       <selectedTableNames/>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
@@ -187,6 +192,7 @@
       <abortOnModelCheckFailures>Y</abortOnModelCheckFailures>
       <parallelPipelineCopies>1</parallelPipelineCopies>
       <pipelineStagingFolder/>
+      <executionMetricsProfile>retail-execution-metrics</executionMetricsProfile>
       <metricsOutputFolder/>
       <selectedTableNames/>
       <doNotUpdateTargetDatabase>N</doNotUpdateTargetDatabase>
