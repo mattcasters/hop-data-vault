@@ -6,7 +6,7 @@ Evolve the existing pipeline-completed metrics hook into a **metadata-driven, tr
 
 **Approach:** `hop-datavault` namespace on `PipelineMeta` / `TransformMeta` at generation time; extend `PipelineCompleted` collector; publish to Vault ops tables registered in the Data Catalog; optional insight rules + AI context.
 
-**Status:** Phase 1 complete. Phase 2 complete. Phase 3 complete. Phase 3.5 (insight engine + AI integration) complete.
+**Status:** Phase 1 complete. Phase 2 complete. Phase 3 complete. Phase 3.5 (insight engine + AI integration) complete. Phase 4 (GUI duration overview) complete. Phase 5b (workflow load overview) complete.
 
 **Difficulty:** moderate–large (multi-phase; Phase 1 MVP roughly 1–2 weeks).
 
@@ -278,6 +278,8 @@ Persist insights to `load_insight`; expose in Hop GUI (catalog record preview or
 - `ModelLoadDurationPane` — scrollable metrics canvas with refresh and hover tooltips
 - Toolbar toggle + refresh on DV/BV/DM graphs
 
+![Retail 360 model with load duration bars](../images/data-vault-retail-360-model-with-duration-metrics.png)
+
 ### Phase 5 — Optional exports
 
 - Thin JSON mirror for CI (`collect-metrics-results.hpl`)
@@ -289,6 +291,10 @@ Persist insights to `load_insight`; expose in Hop GUI (catalog record preview or
 - `workflow_load_overview` + `workflow_load_overview_model` OPS tables and catalog definitions
 - End action publishes DB rows and optional Markdown/HTML reports + workflow log output
 - Retail wiring in `run-retail-update.hwf`
+
+![Workflow load overview — summary and per-model table](../images/workflow-load-overview-summary-models.png)
+
+![Workflow load overview — per-pipeline metrics for a dimensional model](../images/workflow-load-overview-model-metrics.png)
 
 ---
 
@@ -341,5 +347,5 @@ For `dm-fact-f_orders` with `lookup_d_customer`:
 - [x] **insight-rule-catalog** — LoadRunInsightRuleCatalog for AI context
 - [x] **ai-metrics-gui** — Include load-run metrics checkbox in DV/DM/BV AI advisor dialogs
 - [x] **bv-ai-metrics** — BvAiContextBuilder + BvAiAdvisorService metrics integration
-- [ ] **gui-duration-overview** — LoadRunDurationOverviewPainter + ModelLoadDurationPane on DV/BV/DM graphs (Phase 4)
+- [x] **gui-duration-overview** — LoadRunDurationOverviewPainter + ModelLoadDurationPane on DV/BV/DM graphs (Phase 4)
 - [x] **workflow-load-overview** — Begin/End Vault Update actions + workflow overview tables/reports (Phase 5b)

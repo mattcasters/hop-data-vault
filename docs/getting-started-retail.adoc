@@ -116,9 +116,13 @@ Repeat to simulate monthly batches. Load control in Vault tracks `progress_date`
 
 . Open `models/retail-360.hbv` — linked to `retail-360.hdv`.
 . Inspect SCD2 table **customer_360_bv** (multi-satellite merge).
-. Open `models/retail-warehouse.hdm` — facts `f_orders`, `f_order_lines`, conformed dimensions.
+. Open `models/retail-conformed-dims.hdm` for shared dimensions, `models/retail-f-orders.hdm` for `f_orders`, and `models/retail-f-order-lines.hdm` for `f_order_lines`.
 
 image::images/dimensional-model-f-orders.png[Dimensional model — f_orders,align="center"]
+
+The `f_order_lines` fact in `retail-f-order-lines.hdm` reuses conformed dimensions from `retail-conformed-dims` and adds role-playing date dimensions for order, shipping, and delivery dates:
+
+image::images/dimensional-model-f-order-lines.png[Dimensional model — f_order_lines with conformed dimension roles,align="center"]
 
 Reference: link:business-vault-overview.adoc[Business Vault overview], link:dimensional-modeler-overview.adoc[Dimensional modeler overview].
 

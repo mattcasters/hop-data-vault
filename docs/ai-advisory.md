@@ -72,6 +72,7 @@ The Advisor uses tailored system prompt templates to optimize responses for diff
 * **Data Vault Modeling**: In-depth recommendations on designing hubs, links, satellites, and reference tables.
 * **Hop Integration**: Help with configuring pipelines, workflows, and execution parameters in Hop.
 * **Error Diagnosis**: Analysis of validation warnings, errors, or execution logs to troubleshoot issues.
+* **Performance tuning** (DV/DM/BV modelers): Recommendations grounded in load-run metrics and insight rules — parallelism, sort memory, dimension lookup preload, and related configuration. Proposals can adjust model settings such as `targetTableParallelCopies` after you review them.
 
 ### Context Inclusions & Options
 
@@ -80,6 +81,25 @@ You can control what metadata is sent to the LLM to balance response accuracy an
 * **Include model check results**: Automatically validates your open model (using **Check model**) and appends validation results (errors, warnings, checks) to the prompt.
 * **Include catalog sources**: Includes metadata schemas (Record Definitions) from your catalog. Click **Change catalog sources** to select specific sources (remembered throughout the conversation).
 * **Include full model XML**: Sends the entire `.hdv` model XML. This is larger but allows the AI to perform comprehensive reviews. *Note: Full XML is sent on the first turn only to conserve tokens.*
+* **Include load-run metrics and insights** (DV/DM/BV modelers): Appends recent `load_run` data, per-transform metrics, and rule-based insights from the OPS catalog when asking performance or tuning questions. Auto-enables when you select the **Performance tuning** scenario.
+
+### Example: explaining link satellites
+
+On a Data Vault model, ask about link satellites in the **General** or **Data Vault Modeling** scenario. The advisor explains LSAT semantics and cites tables from your open model:
+
+![AI advisor explaining link satellites](images/ai-advisor-explaining-link-tables.png)
+
+### Example: performance tuning on a dimensional model
+
+Select **Performance tuning**, enable **Include load-run metrics and insights**, and ask how to speed up a fact load. The advisor analyzes transform durations from the last run and may propose configuration changes:
+
+![AI advisor — performance tuning recommendations](images/ai-advisor-offering-performance-tuning-advice.png)
+
+When the response includes `dv_proposals` or `hop_proposals`, use **Review … proposed change(s)** to inspect risk levels and apply safe edits (blocked proposals are unchecked automatically):
+
+![AI advisor — review proposal to raise targetTableParallelCopies](images/ai-advisor-proposal-review-increase-parallelism.png)
+
+See [performance-tuning.md](performance-tuning.md) for the underlying knobs (`parallelPipelineCopies`, `targetTableParallelCopies`, `sortRowsSize`, preload lookup cache).
 
 ---
 

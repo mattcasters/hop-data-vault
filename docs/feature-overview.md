@@ -112,6 +112,10 @@ Crawl a root workflow or model and persist a graph of workflows, models, generat
 
 Optional LLM advisory on Data Vault models, pipelines, and workflows — scenarios, context inclusions, review-before-apply proposals. Configure under Hop GUI → **Configuration → AI Assistant**.
 
+The **Performance tuning** scenario can include load-run metrics and propose model configuration changes (parallel copies, preload lookup cache) after review:
+
+![AI advisor — performance tuning recommendations](images/ai-advisor-offering-performance-tuning-advice.png)
+
 ### Pipeline transforms
 
 - **Record Definition Input** — stream catalog record definitions (or fields) as pipeline rows.
@@ -119,7 +123,11 @@ Optional LLM advisory on Data Vault models, pipelines, and workflows — scenari
 
 ### Operations
 
-Docker-based runners (`scripts/run-hop.sh`, `run-postgres.sh`), parallel pipeline orchestration, **record source group** partial loads, metrics collection in integration tests. See [operations.adoc](operations.adoc) and [performance-tuning.md](performance-tuning.md).
+Docker-based runners (`scripts/run-hop.sh`, `run-postgres.sh`), parallel pipeline orchestration, **record source group** partial loads, catalog-backed load-run metrics, workflow load overview reports (Begin/End Vault Update), and per-table duration bars on model graphs. See [operations.adoc](operations.adoc) and [performance-tuning.md](performance-tuning.md).
+
+![Workflow load overview — per-model summary](images/workflow-load-overview-summary-models.png)
+
+![Retail 360 model with load duration overview](images/data-vault-retail-360-model-with-duration-metrics.png)
 
 ---
 

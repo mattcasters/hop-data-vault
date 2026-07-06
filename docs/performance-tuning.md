@@ -168,6 +168,10 @@ From that orchestrator pipeline, click the running **Execute update pipelines** 
 
 Use this when tuning `sortRowsSize` or `targetTableParallelCopies` — it shows whether sort is still spilling, whether multiple Table Output copies are busy, and which transform is the bottleneck.
 
+### AI-assisted tuning
+
+On DV/DM/BV models, open **AI Help**, choose the **Performance tuning** scenario, and enable **Include load-run metrics and insights**. The advisor correlates recent OPS metrics with model settings and can propose `SET_CONFIGURATION_PROPERTY` changes (for example raising `targetTableParallelCopies`) for review before apply. See [ai-advisory.md](ai-advisory.md#example-performance-tuning-on-a-dimensional-model).
+
 ### Execution information location
 
 For richer history and metrics beyond the live GUI view, configure an **Execution Information Location** on the **Pipeline run configuration** selected in the Data Vault Update action (`Pipeline run configuration` field). Hop will persist execution data (status, timing, logging) to that location for orchestrator runs and the pipelines they launch. Point it at a folder or metadata store you use for operational analysis.

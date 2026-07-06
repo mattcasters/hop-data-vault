@@ -66,6 +66,22 @@ Configure **End Vault Update** with the same execution metrics profile as the up
 
 Catalog record definitions live under `catalog-data/hop/<project>/operations/` (`workflow_load_overview`, `workflow_load_overview_model`).
 
+The HTML report summarizes the wave (model count, pipeline count, total duration, rows inserted) and lists each DV/BV/DM model with per-model duration and row counts:
+
+image::images/workflow-load-overview-summary-models.png[Workflow load overview report — summary and per-model table for run-retail-initial,align="center"]
+
+Drill into a model to see pipeline-level read, insert, error, and duration metrics:
+
+image::images/workflow-load-overview-model-metrics.png[Workflow load overview — per-pipeline metrics for dimensional models,align="center"]
+
+=== Load duration overview on model graphs
+
+When an execution metrics profile is configured and prior runs are stored in the OPS database, DV/BV/DM model canvases can show a **Load durations** pane alongside the graph. Each model table gets a horizontal bar per recent run (Airflow-style), with hover tooltips for run time and status. Toggle the pane from the modeler toolbar; use **View data** to open catalog-backed load metrics.
+
+image::images/data-vault-retail-360-model-with-duration-metrics.png[Retail 360 Data Vault model with load duration bars on the right,align="center"]
+
+See link:plans/load-run-metrics-plan.md[load-run metrics plan] for the metadata contract and catalog schema.
+
 == Performance
 
 Sort memory, partition copies, and large-model notes: link:performance-tuning.md[performance-tuning.md].

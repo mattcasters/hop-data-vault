@@ -235,6 +235,10 @@ New modelers should follow link:getting-started-retail.adoc[Getting started — 
 
 image::images/data-vault-model-retail-example.png[Retail example Data Vault model — customer, order, product, and warehouse entities,align="center"]
 
+With an execution metrics profile and OPS database, the model canvas can show recent load durations per table:
+
+image::images/data-vault-retail-360-model-with-duration-metrics.png[Retail 360 Data Vault model with load duration overview pane,align="center"]
+
 Executives and architects can review link:presentations/hop-data-vault-overview.md[Hop Data Vault overview slides].
 
 == Current capabilities
