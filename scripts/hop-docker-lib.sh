@@ -28,6 +28,7 @@ HOP_COMPOSE_FILE="${DOCKER_DIR}/compose.hop.yml"
 HOP_POSTGRES_LOCAL_COMPOSE_FILE="${DOCKER_DIR}/compose.postgres-local.yml"
 HOP_SVG_COMPOSE_FILE="${DOCKER_DIR}/compose.svg.yml"
 METRICS_COMPOSE_FILE="${HOP_COMPOSE_FILE}"
+HOP_ENTRYPOINT_INIT="${HOP_ENTRYPOINT_INIT:-/opt/hop-datavault/entrypoint-init.sh}"
 LOCAL_POSTGRES_HOST="${LOCAL_POSTGRES_HOST:-localhost}"
 LOCAL_POSTGRES_PORT="${LOCAL_POSTGRES_PORT:-54320}"
 LOCAL_POSTGRES_USER="${LOCAL_POSTGRES_USER:-test}"
@@ -269,7 +270,7 @@ run_hop_docker_command() {
     -e HOP_COMMAND="${hop_command}" \
     -e HOP_COMMAND_PARAMETERS="${hop_command_parameters}" \
     -e HOP_RUN_PARAMETERS= \
-    -e HOP_CUSTOM_ENTRYPOINT_EXTENSION_SHELL_FILE_PATH= \
+    -e HOP_CUSTOM_ENTRYPOINT_EXTENSION_SHELL_FILE_PATH="${HOP_ENTRYPOINT_INIT}" \
     -e HOP_PROJECT_DIR="${HOP_PROJECT_DIR}" \
     -e HOP_PROJECT_FOLDER="${HOP_PROJECT_FOLDER}" \
     -e HOP_PROJECT_NAME="${HOP_PROJECT_NAME}" \
@@ -353,7 +354,7 @@ collect_metrics_overview() {
   docker compose -f "${METRICS_COMPOSE_FILE}" run --rm --no-deps \
     -e HOP_FILE_PATH="${COLLECT_METRICS_PIPELINE}" \
     -e HOP_RUN_PARAMETERS= \
-    -e HOP_CUSTOM_ENTRYPOINT_EXTENSION_SHELL_FILE_PATH= \
+    -e HOP_CUSTOM_ENTRYPOINT_EXTENSION_SHELL_FILE_PATH="${HOP_ENTRYPOINT_INIT}" \
     -e HOP_PROJECT_DIR=integration-tests \
     -e HOP_PROJECT_FOLDER="${WORKSPACE_PREFIX}/integration-tests" \
     -e HOP_PROJECT_NAME=hop-data-vault \
@@ -430,7 +431,7 @@ run_hop_docker_short_lived() {
     docker compose -f "${compose_file}" run --rm \
       -e HOP_FILE_PATH="${hop_file_path}" \
       -e "HOP_RUN_PARAMETERS=METRICS_FOLDER=${metrics_folder}" \
-      -e HOP_CUSTOM_ENTRYPOINT_EXTENSION_SHELL_FILE_PATH= \
+      -e HOP_CUSTOM_ENTRYPOINT_EXTENSION_SHELL_FILE_PATH="${HOP_ENTRYPOINT_INIT}" \
       -e HOP_PROJECT_DIR="${HOP_PROJECT_DIR}" \
       -e HOP_PROJECT_FOLDER="${HOP_PROJECT_FOLDER}" \
       -e HOP_PROJECT_NAME="${HOP_PROJECT_NAME}" \

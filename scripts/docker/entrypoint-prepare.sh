@@ -19,6 +19,8 @@
 
 set -eu
 
+. /opt/hop-datavault/entrypoint-init.sh
+
 DB_TYPE="${DB_TYPE:-postgres}"
 HOP_PROJECT_FOLDER="${HOP_PROJECT_FOLDER:-/workspace/integration-tests}"
 PROFILE_DIR="${HOP_PROJECT_FOLDER}/metadata/rdbms/profiles/${DB_TYPE}"
