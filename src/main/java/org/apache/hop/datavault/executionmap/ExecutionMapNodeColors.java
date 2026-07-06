@@ -142,7 +142,7 @@ public final class ExecutionMapNodeColors {
   private static boolean isDarkMode() {
     try {
       return PropsUi.getInstance().isDarkMode();
-    } catch (RuntimeException ex) {
+    } catch (Throwable ex) {
       return false;
     }
   }
