@@ -86,13 +86,19 @@ public final class HopAiAdvisorEngine {
       throw new HopException(
           "The Hop Language Model Chat plugin is not installed. Add hop-transform-languagemodelchat to your Hop assembly.");
     }
-    if (Utils.isEmpty(config.getAiApiKey()) && !useMock(config)) {
+    if (Utils.isEmpty(config.getAiApiKey()) && requiresApiKey(config)) {
       throw new HopException("Please configure an API key for the AI provider.");
     }
   }
 
-  private static boolean useMock(HopAiConfig config) {
+  private static boolean requiresApiKey(HopAiConfig config) {
     DvAiProviderPreset preset = DvAiProviderPreset.resolve(config.getAiProviderPreset());
-    return preset == DvAiProviderPreset.CUSTOM && Utils.isEmpty(config.getAiApiKey());
+    if (preset == DvAiProviderPreset.OLLAMA) {
+      return false;
+    }
+    if (preset == DvAiProviderPreset.CUSTOM && Utils.isEmpty(config.getAiApiKey())) {
+      return false;
+    }
+    return true;
   }
 }

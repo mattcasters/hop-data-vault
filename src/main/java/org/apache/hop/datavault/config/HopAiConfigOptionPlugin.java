@@ -33,19 +33,26 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.ai.DvAiProviderPreset;
 import org.apache.hop.datavault.ai.HopAiConfig;
 import org.apache.hop.datavault.ai.HopAiConfigSingleton;
+import org.apache.hop.datavault.ai.HopAiHealthCheckSupport;
+import org.apache.hop.datavault.ai.HopAiProviderSettings;
+import org.apache.hop.datavault.ai.HopAiProviderSettingsSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHasHopMetadataProvider;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
+import org.apache.hop.ui.core.dialog.MessageBox;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
 import org.apache.hop.ui.core.gui.IGuiPluginCompositeWidgetsListener;
 import org.apache.hop.ui.core.widget.ComboVar;
+import org.apache.hop.ui.core.widget.PasswordTextVar;
 import org.apache.hop.ui.core.widget.TextVar;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.hopgui.perspective.configuration.tabs.ConfigPluginOptionsTab;
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import picocli.CommandLine;
 
@@ -66,6 +73,10 @@ public class HopAiConfigOptionPlugin
   private static final String WIDGET_ID_AI_BASE_URL = "10230-ai-base-url";
   private static final String WIDGET_ID_AI_MODEL_NAME = "10240-ai-model-name";
   private static final String WIDGET_ID_AI_TEMPERATURE = "10250-ai-temperature";
+  private static final String WIDGET_ID_AI_TEST_SERVICE = "10260-ai-test-service";
+
+  private static GuiCompositeWidgets activeWidgets;
+  private boolean suppressWidgetEvents;
 
   @GuiWidgetElement(
       id = WIDGET_ID_AI_ENABLED,
@@ -154,7 +165,8 @@ public class HopAiConfigOptionPlugin
         changed = true;
       }
       if (aiProviderPreset != null) {
-        config.setAiProviderPreset(DvAiProviderPreset.fromLabel(aiProviderPreset).name());
+        HopAiProviderSettingsSupport.switchProvider(
+            config, DvAiProviderPreset.fromLabel(aiProviderPreset));
         changed = true;
       }
       if (aiApiKey != null) {
@@ -174,6 +186,7 @@ public class HopAiConfigOptionPlugin
         changed = true;
       }
       if (changed) {
+        HopAiProviderSettingsSupport.saveCurrentProvider(config);
         HopAiConfigSingleton.saveConfig();
       }
       return changed;
@@ -183,7 +196,9 @@ public class HopAiConfigOptionPlugin
   }
 
   @Override
-  public void widgetsCreated(GuiCompositeWidgets compositeWidgets) {}
+  public void widgetsCreated(GuiCompositeWidgets compositeWidgets) {
+    activeWidgets = compositeWidgets;
+  }
 
   @Override
   public void widgetsPopulated(GuiCompositeWidgets compositeWidgets) {}
@@ -191,12 +206,30 @@ public class HopAiConfigOptionPlugin
   @Override
   public void widgetModified(
       GuiCompositeWidgets compositeWidgets, Control changedWidget, String widgetId) {
+    if (suppressWidgetEvents) {
+      return;
+    }
     persistContents(compositeWidgets);
   }
 
   @Override
   public void persistContents(GuiCompositeWidgets compositeWidgets) {
     HopAiConfig config = HopAiConfigSingleton.getConfig();
+    HopAiProviderSettingsSupport.ensureMigrated(config);
+
+    DvAiProviderPreset currentPreset = DvAiProviderPreset.resolve(config.getAiProviderPreset());
+    Control providerControl = compositeWidgets.getWidgetsMap().get(WIDGET_ID_AI_PROVIDER_PRESET);
+    if (providerControl != null) {
+      String selectedLabel = getComboText(providerControl);
+      DvAiProviderPreset selectedPreset = DvAiProviderPreset.fromLabel(selectedLabel);
+      if (selectedPreset != currentPreset) {
+        HopAiProviderSettingsSupport.switchProvider(
+            config, currentPreset, selectedPreset, readProviderFields(compositeWidgets));
+        applyProviderFields(compositeWidgets, config);
+        aiProviderPreset = selectedLabel;
+      }
+    }
+
     for (String widgetId : compositeWidgets.getWidgetsMap().keySet()) {
       Control control = compositeWidgets.getWidgetsMap().get(widgetId);
       switch (widgetId) {
@@ -228,6 +261,60 @@ public class HopAiConfigOptionPlugin
           break;
       }
     }
+    HopAiProviderSettingsSupport.saveCurrentProvider(config);
+    saveConfig();
+  }
+
+  @GuiWidgetElement(
+      id = WIDGET_ID_AI_TEST_SERVICE,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.BUTTON,
+      label = "i18n::HopAiConfigOptionPlugin.TestService.Message",
+      order = "10260")
+  public void testAiService(HopAiConfigOptionPlugin plugin) {
+    GuiCompositeWidgets widgets = activeWidgets;
+    if (widgets != null) {
+      plugin.persistContents(widgets);
+    }
+    HopAiConfig config = new HopAiConfig(HopAiConfigSingleton.getConfig());
+    Shell shell = HopGui.getInstance().getShell();
+    IVariables variables = HopGui.getInstance().getVariables();
+    Thread healthCheckThread =
+        new Thread(
+            () -> {
+              try {
+                String message = HopAiHealthCheckSupport.check(config, variables);
+                shell
+                    .getDisplay()
+                    .asyncExec(
+                        () -> {
+                          MessageBox box = new MessageBox(shell, SWT.ICON_INFORMATION);
+                          box.setText(
+                              BaseMessages.getString(
+                                  PKG, "HopAiConfigOptionPlugin.TestService.Success.Header"));
+                          box.setMessage(message);
+                          box.open();
+                        });
+              } catch (Exception e) {
+                shell
+                    .getDisplay()
+                    .asyncExec(
+                        () ->
+                            new ErrorDialog(
+                                shell,
+                                BaseMessages.getString(
+                                    PKG, "HopAiConfigOptionPlugin.TestService.Error.Header"),
+                                BaseMessages.getString(
+                                    PKG, "HopAiConfigOptionPlugin.TestService.Error.Message"),
+                                e));
+              }
+            },
+            "HopAiHealthCheck");
+    healthCheckThread.setDaemon(true);
+    healthCheckThread.start();
+  }
+
+  private void saveConfig() {
     try {
       HopAiConfigSingleton.saveConfig();
     } catch (Exception e) {
@@ -239,12 +326,70 @@ public class HopAiConfigOptionPlugin
     }
   }
 
+  private HopAiProviderSettings readProviderFields(GuiCompositeWidgets compositeWidgets) {
+    HopAiProviderSettings settings = new HopAiProviderSettings();
+    for (String widgetId : compositeWidgets.getWidgetsMap().keySet()) {
+      Control control = compositeWidgets.getWidgetsMap().get(widgetId);
+      switch (widgetId) {
+        case WIDGET_ID_AI_API_KEY:
+          settings.setApiKey(getTextValue(control));
+          break;
+        case WIDGET_ID_AI_BASE_URL:
+          settings.setBaseUrl(getTextValue(control));
+          break;
+        case WIDGET_ID_AI_MODEL_NAME:
+          settings.setModelName(getTextValue(control));
+          break;
+        case WIDGET_ID_AI_TEMPERATURE:
+          settings.setTemperature(getTextValue(control));
+          break;
+        default:
+          break;
+      }
+    }
+    return settings;
+  }
+
+  private void applyProviderFields(GuiCompositeWidgets compositeWidgets, HopAiConfig config) {
+    aiApiKey = config.getAiApiKey();
+    aiBaseUrl = config.getAiBaseUrl();
+    aiModelName = config.getAiModelName();
+    aiTemperature = config.getAiTemperature();
+    suppressWidgetEvents = true;
+    try {
+      for (String widgetId : compositeWidgets.getWidgetsMap().keySet()) {
+        Control control = compositeWidgets.getWidgetsMap().get(widgetId);
+        switch (widgetId) {
+          case WIDGET_ID_AI_API_KEY:
+            setTextValue(control, aiApiKey);
+            break;
+          case WIDGET_ID_AI_BASE_URL:
+            setTextValue(control, aiBaseUrl);
+            break;
+          case WIDGET_ID_AI_MODEL_NAME:
+            setTextValue(control, aiModelName);
+            break;
+          case WIDGET_ID_AI_TEMPERATURE:
+            setTextValue(control, aiTemperature);
+            break;
+          default:
+            break;
+        }
+      }
+    } finally {
+      suppressWidgetEvents = false;
+    }
+  }
+
   public List<String> getAiProviderPresetOptions(
       ILogChannel log, IHopMetadataProvider metadataProvider) {
     return Arrays.asList(DvAiProviderPreset.labels());
   }
 
   private static String getTextValue(Control control) {
+    if (control instanceof PasswordTextVar passwordTextVar) {
+      return passwordTextVar.getText();
+    }
     if (control instanceof TextVar textVar) {
       return textVar.getText();
     }
@@ -264,5 +409,23 @@ public class HopAiConfigOptionPlugin
     }
     throw new IllegalArgumentException(
         "Unsupported combo control type: " + control.getClass().getName());
+  }
+
+  private static void setTextValue(Control control, String value) {
+    String text = value != null ? value : "";
+    if (control instanceof PasswordTextVar passwordTextVar) {
+      passwordTextVar.setText(text);
+      return;
+    }
+    if (control instanceof TextVar textVar) {
+      textVar.setText(text);
+      return;
+    }
+    if (control instanceof Text textWidget) {
+      textWidget.setText(text);
+      return;
+    }
+    throw new IllegalArgumentException(
+        "Unsupported text control type: " + control.getClass().getName());
   }
 }

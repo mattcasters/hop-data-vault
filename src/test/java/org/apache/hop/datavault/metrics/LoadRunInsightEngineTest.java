@@ -180,7 +180,9 @@ class LoadRunInsightEngineTest {
 
     assertEquals(1, insights.size());
     assertEquals(LoadRunInsightEngine.CODE_BULK_LOAD_USED, insights.get(0).getCode());
+    assertEquals(LoadRunInsightSupport.SEVERITY_NOTE, insights.get(0).getSeverity());
     assertEquals("hub_customer", insights.get(0).getElementName());
     assertTrue(insights.get(0).getMessage().contains("Bulk load path"));
+    assertTrue(LoadRunInsightSupport.isReportable(insights.get(0)) == false);
   }
 }

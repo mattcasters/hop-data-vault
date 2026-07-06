@@ -323,7 +323,7 @@ public final class LoadRunInsightEngine {
                 : pipeline.getTableName();
         insights.add(
             LoadRunInsight.builder()
-                .severity("info")
+                .severity(LoadRunInsightSupport.SEVERITY_NOTE)
                 .code(CODE_BULK_LOAD_USED)
                 .elementName(elementName)
                 .relatedElementName(transform.getTransformName())

@@ -18,6 +18,8 @@
 
 package org.apache.hop.datavault.ai;
 
+import java.util.HashMap;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -38,6 +40,9 @@ public class HopAiConfig {
   private String aiModelName;
   private String aiTemperature = "0.3";
 
+  /** Remembered settings keyed by {@link DvAiProviderPreset#name()}. */
+  private Map<String, HopAiProviderSettings> providerSettings = new HashMap<>();
+
   public HopAiConfig() {}
 
   public HopAiConfig(HopAiConfig other) {
@@ -50,5 +55,11 @@ public class HopAiConfig {
     aiBaseUrl = other.aiBaseUrl;
     aiModelName = other.aiModelName;
     aiTemperature = other.aiTemperature;
+    if (other.providerSettings != null) {
+      providerSettings = new HashMap<>();
+      for (Map.Entry<String, HopAiProviderSettings> entry : other.providerSettings.entrySet()) {
+        providerSettings.put(entry.getKey(), new HopAiProviderSettings(entry.getValue()));
+      }
+    }
   }
 }

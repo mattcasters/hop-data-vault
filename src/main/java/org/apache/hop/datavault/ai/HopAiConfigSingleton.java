@@ -48,6 +48,8 @@ public class HopAiConfigSingleton {
         hopAiConfig = new HopAiConfig();
       }
     }
+    HopAiProviderSettingsSupport.normalizeProviderSettings(hopAiConfig);
+    HopAiProviderSettingsSupport.ensureMigrated(hopAiConfig);
     HopConfig.getInstance().getConfigMap().put(HopAiConfig.HOP_CONFIG_HOP_AI_CONFIG_KEY, hopAiConfig);
   }
   

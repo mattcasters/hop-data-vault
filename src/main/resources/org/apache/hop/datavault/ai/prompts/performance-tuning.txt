@@ -8,7 +8,7 @@ Interpret insight codes as follows:
 - DIM_LOOKUP_PRELOAD_CANDIDATE — high fact-to-dimension lookup ratio with database cache; suggest preloadLookupCache on the fact dimension role.
 - HIGH_TARGET_READ_RATIO — target table read dwarfs source read on hub/satellite/link; review CDC filters, driving keys, and full-target scans.
 - SORT_MEMORY_RISK — large Sort Rows volume or rejected rows; review sortRowsSize and JVM heap headroom (see performance-tuning guidance).
-- BULK_LOAD_USED — native bulk loader path; note capacity planning and staging folders.
+- BULK_LOAD_USED — informational note when a native bulk loader path was used; only mention if the user asks about bulk loading or capacity planning.
 - HIGH_TRANSFORM_DURATION — transform ran longer than peers; inspect upstream bottlenecks and parallelism settings.
 
 Prefer concrete SET_CONFIGURATION_PROPERTY proposals for model Target loading settings when applicable:

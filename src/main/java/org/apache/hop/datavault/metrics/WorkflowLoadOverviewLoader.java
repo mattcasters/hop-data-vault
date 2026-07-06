@@ -426,7 +426,9 @@ public final class WorkflowLoadOverviewLoader {
             + insightTable
             + " WHERE run_id IN ("
             + inClause
-            + ") ORDER BY run_id, insight_seq";
+            + ")"
+            + LoadRunInsightSupport.sqlExcludeNoteSeverityClause()
+            + " ORDER BY run_id, insight_seq";
     List<Object[]> rows = db.getRows(sql, 1024);
     IRowMeta rowMeta = db.getReturnRowMeta();
     Map<String, List<WorkflowLoadOverviewReport.InsightEntry>> insightsByRunId = new HashMap<>();

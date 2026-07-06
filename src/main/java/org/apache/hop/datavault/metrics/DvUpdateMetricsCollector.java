@@ -228,6 +228,7 @@ public final class DvUpdateMetricsCollector {
             ? publishContext.dimLookupPreloadRatioThreshold()
             : LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD;
     List<LoadRunInsight> insights = LoadRunInsightEngine.evaluate(metrics, lookupRatioThreshold);
+    List<LoadRunInsight> reportableInsights = LoadRunInsightSupport.reportableInsights(insights);
     for (LoadRunInsight insight : insights) {
       logAtLevel(log, effectiveLevel, "Load insight [" + insight.getCode() + "]: " + insight.getMessage());
     }
@@ -241,7 +242,7 @@ public final class DvUpdateMetricsCollector {
               .logChannelId(logChannelId)
               .pipelineCount(metrics.size())
               .pipelines(metrics)
-              .insights(insights)
+              .insights(reportableInsights)
               .build();
       String jsonPath =
           DvUpdateMetricsJsonWriter.writeReport(
@@ -299,7 +300,7 @@ public final class DvUpdateMetricsCollector {
       }
     }
 
-    return new LoadRunPublishSummary(totals, runId, metrics.size(), insights.size());
+    return new LoadRunPublishSummary(totals, runId, metrics.size(), reportableInsights.size());
   }
 
   private static List<String> formatMetricsTable(List<DvUpdateTableMetrics> metrics) {

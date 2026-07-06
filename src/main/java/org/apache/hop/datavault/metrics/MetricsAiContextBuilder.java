@@ -420,6 +420,7 @@ public final class MetricsAiContextBuilder {
             + insightTable
             + " WHERE run_id = "
             + runIdLiteral
+            + LoadRunInsightSupport.sqlExcludeNoteSeverityClause()
             + " ORDER BY insight_seq";
 
     db.setQueryLimit(MAX_INSIGHTS_PER_RUN);
