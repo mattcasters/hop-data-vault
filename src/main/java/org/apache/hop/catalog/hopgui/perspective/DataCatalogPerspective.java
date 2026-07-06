@@ -210,7 +210,7 @@ public class DataCatalogPerspective implements IHopPerspective {
     toolBar.pack();
     PropsUi.setLook(toolBar, Props.WIDGET_STYLE_TOOLBAR);
 
-    tree = new Tree(treeComposite, SWT.SINGLE | SWT.H_SCROLL | SWT.V_SCROLL);
+    tree = new Tree(treeComposite, SWT.MULTI | SWT.FULL_SELECTION | SWT.H_SCROLL | SWT.V_SCROLL);
     PropsUi.setLook(tree);
     FormData fdTree = new FormData();
     fdTree.left = new FormAttachment(0, 0);
@@ -300,17 +300,8 @@ public class DataCatalogPerspective implements IHopPerspective {
     RecordDefinitionRegistry.getInstance().invalidate();
 
     TreeItem[] selection = tree.getSelection();
-    String selectedCatalog = null;
-    String selectedRecordKey = null;
-    if (selection.length > 0) {
-      DataCatalogTreeNode node = (DataCatalogTreeNode) selection[0].getData();
-      if (node != null) {
-        selectedCatalog = node.getCatalogConnectionName();
-        if (node.getType() == DataCatalogTreeNode.Type.RECORD && node.getRecordKey() != null) {
-          selectedRecordKey = node.getRecordKey().toString();
-        }
-      }
-    }
+    String selectedCatalog = DataCatalogSelectionSupport.firstCatalogConnectionName(selection);
+    List<String> selectedRecordKeys = DataCatalogSelectionSupport.collectRecordKeys(selection);
 
     tree.removeAll();
     try {
@@ -323,7 +314,7 @@ public class DataCatalogPerspective implements IHopPerspective {
           e);
     }
 
-    restoreSelection(selectedCatalog, selectedRecordKey);
+    restoreSelection(selectedCatalog, selectedRecordKeys);
     updateSelection();
     updateToolbar();
   }
@@ -379,7 +370,7 @@ public class DataCatalogPerspective implements IHopPerspective {
   }
 
   private boolean trySelectRecord(String catalogConnectionName, String recordKey) {
-    restoreSelection(catalogConnectionName, recordKey);
+    restoreSelection(catalogConnectionName, List.of(recordKey));
     return isRecordSelected(catalogConnectionName, recordKey);
   }
 
@@ -395,7 +386,7 @@ public class DataCatalogPerspective implements IHopPerspective {
         && recordKey.equals(node.getRecordKey().toString());
   }
 
-  private void restoreSelection(String selectedCatalog, String selectedRecordKey) {
+  private void restoreSelection(String selectedCatalog, List<String> selectedRecordKeys) {
     if (Utils.isEmpty(selectedCatalog)) {
       return;
     }
@@ -407,22 +398,26 @@ public class DataCatalogPerspective implements IHopPerspective {
         continue;
       }
 
-      if (Utils.isEmpty(selectedRecordKey)) {
+      if (selectedRecordKeys == null || selectedRecordKeys.isEmpty()) {
         tree.setSelection(catalogItem);
         return;
       }
 
+      List<TreeItem> itemsToSelect = new ArrayList<>();
       for (TreeItem recordItem : catalogItem.getItems()) {
         DataCatalogTreeNode recordNode = (DataCatalogTreeNode) recordItem.getData();
         if (recordNode != null
             && recordNode.getRecordKey() != null
-            && selectedRecordKey.equals(recordNode.getRecordKey().toString())) {
-          tree.setSelection(recordItem);
-          return;
+            && selectedRecordKeys.contains(recordNode.getRecordKey().toString())) {
+          itemsToSelect.add(recordItem);
         }
       }
 
-      tree.setSelection(catalogItem);
+      if (!itemsToSelect.isEmpty()) {
+        tree.setSelection(itemsToSelect.toArray(new TreeItem[0]));
+      } else {
+        tree.setSelection(catalogItem);
+      }
       return;
     }
   }
@@ -452,61 +447,88 @@ public class DataCatalogPerspective implements IHopPerspective {
   @GuiKeyboardShortcut(key = SWT.DEL)
   @GuiOsxKeyboardShortcut(key = SWT.DEL)
   public void onDeleteRecord() {
-    if (tree == null || tree.isDisposed() || tree.getSelectionCount() != 1) {
+    if (tree == null || tree.isDisposed()) {
       return;
     }
 
-    DataCatalogTreeNode node = (DataCatalogTreeNode) tree.getSelection()[0].getData();
-    if (node == null || node.getType() != DataCatalogTreeNode.Type.RECORD) {
+    List<DataCatalogTreeNode> recordNodes =
+        DataCatalogSelectionSupport.collectRecordNodes(tree.getSelection());
+    if (recordNodes.isEmpty()) {
       return;
     }
 
     MessageBox confirm =
         new MessageBox(hopGui.getShell(), SWT.YES | SWT.NO | SWT.ICON_QUESTION);
     confirm.setText(BaseMessages.getString(PKG, "DataCatalogPerspective.Delete.Title"));
-    confirm.setMessage(
-        BaseMessages.getString(
-            PKG,
-            "DataCatalogPerspective.Delete.Message",
-            node.getRecordKey().toString(),
-            node.getCatalogConnectionName()));
+    if (recordNodes.size() == 1) {
+      DataCatalogTreeNode node = recordNodes.get(0);
+      confirm.setMessage(
+          BaseMessages.getString(
+              PKG,
+              "DataCatalogPerspective.Delete.Message",
+              node.getRecordKey().toString(),
+              node.getCatalogConnectionName()));
+    } else {
+      confirm.setMessage(
+          BaseMessages.getString(
+              PKG, "DataCatalogPerspective.Delete.Bulk.Message", recordNodes.size()));
+    }
     if (confirm.open() != SWT.YES) {
       return;
     }
 
-    try {
-      RecordDefinitionRegistry.getInstance()
-          .delete(
-              node.getCatalogConnectionName(),
-              node.getRecordKey(),
-              hopGui.getVariables(),
-              hopGui.getMetadataProvider());
-      refresh();
-    } catch (HopException e) {
+    int deletedCount = 0;
+    List<String> errors = new ArrayList<>();
+    for (DataCatalogTreeNode node : recordNodes) {
+      try {
+        RecordDefinitionRegistry.getInstance()
+            .delete(
+                node.getCatalogConnectionName(),
+                node.getRecordKey(),
+                hopGui.getVariables(),
+                hopGui.getMetadataProvider());
+        deletedCount++;
+      } catch (HopException e) {
+        errors.add(
+            node.getRecordKey().toString()
+                + ": "
+                + Const.NVL(e.getMessage(), e.getClass().getSimpleName()));
+      }
+    }
+
+    refresh();
+
+    if (!errors.isEmpty()) {
       new ErrorDialog(
           hopGui.getShell(),
-          BaseMessages.getString(PKG, "DataCatalogPerspective.Error.Delete.Title"),
-          BaseMessages.getString(PKG, "DataCatalogPerspective.Error.Delete.Message"),
-          e);
+          BaseMessages.getString(PKG, "DataCatalogPerspective.Delete.PartialFailure.Title"),
+          BaseMessages.getString(
+              PKG,
+              "DataCatalogPerspective.Delete.PartialFailure.Message",
+              deletedCount,
+              String.join(Const.CR, errors)),
+          null);
     }
   }
 
   private void updateSelection() {
     selectedRecordDefinition = null;
 
-    if (tree.getSelectionCount() < 1) {
+    List<DataCatalogTreeNode> recordNodes =
+        DataCatalogSelectionSupport.collectRecordNodes(tree.getSelection());
+    if (recordNodes.isEmpty()) {
       detailsPanel.clear();
       updateToolbar();
       return;
     }
 
-    DataCatalogTreeNode node = (DataCatalogTreeNode) tree.getSelection()[0].getData();
-    if (node == null || node.getType() != DataCatalogTreeNode.Type.RECORD) {
-      detailsPanel.clear();
+    if (recordNodes.size() > 1) {
+      detailsPanel.showMultipleSelected(recordNodes.size());
       updateToolbar();
       return;
     }
 
+    DataCatalogTreeNode node = recordNodes.get(0);
     try {
       RecordDefinition definition =
           RecordDefinitionRegistry.getInstance()
@@ -529,25 +551,18 @@ public class DataCatalogPerspective implements IHopPerspective {
   }
 
   private String resolveSelectedCatalogConnectionName() {
-    if (tree == null || tree.isDisposed() || tree.getSelectionCount() != 1) {
+    if (tree == null || tree.isDisposed()) {
       return null;
     }
-    DataCatalogTreeNode node = (DataCatalogTreeNode) tree.getSelection()[0].getData();
-    if (node == null) {
-      return null;
-    }
-    return node.getCatalogConnectionName();
+    return DataCatalogSelectionSupport.firstCatalogConnectionName(tree.getSelection());
   }
 
   private void updateToolbar() {
     if (toolBarWidgets == null) {
       return;
     }
-    boolean recordSelected = false;
-    if (tree.getSelectionCount() == 1) {
-      DataCatalogTreeNode node = (DataCatalogTreeNode) tree.getSelection()[0].getData();
-      recordSelected = node != null && node.getType() == DataCatalogTreeNode.Type.RECORD;
-    }
+    boolean recordSelected =
+        !DataCatalogSelectionSupport.collectRecordNodes(tree.getSelection()).isEmpty();
     toolBarWidgets.enableToolbarItem(TOOLBAR_ITEM_DELETE, recordSelected);
     toolBarWidgets.enableToolbarItem(
         TOOLBAR_ITEM_PREVIEW,

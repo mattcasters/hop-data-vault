@@ -1042,6 +1042,22 @@ public class RecordDefinitionDetailsPanel {
     parent.layout(true, true);
   }
 
+  public void showMultipleSelected(int count) {
+    this.catalogConnectionName = null;
+    this.definition = null;
+    wPlaceholder.setText(
+        BaseMessages.getString(PKG, messageKey("Placeholder.MultipleRecordsSelected"), count));
+    wPlaceholder.setVisible(true);
+    wTabFolder.setVisible(false);
+    if (wPreviewRecords != null) {
+      wPreviewRecords.setEnabled(false);
+    }
+    if (wRefreshFromSource != null) {
+      wRefreshFromSource.setEnabled(false);
+    }
+    parent.layout(true, true);
+  }
+
   public void setRecordDefinition(String catalogConnectionName, RecordDefinition definition) {
     this.catalogConnectionName = catalogConnectionName;
     this.definition = definition;

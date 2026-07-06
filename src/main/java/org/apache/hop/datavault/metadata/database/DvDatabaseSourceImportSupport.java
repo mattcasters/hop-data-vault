@@ -19,7 +19,9 @@
 package org.apache.hop.datavault.metadata.database;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.hop.catalog.hopgui.perspective.DataCatalogPerspective;
@@ -47,6 +49,7 @@ import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.ui.core.dialog.EditRowsDialog;
+import org.apache.hop.ui.core.dialog.EnterSelectionDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.eclipse.swt.SWT;
@@ -57,6 +60,9 @@ import org.eclipse.swt.widgets.Shell;
 public final class DvDatabaseSourceImportSupport {
 
   private static final Class<?> PKG = DvDatabaseSourceImportSupport.class;
+
+  /** Above this count, the table pick dialog starts with no tables pre-selected. */
+  static final int LARGE_SCHEMA_TABLE_THRESHOLD = 25;
 
   private DvDatabaseSourceImportSupport() {}
 
@@ -145,6 +151,12 @@ public final class DvDatabaseSourceImportSupport {
       return;
     }
 
+    String[] sortedTableNames = sortedStrippedTableNames(tableNames);
+    Set<String> pickedTables = promptForTablesToImport(shell, sortedTableNames);
+    if (pickedTables == null || pickedTables.isEmpty()) {
+      return;
+    }
+
     IRowMeta selectionRowMeta = new RowMeta();
     try {
       selectionRowMeta.addValueMeta(
@@ -168,8 +180,7 @@ public final class DvDatabaseSourceImportSupport {
     List<Object[]> selectionRows = new ArrayList<>();
     String prefix = Const.NVL(options.getDataVaultSourcePrefix(), "");
     Set<String> usedSourceNames = new HashSet<>();
-    for (String rawTableName : tableNames) {
-      String tableName = stripTableNameQuotes(rawTableName);
+    for (String tableName : pickedTables) {
       String dataVaultSourceName =
           uniqueNameInBatch(
               buildDefaultMetadataName(prefix, connectionName, schemaName, tableName),
@@ -282,6 +293,78 @@ public final class DvDatabaseSourceImportSupport {
             PKG, "DvDatabaseSourceEditor.ImportTables.Success.Message", importedCount));
     mb.setText(BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ImportTables.Success.Title"));
     mb.open();
+  }
+
+  static boolean shouldPreselectAllTables(int tableCount) {
+    return tableCount > 0 && tableCount <= LARGE_SCHEMA_TABLE_THRESHOLD;
+  }
+
+  static List<Integer> defaultPreselectedTableIndexes(int tableCount) {
+    if (!shouldPreselectAllTables(tableCount)) {
+      return List.of();
+    }
+    List<Integer> indexes = new ArrayList<>(tableCount);
+    for (int i = 0; i < tableCount; i++) {
+      indexes.add(i);
+    }
+    return indexes;
+  }
+
+  static String[] sortedStrippedTableNames(String[] tableNames) {
+    if (tableNames == null || tableNames.length == 0) {
+      return new String[0];
+    }
+    String[] sorted = new String[tableNames.length];
+    for (int i = 0; i < tableNames.length; i++) {
+      sorted[i] = stripTableNameQuotes(tableNames[i]);
+    }
+    Arrays.sort(sorted, String.CASE_INSENSITIVE_ORDER);
+    return sorted;
+  }
+
+  static Set<String> tableNamesForSelectionIndexes(String[] choices, int[] selectionIndexes) {
+    Set<String> pickedTables = new LinkedHashSet<>();
+    if (choices == null || selectionIndexes == null) {
+      return pickedTables;
+    }
+    for (int index : selectionIndexes) {
+      if (index >= 0 && index < choices.length) {
+        pickedTables.add(choices[index]);
+      }
+    }
+    return pickedTables;
+  }
+
+  private static Set<String> promptForTablesToImport(Shell shell, String[] sortedTableNames) {
+    EnterSelectionDialog pickDialog =
+        new EnterSelectionDialog(
+            shell,
+            sortedTableNames,
+            BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ImportTables.Pick.Title"),
+            BaseMessages.getString(
+                PKG, "DvDatabaseSourceEditor.ImportTables.Pick.Message", sortedTableNames.length));
+    pickDialog.setMulti(true);
+    List<Integer> preselected = defaultPreselectedTableIndexes(sortedTableNames.length);
+    if (!preselected.isEmpty()) {
+      pickDialog.setSelectedNrs(preselected);
+    }
+    if (pickDialog.open() == null) {
+      return null;
+    }
+
+    int[] selectionIndexes = pickDialog.getSelectionIndeces();
+    Set<String> pickedTables = tableNamesForSelectionIndexes(sortedTableNames, selectionIndexes);
+    if (pickedTables.isEmpty()) {
+      MessageBox mb = new MessageBox(shell, SWT.OK | SWT.ICON_INFORMATION);
+      mb.setText(
+          BaseMessages.getString(PKG, "DvDatabaseSourceEditor.ImportTables.Pick.NoneSelected.Title"));
+      mb.setMessage(
+          BaseMessages.getString(
+              PKG, "DvDatabaseSourceEditor.ImportTables.Pick.NoneSelected.Message"));
+      mb.open();
+      return Set.of();
+    }
+    return pickedTables;
   }
 
   private static void showError(Shell shell, String title, String message) {

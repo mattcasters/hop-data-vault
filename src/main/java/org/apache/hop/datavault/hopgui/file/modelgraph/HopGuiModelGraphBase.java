@@ -31,6 +31,7 @@ import org.apache.hop.core.gui.IRedrawable;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.Rectangle;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.hopgui.ModelLoadDurationPaneAuditSupport;
 import org.apache.hop.datavault.hopgui.file.metrics.ModelLoadDurationPane;
 import org.apache.hop.datavault.hopgui.file.vault.BasePainter;
 import org.apache.hop.datavault.hopgui.file.vault.DvNoteDialog;
@@ -43,6 +44,7 @@ import org.apache.hop.ui.core.dialog.MessageBox;
 import org.apache.hop.ui.core.gui.GuiToolbarWidgets;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.hopgui.context.GuiContextUtil;
+import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
 import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
 import org.apache.hop.ui.hopgui.file.shared.HopGuiAbstractGraph;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
@@ -146,6 +148,23 @@ public abstract class HopGuiModelGraphBase extends HopGuiAbstractGraph implement
             this::getMetricsTableNames);
 
     modelSash.setWeights(new int[] {65, 35});
+    restoreLoadDurationPanelVisibility();
+  }
+
+  protected String getModelFilename() {
+    if (this instanceof IHopFileTypeHandler fileHandler) {
+      return fileHandler.getFilename();
+    }
+    return null;
+  }
+
+  protected void restoreLoadDurationPanelVisibility() {
+    if (modelSash == null || canvas == null || loadDurationPane == null) {
+      return;
+    }
+    loadDurationPanelVisible =
+        ModelLoadDurationPaneAuditSupport.retrievePanelVisible(getModelFilename());
+    applyLoadDurationPanelVisibility();
   }
 
   public void toggleLoadDurationPanel() {
@@ -153,6 +172,12 @@ public abstract class HopGuiModelGraphBase extends HopGuiAbstractGraph implement
       return;
     }
     loadDurationPanelVisible = !loadDurationPanelVisible;
+    applyLoadDurationPanelVisibility();
+    ModelLoadDurationPaneAuditSupport.storePanelVisible(
+        getModelFilename(), loadDurationPanelVisible);
+  }
+
+  private void applyLoadDurationPanelVisibility() {
     Composite canvasHolder = canvas.getParent();
     if (loadDurationPanelVisible) {
       modelSash.setMaximizedControl(null);

@@ -74,7 +74,7 @@
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>240</xloc>
+      <xloc>208</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -99,7 +99,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>448</xloc>
+      <xloc>384</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -127,8 +127,8 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>240</xloc>
-      <yloc>192</yloc>
+      <xloc>576</xloc>
+      <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -144,7 +144,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>608</xloc>
+      <xloc>656</xloc>
       <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -158,7 +158,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <description/>
       <type>BEGIN_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>336</xloc>
+      <xloc>208</xloc>
       <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -174,7 +174,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <writeMarkdownReport>Y</writeMarkdownReport>
       <writeHtmlReport>Y</writeHtmlReport>
       <reportOutputFolder>${PROJECT_HOME}/reports</reportOutputFolder>
-      <reportFileBaseName/>
+      <reportFileBaseName>retail-dv-update-report</reportFileBaseName>
       <failIfNoMetricsFound>N</failIfNoMetricsFound>
       <includePipelineDetail>Y</includePipelineDetail>
       <includeInsights>Y</includeInsights>
@@ -182,8 +182,8 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <description/>
       <type>END_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>528</xloc>
-      <yloc>192</yloc>
+      <xloc>448</xloc>
+      <yloc>336</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -213,7 +213,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>432</xloc>
+      <xloc>448</xloc>
       <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -258,14 +258,14 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
     <hop>
       <from>update-retail-dv-bv-dm</from>
       <to>End Vault Update</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
+      <evaluation>N</evaluation>
+      <unconditional>Y</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>End Vault Update</from>
+      <from>update-retail-dv-bv-dm</from>
       <to>Advance load control</to>
-      <evaluation>Y</evaluation>
+      <evaluation>N</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
