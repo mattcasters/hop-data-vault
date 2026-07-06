@@ -28,6 +28,9 @@ retail-example/catalog-data/hop/retail-example/business-vault/
 retail-example/catalog-data/hop/retail-example/dimensional/
 retail-example/catalog-data/hop/retail-example/models/retail-360/
 
+integration-tests/catalog-data/**/*.json
+integration-tests/vault-catalog/**/*.json
+
 retail-example/files/customer_address_*.csv
 retail-example/files/customer_contact_*.csv
 retail-example/files/customer_demo_*.csv
