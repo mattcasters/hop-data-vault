@@ -150,6 +150,44 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <attributes_hac/>
     </action>
     <action>
+      <workflowExecutionIdVariable/>
+      <useWorkflowLogChannelId>Y</useWorkflowLogChannelId>
+      <reuseExistingExecutionId>N</reuseExistingExecutionId>
+      <logToWorkflow>Y</logToWorkflow>
+      <name>Begin Vault Update</name>
+      <description/>
+      <type>BEGIN_VAULT_UPDATE</type>
+      <attributes/>
+      <xloc>336</xloc>
+      <yloc>192</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <workflowExecutionIdVariable/>
+      <useWorkflowLogChannelId>Y</useWorkflowLogChannelId>
+      <executionMetricsProfile>retail-execution-metrics</executionMetricsProfile>
+      <dataCatalogConnection>local-catalog</dataCatalogConnection>
+      <publishToDatabase>Y</publishToDatabase>
+      <publishToCatalog>Y</publishToCatalog>
+      <logToWorkflow>Y</logToWorkflow>
+      <writeMarkdownReport>Y</writeMarkdownReport>
+      <writeHtmlReport>Y</writeHtmlReport>
+      <reportOutputFolder>${PROJECT_HOME}/reports</reportOutputFolder>
+      <reportFileBaseName/>
+      <failIfNoMetricsFound>N</failIfNoMetricsFound>
+      <includePipelineDetail>Y</includePipelineDetail>
+      <includeInsights>Y</includeInsights>
+      <name>End Vault Update</name>
+      <description/>
+      <type>END_VAULT_UPDATE</type>
+      <attributes/>
+      <xloc>528</xloc>
+      <yloc>192</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
       <filename>${PROJECT_HOME}/workflows/update-retail-dv-bv-dm.hwf</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
@@ -205,6 +243,13 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
     </hop>
     <hop>
       <from>Load CSV to CRM</from>
+      <to>Begin Vault Update</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Begin Vault Update</from>
       <to>update-retail-dv-bv-dm</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
@@ -212,6 +257,13 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
     </hop>
     <hop>
       <from>update-retail-dv-bv-dm</from>
+      <to>End Vault Update</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>End Vault Update</from>
       <to>Advance load control</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>

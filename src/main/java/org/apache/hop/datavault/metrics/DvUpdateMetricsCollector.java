@@ -21,6 +21,7 @@ package org.apache.hop.datavault.metrics;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -48,8 +49,23 @@ public final class DvUpdateMetricsCollector {
 
   private static final ConcurrentMap<String, List<DvUpdateTableMetrics>> METRICS_BY_RUN =
       new ConcurrentHashMap<>();
+  private static final ConcurrentMap<String, Date> RUN_STARTED_AT_BY_RUN_ID = new ConcurrentHashMap<>();
 
   private DvUpdateMetricsCollector() {}
+
+  public static void markRunStarted(String runId) {
+    if (Utils.isEmpty(runId)) {
+      return;
+    }
+    RUN_STARTED_AT_BY_RUN_ID.put(runId, new Date());
+  }
+
+  static Date consumeRunStartedAt(String runId) {
+    if (Utils.isEmpty(runId)) {
+      return null;
+    }
+    return RUN_STARTED_AT_BY_RUN_ID.remove(runId);
+  }
 
   public static void record(DvUpdateTableMetrics metrics) {
     if (metrics == null || Utils.isEmpty(metrics.getRunId())) {
@@ -184,9 +200,11 @@ public final class DvUpdateMetricsCollector {
     }
     List<DvUpdateTableMetrics> metrics = removeRun(runId);
     if (metrics.isEmpty()) {
+      consumeRunStartedAt(runId);
       return LoadRunPublishSummary.EMPTY;
     }
 
+    Date startedAt = consumeRunStartedAt(runId);
     DvUpdateRunTotals totals = aggregateTotals(metrics);
 
     LogLevel effectiveLevel = logLevel != null ? logLevel : LogLevel.BASIC;
@@ -263,6 +281,7 @@ public final class DvUpdateMetricsCollector {
               logChannelId,
               runSuccess,
               totals.getErrors(),
+              startedAt,
               metrics,
               insights,
               variables,

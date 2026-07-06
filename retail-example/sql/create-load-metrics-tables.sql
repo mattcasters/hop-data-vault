@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS dv_ops.load_run (
   model_type       VARCHAR(16)  NULL,
   model_name       VARCHAR(255) NULL,
   workflow_name    VARCHAR(255) NULL,
+  workflow_execution_id VARCHAR(64) NULL,
   log_channel_id   VARCHAR(64)  NULL,
   success          BOOLEAN      NULL,
   error_count      BIGINT       NULL,
@@ -57,4 +58,39 @@ CREATE TABLE IF NOT EXISTS dv_ops.load_insight (
   related_element_name VARCHAR(255) NULL,
   metric_json          VARCHAR(4000) NULL,
   PRIMARY KEY (run_id, insight_seq)
+);
+
+CREATE TABLE IF NOT EXISTS dv_ops.workflow_load_overview (
+  overview_id              VARCHAR(64)   NOT NULL,
+  workflow_execution_id    VARCHAR(64)   NULL,
+  root_workflow_name       VARCHAR(255)  NULL,
+  metrics_workflow_name    VARCHAR(255)  NULL,
+  started_at               TIMESTAMP     NULL,
+  finished_at              TIMESTAMP     NULL,
+  duration_ms              BIGINT        NULL,
+  model_count              BIGINT        NULL,
+  pipeline_count           BIGINT        NULL,
+  insight_count            BIGINT        NULL,
+  total_source_rows_read   BIGINT        NULL,
+  total_target_rows_inserted BIGINT      NULL,
+  total_errors             BIGINT        NULL,
+  success                  BOOLEAN       NULL,
+  PRIMARY KEY (overview_id)
+);
+
+CREATE TABLE IF NOT EXISTS dv_ops.workflow_load_overview_model (
+  overview_id              VARCHAR(64)   NOT NULL,
+  sequence_no              BIGINT        NOT NULL,
+  load_run_id              VARCHAR(64)   NULL,
+  model_type               VARCHAR(16)   NULL,
+  model_name               VARCHAR(255)  NULL,
+  pipeline_count           BIGINT        NULL,
+  source_rows_read         BIGINT        NULL,
+  target_rows_read         BIGINT        NULL,
+  target_rows_inserted     BIGINT        NULL,
+  errors                   BIGINT        NULL,
+  duration_ms              BIGINT        NULL,
+  insight_count            BIGINT        NULL,
+  success                  BOOLEAN       NULL,
+  PRIMARY KEY (overview_id, sequence_no)
 );

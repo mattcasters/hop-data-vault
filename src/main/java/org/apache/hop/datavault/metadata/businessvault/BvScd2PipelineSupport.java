@@ -193,6 +193,9 @@ public final class BvScd2PipelineSupport {
       Point legLocation =
           new Point(LOCATION_START.x, LOCATION_START.y + legIndex * LEG_SPACING_HEIGHT);
       TransformMeta tableInput = addLegTableInput(ctx, leg, pipelineMeta, legLocation);
+      if (tableInput != null) {
+        GeneratedPipelineMetadataSupport.stampSourceRead(tableInput, ctx.sourceDbName);
+      }
       TransformMeta sourceConstant =
           addLegSourceIndicatorConstant(ctx, leg, pipelineMeta, tableInput, legLocation);
       legOutputs.add(addLegSelectValues(ctx, leg, pipelineMeta, sourceConstant, legLocation));

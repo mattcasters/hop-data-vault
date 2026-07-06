@@ -51,6 +51,61 @@ class ExecutionMapDatasetCatalogSupportTest {
   }
 
   @Test
+  void infersSourcesNamespaceFromParentDataVaultModel() {
+    Variables variables = new Variables();
+    variables.setVariable("PROJECT_HOME", "/workspace/retail-example");
+
+    ExecutionMapDocument document = new ExecutionMapDocument();
+    ExecutionMapNode modelNode = new ExecutionMapNode();
+    modelNode.setId("dv-model");
+    modelNode.setNodeType(ExecutionMapNodeType.DATA_VAULT_MODEL);
+    modelNode.setName("retail-360");
+    document.getNodesOrEmpty().add(modelNode);
+
+    ExecutionMapNode datasetNode = new ExecutionMapNode();
+    datasetNode.setNodeType(ExecutionMapNodeType.SOURCE_DATASET);
+    datasetNode.setParentNodeId("dv-model");
+    datasetNode.setProperty("datasetNamespace", "CRM");
+    datasetNode.setProperty("datasetName", "E2E-customer-hub");
+    document.getNodesOrEmpty().add(datasetNode);
+
+    RecordDefinitionKey key =
+        ExecutionMapDatasetCatalogSupport.resolveDatasetRecordKey(
+            datasetNode, document, variables);
+
+    assertEquals(
+        new RecordDefinitionKey("hop/retail-example/sources", "E2E-customer-hub"), key);
+    assertTrue(ExecutionMapDatasetCatalogSupport.isCatalogNamespace(key.getNamespace()));
+  }
+
+  @Test
+  void infersModelNamespaceForTargetDatasetUnderDataVaultModel() {
+    Variables variables = new Variables();
+    variables.setVariable("PROJECT_HOME", "/workspace/retail-example");
+
+    ExecutionMapDocument document = new ExecutionMapDocument();
+    ExecutionMapNode modelNode = new ExecutionMapNode();
+    modelNode.setId("dv-model");
+    modelNode.setNodeType(ExecutionMapNodeType.DATA_VAULT_MODEL);
+    modelNode.setName("retail-360");
+    document.getNodesOrEmpty().add(modelNode);
+
+    ExecutionMapNode datasetNode = new ExecutionMapNode();
+    datasetNode.setNodeType(ExecutionMapNodeType.TARGET_DATASET);
+    datasetNode.setParentNodeId("dv-model");
+    datasetNode.setProperty("datasetNamespace", "Vault");
+    datasetNode.setProperty("datasetName", "hub_customer");
+    document.getNodesOrEmpty().add(datasetNode);
+
+    RecordDefinitionKey key =
+        ExecutionMapDatasetCatalogSupport.resolveDatasetRecordKey(
+            datasetNode, document, variables);
+
+    assertEquals(
+        new RecordDefinitionKey("hop/retail-example/models/retail-360", "hub_customer"), key);
+  }
+
+  @Test
   void infersCatalogNamespaceFromParentDimensionalModel() {
     Variables variables = new Variables();
     variables.setVariable("PROJECT_HOME", "/workspace/retail-example");

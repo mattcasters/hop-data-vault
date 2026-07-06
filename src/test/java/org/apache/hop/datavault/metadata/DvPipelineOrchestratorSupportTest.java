@@ -68,6 +68,22 @@ class DvPipelineOrchestratorSupportTest {
   }
 
   @Test
+  void initializeMetricsRunCopiesWorkflowExecutionIdFromInheritedVariables() {
+    Variables parentWorkflow = new Variables();
+    parentWorkflow.setVariable(DvUpdateMetricsConstants.VAR_WORKFLOW_EXECUTION_ID, "root-exec-id");
+    Variables variables = new Variables();
+    variables.initializeFrom(parentWorkflow);
+    DvUpdateMetricsCollector.LoadRunPublishContext publishContext =
+        DvUpdateMetricsCollector.LoadRunPublishContext.withDefaults(
+            "local-catalog", "Vault", "update-retail-dv-bv-dm", "dv");
+
+    DvPipelineOrchestratorSupport.initializeMetricsRun(variables, "retail-360", publishContext);
+
+    assertEquals(
+        "root-exec-id", variables.getVariable(DvUpdateMetricsConstants.VAR_WORKFLOW_EXECUTION_ID));
+  }
+
+  @Test
   void mergeResultPropagatesFailureFlag() {
     Result target = new Result();
     target.setResult(true);

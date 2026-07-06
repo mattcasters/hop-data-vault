@@ -47,6 +47,8 @@ public final class LoadRunMetricsDdlSupport {
     String schema = resolveSchema(operationsSchema);
     if (allMetricsTablesExist(db, schema)) {
       ensureLoadRunPipelineRunConfigurationColumn(db, schema, databaseMeta, log);
+      ensureLoadRunWorkflowExecutionIdColumn(db, schema, databaseMeta, log);
+      WorkflowLoadOverviewDdlSupport.ensureOverviewTables(db, databaseMeta, schema, log);
       return;
     }
 
@@ -56,6 +58,7 @@ public final class LoadRunMetricsDdlSupport {
           "Creating load-run metrics tables in " + schema + " on " + databaseMeta.getName());
     }
     db.execStatements(ddl);
+    WorkflowLoadOverviewDdlSupport.ensureOverviewTables(db, databaseMeta, schema, log);
   }
 
   static List<String> buildCreateStatements(DatabaseMeta databaseMeta) {
@@ -101,6 +104,7 @@ public final class LoadRunMetricsDdlSupport {
           model_type       VARCHAR(16)  NULL,
           model_name       VARCHAR(255) NULL,
           workflow_name    VARCHAR(255) NULL,
+          workflow_execution_id     VARCHAR(64)  NULL,
           log_channel_id              VARCHAR(64)  NULL,
           pipeline_run_configuration  VARCHAR(255) NULL,
           success                     BOOLEAN      NULL,
@@ -171,6 +175,7 @@ public final class LoadRunMetricsDdlSupport {
           model_type       VARCHAR(16)  NULL,
           model_name       VARCHAR(255) NULL,
           workflow_name    VARCHAR(255) NULL,
+          workflow_execution_id     VARCHAR(64)  NULL,
           log_channel_id              VARCHAR(64)  NULL,
           pipeline_run_configuration  VARCHAR(255) NULL,
           success                     TINYINT(1)   NULL,
@@ -251,6 +256,35 @@ public final class LoadRunMetricsDdlSupport {
     if (log != null) {
       log.logBasic(
           "Adding pipeline_run_configuration column to "
+              + resolvedSchema
+              + "."
+              + LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN);
+    }
+    db.execStatement(alterSql);
+  }
+
+  static void ensureLoadRunWorkflowExecutionIdColumn(
+      Database db, String schema, DatabaseMeta databaseMeta, ILogChannel log) throws HopException {
+    if (db == null || databaseMeta == null) {
+      return;
+    }
+    String resolvedSchema = resolveSchema(schema);
+    if (!db.checkTableExists(resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN)) {
+      return;
+    }
+    if (db.checkColumnExists(
+        resolvedSchema,
+        LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN,
+        "workflow_execution_id")) {
+      return;
+    }
+    String qualifiedTable =
+        databaseMeta.getQuotedSchemaTableCombination(
+            db, resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN);
+    String alterSql = "ALTER TABLE " + qualifiedTable + " ADD workflow_execution_id VARCHAR(64) NULL";
+    if (log != null) {
+      log.logBasic(
+          "Adding workflow_execution_id column to "
               + resolvedSchema
               + "."
               + LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN);

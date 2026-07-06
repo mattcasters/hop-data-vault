@@ -27,6 +27,56 @@ import org.junit.jupiter.api.Test;
 class MetadataMetricsResolverTest {
 
   @Test
+  void aggregatesSourceRowsAcrossMultipleSourceReadTransforms() {
+    List<TransformRunMetrics> transforms =
+        List.of(
+            TransformRunMetrics.builder()
+                .transformName("read_sat_customer")
+                .logicalRole(GeneratedPipelineMetadataConstants.ROLE_SOURCE_READ)
+                .rowsRead(10_000L)
+                .build(),
+            TransformRunMetrics.builder()
+                .transformName("read_sat_customer_demo")
+                .logicalRole(GeneratedPipelineMetadataConstants.ROLE_SOURCE_READ)
+                .rowsRead(8_000L)
+                .build(),
+            TransformRunMetrics.builder()
+                .transformName("write_to_customer_360_bv")
+                .logicalRole(GeneratedPipelineMetadataConstants.ROLE_WRITE_TARGET)
+                .rowsWritten(40_000L)
+                .build());
+
+    MetadataMetricsResolver.AggregatedPipelineTotals totals =
+        MetadataMetricsResolver.aggregateRoleTotals(transforms);
+
+    assertEquals(18_000L, totals.sourceRowsRead());
+    assertEquals(40_000L, totals.targetRowsInserted());
+  }
+
+  @Test
+  void sumTableInputRowsReadAggregatesUnstampedSatelliteInputs() {
+    List<TransformRunMetrics> transforms =
+        List.of(
+            TransformRunMetrics.builder()
+                .transformName("read_sat_customer")
+                .pluginId("TableInput")
+                .rowsRead(10_000L)
+                .build(),
+            TransformRunMetrics.builder()
+                .transformName("read_sat_customer_demo")
+                .pluginId("TableInput")
+                .rowsRead(8_000L)
+                .build(),
+            TransformRunMetrics.builder()
+                .transformName("source_sat_customer_prefs")
+                .pluginId("Constant")
+                .rowsRead(99L)
+                .build());
+
+    assertEquals(18_000L, MetadataMetricsResolver.sumTableInputRowsRead(transforms));
+  }
+
+  @Test
   void aggregatesPipelineTotalsFromStampedTransformRoles() {
     List<TransformRunMetrics> transforms =
         List.of(

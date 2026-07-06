@@ -27,6 +27,7 @@ import java.util.UUID;
 import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
 import org.apache.hop.datavault.metrics.DvUpdateMetricsConstants;
 import org.apache.hop.datavault.metrics.LoadRunPublishSummary;
+import org.apache.hop.datavault.metrics.VaultUpdateExecutionSupport;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.exception.HopException;
@@ -265,6 +266,7 @@ public final class DvPipelineOrchestratorSupport {
       String modelName,
       DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext) {
     String metricsRunId = UUID.randomUUID().toString();
+    DvUpdateMetricsCollector.markRunStarted(metricsRunId);
     if (variables != null) {
       variables.setVariable(DvUpdateMetricsConstants.VAR_RUN_ID, metricsRunId);
       variables.setVariable(DvUpdateMetricsConstants.VAR_MODEL_NAME, modelName);
@@ -286,6 +288,11 @@ public final class DvPipelineOrchestratorSupport {
             DvUpdateMetricsConstants.VAR_METRICS_CATALOG_CONNECTION,
             metricsPublishContext.catalogConnectionName());
       }
+      setVariableIfPresent(
+          variables,
+          DvUpdateMetricsConstants.VAR_WORKFLOW_EXECUTION_ID,
+          VaultUpdateExecutionSupport.resolveExecutionId(
+              variables, VaultUpdateExecutionSupport.defaultExecutionIdVariableName()));
     }
     return metricsRunId;
   }

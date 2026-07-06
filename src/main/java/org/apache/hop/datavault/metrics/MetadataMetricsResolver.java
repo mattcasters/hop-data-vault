@@ -62,6 +62,9 @@ public final class MetadataMetricsResolver {
     if (metadataStamped && !transforms.isEmpty()) {
       AggregatedPipelineTotals roleTotals = aggregateRoleTotals(transforms);
       sourceRowsRead = roleTotals.sourceRowsRead();
+      if (sourceRowsRead == 0L) {
+        sourceRowsRead = sumTableInputRowsRead(transforms);
+      }
       targetRowsRead = roleTotals.targetRowsRead();
       targetRowsInserted = roleTotals.targetRowsInserted();
     } else if (identity != null) {
@@ -190,6 +193,17 @@ public final class MetadataMetricsResolver {
         sumRoleMetric(transforms, GeneratedPipelineMetadataConstants.ROLE_SOURCE_READ, true),
         sumRoleMetric(transforms, GeneratedPipelineMetadataConstants.ROLE_TARGET_READ, true),
         sumRoleMetric(transforms, GeneratedPipelineMetadataConstants.ROLE_WRITE_TARGET, false));
+  }
+
+  static long sumTableInputRowsRead(List<TransformRunMetrics> transforms) {
+    long total = 0L;
+    for (TransformRunMetrics transform : transforms) {
+      if (transform == null || !"TableInput".equals(transform.getPluginId())) {
+        continue;
+      }
+      total += Math.max(0L, transform.getRowsRead());
+    }
+    return total;
   }
 
   record AggregatedPipelineTotals(long sourceRowsRead, long targetRowsRead, long targetRowsInserted) {}

@@ -424,7 +424,16 @@ public final class ExecutionMapNavigationSupport {
       }
       builder.append(
           BaseMessages.getString(PKG, "ExecutionMapNavigationSupport.Tooltip.OpenInCatalog"));
-    } else if (canOpenArtifactFile(node) || canOpenFromSnapshot(node, document)) {
+    }
+    if (canPreviewDataset(node, document, variables, metadataProvider)) {
+      if (!builder.isEmpty()) {
+        builder.append(System.lineSeparator());
+      }
+      builder.append(
+          BaseMessages.getString(PKG, "ExecutionMapNavigationSupport.Tooltip.PreviewDataset"));
+    }
+    if (!canNavigateToCatalog(node, document, variables, metadataProvider)
+        && (canOpenArtifactFile(node) || canOpenFromSnapshot(node, document))) {
       if (!builder.isEmpty()) {
         builder.append(System.lineSeparator());
       }
@@ -446,7 +455,10 @@ public final class ExecutionMapNavigationSupport {
     String fromProperty =
         resolvePath(variables, node.getProperty(DatasetNodeSupport.PROPERTY_CATALOG_CONNECTION));
     if (!Utils.isEmpty(fromProperty)) {
-      return fromProperty;
+      if (metadataProvider == null
+          || catalogContainsRecord(fromProperty, key, variables, metadataProvider)) {
+        return fromProperty;
+      }
     }
     List<String> matches = findCatalogMatches(key, variables, metadataProvider);
     if (matches.isEmpty()) {
@@ -463,6 +475,23 @@ public final class ExecutionMapNavigationSupport {
               String.join(", ", matches)));
     }
     return matches.get(0);
+  }
+
+  private static boolean catalogContainsRecord(
+      String catalogConnectionName,
+      RecordDefinitionKey key,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    if (Utils.isEmpty(catalogConnectionName) || key == null || metadataProvider == null) {
+      return false;
+    }
+    try {
+      return RecordDefinitionRegistry.getInstance()
+              .read(catalogConnectionName, key, variables, metadataProvider)
+          != null;
+    } catch (HopException e) {
+      return false;
+    }
   }
 
   private static List<String> findCatalogMatches(

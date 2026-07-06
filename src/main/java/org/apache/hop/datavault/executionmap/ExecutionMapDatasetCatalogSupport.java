@@ -108,13 +108,35 @@ public final class ExecutionMapDatasetCatalogSupport {
       if (parent == null) {
         return null;
       }
-      String namespace = catalogNamespaceForModelNode(parent, variables);
+      String namespace = catalogNamespaceForDatasetNode(node, parent, variables);
       if (!Utils.isEmpty(namespace)) {
         return namespace;
       }
       parentNodeId = parent.getParentNodeId();
     }
     return null;
+  }
+
+  static String catalogNamespaceForDatasetNode(
+      ExecutionMapNode datasetNode, ExecutionMapNode modelNode, IVariables variables) {
+    if (datasetNode != null
+        && datasetNode.getNodeType() == ExecutionMapNodeType.SOURCE_DATASET) {
+      String sourcesNamespace = sourcesNamespaceForModelNode(modelNode, variables);
+      if (!Utils.isEmpty(sourcesNamespace)) {
+        return sourcesNamespace;
+      }
+    }
+    return catalogNamespaceForModelNode(modelNode, variables);
+  }
+
+  static String sourcesNamespaceForModelNode(ExecutionMapNode modelNode, IVariables variables) {
+    if (modelNode == null || modelNode.getNodeType() == null) {
+      return null;
+    }
+    return switch (modelNode.getNodeType()) {
+      case DATA_VAULT_MODEL -> DvCatalogNamespaces.projectSourcesNamespace(variables);
+      default -> null;
+    };
   }
 
   static String catalogNamespaceForModelNode(ExecutionMapNode modelNode, IVariables variables) {

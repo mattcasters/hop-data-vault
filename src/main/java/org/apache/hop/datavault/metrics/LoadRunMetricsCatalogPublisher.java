@@ -67,6 +67,7 @@ public final class LoadRunMetricsCatalogPublisher {
       String logChannelId,
       boolean success,
       long errorCount,
+      Date startedAt,
       List<DvUpdateTableMetrics> pipelines,
       List<LoadRunInsight> insights,
       IVariables variables,
@@ -118,6 +119,7 @@ public final class LoadRunMetricsCatalogPublisher {
           publishContext.pipelineRunConfiguration(),
           success,
           errorCount,
+          resolveRunStartedAt(startedAt, finishedAt, pipelines),
           finishedAt,
           pipelines,
           insights);
@@ -150,10 +152,44 @@ public final class LoadRunMetricsCatalogPublisher {
         logChannelId,
         success,
         errorCount,
+        null,
         pipelines,
         List.of(),
         variables,
         metadataProvider);
+  }
+
+  private static Date resolveRunStartedAt(
+      Date startedAt, Date finishedAt, List<DvUpdateTableMetrics> pipelines) {
+    if (startedAt != null && finishedAt != null && startedAt.before(finishedAt)) {
+      return startedAt;
+    }
+    if (finishedAt == null) {
+      return startedAt;
+    }
+    long durationMs = sumPipelineDurationMs(pipelines);
+    if (durationMs > 0) {
+      return new Date(finishedAt.getTime() - durationMs);
+    }
+    return startedAt != null ? startedAt : finishedAt;
+  }
+
+  private static long sumPipelineDurationMs(List<DvUpdateTableMetrics> pipelines) {
+    if (pipelines == null || pipelines.isEmpty()) {
+      return 0L;
+    }
+    long total = 0L;
+    for (DvUpdateTableMetrics pipeline : pipelines) {
+      if (pipeline == null || pipeline.getTransforms() == null) {
+        continue;
+      }
+      for (TransformRunMetrics transform : pipeline.getTransforms()) {
+        if (transform != null) {
+          total += Math.max(0L, transform.getDurationMs());
+        }
+      }
+    }
+    return total;
   }
 
   static String resolveOperationsSchema(DvUpdateMetricsCollector.LoadRunPublishContext context) {
@@ -243,6 +279,7 @@ public final class LoadRunMetricsCatalogPublisher {
     fields.addValueMeta(stringMeta("model_type", 16));
     fields.addValueMeta(stringMeta("model_name", 255));
     fields.addValueMeta(stringMeta("workflow_name", 255));
+    fields.addValueMeta(stringMeta("workflow_execution_id", 64));
     fields.addValueMeta(stringMeta("log_channel_id", 64));
     fields.addValueMeta(stringMeta("pipeline_run_configuration", 255));
     fields.addValueMeta(new ValueMetaBoolean("success"));
@@ -388,6 +425,7 @@ public final class LoadRunMetricsCatalogPublisher {
       String pipelineRunConfiguration,
       boolean success,
       long errorCount,
+      Date startedAt,
       Date finishedAt,
       List<DvUpdateTableMetrics> pipelines,
       List<LoadRunInsight> insights)
@@ -406,10 +444,13 @@ public final class LoadRunMetricsCatalogPublisher {
           modelName,
           modelType,
           workflowName,
+          VaultUpdateExecutionSupport.resolveExecutionId(
+              variables, VaultUpdateExecutionSupport.defaultExecutionIdVariableName()),
           logChannelId,
           pipelineRunConfiguration,
           success,
           errorCount,
+          startedAt,
           finishedAt);
       for (DvUpdateTableMetrics pipeline : pipelines) {
         insertPipelineMetric(db, operationsSchema, runId, pipeline);
@@ -445,10 +486,12 @@ public final class LoadRunMetricsCatalogPublisher {
       String modelName,
       String modelType,
       String workflowName,
+      String workflowExecutionId,
       String logChannelId,
       String pipelineRunConfiguration,
       boolean success,
       long errorCount,
+      Date startedAt,
       Date finishedAt)
       throws HopException {
     String qualifiedTable =
@@ -456,10 +499,10 @@ public final class LoadRunMetricsCatalogPublisher {
     String sql =
         "INSERT INTO "
             + qualifiedTable
-            + " (run_id, started_at, finished_at, model_type, model_name, workflow_name, log_channel_id, pipeline_run_configuration, success, error_count) VALUES ("
+            + " (run_id, started_at, finished_at, model_type, model_name, workflow_name, workflow_execution_id, log_channel_id, pipeline_run_configuration, success, error_count) VALUES ("
             + sqlLiteral(runId)
             + ", "
-            + sqlTimestampLiteral(finishedAt)
+            + sqlTimestampLiteral(startedAt)
             + ", "
             + sqlTimestampLiteral(finishedAt)
             + ", "
@@ -468,6 +511,8 @@ public final class LoadRunMetricsCatalogPublisher {
             + sqlLiteral(modelName)
             + ", "
             + sqlLiteral(workflowName)
+            + ", "
+            + sqlLiteral(workflowExecutionId)
             + ", "
             + sqlLiteral(logChannelId)
             + ", "

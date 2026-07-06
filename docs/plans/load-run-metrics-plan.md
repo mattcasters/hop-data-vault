@@ -283,6 +283,13 @@ Persist insights to `load_insight`; expose in Hop GUI (catalog record preview or
 - Thin JSON mirror for CI (`collect-metrics-results.hpl`)
 - OpenLineage correlation with [marquez-lineage-plan.md](marquez-lineage-plan.md) using same `run_id`
 
+### Phase 5b — Workflow load overview report ✅
+
+- **Begin Vault Update** / **End Vault Update** workflow actions bracket a correlated update wave via `DV_WORKFLOW_EXECUTION_ID`
+- `workflow_load_overview` + `workflow_load_overview_model` OPS tables and catalog definitions
+- End action publishes DB rows and optional Markdown/HTML reports + workflow log output
+- Retail wiring in `run-retail-update.hwf`
+
 ---
 
 ## 6. Example: dimension lookup advice flow
@@ -335,3 +342,4 @@ For `dm-fact-f_orders` with `lookup_d_customer`:
 - [x] **ai-metrics-gui** — Include load-run metrics checkbox in DV/DM/BV AI advisor dialogs
 - [x] **bv-ai-metrics** — BvAiContextBuilder + BvAiAdvisorService metrics integration
 - [ ] **gui-duration-overview** — LoadRunDurationOverviewPainter + ModelLoadDurationPane on DV/BV/DM graphs (Phase 4)
+- [x] **workflow-load-overview** — Begin/End Vault Update actions + workflow overview tables/reports (Phase 5b)

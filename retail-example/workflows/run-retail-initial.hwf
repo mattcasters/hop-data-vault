@@ -206,7 +206,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>320</xloc>
+      <xloc>512</xloc>
       <yloc>240</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -223,7 +223,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>496</xloc>
+      <xloc>688</xloc>
       <yloc>240</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -301,6 +301,42 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
+    <action>
+      <workflowExecutionIdVariable/>
+      <useWorkflowLogChannelId>Y</useWorkflowLogChannelId>
+      <executionMetricsProfile>retail-execution-metrics</executionMetricsProfile>
+      <dataCatalogConnection>local-catalog</dataCatalogConnection>
+      <publishToDatabase>Y</publishToDatabase>
+      <publishToCatalog>Y</publishToCatalog>
+      <logToWorkflow>Y</logToWorkflow>
+      <writeMarkdownReport>Y</writeMarkdownReport>
+      <writeHtmlReport>Y</writeHtmlReport>
+      <reportOutputFolder>${PROJECT_HOME}/reports</reportOutputFolder>
+      <reportFileBaseName>retail-dv-initial-report</reportFileBaseName>
+      <failIfNoMetricsFound>Y</failIfNoMetricsFound>
+      <includePipelineDetail>Y</includePipelineDetail>
+      <includeInsights>Y</includeInsights>
+      <name>End Vault Update</name>
+      <type>END_VAULT_UPDATE</type>
+      <attributes/>
+      <xloc>688</xloc>
+      <yloc>352</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <workflowExecutionIdVariable/>
+      <useWorkflowLogChannelId>Y</useWorkflowLogChannelId>
+      <reuseExistingExecutionId>N</reuseExistingExecutionId>
+      <logToWorkflow>Y</logToWorkflow>
+      <name>Begin Vault Update</name>
+      <type>BEGIN_VAULT_UPDATE</type>
+      <attributes/>
+      <xloc>304</xloc>
+      <yloc>240</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
   </actions>
   <hops>
     <hop>
@@ -334,13 +370,6 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
     <hop>
       <from>Load CSV to CRM</from>
       <to>Validate resource definitions</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Validate resource definitions</from>
-      <to>update-retail-dv-bv-dm</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
@@ -383,6 +412,27 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
     <hop>
       <from>create-load-metrics-tables.sql</from>
       <to>generate-catalog-sources.py</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>update-retail-dv-bv-dm</from>
+      <to>End Vault Update</to>
+      <evaluation>N</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Validate resource definitions</from>
+      <to>Begin Vault Update</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Begin Vault Update</from>
+      <to>update-retail-dv-bv-dm</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

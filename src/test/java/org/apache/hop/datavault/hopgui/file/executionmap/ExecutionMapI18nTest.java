@@ -55,6 +55,13 @@ class ExecutionMapI18nTest {
             HopGuiExecutionMapGraph.class, "HopGuiExecutionMapGraph.Context.PreviewDataset.Name");
     assertEquals("Preview data", previewLabel);
     assertFalse(previewLabel.startsWith("!"));
+
+    String previewTooltip =
+        BaseMessages.getString(
+            HopGuiExecutionMapGraph.class,
+            "ExecutionMapNavigationSupport.Tooltip.PreviewDataset");
+    assertEquals("Right-click and choose Preview data", previewTooltip);
+    assertFalse(previewTooltip.startsWith("!"));
   }
 
   @Test

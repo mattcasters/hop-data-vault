@@ -33,6 +33,12 @@ public final class DvUpdateMetricsConstants {
   /** Workflow name recorded on the load run row. */
   public static final String VAR_WORKFLOW_NAME = "DV_UPDATE_WORKFLOW_NAME";
 
+  /** Correlates DV/BV/DM load runs within one vault update wave (set by Begin Vault Update). */
+  public static final String VAR_WORKFLOW_EXECUTION_ID = "DV_WORKFLOW_EXECUTION_ID";
+
+  /** ISO-8601 start timestamp for the vault update wave (set by Begin Vault Update). */
+  public static final String VAR_WORKFLOW_EXECUTION_STARTED_AT = "DV_WORKFLOW_EXECUTION_STARTED_AT";
+
   /**
    * Target database connection for load metrics tables (defaults to model target DB when unset).
    */

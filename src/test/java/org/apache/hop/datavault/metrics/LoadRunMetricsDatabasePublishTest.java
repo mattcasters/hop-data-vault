@@ -120,6 +120,7 @@ class LoadRunMetricsDatabasePublishTest {
         "log-channel-test",
         true,
         0L,
+        null,
         pipelines,
         LoadRunInsightEngine.evaluate(pipelines),
         variables,

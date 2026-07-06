@@ -23,10 +23,12 @@ retail-example/files/.dv-load-date
 retail-example/files/.load-control
 retail-example/files/.period-label
 retail-example/files/.period-table
+retail-example/reports/
 
 retail-example/catalog-data/hop/retail-example/business-vault/
 retail-example/catalog-data/hop/retail-example/dimensional/
 retail-example/catalog-data/hop/retail-example/models/retail-360/
+retail-example/catalog-data/hop/retail-example/operations/
 
 integration-tests/catalog-data/**/*.json
 integration-tests/vault-catalog/**/*.json

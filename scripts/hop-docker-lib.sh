@@ -131,14 +131,19 @@ require_local_postgres() {
   return 1
 }
 
+strip_carriage_returns() {
+  printf '%s' "$1" | tr -d '\r'
+}
+
 ensure_hop_image() {
   compose_file="${1:-${HOP_COMPOSE_FILE}}"
   if docker image inspect "${HOP_IMAGE_NAME}" >/dev/null 2>&1; then
     return 0
   fi
   echo "Building Hop docker image (${HOP_IMAGE_NAME})..."
-  if [ -n "${HOP_IMAGE_VERSION:-}" ]; then
-    docker compose -f "${compose_file}" build --build-arg "HOP_IMAGE_VERSION=${HOP_IMAGE_VERSION}" hop
+  hop_image_version="$(strip_carriage_returns "${HOP_IMAGE_VERSION:-}")"
+  if [ -n "${hop_image_version}" ]; then
+    docker compose -f "${compose_file}" build --build-arg "HOP_IMAGE_VERSION=${hop_image_version}" hop
   else
     docker compose -f "${compose_file}" build hop
   fi

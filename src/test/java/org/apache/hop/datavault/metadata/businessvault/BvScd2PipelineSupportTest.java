@@ -32,6 +32,8 @@ import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.metadata.DataVaultConfiguration;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.SatelliteAttribute;
@@ -363,6 +365,13 @@ class BvScd2PipelineSupportTest {
 
     assertEquals(13, transforms.size());
     assertEquals(2, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
+    for (TransformMeta transform :
+        transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).toList()) {
+      assertEquals(
+          GeneratedPipelineMetadataConstants.ROLE_SOURCE_READ,
+          GeneratedPipelineMetadataSupport.getTransformAttribute(
+              transform, GeneratedPipelineMetadataConstants.LOGICAL_ROLE));
+    }
     assertEquals(2, transforms.stream().filter(t -> t.getTransform() instanceof ConstantMeta).count());
     assertEquals(3, transforms.stream().filter(t -> t.getTransform() instanceof SelectValuesMeta).count());
 
