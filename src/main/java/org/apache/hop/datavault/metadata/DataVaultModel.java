@@ -415,6 +415,13 @@ public class DataVaultModel extends HopMetadataBase
         hubNames.add(table.getName());
       } else if (table.getTableType() == DvTableType.LINK) {
         linkNames.add(table.getName());
+      } else if (table instanceof DvTableReference reference) {
+        DvTableType referencedType = reference.getReferencedTableType();
+        if (referencedType == DvTableType.HUB) {
+          hubNames.add(table.getName());
+        } else if (referencedType == DvTableType.LINK) {
+          linkNames.add(table.getName());
+        }
       }
     }
     return new DefinedTableNames(hubNames, linkNames);
@@ -591,12 +598,12 @@ public class DataVaultModel extends HopMetadataBase
    * @return The Hub or null if not found.
    */
   public DvHub findHub(String hubName) {
-    for (IDvTable table : getTables()) {
-      if (table.getTableType() == DvTableType.HUB && table.getName().equalsIgnoreCase(hubName)) {
-        return (DvHub) table;
-      }
-    }
-    return null;
+    return DvTableResolutionSupport.resolveHub(this, hubName, null, null);
+  }
+
+  public DvHub findHub(
+      String hubName, IVariables variables, IHopMetadataProvider metadataProvider) {
+    return DvTableResolutionSupport.resolveHub(this, hubName, variables, metadataProvider);
   }
 
   /**
@@ -606,12 +613,12 @@ public class DataVaultModel extends HopMetadataBase
    * @return The Link or null if not found.
    */
   public DvLink findLink(String linkName) {
-    for (IDvTable table : getTables()) {
-      if (table.getTableType() == DvTableType.LINK && table.getName().equalsIgnoreCase(linkName)) {
-        return (DvLink) table;
-      }
-    }
-    return null;
+    return DvTableResolutionSupport.resolveLink(this, linkName, null, null);
+  }
+
+  public DvLink findLink(
+      String linkName, IVariables variables, IHopMetadataProvider metadataProvider) {
+    return DvTableResolutionSupport.resolveLink(this, linkName, variables, metadataProvider);
   }
 
   /**

@@ -749,7 +749,7 @@ public class DvSatellite extends DvTableBase
       String hashKeyName = "hashkey";
       DvHub linkedHub = null;
       if (!Utils.isEmpty(hubName)) {
-        linkedHub = model.findHub(hubName);
+        linkedHub = model.findHub(hubName, variables, metadataProvider);
         if (linkedHub == null) {
           throw new HopException("Please provide an existing hub in satellite " + getName());
         }
@@ -761,7 +761,7 @@ public class DvSatellite extends DvTableBase
           }
         }
       } else if (!Utils.isEmpty(linkName)) {
-        DvLink linkedLink = model.findLink(linkName);
+        DvLink linkedLink = model.findLink(linkName, variables, metadataProvider);
         if (linkedLink == null) {
           throw new HopException("Please provide an existing link in satellite " + getName());
         }
@@ -1011,7 +1011,7 @@ public class DvSatellite extends DvTableBase
   private String resolveParentHashKeyFieldName(DataVaultModel model, IVariables variables)
       throws HopException {
     if (!Utils.isEmpty(hubName)) {
-      DvHub linkedHub = model.findHub(hubName);
+      DvHub linkedHub = model.findHub(hubName, variables, null);
       if (linkedHub == null) {
         throw new HopException("Please provide an existing hub in satellite " + getName());
       }
@@ -1022,7 +1022,7 @@ public class DvSatellite extends DvTableBase
       return hashKeyName;
     }
     if (!Utils.isEmpty(linkName)) {
-      DvLink linkedLink = model.findLink(linkName);
+      DvLink linkedLink = model.findLink(linkName, variables, null);
       if (linkedLink == null) {
         throw new HopException("Please provide an existing link in satellite " + getName());
       }
@@ -1209,7 +1209,7 @@ public class DvSatellite extends DvTableBase
     List<SelectField> selectFields = selectMeta.getSelectOption().getSelectFields();
 
     if (!ctx.linkSatellite) {
-      DvHub hub = ctx.model.findHub(getHubName());
+      DvHub hub = ctx.model.findHub(getHubName(), ctx.variables, ctx.metadataProvider);
       if (hub == null) {
         throw new HopException(
             "Unable to find the hub (" + getHubName() + ") to satellite " + getName());
@@ -2347,7 +2347,7 @@ public class DvSatellite extends DvTableBase
       DvHub linkedHub = null;
 
       if (hubSatellite) {
-        linkedHub = model.findHub(sat.getHubName());
+        linkedHub = model.findHub(sat.getHubName(), variables, metadataProvider);
         if (linkedHub == null) {
           throw new HopException("Please link satellite " + sat.getName() + " to a hub");
         }
@@ -2365,7 +2365,7 @@ public class DvSatellite extends DvTableBase
           }
         }
       } else {
-        linkedLink = model.findLink(sat.getLinkName());
+        linkedLink = model.findLink(sat.getLinkName(), variables, metadataProvider);
         if (linkedLink == null) {
           throw new HopException("Please link satellite " + sat.getName() + " to a link");
         }
@@ -2377,7 +2377,7 @@ public class DvSatellite extends DvTableBase
         linkSatelliteSource = findLinkSatelliteSource(linkedLink, recordSource);
 
         for (String hubName : linkedLink.getHubNames()) {
-          DvHub hub = model.findHub(hubName);
+          DvHub hub = model.findHub(hubName, variables, metadataProvider);
           if (hub == null) {
             throw new HopException(
                 "Hub '"

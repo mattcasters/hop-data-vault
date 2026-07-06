@@ -86,7 +86,7 @@ public class DvDatabaseSatelliteSourcePipelineBuilder extends DvDatabaseSourcePi
       DvSatellite satellite, DvDatabaseSource dbSource, DatabaseMeta sourceDbMeta)
       throws HopException {
     if (linkedLink == null) {
-      linkedLink = model.findLink(satellite.getLinkName());
+      linkedLink = findLink(satellite.getLinkName());
     }
     if (linkedLink == null) {
       throw new HopException(

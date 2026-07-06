@@ -369,7 +369,8 @@ public final class DvFieldMappingValidationSupport {
         if (hubSourceKeyField == null || hubSourceKeyField.getSourceBusinessKeyFields() == null) {
           continue;
         }
-        DvHub hub = model.findHub(hubSourceKeyField.getHubName());
+        DvHub hub =
+            model.findHub(hubSourceKeyField.getHubName(), variables, metadataProvider);
         for (BusinessKeySource bks : hubSourceKeyField.getSourceBusinessKeyFields()) {
           if (bks == null || Utils.isEmpty(bks.getSourceFieldName())) {
             continue;
@@ -451,7 +452,7 @@ public final class DvFieldMappingValidationSupport {
         || Utils.isEmpty(satellite.getHubName())) {
       return;
     }
-    DvHub hub = model.findHub(satellite.getHubName());
+    DvHub hub = model.findHub(satellite.getHubName(), variables, null);
     if (hub == null || hub.getBusinessKeys() == null) {
       return;
     }
@@ -521,7 +522,7 @@ public final class DvFieldMappingValidationSupport {
     try {
       List<SourceField> storedList = new ArrayList<>(resolved.storedFields.values());
       if (!Utils.isEmpty(satellite.getHubName()) && model != null) {
-        DvHub hub = model.findHub(satellite.getHubName());
+        DvHub hub = model.findHub(satellite.getHubName(), variables, null);
         if (hub != null) {
           autoFields =
               selectHubSatelliteAutoAttributeSourceFields(hub, satellite, variables, storedList);

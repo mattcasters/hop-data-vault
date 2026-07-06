@@ -42,6 +42,9 @@ import org.apache.hop.datavault.metadata.DvIntegrationSupport;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableBase;
+import org.apache.hop.datavault.metadata.DvTableReference;
+import org.apache.hop.datavault.metadata.DvTableReferenceSupport;
+import org.apache.hop.datavault.metadata.DvTableResolutionSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.hopgui.file.modelgraph.DvTableDisplaySupport;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelGraphConnectionGeometry;
@@ -443,13 +446,20 @@ public class DataVaultModelPainter extends BasePainter {
     if (table == null || table.getTableType() == null) {
       return "";
     }
+    DvTableType displayType =
+        table instanceof DvTableReference reference
+            ? reference.getReferencedTableType()
+            : table.getTableType();
     String base =
-        switch (table.getTableType()) {
+        switch (displayType) {
           case HUB -> "Hub";
           case SATELLITE -> "Satellite";
           case LINK -> "Link";
-          default -> table.getTableType().name();
+          default -> table.getTableType() != null ? table.getTableType().name() : "";
         };
+    if (table instanceof DvTableReference) {
+      base = base + " (ref)";
+    }
     String suffix = DvIntegrationSupport.integrationCanvasSuffix(table);
     if (Utils.isEmpty(suffix)) {
       return base;
@@ -470,8 +480,15 @@ public class DataVaultModelPainter extends BasePainter {
     if (showHashKeyFieldNames) {
       hashKeyFieldName = getHashKeyFieldNameForDisplay(table);
     }
+    String secondaryLine = null;
+    if (table instanceof DvTableReference reference) {
+      secondaryLine =
+          DvTableResolutionSupport.resolveReferenceSourceModelDisplayName(
+              model, reference, variables);
+    }
     ModelGraphTableCardLayout.BoxSize boxSize =
-        ModelGraphTableCardLayout.computeBoxSize(gc, name, hashKeyFieldName, typeLabel, null);
+        ModelGraphTableCardLayout.computeBoxSize(
+            gc, name, hashKeyFieldName, typeLabel, secondaryLine);
     if (table instanceof DvTableBase base) {
       base.setDrawnBoxWidth(boxSize.width());
       base.setDrawnBoxHeight(boxSize.height());
@@ -483,8 +500,8 @@ public class DataVaultModelPainter extends BasePainter {
     if (a == null || b == null || a == b) {
       return false;
     }
-    DvTableType ta = a.getTableType();
-    DvTableType tb = b.getTableType();
+    DvTableType ta = DvTableReferenceSupport.effectiveTableType(a);
+    DvTableType tb = DvTableReferenceSupport.effectiveTableType(b);
     boolean hubSat =
         (ta == DvTableType.HUB && tb == DvTableType.SATELLITE)
             || (ta == DvTableType.SATELLITE && tb == DvTableType.HUB);
@@ -587,6 +604,9 @@ public class DataVaultModelPainter extends BasePainter {
           break;
         case LINK:
           gc.setBackground(IGc.EColor.YELLOW);
+          break;
+        case TABLE_REFERENCE:
+          gc.setBackground(IGc.EColor.LIGHTGRAY);
           break;
       }
       gc.fillRectangle(x, y, w, h);

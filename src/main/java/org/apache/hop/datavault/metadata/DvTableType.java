@@ -31,7 +31,9 @@ import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 public enum DvTableType implements IEnumHasCodeAndDescription {
   HUB("HUB", BaseMessages.getString(DvTableType.class, "DvTableType.Hub")),
   SATELLITE("SATELLITE", BaseMessages.getString(DvTableType.class, "DvTableType.Satellite")),
-  LINK("LINK", BaseMessages.getString(DvTableType.class, "DvTableType.Link"));
+  LINK("LINK", BaseMessages.getString(DvTableType.class, "DvTableType.Link")),
+  TABLE_REFERENCE(
+      "TABLE_REFERENCE", BaseMessages.getString(DvTableType.class, "DvTableType.TableReference"));
 
   private final String code;
   private final String description;

@@ -207,6 +207,7 @@ public final class DvCatalogPublisher {
       case HUB -> RecordDefinitionType.DV_HUB;
       case LINK -> RecordDefinitionType.DV_LINK;
       case SATELLITE -> RecordDefinitionType.DV_SATELLITE;
+      case TABLE_REFERENCE -> RecordDefinitionType.UNKNOWN;
     };
   }
 

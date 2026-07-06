@@ -27,6 +27,8 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.datavault.metadata.DvTableReference;
+import org.apache.hop.datavault.metadata.DvTableResolutionSupport;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 
@@ -43,8 +45,15 @@ public final class DvTableDisplaySupport {
       case HUB -> "datavault-hub.svg";
       case LINK -> "datavault-link.svg";
       case SATELLITE -> "datavault-satellite.svg";
-      default -> "datavault-model.svg";
+      case TABLE_REFERENCE -> "datavault-model.svg";
     };
+  }
+
+  public static String getImagePathForTable(IDvTable table) {
+    if (table instanceof DvTableReference reference && reference.getReferencedTableType() != null) {
+      return getImagePath(reference.getReferencedTableType());
+    }
+    return getImagePath(table != null ? table.getTableType() : null);
   }
 
   public static String getHashKeyFieldNameForDisplay(
@@ -112,6 +121,17 @@ public final class DvTableDisplaySupport {
         if (Utils.isEmpty(hashKeyFieldName)) {
           hashKeyFieldName = "hashkey";
         }
+      }
+      case TABLE_REFERENCE -> {
+        if (table instanceof DvTableReference reference) {
+          IDvTable target =
+              DvTableResolutionSupport.resolveReferenceTarget(
+                  model, reference, variables, null);
+          if (target != null) {
+            return getHashKeyFieldNameForDisplay(target, model, tableByName, variables);
+          }
+        }
+        return null;
       }
       default -> {
         return null;

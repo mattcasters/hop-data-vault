@@ -110,7 +110,7 @@ public class DvCsvSatelliteSourcePipelineBuilder extends DvFileSourcePipelineBui
   private void buildLinkSatelliteMapping(DvSatellite satellite, Map<String, String> sourceToTarget)
       throws HopException {
     if (linkedLink == null) {
-      linkedLink = model.findLink(satellite.getLinkName());
+      linkedLink = findLink(satellite.getLinkName());
     }
     if (linkedLink == null) {
       throw new HopException(

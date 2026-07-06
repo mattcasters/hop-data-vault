@@ -35,6 +35,7 @@ import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.DvNoteType;
 import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.datavault.metadata.DvTableReference;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
@@ -217,6 +218,8 @@ public class HopGuiVaultClipboardDelegate {
           XmlMetadataUtil.deSerializeFromXml(tableNode, DvLink.class, metadataProvider);
       case SATELLITE ->
           XmlMetadataUtil.deSerializeFromXml(tableNode, DvSatellite.class, metadataProvider);
+      case TABLE_REFERENCE ->
+          XmlMetadataUtil.deSerializeFromXml(tableNode, DvTableReference.class, metadataProvider);
     };
   }
 

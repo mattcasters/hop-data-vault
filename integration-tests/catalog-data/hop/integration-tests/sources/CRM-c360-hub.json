@@ -1,0 +1,89 @@
+{
+  "namespace": "hop/integration-tests/sources",
+  "name": "CRM-c360-hub",
+  "type": "DV_SOURCE",
+  "description": "Customer 360 CSV source for hub satellite integration tests",
+  "rowMetaXml": "",
+  "origin": {
+    "modelType": "DATA_VAULT_SOURCE",
+    "modelName": "customer-360",
+    "modelFilename": "/integration-tests/tests//multi-satellite-bv/customer-360.hdv",
+    "modelElementName": "CRM-c360-hub",
+    "hopProject": "multi-satellite-bv",
+    "createdAt": 1782300000000,
+    "updatedAt": 1782300000000,
+    "updatedBy": null,
+    "lastWorkflow": null,
+    "lastPipeline": null
+  },
+  "physicalTable": null,
+  "physicalFile": {
+    "folder": "${PROJECT_HOME}/files/multi-satellite-bv",
+    "includeFileMask": "hub_load1\\.csv",
+    "excludeFileMask": ".*\\.txt",
+    "includeSubfolders": false,
+    "required": true
+  },
+  "tags": [
+    "DV Source",
+    "FULL_SNAPSHOT",
+    "CSV",
+    "CUSTOMER_360"
+  ],
+  "glossaryTerms": [],
+  "customProperties": {},
+  "dvSource": {
+    "sourceType": "CSV",
+    "sourceIndicator": "",
+    "sourceIndicatorField": "record_source",
+    "group": null,
+    "deliveryType": "FULL_SNAPSHOT",
+    "fields": [
+      {
+        "name": "customer_id",
+        "description": null,
+        "sourceDataType": "Integer",
+        "length": "9",
+        "precision": "0",
+        "hopType": 5,
+        "inputOptions": null
+      },
+      {
+        "name": "load_date",
+        "description": null,
+        "sourceDataType": "Timestamp",
+        "length": "",
+        "precision": "",
+        "hopType": 9,
+        "inputOptions": {
+          "csv": {
+            "format": "yyyy-MM-dd",
+            "decimalSymbol": "",
+            "groupingSymbol": "",
+            "currencySymbol": null
+          }
+        }
+      },
+      {
+        "name": "record_source",
+        "description": null,
+        "sourceDataType": "String",
+        "length": "20",
+        "precision": "",
+        "hopType": 2,
+        "inputOptions": null
+      }
+    ],
+    "csvFormat": {
+      "delimiter": ",",
+      "enclosure": "\"",
+      "escapeCharacter": "",
+      "encoding": "",
+      "headerPresent": true,
+      "headerLines": 1,
+      "fileFormat": "CSV",
+      "inputTransform": "TEXT_FILE_INPUT",
+      "singleFilename": ""
+    }
+  }
+}

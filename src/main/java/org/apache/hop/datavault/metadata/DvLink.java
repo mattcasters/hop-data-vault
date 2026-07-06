@@ -551,7 +551,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         List<String> hubHashNames = new ArrayList<>();
         int index = 0;
         for (String hubName : hubNames) {
-          DvHub hub = model.findHub(hubName);
+          DvHub hub = model.findHub(hubName, variables, metadataProvider);
           if (hub == null) {
             throw new HopException(
                 "Unable to find hub '" + hubName + "' in the model for Link table " + getName());
@@ -689,7 +689,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
       // 2. The participating hub hash keys (in the order defined in the link)
       for (String hubName : hubNames) {
-        DvHub hub = model.findHub(hubName);
+        DvHub hub = model.findHub(hubName, variables, metadataProvider);
         if (hub == null) {
           throw new HopException("Linked hub not found: " + hubName + " for link " + getName());
         }
@@ -810,7 +810,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     // We want to keep only the hash keys from the hubs and the one from the link itself.
     //
     for (String hubName : hubNames) {
-      DvHub hub = ctx.model.findHub(hubName);
+      DvHub hub = ctx.model.findHub(hubName, ctx.variables, ctx.metadataProvider);
       SelectField selectField = new SelectField();
       selectField.setName(ctx.variables.resolve(hub.getHashKeyFieldName()));
       selectFields.add(selectField);
@@ -892,7 +892,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     // value compare)
     //
     for (String hubName : hubNames) {
-      DvHub hub = ctx.model.findHub(hubName);
+      DvHub hub = ctx.model.findHub(hubName, ctx.variables, ctx.metadataProvider);
       sql.append(", ").append(ctx.targetDatabaseMeta.quoteField(hub.getHashKeyFieldName()));
     }
 
@@ -959,7 +959,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
     // The hash keys of the hubs
     for (String hubName : hubNames) {
-      DvHub hub = ctx.model.findHub(hubName);
+      DvHub hub = ctx.model.findHub(hubName, ctx.variables, ctx.metadataProvider);
       mergeRowsMeta
           .getPassThroughFields()
           .add(new PassThroughField(hub.getHashKeyFieldName(), null, false));

@@ -52,6 +52,10 @@ public final class DvIntegrationSupport {
     return table instanceof DvTableBase base && resolveMode(base) == DvIntegrationMode.HOP_MANAGED;
   }
 
+  public static boolean isTableReference(IDvTable table) {
+    return table instanceof DvTableReference;
+  }
+
   public static boolean isExternalRead(IDvTable table) {
     return table instanceof DvTableBase base && resolveMode(base) == DvIntegrationMode.EXTERNAL_READ;
   }
@@ -62,18 +66,25 @@ public final class DvIntegrationSupport {
   }
 
   public static boolean shouldSkipDdl(IDvTable table) {
-    return isExternalRead(table) || isCustomPipelines(table);
+    return isTableReference(table) || isExternalRead(table) || isCustomPipelines(table);
   }
 
   public static boolean shouldSkipSentinelRows(IDvTable table) {
-    return isExternalRead(table);
+    return isTableReference(table) || isExternalRead(table);
   }
 
   public static boolean relaxesSourceValidation(IDvTable table) {
-    return isExternalRead(table);
+    return isTableReference(table) || isExternalRead(table);
+  }
+
+  public static boolean shouldSkipUpdatePipeline(IDvTable table) {
+    return isTableReference(table) || isExternalRead(table);
   }
 
   public static String integrationCanvasSuffix(IDvTable table) {
+    if (isTableReference(table)) {
+      return "ref";
+    }
     if (isExternalRead(table)) {
       return "ext";
     }

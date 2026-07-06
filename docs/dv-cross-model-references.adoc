@@ -1,0 +1,71 @@
+= Cross-model Data Vault table references
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+Large Data Vault models can be split into subject-area `.hdv` files. A subject-area model places read-only **table references** on the canvas that point at hubs, links, or satellites defined in another `.hdv` file — the same pattern dimensional models use with `DIMENSION_ALIAS` and `referencedModelFilename`.
+
+== When to use
+
+* **Enterprise core + subject areas** — shared hubs (and optionally links/satellites) live in `shared-core.hdv`; order, inventory, or customer-360 models reference them and define local links and satellites.
+* **Avoid metadata duplication** — hash keys, business keys, and source mappings stay authoritative in the owning model.
+* **Independent load workflows** — each `.hdv` file runs its own Data Vault Update action; referenced tables are skipped in the subject-area model.
+
+== Table reference metadata
+
+A table reference is stored as `tableType=TABLE_REFERENCE` in the subject-area model:
+
+[source,xml]
+----
+<table>
+  <referencedTableName>hub_customer</referencedTableName>
+  <referencedModelFilename>${PROJECT_HOME}/models/shared-core.hdv</referencedModelFilename>
+  <referencedTableType>HUB</referencedTableType>
+  <tableName>hub_customer</tableName>
+  <name>hub_customer</name>
+</table>
+----
+
+References do not generate DDL or load pipelines in the subject-area model.
+
+== Canvas workflow
+
+From the Data Vault canvas context menu:
+
+* **Add Hub reference** / **Add Link reference** / **Add Satellite reference**
+* Browse the external `.hdv` file and pick an unused table
+* Drag relationships from local links or satellites to references (same rules as local tables)
+
+Referenced tables show a `(ref)` label and the source model basename on the canvas card.
+
+== Navigate to the source table
+
+* **Click the table name** on a reference card to open the source `.hdv` model and select the referenced table (same interaction as dimension aliases and Business Vault references).
+* Or use the table context menu action **Go to source table**.
+* A hand cursor and tooltip appear when the reference target can be resolved.
+
+== Validation
+
+Model check verifies:
+
+* The external model loads and contains the referenced table with the expected type
+* No reference chains (reference → reference)
+* No circular cross-model references
+* Warnings when hash algorithm, hash key type, or target database differ between models
+
+== Workflow pattern
+
+1. Run **Data Vault Update** on the shared/core `.hdv` first (loads hubs and any shared entities).
+2. Run **Data Vault Update** on each subject-area `.hdv` (loads local links/satellites only; references are skipped).
+
+== Related patterns
+
+* **Business Vault** — single linked `.hdv` on the `.hbv` file for derivative layout (orthogonal to subject-area splitting).
+* **EXTERNAL_READ** — physical tables exist but Hop does not generate loads; references are for *metadata* reuse across model files.
+* **Dimensional aliases** — `DIMENSION_ALIAS` + `referencedModelFilename` in `.hdm` files.
+
+== Test fixtures
+
+* `integration-tests/tests/basic/shared-dv-core.hdv` — shared hubs
+* `integration-tests/tests/basic/cross-model-dv-subject.hdv` — hub references + local link

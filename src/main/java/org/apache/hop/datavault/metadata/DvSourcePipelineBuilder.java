@@ -106,11 +106,27 @@ public abstract class DvSourcePipelineBuilder {
     if (StringUtils.isEmpty(hubName)) {
       throw new HopException("No hub name provided to look for");
     }
-    DvHub hub = model.findHub(variables.resolve(hubName));
+    DvHub hub =
+        DvTableResolutionSupport.resolveHub(
+            model, variables.resolve(hubName), variables, metadataProvider);
     if (hub == null) {
       throw new HopException(
               "Hub " + hubName + " could not be found in data vault model " + model.getName());
     }
     return hub;
+  }
+
+  protected DvLink findLink(String linkName) throws HopException {
+    if (StringUtils.isEmpty(linkName)) {
+      throw new HopException("No link name provided to look for");
+    }
+    DvLink link =
+        DvTableResolutionSupport.resolveLink(
+            model, variables.resolve(linkName), variables, metadataProvider);
+    if (link == null) {
+      throw new HopException(
+          "Link " + linkName + " could not be found in data vault model " + model.getName());
+    }
+    return link;
   }
 }

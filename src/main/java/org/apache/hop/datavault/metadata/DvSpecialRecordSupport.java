@@ -230,7 +230,7 @@ public final class DvSpecialRecordSupport {
 
     List<Object> hubHashValues = new ArrayList<>();
     for (String hubName : link.getHubNames()) {
-      DvHub hub = model.findHub(hubName);
+      DvHub hub = model.findHub(hubName, variables, null);
       if (hub == null) {
         throw new HopException(
             "Hub '" + hubName + "' not found in model for link " + link.getName());

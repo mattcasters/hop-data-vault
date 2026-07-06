@@ -176,6 +176,9 @@ public interface IDvTable extends IGuiPosition, IBaseMeta, IHasName, IChanged, I
       if (DvTableType.LINK.name().equals(id)) {
         return new DvLink();
       }
+      if (DvTableType.TABLE_REFERENCE.name().equals(id)) {
+        return new DvTableReference();
+      }
       throw new HopException("Unable to recognize Data Vault table type with ID '" + id + "'");
     }
 

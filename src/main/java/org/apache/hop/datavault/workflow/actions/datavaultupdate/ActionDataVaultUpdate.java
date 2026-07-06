@@ -605,11 +605,13 @@ public class ActionDataVaultUpdate extends ActionBase implements Cloneable, IAct
       List<PipelineMeta> allPipelineMetas = new ArrayList<>();
 
       for (IDvTable table : DvUpdateExecutionSupport.orderTablesForPipelineExecution(tables)) {
-        if (DvIntegrationSupport.isExternalRead(table)) {
+        if (DvIntegrationSupport.shouldSkipUpdatePipeline(table)) {
           logBasic(
               BaseMessages.getString(
                   PKG,
-                  "ActionDataVaultUpdate.Log.SkippingExternalTable",
+                  DvIntegrationSupport.isTableReference(table)
+                      ? "ActionDataVaultUpdate.Log.SkippingTableReference"
+                      : "ActionDataVaultUpdate.Log.SkippingExternalTable",
                   table.getName()));
           continue;
         }
