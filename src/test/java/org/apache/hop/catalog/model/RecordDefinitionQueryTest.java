@@ -21,31 +21,35 @@ package org.apache.hop.catalog.model;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
-import org.apache.hop.catalog.hopgui.perspective.DataCatalogRecordListFilter;
 import org.junit.jupiter.api.Test;
 
-class RecordDefinitionQueryOperationsFilterTest {
+class RecordDefinitionQueryTest {
 
   @Test
-  void loadMetricsFilterMatchesOperationsMetricsTables() {
+  void nameContainsMatchesRecordNameCaseInsensitively() {
     RecordDefinition definition = new RecordDefinition();
-    definition.setKey(new RecordDefinitionKey("hop/retail-example/operations", "load_run"));
-    definition.getTags().addAll(List.of("operations", "load-metrics"));
+    definition.setKey(new RecordDefinitionKey("hop/project/sources", "E2E-customer-hub"));
 
-    assertTrue(DataCatalogRecordListFilter.LOAD_METRICS.toQuery().matches(definition));
-    assertTrue(DataCatalogRecordListFilter.OPERATIONS.toQuery().matches(definition));
-    assertTrue(DataCatalogRecordListFilter.ALL.toQuery().matches(definition));
+    RecordDefinitionQuery query = new RecordDefinitionQuery();
+    query.setNameContains("customer");
+
+    assertTrue(query.matches(definition));
+    query.setNameContains("CUSTOMER");
+    assertTrue(query.matches(definition));
+    query.setNameContains("orders");
+    assertFalse(query.matches(definition));
   }
 
   @Test
-  void loadMetricsFilterSkipsModelSourceDefinitions() {
+  void nameContainsMatchesNamespaceKeyCaseInsensitively() {
     RecordDefinition definition = new RecordDefinition();
     definition.setKey(new RecordDefinitionKey("hop/retail-example/sources", "CRM-customer"));
-    definition.getTags().add("DV SOURCE");
 
-    assertFalse(DataCatalogRecordListFilter.LOAD_METRICS.toQuery().matches(definition));
-    assertFalse(DataCatalogRecordListFilter.OPERATIONS.toQuery().matches(definition));
-    assertTrue(DataCatalogRecordListFilter.ALL.toQuery().matches(definition));
+    RecordDefinitionQuery query = new RecordDefinitionQuery();
+    query.setNameContains("retail-example/sources");
+
+    assertTrue(query.matches(definition));
+    query.setNameContains("hop/retail-example/sources::crm-customer");
+    assertTrue(query.matches(definition));
   }
 }

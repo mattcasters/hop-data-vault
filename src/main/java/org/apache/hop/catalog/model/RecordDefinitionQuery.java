@@ -31,6 +31,7 @@ public class RecordDefinitionQuery {
 
   private String namespacePrefix;
   private RecordDefinitionType type;
+  private List<RecordDefinitionType> types = new ArrayList<>();
   private String nameContains;
   private List<String> tags = new ArrayList<>();
 
@@ -43,12 +44,14 @@ public class RecordDefinitionQuery {
             || !definition.getKey().getNamespace().startsWith(namespacePrefix))) {
       return false;
     }
-    if (type != null && definition.getType() != type) {
+    if (types != null && !types.isEmpty()) {
+      if (definition.getType() == null || !types.contains(definition.getType())) {
+        return false;
+      }
+    } else if (type != null && definition.getType() != type) {
       return false;
     }
-    if (!Utils.isEmpty(nameContains)
-        && (definition.getKey().getName() == null
-            || !definition.getKey().getName().contains(nameContains))) {
+    if (!Utils.isEmpty(nameContains) && !matchesNameFilter(definition, nameContains)) {
       return false;
     }
     if (tags != null && !tags.isEmpty()) {
@@ -62,5 +65,14 @@ public class RecordDefinitionQuery {
       }
     }
     return true;
+  }
+
+  private static boolean matchesNameFilter(RecordDefinition definition, String nameContains) {
+    String needle = nameContains.toLowerCase();
+    String name = definition.getKey().getName();
+    if (name != null && name.toLowerCase().contains(needle)) {
+      return true;
+    }
+    return definition.getKey().toString().toLowerCase().contains(needle);
   }
 }

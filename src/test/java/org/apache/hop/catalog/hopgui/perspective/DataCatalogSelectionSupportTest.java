@@ -68,4 +68,33 @@ class DataCatalogSelectionSupportTest {
     assertTrue(DataCatalogSelectionSupport.collectRecordNodesFromTreeNodes(null).isEmpty());
     assertTrue(DataCatalogSelectionSupport.collectRecordNodes(null).isEmpty());
   }
+
+  @Test
+  void collectRecordNodesIgnoresNamespaceNodes() {
+    DataCatalogTreeNode namespace =
+        DataCatalogTreeNode.namespace("local-catalog", "hop/project/sources");
+    DataCatalogTreeNode record =
+        DataCatalogTreeNode.record(
+            "local-catalog",
+            new RecordDefinitionRef(
+                "local-catalog",
+                new RecordDefinitionKey("hop/project/sources", "CRM-customer"),
+                RecordDefinitionType.DV_SOURCE));
+
+    List<DataCatalogTreeNode> recordNodes =
+        DataCatalogSelectionSupport.collectRecordNodesFromTreeNodes(List.of(namespace, record));
+
+    assertEquals(1, recordNodes.size());
+    assertEquals(DataCatalogTreeNode.Type.RECORD, recordNodes.get(0).getType());
+  }
+
+  @Test
+  void firstCatalogConnectionNameResolvesFromNamespaceNode() {
+    DataCatalogTreeNode namespace =
+        DataCatalogTreeNode.namespace("vault-catalog", "hop/project/models/retail-360");
+
+    assertEquals(
+        "vault-catalog",
+        DataCatalogSelectionSupport.firstCatalogConnectionNameFromTreeNodes(List.of(namespace)));
+  }
 }

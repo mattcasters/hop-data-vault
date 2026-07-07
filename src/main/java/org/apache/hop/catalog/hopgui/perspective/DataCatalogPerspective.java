@@ -19,16 +19,18 @@
 package org.apache.hop.catalog.hopgui.perspective;
 
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.Getter;
 import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewRunner;
 import org.apache.hop.catalog.hopgui.preview.RecordDefinitionPreviewSupport;
 import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
+import org.apache.hop.catalog.model.RecordDefinitionQuery;
 import org.apache.hop.catalog.model.RecordDefinitionRef;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
 import org.apache.hop.core.Const;
@@ -50,7 +52,6 @@ import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.dialog.MessageBox;
 import org.apache.hop.ui.core.gui.GuiToolbarWidgets;
 import org.apache.hop.ui.core.gui.IToolbarContainer;
-import org.apache.hop.ui.core.widget.TreeMemory;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.hopgui.ToolbarFacade;
 import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
@@ -65,7 +66,9 @@ import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TreeItem;
 
@@ -86,6 +89,10 @@ public class DataCatalogPerspective implements IHopPerspective {
   public static final String TOOLBAR_ITEM_IMPORT =
       "DataCatalogPerspective-Toolbar-10005-Import";
   public static final String TOOLBAR_ITEM_REFRESH = "DataCatalogPerspective-Toolbar-10000-Refresh";
+  public static final String TOOLBAR_ITEM_EXPAND_ALL =
+      "DataCatalogPerspective-Toolbar-10001-ExpandAll";
+  public static final String TOOLBAR_ITEM_COLLAPSE_ALL =
+      "DataCatalogPerspective-Toolbar-10003-CollapseAll";
   public static final String TOOLBAR_ITEM_PREVIEW = "DataCatalogPerspective-Toolbar-10015-Preview";
   public static final String TOOLBAR_ITEM_DELETE = "DataCatalogPerspective-Toolbar-10010-Delete";
   private static final String TREE_KEY = "Data catalog perspective tree";
@@ -100,7 +107,13 @@ public class DataCatalogPerspective implements IHopPerspective {
   private RecordDefinitionDetailsPanel detailsPanel;
   private RecordDefinition selectedRecordDefinition;
   private Combo wRecordFilter;
+  private Text searchText;
+  private Button wGroupByNamespace;
   private DataCatalogRecordListFilter recordListFilter = DataCatalogRecordListFilter.ALL;
+  private String filterText = "";
+  private boolean groupByNamespace = DataCatalogPerspectiveAuditSupport.retrieveGroupByNamespace();
+  private final Set<String> treeStateSeeded = new HashSet<>();
+  private boolean rebuildingTree;
 
   public DataCatalogPerspective() {
     instance = this;
@@ -195,6 +208,41 @@ public class DataCatalogPerspective implements IHopPerspective {
     fdFilter.right = new FormAttachment(100, -PropsUi.getMargin());
     wRecordFilter.setLayoutData(fdFilter);
 
+    searchText = new Text(treeComposite, SWT.SEARCH | SWT.ICON_CANCEL | SWT.ICON_SEARCH);
+    searchText.setMessage(
+        BaseMessages.getString(PKG, "DataCatalogPerspective.Search.Placeholder"));
+    PropsUi.setLook(searchText);
+    FormData fdSearch = new FormData();
+    fdSearch.left = new FormAttachment(0, 0);
+    fdSearch.top = new FormAttachment(wRecordFilter, PropsUi.getMargin());
+    fdSearch.right = new FormAttachment(100, 0);
+    searchText.setLayoutData(fdSearch);
+    searchText.addListener(
+        SWT.Modify,
+        e -> {
+          filterText = Const.NVL(searchText.getText(), "").trim();
+          refresh();
+        });
+
+    wGroupByNamespace = new Button(treeComposite, SWT.CHECK);
+    PropsUi.setLook(wGroupByNamespace);
+    wGroupByNamespace.setText(
+        BaseMessages.getString(PKG, "DataCatalogPerspective.GroupByNamespace.Label"));
+    wGroupByNamespace.setToolTipText(
+        BaseMessages.getString(PKG, "DataCatalogPerspective.GroupByNamespace.Tooltip"));
+    wGroupByNamespace.setSelection(groupByNamespace);
+    wGroupByNamespace.addListener(
+        SWT.Selection,
+        e -> {
+          groupByNamespace = wGroupByNamespace.getSelection();
+          DataCatalogPerspectiveAuditSupport.storeGroupByNamespace(groupByNamespace);
+          refresh();
+        });
+    FormData fdGroupByNamespace = new FormData();
+    fdGroupByNamespace.left = new FormAttachment(0, PropsUi.getMargin());
+    fdGroupByNamespace.top = new FormAttachment(searchText, PropsUi.getMargin());
+    wGroupByNamespace.setLayoutData(fdGroupByNamespace);
+
     IToolbarContainer toolBarContainer =
         ToolbarFacade.createToolbarContainer(
             treeComposite, SWT.WRAP | SWT.LEFT | SWT.HORIZONTAL);
@@ -204,7 +252,7 @@ public class DataCatalogPerspective implements IHopPerspective {
     toolBarWidgets.createToolbarWidgets(toolBarContainer, GUI_PLUGIN_TOOLBAR_PARENT_ID);
     FormData fdToolBar = new FormData();
     fdToolBar.left = new FormAttachment(0, 0);
-    fdToolBar.top = new FormAttachment(wRecordFilter, PropsUi.getMargin());
+    fdToolBar.top = new FormAttachment(wGroupByNamespace, PropsUi.getMargin());
     fdToolBar.right = new FormAttachment(100, 0);
     toolBar.setLayoutData(fdToolBar);
     toolBar.pack();
@@ -220,7 +268,22 @@ public class DataCatalogPerspective implements IHopPerspective {
     tree.setLayoutData(fdTree);
 
     tree.addListener(SWT.Selection, e -> updateSelection());
-    TreeMemory.addTreeListener(tree, TREE_KEY);
+    tree.addListener(
+        SWT.Expand,
+        e -> {
+          if (!rebuildingTree) {
+            DataCatalogTreeMemorySupport.recordExpandedState(
+                (TreeItem) e.item, TREE_KEY, true, treeStateSeeded);
+          }
+        });
+    tree.addListener(
+        SWT.Collapse,
+        e -> {
+          if (!rebuildingTree) {
+            DataCatalogTreeMemorySupport.recordExpandedState(
+                (TreeItem) e.item, TREE_KEY, false, treeStateSeeded);
+          }
+        });
   }
 
   private void createDetailsPane(Composite parent) {
@@ -265,6 +328,44 @@ public class DataCatalogPerspective implements IHopPerspective {
       image = "ui/images/refresh.svg")
   @GuiKeyboardShortcut(key = SWT.F5)
   @GuiOsxKeyboardShortcut(key = SWT.F5)
+  public void refreshToolbar() {
+    refresh();
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_EXPAND_ALL,
+      toolTip = "i18n::DataCatalogPerspective.Toolbar.ExpandAll.Tooltip",
+      image = "ui/images/expand-all.svg")
+  public void expandAllFolders() {
+    if (tree == null || tree.isDisposed()) {
+      return;
+    }
+    tree.setRedraw(false);
+    try {
+      DataCatalogTreeNavigation.setFolderExpandedState(tree, TREE_KEY, groupByNamespace, true);
+    } finally {
+      tree.setRedraw(true);
+    }
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_COLLAPSE_ALL,
+      toolTip = "i18n::DataCatalogPerspective.Toolbar.CollapseAll.Tooltip",
+      image = "ui/images/collapse-all.svg")
+  public void collapseAllFolders() {
+    if (tree == null || tree.isDisposed()) {
+      return;
+    }
+    tree.setRedraw(false);
+    try {
+      DataCatalogTreeNavigation.setFolderExpandedState(tree, TREE_KEY, groupByNamespace, false);
+    } finally {
+      tree.setRedraw(true);
+    }
+  }
+
   /** Activates this perspective and selects a record definition in the tree and details panel. */
   public void selectRecordDefinition(String catalogConnectionName, RecordDefinitionKey key)
       throws HopException {
@@ -303,15 +404,22 @@ public class DataCatalogPerspective implements IHopPerspective {
     String selectedCatalog = DataCatalogSelectionSupport.firstCatalogConnectionName(selection);
     List<String> selectedRecordKeys = DataCatalogSelectionSupport.collectRecordKeys(selection);
 
-    tree.removeAll();
+    rebuildingTree = true;
+    tree.setRedraw(false);
     try {
+      tree.removeAll();
       populateTree();
+      DataCatalogTreeMemorySupport.applyExpandedState(
+          tree, TREE_KEY, groupByNamespace, treeStateSeeded);
     } catch (HopException e) {
       new ErrorDialog(
           hopGui.getShell(),
           BaseMessages.getString(PKG, "DataCatalogPerspective.Error.Refresh.Title"),
           BaseMessages.getString(PKG, "DataCatalogPerspective.Error.Refresh.Message"),
           e);
+    } finally {
+      rebuildingTree = false;
+      tree.setRedraw(true);
     }
 
     restoreSelection(selectedCatalog, selectedRecordKeys);
@@ -323,11 +431,12 @@ public class DataCatalogPerspective implements IHopPerspective {
     IHopMetadataProvider metadataProvider = hopGui.getMetadataProvider();
     IVariables variables = hopGui.getVariables();
     List<DataCatalogMeta> connections = listEnabledConnections(metadataProvider);
+    boolean hideEmptyConnections = shouldHideEmptyConnections();
 
     Map<String, List<RecordDefinitionRef>> refsByCatalog = new LinkedHashMap<>();
     List<RecordDefinitionRef> allRefs =
         RecordDefinitionRegistry.getInstance()
-            .listAll(recordListFilter.toQuery(), variables, metadataProvider);
+            .listAll(buildRecordListQuery(), variables, metadataProvider);
     for (RecordDefinitionRef ref : allRefs) {
       refsByCatalog
           .computeIfAbsent(ref.getCatalogConnectionName(), name -> new ArrayList<>())
@@ -335,38 +444,60 @@ public class DataCatalogPerspective implements IHopPerspective {
     }
 
     for (DataCatalogMeta connection : connections) {
+      List<RecordDefinitionRef> refs =
+          DataCatalogTreeBuilder.sortRefs(
+              refsByCatalog.getOrDefault(connection.getName(), List.of()));
+
+      if (hideEmptyConnections && refs.isEmpty()) {
+        continue;
+      }
+
       TreeItem catalogItem = new TreeItem(tree, SWT.NONE);
       catalogItem.setText(Const.NVL(connection.getName(), ""));
       catalogItem.setData(DataCatalogTreeNode.catalog(connection.getName()));
-
-      List<RecordDefinitionRef> refs =
-          refsByCatalog.getOrDefault(connection.getName(), List.of()).stream()
-              .sorted(
-                  Comparator.comparing(
-                          (RecordDefinitionRef ref) ->
-                              ref.getKey() != null ? ref.getKey().getNamespace() : "",
-                          String.CASE_INSENSITIVE_ORDER)
-                      .thenComparing(
-                          ref -> ref.getKey() != null ? ref.getKey().getName() : "",
-                          String.CASE_INSENSITIVE_ORDER))
-              .toList();
-
-      for (RecordDefinitionRef ref : refs) {
-        TreeItem recordItem = new TreeItem(catalogItem, SWT.NONE);
-        recordItem.setText(displayRecordName(ref));
-        recordItem.setData(DataCatalogTreeNode.record(connection.getName(), ref));
-      }
-
-      catalogItem.setExpanded(true);
-      TreeMemory.getInstance().storeExpanded(TREE_KEY, catalogItem, true);
+      populateConnectionItems(catalogItem, connection.getName(), refs);
     }
   }
 
-  private static String displayRecordName(RecordDefinitionRef ref) {
-    if (ref.getKey() == null) {
-      return "";
+  private RecordDefinitionQuery buildRecordListQuery() {
+    RecordDefinitionQuery query = recordListFilter.toQuery();
+    if (!Utils.isEmpty(filterText)) {
+      query.setNameContains(filterText);
     }
-    return ref.getKey().toString();
+    return query;
+  }
+
+  private boolean shouldHideEmptyConnections() {
+    return recordListFilter != DataCatalogRecordListFilter.ALL || !Utils.isEmpty(filterText);
+  }
+
+  private void populateConnectionItems(
+      TreeItem catalogItem, String connectionName, List<RecordDefinitionRef> refs) {
+    if (groupByNamespace) {
+      for (Map.Entry<String, List<RecordDefinitionRef>> entry :
+          DataCatalogTreeBuilder.groupByNamespace(refs).entrySet()) {
+        if (entry.getValue().isEmpty()) {
+          continue;
+        }
+        TreeItem namespaceItem = new TreeItem(catalogItem, SWT.NONE);
+        namespaceItem.setText(entry.getKey());
+        namespaceItem.setData(DataCatalogTreeNode.namespace(connectionName, entry.getKey()));
+        for (RecordDefinitionRef ref : entry.getValue()) {
+          addRecordItem(namespaceItem, connectionName, ref);
+        }
+      }
+      return;
+    }
+
+    for (RecordDefinitionRef ref : refs) {
+      addRecordItem(catalogItem, connectionName, ref);
+    }
+  }
+
+  private void addRecordItem(TreeItem parent, String connectionName, RecordDefinitionRef ref) {
+    TreeItem recordItem = new TreeItem(parent, SWT.NONE);
+    recordItem.setText(DataCatalogTreeBuilder.displayRecordName(ref, groupByNamespace));
+    recordItem.setData(DataCatalogTreeNode.record(connectionName, ref));
   }
 
   private boolean trySelectRecord(String catalogConnectionName, String recordKey) {
@@ -403,15 +534,8 @@ public class DataCatalogPerspective implements IHopPerspective {
         return;
       }
 
-      List<TreeItem> itemsToSelect = new ArrayList<>();
-      for (TreeItem recordItem : catalogItem.getItems()) {
-        DataCatalogTreeNode recordNode = (DataCatalogTreeNode) recordItem.getData();
-        if (recordNode != null
-            && recordNode.getRecordKey() != null
-            && selectedRecordKeys.contains(recordNode.getRecordKey().toString())) {
-          itemsToSelect.add(recordItem);
-        }
-      }
+      List<TreeItem> itemsToSelect =
+          DataCatalogTreeNavigation.findRecordItems(catalogItem, selectedRecordKeys);
 
       if (!itemsToSelect.isEmpty()) {
         tree.setSelection(itemsToSelect.toArray(new TreeItem[0]));

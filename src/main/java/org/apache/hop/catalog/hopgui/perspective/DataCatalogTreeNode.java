@@ -26,26 +26,33 @@ public final class DataCatalogTreeNode {
 
   public enum Type {
     CATALOG,
+    NAMESPACE,
     RECORD
   }
 
   private final Type type;
   private final String catalogConnectionName;
+  private final String namespace;
   private final RecordDefinitionKey recordKey;
 
   private DataCatalogTreeNode(
-      Type type, String catalogConnectionName, RecordDefinitionKey recordKey) {
+      Type type, String catalogConnectionName, String namespace, RecordDefinitionKey recordKey) {
     this.type = type;
     this.catalogConnectionName = catalogConnectionName;
+    this.namespace = namespace;
     this.recordKey = recordKey;
   }
 
   public static DataCatalogTreeNode catalog(String connectionName) {
-    return new DataCatalogTreeNode(Type.CATALOG, connectionName, null);
+    return new DataCatalogTreeNode(Type.CATALOG, connectionName, null, null);
+  }
+
+  public static DataCatalogTreeNode namespace(String connectionName, String namespace) {
+    return new DataCatalogTreeNode(Type.NAMESPACE, connectionName, namespace, null);
   }
 
   public static DataCatalogTreeNode record(String connectionName, RecordDefinitionRef ref) {
-    return new DataCatalogTreeNode(Type.RECORD, connectionName, ref.getKey());
+    return new DataCatalogTreeNode(Type.RECORD, connectionName, null, ref.getKey());
   }
 
   public Type getType() {
@@ -54,6 +61,10 @@ public final class DataCatalogTreeNode {
 
   public String getCatalogConnectionName() {
     return catalogConnectionName;
+  }
+
+  public String getNamespace() {
+    return namespace;
   }
 
   public RecordDefinitionKey getRecordKey() {
