@@ -269,6 +269,24 @@ public class DvSatellite extends DvTableBase
       DvModelCheckOptions options,
       DataVaultModel model) {
     super.check(remarks, metadataProvider, variables, options, model);
+
+    if (!DvIntegrationSupport.relaxesSourceValidation(this)) {
+      if (Utils.isEmpty(recordSource)) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(PKG, "DvTableBase.CheckResult.NoRecordSource"),
+                this));
+      } else {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_OK,
+                BaseMessages.getString(
+                    PKG, "DvTableBase.CheckResult.HasRecordSource", recordSource),
+                this));
+      }
+    }
+
     if (Utils.isEmpty(hubName) && Utils.isEmpty(linkName)) {
       remarks.add(
           new CheckResult(
@@ -379,6 +397,47 @@ public class DvSatellite extends DvTableBase
           options != null ? options : DvModelCheckOptions.fastOnly();
       DvFieldMappingValidationSupport.validateSatelliteMappings(
           this, model, effectiveOptions, metadataProvider, variables, this, remarks);
+      DvFieldMappingValidationSupport.validateSatelliteRecordSourceFields(
+          this, model, effectiveOptions, metadataProvider, variables, this, remarks);
+      checkSatelliteHubRecordSourceConsistency(remarks, metadataProvider, variables, model);
+    }
+  }
+
+  private void checkSatelliteHubRecordSourceConsistency(
+      List<ICheckResult> remarks,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      DataVaultModel model) {
+    if (Utils.isEmpty(hubName) || Utils.isEmpty(recordSource) || model == null) {
+      return;
+    }
+    DvHub hub = model.findHub(hubName, variables, metadataProvider);
+    if (hub == null) {
+      return;
+    }
+    List<String> hubSources = hub.getRecordSources();
+    if (hubSources != null && !hubSources.isEmpty()) {
+      String resolvedSatelliteSource =
+          variables != null ? variables.resolve(recordSource) : recordSource;
+      boolean listed =
+          hubSources.stream()
+              .filter(s -> !Utils.isEmpty(s))
+              .anyMatch(
+                  s -> {
+                    String resolvedHubSource = variables != null ? variables.resolve(s) : s;
+                    return resolvedSatelliteSource.equals(resolvedHubSource);
+                  });
+      if (!listed) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_WARNING,
+                BaseMessages.getString(
+                    PKG,
+                    "DvSatellite.CheckResult.RecordSourceNotOnHub",
+                    recordSource,
+                    hubName),
+                this));
+      }
     }
   }
 
@@ -888,15 +947,10 @@ public class DvSatellite extends DvTableBase
         }
       }
 
-      // Record source column
-      String rsFieldName = "RECORD_SOURCE";
-      if (config != null && !Utils.isEmpty(config.getRecordSourceField())) {
-        rsFieldName = config.getRecordSourceField();
-      }
-      rsFieldName = variables.resolve(rsFieldName);
-      if (Utils.isEmpty(rsFieldName)) {
-        rsFieldName = "RECORD_SOURCE";
-      }
+      // Record source column (hub satellites inherit the parent hub column name when set)
+      String rsFieldName =
+          DvSourceFieldMappingSupport.resolveRecordSourceFieldNameForSatellite(
+              config, model, this, variables);
       String lengthString =
           (config != null && !Utils.isEmpty(config.getRecordSourceFieldLength()))
               ? config.getRecordSourceFieldLength()
@@ -2303,9 +2357,6 @@ public class DvSatellite extends DvTableBase
       DataVaultConfiguration config = model.getConfigurationOrDefault();
 
       String recordSourceField = "RECORD_SOURCE";
-      if (config != null && !Utils.isEmpty(config.getRecordSourceField())) {
-        recordSourceField = config.getRecordSourceField();
-      }
 
       // Target DB
       DatabaseMeta targetDatabaseMeta = null;
@@ -2351,6 +2402,9 @@ public class DvSatellite extends DvTableBase
         if (linkedHub == null) {
           throw new HopException("Please link satellite " + sat.getName() + " to a hub");
         }
+        recordSourceField =
+            DvSourceFieldMappingSupport.resolveRecordSourceFieldNameForSatellite(
+                config, model, sat, variables);
         hashKeyFieldName = linkedHub.getHashKeyFieldName();
         if (Utils.isEmpty(hashKeyFieldName)) {
           if (!Utils.isEmpty(linkedHub.getBusinessKeys())) {
@@ -2369,6 +2423,9 @@ public class DvSatellite extends DvTableBase
         if (linkedLink == null) {
           throw new HopException("Please link satellite " + sat.getName() + " to a link");
         }
+        recordSourceField =
+            DvSourceFieldMappingSupport.resolveRecordSourceFieldNameForSatellite(
+                config, model, sat, variables);
         hashKeyFieldName = variables.resolve(linkedLink.getLinkHashKeyFieldName());
         if (Utils.isEmpty(hashKeyFieldName)) {
           hashKeyFieldName = linkedLink.getName() + "_LK";

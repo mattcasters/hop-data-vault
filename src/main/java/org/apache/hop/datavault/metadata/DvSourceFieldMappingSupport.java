@@ -74,6 +74,34 @@ public final class DvSourceFieldMappingSupport {
     return fieldName;
   }
 
+  /**
+   * Resolves the record source column name for a satellite pipeline, using the parent hub or link
+   * override when present (hub satellites alias the indicator with the hub column name in source
+   * SQL).
+   */
+  public static String resolveRecordSourceFieldNameForSatellite(
+      DataVaultConfiguration configuration,
+      DataVaultModel model,
+      DvSatellite satellite,
+      IVariables variables)
+      throws HopException {
+    IDvTable fieldNameSource = satellite;
+    if (satellite != null && model != null) {
+      if (!Utils.isEmpty(satellite.getHubName())) {
+        DvHub hub = model.findHub(satellite.getHubName(), variables, null);
+        if (hub != null) {
+          fieldNameSource = hub;
+        }
+      } else if (!Utils.isEmpty(satellite.getLinkName())) {
+        DvLink link = model.findLink(satellite.getLinkName(), variables, null);
+        if (link != null) {
+          fieldNameSource = link;
+        }
+      }
+    }
+    return resolveRecordSourceFieldName(configuration, fieldNameSource, variables);
+  }
+
   public static String resolveRecordSourceValue(DataVaultSource recordSource) throws HopException {
     String sourceFieldName = recordSource.getSourceIndicatorField();
     if (StringUtils.isNotEmpty(sourceFieldName)) {

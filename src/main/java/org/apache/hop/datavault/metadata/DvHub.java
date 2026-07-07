@@ -176,6 +176,26 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
       DvModelCheckOptions options,
       DataVaultModel model) {
     super.check(remarks, metadataProvider, variables, options, model);
+
+    if (!DvIntegrationSupport.relaxesSourceValidation(this)) {
+      if (recordSources == null || recordSources.isEmpty()) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(PKG, "DvTableBase.CheckResult.NoRecordSource"),
+                this));
+      } else {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_OK,
+                BaseMessages.getString(
+                    PKG,
+                    "DvTableBase.CheckResult.HasRecordSources",
+                    String.join(", ", recordSources)),
+                this));
+      }
+    }
+
     if (Utils.isEmpty(businessKeys)) {
       remarks.add(
           new CheckResult(
@@ -243,6 +263,34 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
                         this));
               }
             }
+            if (!Utils.isEmpty(bk.getRecordSourceName())
+                && recordSources != null
+                && !recordSources.isEmpty()) {
+              String resolvedBkSource =
+                  variables != null
+                      ? variables.resolve(bk.getRecordSourceName())
+                      : bk.getRecordSourceName();
+              boolean listed =
+                  recordSources.stream()
+                      .filter(s -> !Utils.isEmpty(s))
+                      .anyMatch(
+                          s -> {
+                            String resolvedHubSource =
+                                variables != null ? variables.resolve(s) : s;
+                            return resolvedBkSource.equals(resolvedHubSource);
+                          });
+              if (!listed) {
+                remarks.add(
+                    new CheckResult(
+                        ICheckResult.TYPE_RESULT_ERROR,
+                        BaseMessages.getString(
+                            PKG,
+                            "DvHub.CheckResult.BusinessKeyRecordSourceNotListed",
+                            bk.getName(),
+                            bk.getRecordSourceName()),
+                        this));
+              }
+            }
           } catch (HopException e) {
             remarks.add(
                 new CheckResult(
@@ -293,6 +341,10 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         && metadataProvider != null
         && recordSources != null
         && options != null) {
+      DvModelCheckOptions effectiveOptions =
+          options != null ? options : DvModelCheckOptions.fastOnly();
+      DvFieldMappingValidationSupport.validateHubRecordSourceFields(
+          this, model, effectiveOptions, metadataProvider, variables, this, remarks);
       for (String recordSourceRef : recordSources) {
         if (Utils.isEmpty(recordSourceRef)) {
           continue;

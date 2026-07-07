@@ -263,6 +263,95 @@ public final class DvFieldMappingValidationSupport {
     }
   }
 
+  public static void validateHubRecordSourceFields(
+      DvHub hub,
+      DataVaultModel model,
+      DvModelCheckOptions options,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    if (hub == null || model == null || hub.getRecordSources() == null) {
+      return;
+    }
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
+    try {
+      DvSourceFieldMappingSupport.resolveRecordSourceFieldName(config, hub, variables);
+    } catch (HopException e) {
+      remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+      return;
+    }
+
+    for (String recordSourceRef : hub.getRecordSources()) {
+      if (Utils.isEmpty(recordSourceRef)) {
+        continue;
+      }
+      DataVaultSource recordSource;
+      try {
+        String resolvedRef = variables != null ? variables.resolve(recordSourceRef) : recordSourceRef;
+        recordSource =
+            org.apache.hop.datavault.catalog.DvSourceCatalogService.resolveSource(
+                resolvedRef, model, variables, metadataProvider);
+      } catch (HopException e) {
+        remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+        continue;
+      }
+      if (recordSource == null) {
+        continue;
+      }
+      validateRecordSourceIndicator(
+          recordSource,
+          DvTableType.HUB,
+          hub.getName(),
+          options,
+          metadataProvider,
+          variables,
+          checkSource,
+          remarks);
+    }
+  }
+
+  public static void validateSatelliteRecordSourceFields(
+      DvSatellite satellite,
+      DataVaultModel model,
+      DvModelCheckOptions options,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    if (satellite == null || model == null || Utils.isEmpty(satellite.getRecordSourceName())) {
+      return;
+    }
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
+    try {
+      DvSourceFieldMappingSupport.resolveRecordSourceFieldNameForSatellite(
+          config, model, satellite, variables);
+    } catch (HopException e) {
+      remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+      return;
+    }
+
+    DataVaultSource recordSource;
+    try {
+      recordSource = satellite.resolveRecordSource(variables, metadataProvider, model);
+    } catch (HopException e) {
+      remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), checkSource));
+      return;
+    }
+    if (recordSource == null) {
+      return;
+    }
+    validateRecordSourceIndicator(
+        recordSource,
+        DvTableType.SATELLITE,
+        satellite.getName(),
+        options,
+        metadataProvider,
+        variables,
+        checkSource,
+        remarks);
+  }
+
   public static void validateLinkRecordSourceFields(
       DvLink link,
       DataVaultModel model,
@@ -296,43 +385,62 @@ public final class DvFieldMappingValidationSupport {
       if (recordSource == null) {
         continue;
       }
+      validateRecordSourceIndicator(
+          recordSource,
+          DvTableType.LINK,
+          link.getName(),
+          options,
+          metadataProvider,
+          variables,
+          checkSource,
+          remarks);
+    }
+  }
 
-      String indicatorField = resolveName(recordSource.getSourceIndicatorField(), variables);
-      String staticIndicator = recordSource.getSourceIndicator();
-      if (Utils.isEmpty(indicatorField) && Utils.isEmpty(staticIndicator)) {
+  private static void validateRecordSourceIndicator(
+      DataVaultSource recordSource,
+      DvTableType tableType,
+      String tableName,
+      DvModelCheckOptions options,
+      IHopMetadataProvider metadataProvider,
+      IVariables variables,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    String indicatorField = resolveName(recordSource.getSourceIndicatorField(), variables);
+    String staticIndicator = recordSource.getSourceIndicator();
+    if (Utils.isEmpty(indicatorField) && Utils.isEmpty(staticIndicator)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DvSourceFieldMapping.MissingSourceIndicator",
+                  recordSource.getName(),
+                  tableType,
+                  tableName),
+              checkSource));
+      return;
+    }
+
+    if (!Utils.isEmpty(indicatorField)) {
+      ResolvedSourceFields resolved =
+          resolveSourceFields(
+              recordSource, options, metadataProvider, variables, checkSource, remarks);
+      if (resolved == null) {
+        return;
+      }
+      if (!resolved.fields.containsKey(indicatorField)) {
         remarks.add(
             new CheckResult(
                 ICheckResult.TYPE_RESULT_ERROR,
                 BaseMessages.getString(
                     PKG,
-                    "DvSourceFieldMapping.MissingSourceIndicator",
+                    "DvSourceFieldMapping.SourceIndicatorFieldMissing",
+                    indicatorField,
                     recordSource.getName(),
-                    DvTableType.LINK,
-                    link.getName()),
+                    tableType,
+                    tableName),
                 checkSource));
-        continue;
-      }
-
-      if (!Utils.isEmpty(indicatorField)) {
-        ResolvedSourceFields resolved =
-            resolveSourceFields(
-                recordSource, options, metadataProvider, variables, checkSource, remarks);
-        if (resolved == null) {
-          continue;
-        }
-        if (!resolved.fields.containsKey(indicatorField)) {
-          remarks.add(
-              new CheckResult(
-                  ICheckResult.TYPE_RESULT_ERROR,
-                  BaseMessages.getString(
-                      PKG,
-                      "DvSourceFieldMapping.SourceIndicatorFieldMissing",
-                      indicatorField,
-                      recordSource.getName(),
-                      DvTableType.LINK,
-                      link.getName()),
-                  checkSource));
-        }
       }
     }
   }
