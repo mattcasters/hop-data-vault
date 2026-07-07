@@ -44,10 +44,12 @@ class PipelineDatasetResolverTest {
 
   @Test
   void resolvesTableInputAndOutputTransforms() {
+    Variables variables = new Variables();
+    variables.setVariable("PROJECT_HOME", "/workspace/retail-example");
+
     ExecutionMapDocument document = new ExecutionMapDocument();
     ExecutionMapContext context =
-        new ExecutionMapContext(
-            document, new Variables(), null, CrawlOptions.builder().build());
+        new ExecutionMapContext(document, variables, null, CrawlOptions.builder().build());
 
     ExecutionMapNode modelNode = new ExecutionMapNode();
     modelNode.setNodeType(ExecutionMapNodeType.DATA_VAULT_MODEL);
@@ -56,7 +58,7 @@ class PipelineDatasetResolverTest {
 
     ExecutionMapNode pipelineNode = new ExecutionMapNode();
     pipelineNode.setNodeType(ExecutionMapNodeType.GENERATED_PIPELINE);
-    pipelineNode.setName("load");
+    pipelineNode.setName("hub-hub_customer-E2E-customer-hub");
     pipelineNode.setParentNodeId(modelNode.getId());
     context.addNode(pipelineNode);
 
@@ -108,8 +110,12 @@ class PipelineDatasetResolverTest {
             .filter(node -> node.getNodeType() == ExecutionMapNodeType.SOURCE_DATASET)
             .findFirst()
             .orElseThrow();
-    assertEquals("dataset://CRM::customer", sourceDataset.getPath());
-    assertEquals("DATABASE", sourceDataset.getProperty("datasetKind"));
+    assertEquals(
+        "dataset://hop/retail-example/sources::E2E-customer-hub", sourceDataset.getPath());
+    assertEquals("DV_SOURCE", sourceDataset.getProperty("datasetKind"));
+    assertEquals(
+        "hop/retail-example/sources",
+        sourceDataset.getProperty("datasetNamespace"));
     assertEquals(modelNode.getId(), sourceDataset.getParentNodeId());
 
     ExecutionMapNode targetDataset =
@@ -117,6 +123,8 @@ class PipelineDatasetResolverTest {
             .filter(node -> node.getNodeType() == ExecutionMapNodeType.TARGET_DATASET)
             .findFirst()
             .orElseThrow();
+    assertEquals(
+        "dataset://hop/retail-example/models/retail-360::h_customer", targetDataset.getPath());
     assertEquals(modelNode.getId(), targetDataset.getParentNodeId());
 
     assertTrue(

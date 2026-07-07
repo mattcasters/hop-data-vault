@@ -337,6 +337,25 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
+    <action>
+      <rootArtifactFilename/>
+      <outputHemFile>${PROJECT_HOME}/execution-maps/run-retail-initial.hem</outputHemFile>
+      <includeGeneratedPipelines>Y</includeGeneratedPipelines>
+      <includeDatasetNodes>Y</includeDatasetNodes>
+      <captureSnapshots>Y</captureSnapshots>
+      <followNestedWorkflows>Y</followNestedWorkflows>
+      <followNestedPipelines>Y</followNestedPipelines>
+      <includeWorkflowActions>N</includeWorkflowActions>
+      <includePipelineTransforms>N</includePipelineTransforms>
+      <exportLineage>N</exportLineage>
+      <name>Generate execution map</name>
+      <type>GENERATE_EXECUTION_MAP</type>
+      <attributes/>
+      <xloc>848</xloc>
+      <yloc>352</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
   </actions>
   <hops>
     <hop>
@@ -433,6 +452,13 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
     <hop>
       <from>Begin Vault Update</from>
       <to>update-retail-dv-bv-dm</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>End Vault Update</from>
+      <to>Generate execution map</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

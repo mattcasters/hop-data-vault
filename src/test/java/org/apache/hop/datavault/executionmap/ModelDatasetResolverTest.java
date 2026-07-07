@@ -74,7 +74,7 @@ class ModelDatasetResolverTest {
         dataset.getPath());
     assertEquals(
         "hop/retail-example/dimensional/retail-conformed-dims::d_customer", dataset.getName());
-    assertEquals("DATABASE", dataset.getProperty("datasetKind"));
+    assertEquals("DIM_TABLE", dataset.getProperty("datasetKind"));
     assertEquals("Vault", dataset.getProperty(DatasetNodeSupport.PROPERTY_TARGET_DATABASE));
     assertEquals(
         "hop/retail-example/dimensional/retail-conformed-dims",

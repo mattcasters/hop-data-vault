@@ -20,6 +20,7 @@ package org.apache.hop.datavault.executionmap;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.hop.catalog.model.RecordDefinitionType;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.catalog.BvCatalogNamespaces;
@@ -31,10 +32,12 @@ import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.dimensional.DmTableType;
 import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapEdgeType;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
@@ -68,7 +71,7 @@ public final class ModelDatasetResolver {
           catalogNamespace,
           table.getName(),
           table.getName(),
-          "DATABASE",
+          dvTableKind(table),
           targetDatabase,
           catalogConnectionName);
       addDvTableSources(context, modelNodeId, model, table, catalogConnectionName);
@@ -105,7 +108,7 @@ public final class ModelDatasetResolver {
           catalogNamespace,
           table.getName(),
           table.getName(),
-          "DATABASE",
+          RecordDefinitionType.BV_TABLE.name(),
           targetDatabase,
           catalogConnectionName);
     }
@@ -133,7 +136,7 @@ public final class ModelDatasetResolver {
           catalogNamespace,
           table.getName(),
           table.getName(),
-          "DATABASE",
+          dmTableKind(table),
           targetDatabase,
           catalogConnectionName);
     }
@@ -283,6 +286,35 @@ public final class ModelDatasetResolver {
     }
   }
 
+  private static String dvTableKind(IDvTable table) {
+    if (table == null || table.getTableType() == null) {
+      return RecordDefinitionType.PHYSICAL_TABLE.name();
+    }
+    return switch (table.getTableType()) {
+      case HUB -> RecordDefinitionType.DV_HUB.name();
+      case LINK -> RecordDefinitionType.DV_LINK.name();
+      case SATELLITE -> RecordDefinitionType.DV_SATELLITE.name();
+      default -> RecordDefinitionType.PHYSICAL_TABLE.name();
+    };
+  }
+
+  private static String dmTableKind(IDmTable table) {
+    if (table == null || table.getTableType() == null) {
+      return RecordDefinitionType.PHYSICAL_TABLE.name();
+    }
+    DmTableType tableType = table.getTableType();
+    return switch (tableType) {
+      case DIMENSION, DIMENSION_ALIAS, JUNK_DIMENSION, RANGE_DIMENSION, BRIDGE ->
+          RecordDefinitionType.DIM_TABLE.name();
+      case FACT,
+              FACTLESS_FACT,
+              PERIODIC_SNAPSHOT_FACT,
+              ACCUMULATING_SNAPSHOT_FACT,
+              AGGREGATE_FACT ->
+          RecordDefinitionType.FACT_TABLE.name();
+    };
+  }
+
   private static void addDataVaultSourceDataset(
       ExecutionMapContext context,
       String modelNodeId,
@@ -293,8 +325,7 @@ public final class ModelDatasetResolver {
     if (source == null || Utils.isEmpty(source.getName())) {
       return;
     }
-    String kind =
-        source.getSourceType() != null ? source.getSourceType().name() : "DV_SOURCE";
+    String kind = RecordDefinitionType.DV_SOURCE.name();
     String datasetNodeId =
         DatasetNodeSupport.getOrCreateDatasetNode(
             context,

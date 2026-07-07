@@ -129,8 +129,8 @@ public final class ReferencedObjectResolver {
       String modelNodeId =
           addModelNode(context, fromNodeId, ExecutionMapNodeType.DATA_VAULT_MODEL, dvModel);
       context.addEdge(ExecutionMapEdgeType.REFERENCES, fromNodeId, modelNodeId, description);
-      ModelPipelineResolver.resolveDataVaultModel(context, modelNodeId, dvModel);
       ModelDatasetResolver.resolveDataVaultModel(context, modelNodeId, dvModel);
+      ModelPipelineResolver.resolveDataVaultModel(context, modelNodeId, dvModel);
       return;
     }
     if (loaded instanceof BusinessVaultModel bvModel) {
@@ -155,16 +155,16 @@ public final class ReferencedObjectResolver {
                 + "': "
                 + e.getMessage());
       }
-      ModelPipelineResolver.resolveBusinessVaultModel(context, modelNodeId, bvModel, dvModel);
       ModelDatasetResolver.resolveBusinessVaultModel(context, modelNodeId, bvModel, dvModel);
+      ModelPipelineResolver.resolveBusinessVaultModel(context, modelNodeId, bvModel, dvModel);
       return;
     }
     if (loaded instanceof DimensionalModel dmModel) {
       String modelNodeId =
           addModelNode(context, fromNodeId, ExecutionMapNodeType.DIMENSIONAL_MODEL, dmModel);
       context.addEdge(ExecutionMapEdgeType.REFERENCES, fromNodeId, modelNodeId, description);
-      ModelPipelineResolver.resolveDimensionalModel(context, modelNodeId, dmModel);
       ModelDatasetResolver.resolveDimensionalModel(context, modelNodeId, dmModel);
+      ModelPipelineResolver.resolveDimensionalModel(context, modelNodeId, dmModel);
       return;
     }
     if (loaded instanceof WorkflowMeta workflowMeta) {

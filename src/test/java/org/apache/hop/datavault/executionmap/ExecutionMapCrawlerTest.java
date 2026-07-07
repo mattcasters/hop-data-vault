@@ -18,6 +18,7 @@
 
 package org.apache.hop.datavault.executionmap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -162,6 +163,33 @@ class ExecutionMapCrawlerTest {
                         && (node.getNodeType() == ExecutionMapNodeType.SOURCE_DATASET
                             || node.getNodeType() == ExecutionMapNodeType.TARGET_DATASET));
     assertTrue(hasDatasetNode, "Expected dataset nodes when generated pipelines are included");
+
+    boolean hasConnectionBackedDataset =
+        document.getNodesOrEmpty().stream()
+            .anyMatch(
+                node ->
+                    node != null
+                        && (node.getNodeType() == ExecutionMapNodeType.SOURCE_DATASET
+                            || node.getNodeType() == ExecutionMapNodeType.TARGET_DATASET)
+                        && "Vault".equals(node.getProperty("datasetNamespace")));
+    assertFalse(
+        hasConnectionBackedDataset,
+        "Generated pipeline datasets should use catalog namespaces, not connection names");
+
+    ExecutionMapNode hubCustomer =
+        document.getNodesOrEmpty().stream()
+            .filter(
+                node ->
+                    node != null
+                        && node.getNodeType() == ExecutionMapNodeType.TARGET_DATASET
+                        && "hub_customer".equals(node.getProperty("datasetName")))
+            .findFirst()
+            .orElse(null);
+    assertNotNull(hubCustomer, "Expected catalog-backed hub_customer target dataset");
+    assertEquals(
+        "hop/retail-example/models/retail-360",
+        hubCustomer.getProperty("datasetNamespace"));
+    assertEquals("DV_HUB", hubCustomer.getProperty("datasetKind"));
   }
 
   private static Variables retailVariables() {

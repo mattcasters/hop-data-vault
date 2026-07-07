@@ -74,13 +74,14 @@ public final class PipelineDatasetResolver {
       return;
     }
     String datasetNodeId =
-        DatasetNodeSupport.getOrCreateDatasetNode(
+        resolveDatasetNodeId(
             context,
+            originModelNodeId,
+            pipelineNodeId,
             ExecutionMapNodeType.SOURCE_DATASET,
             connection,
             tableName,
-            "DATABASE",
-            pipelineNodeId);
+            transformName);
     if (!Utils.isEmpty(datasetNodeId)) {
       context.addEdge(ExecutionMapEdgeType.READS_FROM, datasetNodeId, pipelineNodeId, transformName);
       DatasetNodeSupport.linkDatasetToModel(
@@ -104,18 +105,45 @@ public final class PipelineDatasetResolver {
       return;
     }
     String datasetNodeId =
-        DatasetNodeSupport.getOrCreateDatasetNode(
+        resolveDatasetNodeId(
             context,
+            originModelNodeId,
+            pipelineNodeId,
             ExecutionMapNodeType.TARGET_DATASET,
             connection,
             tableName,
-            "DATABASE",
-            pipelineNodeId);
+            transformName);
     if (!Utils.isEmpty(datasetNodeId)) {
       context.addEdge(ExecutionMapEdgeType.WRITES_TO, pipelineNodeId, datasetNodeId, transformName);
       DatasetNodeSupport.linkDatasetToModel(
           context, originModelNodeId, datasetNodeId, transformName);
     }
+  }
+
+  private static String resolveDatasetNodeId(
+      ExecutionMapContext context,
+      String originModelNodeId,
+      String pipelineNodeId,
+      ExecutionMapNodeType nodeType,
+      String connection,
+      String tableName,
+      String transformName) {
+    if (!Utils.isEmpty(originModelNodeId)) {
+      String catalogNodeId =
+          PipelineDatasetCatalogResolver.resolveDatasetNodeId(
+              context,
+              originModelNodeId,
+              pipelineNodeId,
+              nodeType,
+              connection,
+              tableName,
+              transformName);
+      if (!Utils.isEmpty(catalogNodeId)) {
+        return catalogNodeId;
+      }
+    }
+    return DatasetNodeSupport.getOrCreateDatasetNode(
+        context, nodeType, connection, tableName, "DATABASE", pipelineNodeId);
   }
 
   private static String extractTableName(TableInputMeta tableInput, String transformName) {
