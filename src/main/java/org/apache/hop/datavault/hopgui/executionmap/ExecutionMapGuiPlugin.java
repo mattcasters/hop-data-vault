@@ -105,7 +105,7 @@ public class ExecutionMapGuiPlugin {
   }
 
   @GuiContextAction(
-      id = "workflow-action-execution-map",
+      id = "workflow-zzz-action-execution-map",
       parentId = HopGuiWorkflowActionContext.CONTEXT_ID,
       type = GuiActionType.Modify,
       name = "i18n::ExecutionMapGuiPlugin.SubRoot.Action.Name",
@@ -140,7 +140,7 @@ public class ExecutionMapGuiPlugin {
   }
 
   @GuiContextAction(
-      id = "pipeline-transform-execution-map",
+      id = "pipeline-zzz-transform-execution-map",
       parentId = HopGuiPipelineTransformContext.CONTEXT_ID,
       type = GuiActionType.Modify,
       name = "i18n::ExecutionMapGuiPlugin.SubRoot.Action.Name",

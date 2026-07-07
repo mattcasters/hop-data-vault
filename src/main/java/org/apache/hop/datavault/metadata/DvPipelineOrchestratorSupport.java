@@ -28,6 +28,8 @@ import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
 import org.apache.hop.datavault.metrics.DvUpdateMetricsConstants;
 import org.apache.hop.datavault.metrics.LoadRunPublishSummary;
 import org.apache.hop.datavault.metrics.VaultUpdateExecutionSupport;
+import org.apache.hop.datavault.metrics.live.UpdateRunLiveMonitor;
+import org.apache.hop.datavault.metrics.live.UpdateRunLiveRunContext;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.exception.HopException;
@@ -223,6 +225,33 @@ public final class DvPipelineOrchestratorSupport {
       IVariables variables,
       IHopMetadataProvider metadataProvider)
       throws HopException {
+    return runOrchestrator(
+        orchestrator,
+        runConfiguration,
+        logLevel,
+        metricsOutputFolder,
+        metricsPublishContext,
+        null,
+        null,
+        parent,
+        parentWorkflow,
+        variables,
+        metadataProvider);
+  }
+
+  public static Result runOrchestrator(
+      PipelineMeta orchestrator,
+      String runConfiguration,
+      LogLevel logLevel,
+      String metricsOutputFolder,
+      DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext,
+      String stagingFolder,
+      String modelFilename,
+      ILoggingObject parent,
+      IWorkflowEngine<WorkflowMeta> parentWorkflow,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
     String modelName = resolveOrchestratorModelName(orchestrator);
     String metricsRunId = initializeMetricsRun(variables, modelName, metricsPublishContext);
 
@@ -235,8 +264,25 @@ public final class DvPipelineOrchestratorSupport {
     }
     engine.setParent(parent);
     engine.setParentWorkflow(parentWorkflow);
-    engine.execute();
-    engine.waitUntilFinished();
+
+    UpdateRunLiveRunContext liveContext =
+        UpdateRunLiveRunContext.from(
+            metricsRunId,
+            modelName,
+            modelFilename,
+            stagingFolder,
+            parent,
+            parentWorkflow,
+            logLevel != null ? logLevel : parent != null ? parent.getLogLevel() : null);
+    UpdateRunLiveMonitor monitor = UpdateRunLiveMonitor.start(liveContext, engine);
+    try {
+      engine.execute();
+      engine.waitUntilFinished();
+    } finally {
+      if (monitor != null) {
+        monitor.close();
+      }
+    }
 
     Result orchestratorResult = engine.getResult();
     if (orchestratorResult == null) {

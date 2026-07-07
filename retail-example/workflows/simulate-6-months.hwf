@@ -51,7 +51,7 @@
       <attributes_hac/>
     </action>
     <action>
-      <filename>${PROJECT_HOME}/pipelines/update-6-times.hpl</filename>
+      <filename>${PROJECT_HOME}/pipelines/update-n-times.hpl</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <clear_rows>N</clear_rows>
@@ -69,7 +69,7 @@
         <pass_all_parameters>Y</pass_all_parameters>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-6-times</name>
+      <name>update-n-times</name>
       <description/>
       <type>PIPELINE</type>
       <attributes/>
@@ -89,7 +89,7 @@
     </hop>
     <hop>
       <from>run-retail-initial</from>
-      <to>update-6-times</to>
+      <to>update-n-times</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

@@ -89,6 +89,7 @@ public final class BvScd2PipelineSupport {
   private static final int SPACING_WIDTH = 160;
   private static final int LEG_SPACING_HEIGHT = 96;
   static final String SOURCE_INDICATOR_FIELD = "_bv_source";
+  static final String RECORD_SOURCE_CONCAT_SEPARATOR = ", ";
   private static final String REPEAT_FIELD_PREFIX = "_r_";
 
   private BvScd2PipelineSupport() {}
@@ -1206,7 +1207,8 @@ public final class BvScd2PipelineSupport {
     Aggregation rsAgg = new Aggregation();
     rsAgg.setSubject(ctx.recordSourceField);
     rsAgg.setField(ctx.recordSourceField);
-    rsAgg.setTypeLabel("CONCAT_COMMA");
+    rsAgg.setTypeLabel("CONCAT_DISTINCT");
+    rsAgg.setValue(RECORD_SOURCE_CONCAT_SEPARATOR);
     aggregations.add(rsAgg);
 
     Aggregation tsAgg = new Aggregation();

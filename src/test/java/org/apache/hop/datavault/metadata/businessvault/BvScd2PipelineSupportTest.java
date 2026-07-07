@@ -253,7 +253,10 @@ class BvScd2PipelineSupportTest {
     assertEquals(4, groupByMeta.getAggregations().size());
     assertEquals("MIN", groupByMeta.getAggregations().get(0).getTypeLabel());
     assertEquals("MAX", groupByMeta.getAggregations().get(1).getTypeLabel());
-    assertEquals("CONCAT_COMMA", groupByMeta.getAggregations().get(2).getTypeLabel());
+    assertEquals("CONCAT_DISTINCT", groupByMeta.getAggregations().get(2).getTypeLabel());
+    assertEquals(
+        BvScd2PipelineSupport.RECORD_SOURCE_CONCAT_SEPARATOR,
+        groupByMeta.getAggregations().get(2).getValue());
     assertEquals("MAX", groupByMeta.getAggregations().get(3).getTypeLabel());
     assertEquals("valid_from", groupByMeta.getAggregations().get(0).getSubject());
     assertEquals("valid_to", groupByMeta.getAggregations().get(1).getSubject());

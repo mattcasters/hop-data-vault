@@ -32,6 +32,7 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.datavault.metrics.DvUpdateMetricsCollector;
 import org.apache.hop.datavault.metrics.LoadRunMetricsPipelineSupport;
+import org.apache.hop.datavault.metrics.live.UpdateRunLiveRunContext;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.engine.IWorkflowEngine;
 
@@ -141,6 +142,8 @@ public final class DvModelBulkUpdateExecutionSupport {
               pipelineLogLevel != null ? pipelineLogLevel : parent.getLogLevel(),
               metricsOutputFolder,
               metricsPublishContext,
+              stagingFolder,
+              null,
               parent,
               parentWorkflow,
               variables,
@@ -203,6 +206,8 @@ public final class DvModelBulkUpdateExecutionSupport {
         targetDbName,
         null,
         null,
+        null,
+        null,
         success,
         totalErrors,
         variables,
@@ -223,6 +228,49 @@ public final class DvModelBulkUpdateExecutionSupport {
       String targetDbName,
       String metricsOutputFolder,
       DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext,
+      boolean success,
+      int totalErrors,
+      IVariables variables,
+      ILoggingObject parent,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
+    return executeStagingFileUpdate(
+        result,
+        modelName,
+        pipelineConfig,
+        allPipelineMetas,
+        realRunConfig,
+        realWorkflowRunConfig,
+        pipelineLogLevel,
+        pipelineStagingFolder,
+        targetDatabase,
+        targetDbName,
+        metricsOutputFolder,
+        metricsPublishContext,
+        null,
+        null,
+        success,
+        totalErrors,
+        variables,
+        parent,
+        metadataProvider);
+  }
+
+  public static ExecutionOutcome executeStagingFileUpdate(
+      Result result,
+      String modelName,
+      IDvTargetLoadConfiguration pipelineConfig,
+      List<PipelineMeta> allPipelineMetas,
+      String realRunConfig,
+      String realWorkflowRunConfig,
+      LogLevel pipelineLogLevel,
+      String pipelineStagingFolder,
+      DatabaseMeta targetDatabase,
+      String targetDbName,
+      String metricsOutputFolder,
+      DvUpdateMetricsCollector.LoadRunPublishContext metricsPublishContext,
+      String modelFilename,
+      IWorkflowEngine<WorkflowMeta> parentWorkflow,
       boolean success,
       int totalErrors,
       IVariables variables,
@@ -256,18 +304,17 @@ public final class DvModelBulkUpdateExecutionSupport {
             "DvModelBulkUpdateExecutionSupport.Log.StagingBulkDataFolder",
             bulkStagingFolderResolved));
 
-    String metricsRunId = null;
     boolean metricsCollectionEnabled =
         LoadRunMetricsPipelineSupport.isMetricsCollectionEnabled(
             metricsOutputFolder, metricsPublishContext);
+    String metricsRunId =
+        DvPipelineOrchestratorSupport.initializeMetricsRun(
+            variables, modelName, metricsPublishContext);
 
     try {
       DvPipelineOrchestratorSupport.prepareStagingFolder(
           pipelineStagingFolderResolved, variables);
       if (metricsCollectionEnabled) {
-        metricsRunId =
-            DvPipelineOrchestratorSupport.initializeMetricsRun(
-                variables, modelName, metricsPublishContext);
         LoadRunMetricsPipelineSupport.enableTransformPerformanceCapture(allPipelineMetas);
       }
       DvPipelineOrchestratorSupport.stagePipelines(
@@ -306,20 +353,30 @@ public final class DvModelBulkUpdateExecutionSupport {
               masterWorkflow.getName(),
               descriptors.size()));
 
+      UpdateRunLiveRunContext liveContext =
+          UpdateRunLiveRunContext.from(
+              metricsRunId,
+              modelName,
+              modelFilename,
+              pipelineStagingFolderResolved + " | " + bulkStagingFolderResolved,
+              parent,
+              parentWorkflow,
+              pipelineLogLevel != null ? pipelineLogLevel : parent.getLogLevel());
+
       DvUpdateWorkflowSupport.MasterWorkflowRunOutcome workflowOutcome =
           DvUpdateWorkflowSupport.runMasterWorkflowWithLogChannel(
               masterWorkflow,
               realWorkflowRunConfig,
               pipelineLogLevel != null ? pipelineLogLevel : parent.getLogLevel(),
               parent,
+              liveContext,
               variables,
               metadataProvider);
       Result workflowResult = workflowOutcome.result();
 
       DvPipelineOrchestratorSupport.mergeResult(result, workflowResult);
 
-      if (metricsRunId != null) {
-        DvPipelineOrchestratorSupport.finalizeMetricsRun(
+      DvPipelineOrchestratorSupport.finalizeMetricsRun(
             log,
             metricsRunId,
             modelName,
@@ -330,7 +387,6 @@ public final class DvModelBulkUpdateExecutionSupport {
             metadataProvider,
             metricsPublishContext,
             workflowResult);
-      }
 
       if (workflowResult.getNrErrors() > 0 || !workflowResult.getResult()) {
         log.logError(

@@ -153,6 +153,20 @@ Always align JVM `-Xmx` with these choices. Watch Hop logging and OS metrics (CP
 
 While a Data Vault Update workflow is running, you can drill into live pipeline execution without waiting for the workflow to finish.
 
+### Live stall badge on the workflow action
+
+When a **Data Vault / Business Vault / Dimensional Update** action is executing, Hop paints a small status icon at the **bottom-right** of the action:
+
+| Icon | Meaning |
+|------|---------|
+| Clock | Update running normally |
+| Warning | No transform progress for about a minute (possible slow query, sort, or backpressure) |
+| Failure | Errors detected in an active child pipeline |
+
+Hover the icon for a short tooltip such as *Updating table d_customer of model retail-360*. Click it to open the **Live model update** dialog with per-pipeline transform metrics (rows in/out, buffer sizes, stall seconds) and a **Copy diagnostics** button for issue reports.
+
+The action log also prints the **resolved staging folder** at orchestrator start (default `${java.io.tmpdir}/dv2/<model-name>/`, not necessarily `/tmp`) and repeats stall warnings about once per minute while a pipeline is quiet.
+
 ### Open execution from the workflow action
 
 1. In the workflow execution view, click the running **Data Vault Update** action.

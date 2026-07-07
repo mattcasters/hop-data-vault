@@ -67,6 +67,8 @@ public class DataVaultConfigOptionPlugin
       "10080-default-pipeline-run-configuration";
   private static final String WIDGET_ID_DEFAULT_WORKFLOW_RUN_CONFIGURATION =
       "10090-default-workflow-run-configuration";
+  private static final String WIDGET_ID_LIVE_UPDATE_POLL_INTERVAL_SECONDS =
+      "10100-live-update-poll-interval-seconds";
 
   @GuiWidgetElement(
       id = WIDGET_ID_DRAW_HASH_KEYS_IN_MODEL,
@@ -153,6 +155,19 @@ public class DataVaultConfigOptionPlugin
       label = "i18n::DataVaultConfigOptionPlugin.DefaultWorkflowRunConfiguration.Message")
   private String defaultWorkflowRunConfiguration;
 
+  @GuiWidgetElement(
+      id = WIDGET_ID_LIVE_UPDATE_POLL_INTERVAL_SECONDS,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.TEXT,
+      variables = false,
+      label = "i18n::DataVaultConfigOptionPlugin.LiveUpdatePollIntervalSeconds.Message",
+      toolTip = "i18n::DataVaultConfigOptionPlugin.LiveUpdatePollIntervalSeconds.ToolTip")
+  @CommandLine.Option(
+      names = {"--dv-live-update-poll-interval-seconds"},
+      description =
+          "Seconds between live model-update metric refreshes in the Hop GUI (default 10)")
+  private String liveUpdatePollIntervalSeconds;
+
   public static DataVaultConfigOptionPlugin getInstance() {
     DataVaultConfigOptionPlugin instance = new DataVaultConfigOptionPlugin();
     DataVaultConfig config = DataVaultConfigSingleton.getConfig();
@@ -167,6 +182,8 @@ public class DataVaultConfigOptionPlugin
     instance.dmDefaultCurrentFlagField = defaults.getCurrentFlagField();
     instance.defaultPipelineRunConfiguration = config.getDefaultPipelineRunConfiguration();
     instance.defaultWorkflowRunConfiguration = config.getDefaultWorkflowRunConfiguration();
+    instance.liveUpdatePollIntervalSeconds =
+        Integer.toString(config.getLiveUpdatePollIntervalSeconds());
     return instance;
   }
 
@@ -190,6 +207,15 @@ public class DataVaultConfigOptionPlugin
         config.setMaxUndoOperations(parseMaxUndoOperations(maxUndoOperations));
         log.logBasic(
             "Set maximum Data Vault undo/redo operations to " + config.getMaxUndoOperations());
+        changed = true;
+      }
+      if (liveUpdatePollIntervalSeconds != null) {
+        config.setLiveUpdatePollIntervalSeconds(
+            parseLiveUpdatePollIntervalSeconds(liveUpdatePollIntervalSeconds));
+        log.logBasic(
+            "Set live model-update poll interval to "
+                + config.getLiveUpdatePollIntervalSeconds()
+                + " seconds");
         changed = true;
       }
       if (changed) {
@@ -259,6 +285,11 @@ public class DataVaultConfigOptionPlugin
           defaultWorkflowRunConfiguration = getTextValue(control);
           config.setDefaultWorkflowRunConfiguration(defaultWorkflowRunConfiguration);
           break;
+        case WIDGET_ID_LIVE_UPDATE_POLL_INTERVAL_SECONDS:
+          liveUpdatePollIntervalSeconds = getTextValue(control);
+          config.setLiveUpdatePollIntervalSeconds(
+              parseLiveUpdatePollIntervalSeconds(liveUpdatePollIntervalSeconds));
+          break;
         default:
           break;
       }
@@ -299,6 +330,18 @@ public class DataVaultConfigOptionPlugin
       return Math.max(1, parsed);
     } catch (NumberFormatException e) {
       return DataVaultConfig.DEFAULT_MAX_UNDO_OPERATIONS;
+    }
+  }
+
+  private static int parseLiveUpdatePollIntervalSeconds(String value) {
+    if (value == null || value.isBlank()) {
+      return DataVaultConfig.DEFAULT_LIVE_UPDATE_POLL_INTERVAL_SECONDS;
+    }
+    try {
+      int parsed = Integer.parseInt(value.trim());
+      return Math.max(1, parsed);
+    } catch (NumberFormatException e) {
+      return DataVaultConfig.DEFAULT_LIVE_UPDATE_POLL_INTERVAL_SECONDS;
     }
   }
 }

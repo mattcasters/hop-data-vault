@@ -943,7 +943,7 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       tooltip = "i18n::HopGuiDimensionalModelGraph.AiHelp.Tooltip",
       image = "datavault-ai-help.svg",
       category = "Help",
-      categoryOrder = "1")
+      categoryOrder = "2")
   public void openAiAdvisorContext(HopGuiDimensionalContext context) {
     HopGuiDimensionalModelGraph graph = context.getDimensionalGraph();
     if (graph != null) {

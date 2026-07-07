@@ -16,7 +16,7 @@
   </info>
   <transform>
     <type>RowGenerator</type>
-    <name>6 months</name>
+    <name>15 months</name>
     <never_ending>N</never_ending>
     <interval_in_ms>5000</interval_in_ms>
     <row_time_field>now</row_time_field>
@@ -77,7 +77,7 @@
   </transform>
   <order>
     <hop>
-      <from>6 months</from>
+      <from>15 months</from>
       <to>run-retail-update.hwf</to>
       <enabled>Y</enabled>
     </hop>

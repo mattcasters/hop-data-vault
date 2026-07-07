@@ -567,6 +567,8 @@ public class ActionDimensionalUpdate extends ActionBase implements Cloneable, IA
                   pipelineConfig.getTargetDatabase(),
                   resolvedMetricsOutputFolder,
                   metricsPublishContext,
+                  resolve(dimensionalModelFile),
+                  getParentWorkflow(),
                   success,
                   totalErrors,
                   getVariables(),

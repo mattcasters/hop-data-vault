@@ -32,10 +32,14 @@ public final class MarkdownStyleRenderer {
   private static final Pattern BULLET_PATTERN = Pattern.compile("^(\\s*)[-*]\\s+(.*)$");
   private static final Pattern NUMBERED_PATTERN = Pattern.compile("^(\\s*)(\\d+)\\.\\s+(.*)$");
   private static final Pattern FENCE_PATTERN = Pattern.compile("^```(.*)$");
+  private static final Pattern TABLE_ROW_PATTERN = Pattern.compile("^\\|.*\\|$");
+  private static final Pattern TABLE_SEPARATOR_PATTERN = Pattern.compile("^\\|[\\s\\-:|]+\\|$");
   private static final Pattern INLINE_CODE_PATTERN = Pattern.compile("`([^`]+)`");
   private static final Pattern LINK_PATTERN = Pattern.compile("\\[([^\\]]*)\\]\\(([^)]*)\\)");
   private static final Pattern BOLD_PATTERN = Pattern.compile("\\*\\*([^*]+)\\*\\*|__([^_]+)__");
-  private static final Pattern ITALIC_PATTERN = Pattern.compile("(?<!\\*)\\*([^*]+)\\*(?!\\*)|(?<!_)_([^_]+)_(?!_)");
+  private static final Pattern ITALIC_PATTERN =
+      Pattern.compile(
+          "(?<!\\*)\\*([^*]+)\\*(?!\\*)|(?<![_\\w])_([^_]+)_(?![_\\w])");
 
   private MarkdownStyleRenderer() {}
 
@@ -47,7 +51,8 @@ public final class MarkdownStyleRenderer {
     HEADING_1,
     HEADING_2,
     HEADING_3,
-    CODE_BLOCK
+    CODE_BLOCK,
+    TABLE_ROW
   }
 
   public record StyleSpan(int start, int length, SpanKind kind) {}
@@ -70,19 +75,23 @@ public final class MarkdownStyleRenderer {
     StringBuilder display = new StringBuilder();
     List<StyleSpan> spans = new ArrayList<>();
     boolean inCodeBlock = false;
+    int codeBlockStart = -1;
 
     for (String line : lines) {
       Matcher fenceMatcher = FENCE_PATTERN.matcher(line);
       if (fenceMatcher.matches()) {
+        if (inCodeBlock) {
+          addCodeBlockSpan(spans, display, codeBlockStart);
+          codeBlockStart = -1;
+        }
         inCodeBlock = !inCodeBlock;
         continue;
       }
 
       if (inCodeBlock) {
         appendLine(display, line);
-        if (!line.isEmpty()) {
-          int lineStart = display.length() - line.length();
-          spans.add(new StyleSpan(lineStart, line.length(), SpanKind.CODE_BLOCK));
+        if (codeBlockStart < 0 && !line.isEmpty()) {
+          codeBlockStart = display.length() - line.length();
         }
         continue;
       }
@@ -104,11 +113,36 @@ public final class MarkdownStyleRenderer {
       }
     }
 
+    if (inCodeBlock) {
+      addCodeBlockSpan(spans, display, codeBlockStart);
+    }
+
     String displayText = display.toString();
     if (displayText.isEmpty()) {
       return new RenderedMarkdown(markdown, List.of());
     }
-    return new RenderedMarkdown(displayText, List.copyOf(spans));
+    return new RenderedMarkdown(displayText, sortSpans(spans));
+  }
+
+  private static void addCodeBlockSpan(
+      List<StyleSpan> spans, StringBuilder display, int codeBlockStart) {
+    if (codeBlockStart < 0 || codeBlockStart >= display.length()) {
+      return;
+    }
+    spans.add(
+        new StyleSpan(codeBlockStart, display.length() - codeBlockStart, SpanKind.CODE_BLOCK));
+  }
+
+  private static List<StyleSpan> sortSpans(List<StyleSpan> spans) {
+    if (spans == null || spans.isEmpty()) {
+      return List.of();
+    }
+    return spans.stream()
+        .sorted(
+            Comparator.comparingInt(StyleSpan::start)
+                .thenComparingInt(StyleSpan::length)
+                .thenComparing(span -> span.kind().name()))
+        .toList();
   }
 
   private static void appendLine(StringBuilder display, String line) {
@@ -121,14 +155,23 @@ public final class MarkdownStyleRenderer {
   private record ParsedLine(String text, List<StyleSpan> spans) {}
 
   private static ParsedLine parseBlockLine(String line) {
+    if (isTableLine(line)) {
+      return new ParsedLine(
+          line, List.of(new StyleSpan(0, line.length(), SpanKind.TABLE_ROW)));
+    }
+
     Matcher headingMatcher = HEADING_PATTERN.matcher(line);
     if (headingMatcher.matches()) {
       ParsedLine inline = parseInline(headingMatcher.group(2));
-      List<StyleSpan> spans = new ArrayList<>(inline.spans());
+      List<StyleSpan> spans = new ArrayList<>();
+      SpanKind heading = headingKind(headingMatcher.group(1).length());
       if (!inline.text().isEmpty()) {
-        spans.add(
-            new StyleSpan(
-                0, inline.text().length(), headingKind(headingMatcher.group(1).length())));
+        if (inline.spans().isEmpty()) {
+          spans.add(new StyleSpan(0, inline.text().length(), heading));
+        } else {
+          addGapSpans(spans, inline.text(), inline.spans(), heading);
+          spans.addAll(inline.spans());
+        }
       }
       return new ParsedLine(inline.text(), spans);
     }
@@ -151,6 +194,28 @@ public final class MarkdownStyleRenderer {
     }
 
     return parseInline(line);
+  }
+
+  /** Adds base-kind spans only for text not already covered by inline spans (no overlaps). */
+  private static void addGapSpans(
+      List<StyleSpan> spans, String text, List<StyleSpan> inlineSpans, SpanKind baseKind) {
+    if (Utils.isEmpty(text) || inlineSpans == null || inlineSpans.isEmpty()) {
+      return;
+    }
+    List<StyleSpan> sorted =
+        inlineSpans.stream()
+            .sorted(Comparator.comparingInt(StyleSpan::start).thenComparingInt(StyleSpan::length))
+            .toList();
+    int pos = 0;
+    for (StyleSpan inline : sorted) {
+      if (inline.start() > pos) {
+        spans.add(new StyleSpan(pos, inline.start() - pos, baseKind));
+      }
+      pos = Math.max(pos, inline.start() + inline.length());
+    }
+    if (pos < text.length()) {
+      spans.add(new StyleSpan(pos, text.length() - pos, baseKind));
+    }
   }
 
   private static ParsedLine shiftSpans(String text, List<StyleSpan> spans, int offset) {
@@ -216,11 +281,12 @@ public final class MarkdownStyleRenderer {
       int contentGroup) {
     Matcher matcher = pattern.matcher(input);
     if (matcher.find()) {
+      String content = matcher.group(contentGroup);
       matches.add(
           new InlineMatch(
               matcher.start(),
               matcher.end(),
-              matcher.group(contentGroup),
+              content != null ? content : "",
               kind));
     }
   }
@@ -252,6 +318,14 @@ public final class MarkdownStyleRenderer {
       String content = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
       matches.add(new InlineMatch(matcher.start(), matcher.end(), content, SpanKind.ITALIC));
     }
+  }
+
+  private static boolean isTableLine(String line) {
+    if (Utils.isEmpty(line)) {
+      return false;
+    }
+    return TABLE_ROW_PATTERN.matcher(line).matches()
+        || TABLE_SEPARATOR_PATTERN.matcher(line).matches();
   }
 
   private static SpanKind headingKind(int hashCount) {

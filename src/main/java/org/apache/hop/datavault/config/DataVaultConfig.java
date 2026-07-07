@@ -18,6 +18,7 @@
 
 package org.apache.hop.datavault.config;
 
+import java.util.concurrent.TimeUnit;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.datavault.executionmap.ExecutionMapLineStyle;
@@ -29,6 +30,7 @@ public class DataVaultConfig {
 
   public static final String HOP_CONFIG_DATA_VAULT_CONFIG_KEY = "dataVaultConfig";
   public static final int DEFAULT_MAX_UNDO_OPERATIONS = 200;
+  public static final int DEFAULT_LIVE_UPDATE_POLL_INTERVAL_SECONDS = 10;
 
   private boolean drawingHashKeysInModel;
   private int maxUndoOperations = DEFAULT_MAX_UNDO_OPERATIONS;
@@ -37,6 +39,7 @@ public class DataVaultConfig {
   private boolean suppressLocalCatalogOffer;
   private String defaultPipelineRunConfiguration;
   private String defaultWorkflowRunConfiguration;
+  private int liveUpdatePollIntervalSeconds = DEFAULT_LIVE_UPDATE_POLL_INTERVAL_SECONDS;
   private ExecutionMapLineStyle executionMapLineStyle = ExecutionMapLineStyle.DIRECT_CENTER;
 
   public DataVaultConfig() {
@@ -52,6 +55,7 @@ public class DataVaultConfig {
     setElkLayout(new ElkLayout(config.getElkLayout()));
     defaultPipelineRunConfiguration = config.defaultPipelineRunConfiguration;
     defaultWorkflowRunConfiguration = config.defaultWorkflowRunConfiguration;
+    setLiveUpdatePollIntervalSeconds(config.getLiveUpdatePollIntervalSeconds());
     setExecutionMapLineStyle(config.getExecutionMapLineStyleOrDefault());
   }
 
@@ -75,6 +79,24 @@ public class DataVaultConfig {
   public void setMaxUndoOperations(int maxUndoOperations) {
     this.maxUndoOperations =
         maxUndoOperations > 0 ? maxUndoOperations : DEFAULT_MAX_UNDO_OPERATIONS;
+  }
+
+  public int getLiveUpdatePollIntervalSeconds() {
+    return liveUpdatePollIntervalSeconds > 0
+        ? liveUpdatePollIntervalSeconds
+        : DEFAULT_LIVE_UPDATE_POLL_INTERVAL_SECONDS;
+  }
+
+  public void setLiveUpdatePollIntervalSeconds(int liveUpdatePollIntervalSeconds) {
+    this.liveUpdatePollIntervalSeconds =
+        liveUpdatePollIntervalSeconds > 0
+            ? liveUpdatePollIntervalSeconds
+            : DEFAULT_LIVE_UPDATE_POLL_INTERVAL_SECONDS;
+  }
+
+  /** Poll interval for live model-update metrics in the Hop GUI. */
+  public long resolveLiveUpdatePollIntervalMs() {
+    return TimeUnit.SECONDS.toMillis(getLiveUpdatePollIntervalSeconds());
   }
 
   public ElkLayout getElkLayout() {

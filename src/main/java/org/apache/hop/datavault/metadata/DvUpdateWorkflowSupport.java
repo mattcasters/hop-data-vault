@@ -38,6 +38,8 @@ import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.action.ActionMeta;
 import org.apache.hop.workflow.action.IAction;
 import org.apache.hop.workflow.actions.start.ActionStart;
+import org.apache.hop.datavault.metrics.live.UpdateRunLiveRunContext;
+import org.apache.hop.datavault.metrics.live.UpdateRunLiveStagingWorkflowMonitor;
 import org.apache.hop.workflow.engine.IWorkflowEngine;
 import org.apache.hop.workflow.engine.WorkflowEngineFactory;
 
@@ -242,6 +244,26 @@ public final class DvUpdateWorkflowSupport {
       IVariables variables,
       org.apache.hop.metadata.api.IHopMetadataProvider metadataProvider)
       throws HopException {
+    return runMasterWorkflowWithLogChannel(
+        workflowMeta,
+        workflowRunConfiguration,
+        logLevel,
+        parent,
+        null,
+        variables,
+        metadataProvider);
+  }
+
+  /** Runs the master workflow and returns the result plus the workflow engine log channel id. */
+  public static MasterWorkflowRunOutcome runMasterWorkflowWithLogChannel(
+      WorkflowMeta workflowMeta,
+      String workflowRunConfiguration,
+      LogLevel logLevel,
+      ILoggingObject parent,
+      UpdateRunLiveRunContext liveContext,
+      IVariables variables,
+      org.apache.hop.metadata.api.IHopMetadataProvider metadataProvider)
+      throws HopException {
     IWorkflowEngine<WorkflowMeta> engine =
         WorkflowEngineFactory.createWorkflowEngine(
             variables, workflowRunConfiguration, metadataProvider, workflowMeta, parent);
@@ -249,11 +271,19 @@ public final class DvUpdateWorkflowSupport {
       engine.setLogLevel(logLevel);
     }
 
-    Result workflowResult = engine.startExecution();
-    if (workflowResult == null) {
-      workflowResult = new Result();
+    UpdateRunLiveStagingWorkflowMonitor monitor =
+        UpdateRunLiveStagingWorkflowMonitor.start(liveContext, engine);
+    try {
+      Result workflowResult = engine.startExecution();
+      if (workflowResult == null) {
+        workflowResult = new Result();
+      }
+      return new MasterWorkflowRunOutcome(workflowResult, engine.getLogChannelId());
+    } finally {
+      if (monitor != null) {
+        monitor.close();
+      }
     }
-    return new MasterWorkflowRunOutcome(workflowResult, engine.getLogChannelId());
   }
 
   private static DvStagingLoadDescriptor inspectStagedPipeline(

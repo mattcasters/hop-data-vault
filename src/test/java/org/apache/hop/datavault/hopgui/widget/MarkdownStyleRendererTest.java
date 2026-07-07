@@ -97,10 +97,98 @@ class MarkdownStyleRendererTest {
   }
 
   @Test
+  void fencedAsciiTableUsesCodeBlockStyle() {
+    String markdown =
+        "## Pipelines\n\n```\n| Transform | Plugin |\n|-----------|----------|\n| Table Input | TableInput |\n```";
+    RenderedMarkdown rendered = MarkdownStyleRenderer.render(markdown);
+
+    assertTrue(rendered.displayText().contains("| Transform | Plugin |"));
+    assertTrue(rendered.spans().stream().anyMatch(span -> span.kind() == SpanKind.CODE_BLOCK));
+    assertTrue(containsKind(rendered.spans(), SpanKind.HEADING_2, 0, "Pipelines".length()));
+  }
+
+  @Test
+  void pipelineMarkdownKeepsStatusSectionStylingWithTables() {
+    String markdown =
+        "## Current status\n\n- **Model:** retail-f-orders\n\n## Pipelines\n\n### dm-fact-f_orders `RUNNING`\n\n"
+            + "```\n| Transform | Running |\n|-----------|----------|\n| Table Input | yes |\n```";
+    RenderedMarkdown rendered = MarkdownStyleRenderer.render(markdown);
+
+    assertTrue(rendered.displayText().contains("• Model: retail-f-orders"));
+    assertTrue(containsKind(rendered.spans(), SpanKind.HEADING_2, 0, "Current status".length()));
+    assertTrue(rendered.spans().stream().anyMatch(span -> span.kind() == SpanKind.CODE_BLOCK));
+    assertTrue(rendered.spans().stream().anyMatch(span -> span.kind() == SpanKind.BOLD));
+    assertTrue(!hasOverlappingSpans(rendered.spans()));
+  }
+
+  @Test
+  void headingWithInlineCodeKeepsBothNonOverlappingSpans() {
+    RenderedMarkdown rendered =
+        MarkdownStyleRenderer.render("### dm-fact-f_orders — f_orders `RUNNING`");
+
+    assertTrue(
+        rendered.spans().stream().anyMatch(span -> span.kind() == SpanKind.HEADING_3));
+    assertTrue(rendered.spans().stream().anyMatch(span -> span.kind() == SpanKind.CODE));
+    assertTrue(isSortedByStart(rendered.spans()));
+    assertTrue(!hasOverlappingSpans(rendered.spans()));
+    assertTrue(
+        containsKind(
+            rendered.spans(),
+            SpanKind.HEADING_3,
+            0,
+            "dm-fact-f_orders — f_orders ".length()));
+    assertTrue(containsKind(rendered.spans(), SpanKind.CODE, 28, "RUNNING".length()));
+  }
+
+  @Test
+  void headingWithInlineCodeProducesSortedNonOverlappingSpans() {
+    RenderedMarkdown rendered =
+        MarkdownStyleRenderer.render("### dm-fact-f_orders — f_orders `RUNNING`");
+
+    assertTrue(isSortedByStart(rendered.spans()));
+    assertTrue(!hasOverlappingSpans(rendered.spans()));
+    assertTrue(rendered.spans().stream().anyMatch(span -> span.kind() == SpanKind.CODE));
+  }
+
+  @Test
+  void identifiersWithUnderscoresDoNotTriggerItalic() {
+    RenderedMarkdown rendered = MarkdownStyleRenderer.render("Current table f_orders");
+
+    assertEquals("Current table f_orders", rendered.displayText());
+    assertTrue(rendered.spans().stream().noneMatch(span -> span.kind() == SpanKind.ITALIC));
+  }
+
+  @Test
   void malformedMarkdownFallsBackSafely() {
     RenderedMarkdown rendered = MarkdownStyleRenderer.render("**unclosed bold");
 
     assertEquals("**unclosed bold", rendered.displayText());
+  }
+
+  private static boolean hasOverlappingSpans(List<StyleSpan> spans) {
+    for (int i = 0; i < spans.size(); i++) {
+      StyleSpan left = spans.get(i);
+      int leftEnd = left.start() + left.length();
+      for (int j = i + 1; j < spans.size(); j++) {
+        StyleSpan right = spans.get(j);
+        int rightEnd = right.start() + right.length();
+        if (left.start() < rightEnd && right.start() < leftEnd) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean isSortedByStart(List<StyleSpan> spans) {
+    int previousStart = -1;
+    for (StyleSpan span : spans) {
+      if (span.start() < previousStart) {
+        return false;
+      }
+      previousStart = span.start();
+    }
+    return true;
   }
 
   private static boolean containsKind(
