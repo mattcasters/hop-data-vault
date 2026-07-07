@@ -43,6 +43,7 @@
     <elk.version>0.10.0</elk.version>
     <iceberg.version>1.6.1</iceberg.version>
     <hadoop.version>3.3.6</hadoop.version>
+    <commonmark.version>0.29.0</commonmark.version>
   </properties>
 
   <dependencies>
@@ -258,6 +259,28 @@
       <groupId>org.apache.iceberg</groupId>
       <artifactId>iceberg-hive-runtime</artifactId>
       <version>${iceberg.version}</version>
+    </dependency>
+
+    <!-- CommonMark markdown rendering (bundled in plugin lib/, mirrors hop-transform-textfile) -->
+    <dependency>
+      <groupId>org.commonmark</groupId>
+      <artifactId>commonmark</artifactId>
+      <version>${commonmark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.commonmark</groupId>
+      <artifactId>commonmark-ext-footnotes</artifactId>
+      <version>${commonmark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.commonmark</groupId>
+      <artifactId>commonmark-ext-gfm-tables</artifactId>
+      <version>${commonmark.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.commonmark</groupId>
+      <artifactId>commonmark-ext-task-list-items</artifactId>
+      <version>${commonmark.version}</version>
     </dependency>
 
     <!-- ELK layered layout for generated pipeline auto-positioning (bundled in plugin lib/) -->

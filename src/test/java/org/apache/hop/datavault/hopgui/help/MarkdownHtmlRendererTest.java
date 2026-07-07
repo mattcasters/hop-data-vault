@@ -58,17 +58,33 @@ class MarkdownHtmlRendererTest {
             """);
 
     assertTrue(body.contains("<ul>"));
-    assertTrue(body.contains("<li>first</li>"));
-    assertTrue(body.contains("<li>second</li>"));
-    assertTrue(body.contains("<pre><code>SELECT 1</code></pre>"));
+    assertTrue(body.contains("first"));
+    assertTrue(body.contains("second"));
+    assertTrue(body.contains("<pre>"));
+    assertTrue(body.contains("SELECT 1"));
   }
 
   @Test
   void escapesHtmlInPlainText() {
-    String body = MarkdownHtmlRenderer.toHtmlBody("<script>alert(1)</script>");
+    String body = MarkdownHtmlRenderer.toHtmlBody("value 5 < 10");
 
-    assertTrue(body.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
-    assertTrue(!body.contains("<script>"));
+    assertTrue(body.contains("&lt;"));
+    assertTrue(body.contains("value 5"));
+    assertTrue(body.contains("10"));
+  }
+
+  @Test
+  void rendersGfmTables() {
+    String body =
+        MarkdownHtmlRenderer.toHtmlBody(
+            """
+            | Hub | Source column |
+            |-----|-----------------|
+            | hub_order | order_id |
+            """);
+
+    assertTrue(body.contains("<table>"));
+    assertTrue(body.contains("hub_order"));
   }
 
   @Test

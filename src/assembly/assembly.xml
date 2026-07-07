@@ -50,6 +50,14 @@
         </dependencySet>
         <dependencySet>
             <includes>
+                <include>org.commonmark:*</include>
+            </includes>
+            <outputDirectory>plugins/misc/datavault/lib</outputDirectory>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <useProjectArtifact>false</useProjectArtifact>
+        </dependencySet>
+        <dependencySet>
+            <includes>
                 <include>org.eclipse.elk:*</include>
                 <include>org.eclipse.emf:*</include>
             </includes>
