@@ -73,7 +73,7 @@ The target column name comes from `.hdv` model configuration unless a hub or lin
 
 == Database field layout
 
-Database-backed sources store per-column metadata used by Get Keys, Get Attributes, hashing, and type checking. See link:datavault-source-database.adoc[Database source details] for the field editor and **Import** from live schema.
+Database-backed sources store per-column metadata used by **Load from source**, hashing, and type checking. See link:datavault-source-database.adoc[Database source details] for the field editor and **Import** from live schema.
 
 Keeping the field list accurate is essential for **Check model** and **detailed data type checking**.
 

@@ -125,16 +125,11 @@ public class DvSatelliteDialog {
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
-    Button wGetAttributes = new Button(shell, SWT.PUSH);
-    wGetAttributes.setText(
-        BaseMessages.getString(PKG, "DvSatelliteDialog.GetAttributes.Button"));
-    wGetAttributes.addListener(SWT.Selection, e -> getAttributes());
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
 
-    BaseTransformDialog.positionBottomButtons(
-        shell, new Button[] {wOk, wGetAttributes, wCancel}, margin, null);
+    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
 
     Label wlName = new Label(shell, SWT.RIGHT);
     wlName.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.Name.Label"));
@@ -353,6 +348,15 @@ public class DvSatelliteDialog {
                   BaseMessages.getString(PKG, "System.Combo.No")),
         };
 
+    Button wLoadFromSource = new Button(comp, SWT.PUSH);
+    wLoadFromSource.setText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.GetAttributes.Button"));
+    wLoadFromSource.setToolTipText(
+        BaseMessages.getString(PKG, "DvSatelliteDialog.GetAttributes.ToolTip"));
+    PropsUi.setLook(wLoadFromSource);
+    wLoadFromSource.setLayoutData(new FormDataBuilder().left().bottom().result());
+    wLoadFromSource.addListener(SWT.Selection, e -> getAttributes());
+
     int nrRows = input.getAttributes() != null ? input.getAttributes().size() : 1;
     wAttributes =
         new TableView(
@@ -369,7 +373,7 @@ public class DvSatelliteDialog {
             .left()
             .top(wlAttributes, margin)
             .right()
-            .bottom(100, 0)
+            .bottom(wLoadFromSource, -margin)
             .result());
   }
 

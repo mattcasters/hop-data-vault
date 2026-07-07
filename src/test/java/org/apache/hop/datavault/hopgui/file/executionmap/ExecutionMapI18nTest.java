@@ -67,6 +67,6 @@ class ExecutionMapI18nTest {
   @Test
   void generationPluginMessagesResolveFromExecutionMapPluginPackage() {
     String label = BaseMessages.getString(ExecutionMapGuiPlugin.class, "ExecutionMapGuiPlugin.Action.Name");
-    assertEquals("Generate execution map", label);
+    assertEquals("Ad-hoc generate execution map", label);
   }
 }

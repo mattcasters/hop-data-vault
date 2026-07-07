@@ -116,15 +116,11 @@ public class DvHubDialog {
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
-    Button wGetKeys = new Button(shell, SWT.PUSH);
-    wGetKeys.setText(BaseMessages.getString(PKG, "DvHubDialog.GetKeys.Button"));
-    wGetKeys.addListener(SWT.Selection, e -> getKeys());
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
 
-    BaseTransformDialog.positionBottomButtons(
-        shell, new Button[] {wOk, wGetKeys, wCancel}, margin, null);
+    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
 
     // Name
     Label wlName = new Label(shell, SWT.RIGHT);
@@ -321,6 +317,13 @@ public class DvHubDialog {
               false),
         };
 
+    Button wLoadFromSource = new Button(wKeysComp, SWT.PUSH);
+    wLoadFromSource.setText(BaseMessages.getString(PKG, "DvHubDialog.GetKeys.Button"));
+    wLoadFromSource.setToolTipText(BaseMessages.getString(PKG, "DvHubDialog.GetKeys.ToolTip"));
+    PropsUi.setLook(wLoadFromSource);
+    wLoadFromSource.setLayoutData(new FormDataBuilder().left().bottom().result());
+    wLoadFromSource.addListener(SWT.Selection, e -> getKeys());
+
     int nrRows = input.getBusinessKeys() != null ? input.getBusinessKeys().size() : 1;
     wBusinessKeys =
         new TableView(
@@ -332,12 +335,13 @@ public class DvHubDialog {
             null,
             PropsUi.getInstance());
 
-    FormData fdBusinessKeys = new FormData();
-    fdBusinessKeys.left = new FormAttachment(0, 0);
-    fdBusinessKeys.top = new FormAttachment(wlBusinessKeys, margin);
-    fdBusinessKeys.right = new FormAttachment(100, 0);
-    fdBusinessKeys.bottom = new FormAttachment(100, 0);
-    wBusinessKeys.setLayoutData(fdBusinessKeys);
+    wBusinessKeys.setLayoutData(
+        new FormDataBuilder()
+            .left()
+            .top(wlBusinessKeys, margin)
+            .right()
+            .bottom(wLoadFromSource, -margin)
+            .result());
 
     wKeysComp.layout();
     wKeysTab.setControl(wKeysComp);

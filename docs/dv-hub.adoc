@@ -58,7 +58,7 @@ For each business key you can specify:
 * An optional "Source field name" if the column has a different name in a particular source than the hub column name.
 * **Source system** – the name of the Data Vault Source this business key mapping applies to. This column is the key to supporting multiple sources on one hub. When the same logical key (for example `CUSTOMER_ID`) comes from different source systems under different physical column names, you create separate rows in the business keys table and tag each with its Source system.
 
-Use the **Get Keys** button (available when you are on the Keys tab) to populate business keys automatically. Before using Get Keys, make sure you have added at least one source in the **Record sources** tab. The button reads the primary key fields from the first source listed in the Record sources tab, creates business key rows for them, and automatically fills the Source system column with that source's name. You can then repeat the process after selecting a different source (or manually adjust the Source system values) if you need different source field names per system.
+Use the **Load from source** button on the **Keys** tab to populate business keys automatically. Before using it, make sure you have added at least one source in the **Record sources** tab. The button reads the primary key fields from the first source listed in the Record sources tab, creates business key rows for them, and automatically fills the Source system column with that source's name. You can then repeat the process after selecting a different source (or manually adjust the Source system values) if you need different source field names per system.
 
 |Record sources (Record sources tab)
 |A hub can be fed by one or more Data Vault Sources. List every source system or feed that will supply business keys for this hub.
@@ -109,14 +109,14 @@ A powerful feature of the plugin is that a single hub definition can receive dat
 To use this:
 1. On the **Record sources** tab, add every Data Vault Source that will feed the hub.
 2. On the **Keys** tab, define your business keys. Use the **Source system** column (last column in the business keys table) to indicate which source a particular mapping belongs to.
-3. Use **Get Keys** once per source (after ensuring the desired source appears in the Record sources list) to pull the correct source column names for that system.
+3. Use **Load from source** once per source (after ensuring the desired source appears in the Record sources list) to pull the correct source column names for that system.
 
 This approach keeps your hub modeling clean: one logical hub table, many places it can be populated from, with explicit control over which source columns map to which business keys.
 
 == Tips for hubs
 
-* Start with good source definitions (Data Vault Database Source) that accurately declare primary keys and column lengths. This makes "Get Keys" work well and produces better target tables.
-* When a hub has multiple sources, add them all on the Record sources tab first, then use Get Keys for each source in turn so the Source system column is populated correctly.
+* Start with good source definitions (Data Vault Database Source) that accurately declare primary keys and column lengths. This makes **Load from source** work well and produces better target tables.
+* When a hub has multiple sources, add them all on the Record sources tab first, then use **Load from source** for each source in turn so the Source system column is populated correctly.
 * Be consistent with hash key naming across the model (either rely on the default suffix or set explicit names on every hub).
 * Use the per-hub record source field name override sparingly; most of the time the model configuration's record source field name is sufficient.
 * Hashing rules are defined once per model in the embedded configuration (Edit model dialog). Use consistent hash key naming across hubs rather than expecting per-table hashing overrides.

@@ -54,7 +54,7 @@ Each attribute has:
 * Data type, length, and precision (used for DDL and loading).
 * "Include in CDC" – normally left checked. Uncheck it for columns that should not trigger a new satellite row when they change (for example audit columns or fields added later that you do not want to version).
 
-The **Get Attributes** button is very useful. It populates the list from the referenced source, automatically excluding primary key fields and any driving key. You can then delete columns you do not want to historize or adjust lengths and the "Include in CDC" flag.
+The **Load from source** button on the Attributes tab is very useful. It populates the list from the referenced source, automatically excluding primary key fields and any driving key. You can then delete columns you do not want to historize or adjust lengths and the "Include in CDC" flag.
 
 If you leave the attributes list empty, the plugin will include all non-key, non-driving-key fields from the source. The model check will warn you about this so you can decide whether it is intentional.
 
@@ -98,7 +98,7 @@ The same attribute list that is used for change detection is also used for the t
 
 == Tips for satellites
 
-* Use "Get Attributes" and then review the list. Remove columns that are not interesting for history (for example large free-text fields or technical IDs that never change).
+* Use **Load from source** and then review the list. Remove columns that are not interesting for history (for example large free-text fields or technical IDs that never change).
 * The "Include in CDC" flag is powerful. Use it to ignore columns that would otherwise cause unnecessary new rows (last-updated timestamps from the source, for example).
 * For multi-active satellites, be clear about what the driving key represents. It becomes part of the uniqueness rule for the satellite.
 * Attach satellites to links when the descriptive information truly belongs to the relationship rather than to one of the participating hubs.

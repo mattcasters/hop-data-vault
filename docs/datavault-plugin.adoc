@@ -183,8 +183,8 @@ See link:datavault-source.adoc[Data Vault Source] and link:datavault-source-data
 
 Each definition has its own dialog with the fields relevant for that type:
 
-* **Hubs** need one or more business keys and one or more record sources. Use **Get Keys** to pull business keys from a chosen source.
-* **Satellites** attach to a Hub or a Link. Use **Get Attributes** to populate the attribute list from the source.
+* **Hubs** need one or more business keys and one or more record sources. Use **Load from source** on the Keys tab to pull business keys from a chosen source.
+* **Satellites** attach to a Hub or a Link. Use **Load from source** on the Attributes tab to populate the attribute list from the source.
 * **Links** connect two or more Hubs, with optional driving keys and explicit hub source key field mappings when column names differ from the hub definitions.
 
 See link:dv-hub.adoc[Hubs], link:dv-link.adoc[Links], and link:dv-satellite.adoc[Satellites] for field-level reference.

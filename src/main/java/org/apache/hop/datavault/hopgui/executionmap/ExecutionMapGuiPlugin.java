@@ -23,9 +23,11 @@ import org.apache.hop.core.action.GuiContextAction;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.action.GuiActionType;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
+import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.datavault.command.executionmap.ExecutionMapService;
 import org.apache.hop.datavault.executionmap.ExecutionMapSubRootSupport;
 import org.apache.hop.datavault.hopgui.file.executionmap.HopExecutionMapFileType;
+import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.dialog.MessageBox;
 import org.apache.hop.ui.hopgui.HopGui;
@@ -38,7 +40,6 @@ import org.apache.hop.ui.hopgui.file.workflow.context.HopGuiWorkflowActionContex
 import org.apache.hop.ui.hopgui.file.workflow.context.HopGuiWorkflowContext;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.FileDialog;
 
 /** Toolbar and context-menu entry points for generating execution maps. */
 @GuiPlugin(description = "i18n::ExecutionMapGuiPlugin.Description")
@@ -72,7 +73,7 @@ public class ExecutionMapGuiPlugin {
   }
 
   @GuiContextAction(
-      id = "workflow-graph-execution-map",
+      id = "workflow-graph-workflow-zzz-execution-map",
       parentId = HopGuiWorkflowContext.CONTEXT_ID,
       type = GuiActionType.Modify,
       name = "i18n::ExecutionMapGuiPlugin.Action.Name",
@@ -80,7 +81,7 @@ public class ExecutionMapGuiPlugin {
       image = "execution-map.svg",
       category =
           "i18n:org.apache.hop.ui.hopgui.file.workflow:HopGuiWorkflowGraph.ContextualAction.Category.Basic.Text",
-      categoryOrder = "1")
+      categoryOrder = "9")
   public void generateFromWorkflowContext(HopGuiWorkflowContext context) {
     if (context.getWorkflowGraph() != null) {
       generateFromWorkflow(context.getWorkflowGraph());
@@ -88,7 +89,7 @@ public class ExecutionMapGuiPlugin {
   }
 
   @GuiContextAction(
-      id = "pipeline-graph-execution-map",
+      id = "pipeline-graph-pipeline-zzz-execution-map",
       parentId = HopGuiPipelineContext.CONTEXT_ID,
       type = GuiActionType.Modify,
       name = "i18n::ExecutionMapGuiPlugin.Action.Name",
@@ -96,7 +97,7 @@ public class ExecutionMapGuiPlugin {
       image = "execution-map.svg",
       category =
           "i18n:org.apache.hop.ui.hopgui.file.pipeline:HopGuiPipelineGraph.ContextualAction.Category.Basic.Text",
-      categoryOrder = "1")
+      categoryOrder = "9")
   public void generateFromPipelineContext(HopGuiPipelineContext context) {
     if (context.getPipelineGraph() != null) {
       generateFromPipeline(context.getPipelineGraph());
@@ -216,21 +217,32 @@ public class ExecutionMapGuiPlugin {
       return;
     }
 
-    FileDialog dialog = new FileDialog(hopGui.getShell(), SWT.SAVE);
-    dialog.setFilterExtensions(new String[] {"*.hem"});
-    dialog.setFileName(Path.of(suggestedOutput).getFileName().toString());
-    if (Path.of(suggestedOutput).getParent() != null) {
-      dialog.setFilterPath(Path.of(suggestedOutput).getParent().toString());
+    HopExecutionMapFileType executionMapFileType = new HopExecutionMapFileType();
+    String outputPath;
+    try {
+      outputPath =
+          BaseDialog.presentFileDialog(
+              true,
+              hopGui.getShell(),
+              null,
+              variables,
+              HopVfs.getFileObject(variables.resolve(suggestedOutput)),
+              executionMapFileType.getFilterExtensions(),
+              executionMapFileType.getFilterNames(),
+              true);
+    } catch (Exception e) {
+      new ErrorDialog(hopGui.getShell(), "Execution map", "Failed to open save file dialog", e);
+      return;
     }
-    String outputPath = dialog.open();
     if (outputPath == null) {
       return;
     }
     try {
+      String resolvedOutputPath = variables.resolve(outputPath);
       ExecutionMapService.GenerateResult result =
           ExecutionMapService.generate(
               sourcePath,
-              outputPath,
+              resolvedOutputPath,
               variables,
               hopGui.getMetadataProvider(),
               generationOptions.getCrawlOptions());
@@ -238,16 +250,17 @@ public class ExecutionMapGuiPlugin {
         String lineagePath = ExecutionMapService.defaultLineageOutputPath(result.getOutputPath());
         ExecutionMapService.exportLineage(result.getDocument(), lineagePath, variables);
       }
-      HopExecutionMapFileType fileType = new HopExecutionMapFileType();
-      IHopFileTypeHandler handler = fileType.openFile(hopGui, outputPath, variables);
+      IHopFileTypeHandler handler =
+          executionMapFileType.openFile(hopGui, resolvedOutputPath, variables);
       if (handler != null) {
         HopGui.getExplorerPerspective().setActiveFileTypeHandler(handler);
       }
-      StringBuilder message = new StringBuilder("Execution map written to:\n").append(outputPath);
+      StringBuilder message =
+          new StringBuilder("Execution map written to:\n").append(resolvedOutputPath);
       if (generationOptions.isExportLineage()) {
         message
             .append("\nOpenLineage JSON written to:\n")
-            .append(ExecutionMapService.defaultLineageOutputPath(outputPath));
+            .append(ExecutionMapService.defaultLineageOutputPath(resolvedOutputPath));
       }
       MessageBox box = new MessageBox(hopGui.getShell(), SWT.ICON_INFORMATION | SWT.OK);
       box.setText("Execution map");

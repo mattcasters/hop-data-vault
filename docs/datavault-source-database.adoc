@@ -12,7 +12,7 @@ The database definition tells the model what columns are available, which form t
 
 Accurate column metadata is used throughout the plugin:
 
-* **Get Keys** (hub dialog) and **Get Attributes** (satellite dialog) read primary-key and attribute definitions from the source.
+* **Load from source** (hub Keys tab and satellite Attributes tab) reads primary-key and attribute definitions from the source.
 * Pipeline generation uses primary-key flags to build SELECT lists and hash inputs.
 * Target table DDL uses length and precision so you get realistic column types (VARCHAR(50), DECIMAL(15,2), etc.) instead of generic large types.
 
