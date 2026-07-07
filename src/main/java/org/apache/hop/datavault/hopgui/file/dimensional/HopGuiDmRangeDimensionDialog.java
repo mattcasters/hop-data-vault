@@ -38,6 +38,8 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /** Dialog to edit a metadata-only {@link DmRangeDimension} (NumberRange band definitions). */
 public class HopGuiDmRangeDimensionDialog {
@@ -87,6 +89,8 @@ public class HopGuiDmRangeDimensionDialog {
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.DM_RANGE_DIMENSION);
+
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
 
     Label wlName = new Label(shell, SWT.RIGHT);

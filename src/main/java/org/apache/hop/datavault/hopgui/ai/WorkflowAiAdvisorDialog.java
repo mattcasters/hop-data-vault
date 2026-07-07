@@ -60,6 +60,8 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /** AI advisory dialog for Apache Hop workflows. */
 public class WorkflowAiAdvisorDialog {
@@ -130,6 +132,8 @@ public class WorkflowAiAdvisorDialog {
     Button wClose = new Button(shell, SWT.PUSH);
     wClose.setText(BaseMessages.getString(PKG, "System.Button.Close"));
     wClose.addListener(SWT.Selection, e -> dispose());
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.WORKFLOW_AI_ADVISOR);
+
     BaseTransformDialog.positionBottomButtons(
         shell, new Button[] {wSend, wNewConversation, wClose}, margin, null);
 

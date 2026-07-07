@@ -61,6 +61,8 @@ import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /** Dialog to edit the properties of a DvHub, including business keys list using TableView. */
 public class DvHubDialog {
@@ -119,6 +121,8 @@ public class DvHubDialog {
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
+
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.DV_HUB);
 
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
 

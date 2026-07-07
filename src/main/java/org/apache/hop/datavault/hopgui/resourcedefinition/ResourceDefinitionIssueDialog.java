@@ -53,6 +53,8 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /** Shows one validation issue, its usages, proposals, and acknowledgement actions. */
 public final class ResourceDefinitionIssueDialog {
@@ -198,6 +200,8 @@ public final class ResourceDefinitionIssueDialog {
     Button wClose = new Button(shell, SWT.PUSH);
     wClose.setText(BaseMessages.getString(PKG, "System.Button.Close"));
     wClose.addListener(SWT.Selection, e -> shell.dispose());
+
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.RESOURCE_DEFINITION_ISSUE);
 
     BaseTransformDialog.positionBottomButtons(
         shell,

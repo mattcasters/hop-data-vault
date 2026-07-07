@@ -60,6 +60,8 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.jspecify.annotations.NonNull;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /** AI advisory dialog for the Business Vault modeler. */
 public class BvAiAdvisorDialog {
@@ -128,6 +130,8 @@ public class BvAiAdvisorDialog {
     Button wClose = new Button(shell, SWT.PUSH);
     wClose.setText(BaseMessages.getString(PKG, "System.Button.Close"));
     wClose.addListener(SWT.Selection, e -> dispose());
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.BV_AI_ADVISOR);
+
     BaseTransformDialog.positionBottomButtons(
         shell, new Button[] {wSend, wNewConversation, wClose}, margin, null);
 

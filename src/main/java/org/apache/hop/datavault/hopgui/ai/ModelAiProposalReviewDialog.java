@@ -40,6 +40,8 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /** Review and selectively apply AI-proposed model changes (DV, BV, or DM). */
 public class ModelAiProposalReviewDialog {
@@ -96,6 +98,8 @@ public class ModelAiProposalReviewDialog {
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.MODEL_AI_PROPOSAL_REVIEW);
+
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wApply, wCancel}, margin, null);
 
     Label wlList = new Label(shell, SWT.LEFT);

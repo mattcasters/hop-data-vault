@@ -48,6 +48,8 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /**
  * Dialog to edit a single DvLinkHubSource entry (one record source feeding the link) and its
@@ -117,6 +119,8 @@ public class DvLinkHubSourceDialog {
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
+
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.DV_LINK_HUB_SOURCE);
 
     BaseTransformDialog.positionBottomButtons(
         shell, new Button[] {wOk, wAddHub, wCancel}, margin, null);

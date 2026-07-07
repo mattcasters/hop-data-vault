@@ -31,6 +31,8 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /** Collects a required comment before acknowledging a validation issue. */
 public final class AcknowledgeValidationIssueDialog {
@@ -99,6 +101,8 @@ public final class AcknowledgeValidationIssueDialog {
         });
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.ACKNOWLEDGE_VALIDATION_ISSUE);
+
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, wComment);
 
     shell.setMinimumSize(480, 280);

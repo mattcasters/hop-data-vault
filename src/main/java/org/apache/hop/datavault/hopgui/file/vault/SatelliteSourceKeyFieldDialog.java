@@ -52,6 +52,8 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /**
  * Dialog to edit the source field mappings for one link satellite within one DvLinkSatelliteSource.
@@ -111,6 +113,8 @@ public class SatelliteSourceKeyFieldDialog {
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
+
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.DV_SATELLITE_SOURCE_KEY_FIELD);
 
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
 

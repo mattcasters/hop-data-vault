@@ -42,6 +42,8 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 public class ActionGenerateExecutionMapDialog extends ActionDialog {
 
@@ -87,6 +89,8 @@ public class ActionGenerateExecutionMapDialog extends ActionDialog {
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.ACTION_GENERATE_EXECUTION_MAP);
+
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
 
     Label wlName = new Label(shell, SWT.RIGHT);

@@ -36,6 +36,8 @@ import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /** Dialog to edit a Data Vault canvas note (type + text). */
 public class DvNoteDialog {
@@ -73,6 +75,8 @@ public class DvNoteDialog {
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.DV_NOTE);
+
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
 
     Label wlType = new Label(shell, SWT.RIGHT);

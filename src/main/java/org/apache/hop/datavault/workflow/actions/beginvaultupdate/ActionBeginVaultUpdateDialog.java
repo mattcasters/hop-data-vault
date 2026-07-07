@@ -34,6 +34,8 @@ import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Shell;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 public class ActionBeginVaultUpdateDialog extends ActionDialog {
 
@@ -57,6 +59,8 @@ public class ActionBeginVaultUpdateDialog extends ActionDialog {
   public IAction open() {
     createShell(BaseMessages.getString(PKG, "ActionBeginVaultUpdate.Title", action.getName()), action);
     buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
+
+    DialogHelpSupport.installLocalHelpButton(shell, HelpTopics.ACTION_BEGIN_VAULT_UPDATE);
 
     wSettingsComp = new Composite(shell, SWT.NONE);
     PropsUi.setLook(wSettingsComp);

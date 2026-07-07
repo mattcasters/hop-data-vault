@@ -32,6 +32,8 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /** Shows schema drift and asks whether to refresh the catalog contract from the live source. */
 public final class RefreshRecordDefinitionFromSourceDialog {
@@ -83,6 +85,8 @@ public final class RefreshRecordDefinitionFromSourceDialog {
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel(shell));
+
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.REFRESH_RECORD_DEFINITION_FROM_SOURCE);
 
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wApply, wCancel}, margin, wDiff);
     BaseDialog.defaultShellHandling(shell, e -> confirm(shell), e -> cancel(shell));

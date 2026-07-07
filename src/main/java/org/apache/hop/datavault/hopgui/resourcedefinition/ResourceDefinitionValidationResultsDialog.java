@@ -47,6 +47,8 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 /** Interactive validation results: severity-sorted issues with drill-down and acknowledgement. */
 public final class ResourceDefinitionValidationResultsDialog {
@@ -170,6 +172,8 @@ public final class ResourceDefinitionValidationResultsDialog {
     Button wClose = new Button(shell, SWT.PUSH);
     wClose.setText(BaseMessages.getString(PKG, "System.Button.Close"));
     wClose.addListener(SWT.Selection, e -> shell.dispose());
+
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.RESOURCE_DEFINITION_VALIDATION_RESULTS);
 
     BaseTransformDialog.positionBottomButtons(
         shell, new Button[] {wShowAcknowledged, wHandle, wRevalidate, wClose}, margin, wIssues);

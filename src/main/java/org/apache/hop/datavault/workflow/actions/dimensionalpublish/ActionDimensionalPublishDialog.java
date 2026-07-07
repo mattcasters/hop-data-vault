@@ -39,6 +39,8 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 public class ActionDimensionalPublishDialog extends ActionDialog {
   private static final Class<?> PKG = ActionDimensionalPublish.class;
@@ -82,6 +84,8 @@ public class ActionDimensionalPublishDialog extends ActionDialog {
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
+
+    DialogHelpSupport.createHelpButton(shell, HelpTopics.ACTION_DIMENSIONAL_PUBLISH);
 
     BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOK, wCancel}, margin, null);
 
