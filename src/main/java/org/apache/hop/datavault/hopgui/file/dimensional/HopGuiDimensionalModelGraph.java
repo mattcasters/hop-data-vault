@@ -345,7 +345,9 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     byte[] beforeChange = captureUndoSnapshot();
     boolean accepted =
         table instanceof DmRangeDimension rangeDimension
-            ? new HopGuiDmRangeDimensionDialog(getShell(), rangeDimension, variables).open()
+            ? new HopGuiDmRangeDimensionDialog(
+                    getShell(), rangeDimension, model, variables, hopGui.getMetadataProvider())
+                .open()
             : new HopGuiDmTableDialog(
                     getShell(), table, model, variables, hopGui.getMetadataProvider())
                 .open();

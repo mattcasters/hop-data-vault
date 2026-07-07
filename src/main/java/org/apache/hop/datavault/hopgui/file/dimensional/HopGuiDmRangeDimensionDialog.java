@@ -18,11 +18,19 @@
 
 package org.apache.hop.datavault.hopgui.file.dimensional;
 
+import java.util.List;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.ICheckResult;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.dimensional.DmRangeBand;
 import org.apache.hop.datavault.metadata.dimensional.DmRangeDimension;
+import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.dimensional.IDmTable;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelDialogValidationSupport;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
@@ -47,7 +55,10 @@ public class HopGuiDmRangeDimensionDialog {
 
   private final Shell parent;
   private final DmRangeDimension input;
+  private final DimensionalModel model;
   private final IVariables variables;
+  private final IHopMetadataProvider metadataProvider;
+  private final int originalTableIndex;
 
   private Shell shell;
   private Text wName;
@@ -60,10 +71,17 @@ public class HopGuiDmRangeDimensionDialog {
   private int middle;
 
   public HopGuiDmRangeDimensionDialog(
-      Shell parent, DmRangeDimension rangeDimension, IVariables variables) {
+      Shell parent,
+      DmRangeDimension rangeDimension,
+      DimensionalModel model,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
     this.parent = parent;
     this.input = rangeDimension;
+    this.model = model;
     this.variables = variables;
+    this.metadataProvider = metadataProvider;
+    this.originalTableIndex = model != null ? model.getTables().indexOf(rangeDimension) : -1;
   }
 
   public boolean open() {
@@ -86,12 +104,18 @@ public class HopGuiDmRangeDimensionDialog {
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
+    Button wValidate = new Button(shell, SWT.PUSH);
+    wValidate.setText(
+        BaseMessages.getString(
+            ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"));
+    wValidate.addListener(SWT.Selection, e -> validate());
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
     DialogHelpSupport.createHelpButton(shell, HelpTopics.DM_RANGE_DIMENSION);
 
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
+    BaseTransformDialog.positionBottomButtons(
+        shell, new Button[] {wOk, wValidate, wCancel}, margin, null);
 
     Label wlName = new Label(shell, SWT.RIGHT);
     wlName.setText(BaseMessages.getString(PKG, "HopGuiDmRangeDimensionDialog.Name.Label"));
@@ -203,12 +227,46 @@ public class HopGuiDmRangeDimensionDialog {
     if (Utils.isEmpty(wName.getText())) {
       return;
     }
-    input.setName(wName.getText());
-    input.setDescription(wDescription.getText());
-    input.setTableName(wName.getText().toLowerCase().replace(' ', '_'));
-    input.setFallBackLabel(wFallBackLabel.getText());
+    applyWidgetsToTable(input);
+    ok = true;
+    dispose();
+  }
 
-    input.getBands().clear();
+  private void validate() {
+    try {
+      DimensionalModel draft = ModelDialogValidationSupport.cloneDimensionalModel(model, metadataProvider);
+      DmRangeDimension draftTable = locateDraftTable(draft);
+      applyWidgetsToTable(draftTable);
+      List<ICheckResult> remarks = draft.check(metadataProvider, variables);
+      ModelDialogValidationSupport.showCheckResults(shell, remarks);
+    } catch (Exception ex) {
+      new ErrorDialog(
+          shell,
+          BaseMessages.getString(ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"),
+          BaseMessages.getString(
+              ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Error", ex.getMessage()),
+          ex);
+    }
+  }
+
+  private DmRangeDimension locateDraftTable(DimensionalModel draft) throws HopException {
+    if (draft == null || originalTableIndex < 0 || originalTableIndex >= draft.getTables().size()) {
+      throw new HopException("Unable to locate table in validation model");
+    }
+    IDmTable table = draft.getTables().get(originalTableIndex);
+    if (!(table instanceof DmRangeDimension rangeDimension)) {
+      throw new HopException("Validation model table type mismatch");
+    }
+    return rangeDimension;
+  }
+
+  private void applyWidgetsToTable(DmRangeDimension target) {
+    target.setName(wName.getText());
+    target.setDescription(wDescription.getText());
+    target.setTableName(wName.getText().toLowerCase().replace(' ', '_'));
+    target.setFallBackLabel(wFallBackLabel.getText());
+
+    target.getBands().clear();
     for (TableItem item : wBands.getNonEmptyItems()) {
       String lowerBound = item.getText(1);
       String upperBound = item.getText(2);
@@ -216,11 +274,8 @@ public class HopGuiDmRangeDimensionDialog {
       if (Utils.isEmpty(value)) {
         continue;
       }
-      input.getBands().add(new DmRangeBand(lowerBound, upperBound, value));
+      target.getBands().add(new DmRangeBand(lowerBound, upperBound, value));
     }
-
-    ok = true;
-    dispose();
   }
 
   private void cancel() {

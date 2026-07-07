@@ -23,7 +23,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelDialogValidationSupport;
 
 import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.core.database.DatabaseMeta;
@@ -115,6 +117,7 @@ public class HopGuiDmTableDialog {
   private final DimensionalModel model;
   private final IVariables variables;
   private final IHopMetadataProvider metadataProvider;
+  private final int originalTableIndex;
   private Shell shell;
 
   private CTabFolder wTabFolder;
@@ -196,6 +199,7 @@ public class HopGuiDmTableDialog {
     this.model = model;
     this.variables = variables;
     this.metadataProvider = metadataProvider;
+    this.originalTableIndex = model != null ? model.getTables().indexOf(table) : -1;
     DmTableType tableType = table.getTableType();
     this.dimension = tableType == DmTableType.DIMENSION;
     this.dimensionAlias = tableType == DmTableType.DIMENSION_ALIAS;
@@ -225,12 +229,18 @@ public class HopGuiDmTableDialog {
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
+    Button wValidate = new Button(shell, SWT.PUSH);
+    wValidate.setText(
+        BaseMessages.getString(
+            ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"));
+    wValidate.addListener(SWT.Selection, e -> validate());
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
     DialogHelpSupport.createHelpButton(shell, HelpTopics.DM_TABLE);
 
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
+    BaseTransformDialog.positionBottomButtons(
+        shell, new Button[] {wOk, wValidate, wCancel}, margin, null);
 
     wTabFolder = new CTabFolder(shell, SWT.BORDER);
     PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
@@ -2199,27 +2209,57 @@ public class HopGuiDmTableDialog {
   }
 
   private void ok() {
-    input.setName(wName.getText());
-    input.setDescription(wDescription.getText());
+    applyWidgetsToTable(input, model);
+    ok = true;
+    dispose();
+  }
+
+  private void validate() {
+    try {
+      DimensionalModel draft = ModelDialogValidationSupport.cloneDimensionalModel(model, metadataProvider);
+      IDmTable draftTable = locateDraftTable(draft);
+      applyWidgetsToTable(draftTable, draft);
+      List<ICheckResult> remarks = draft.check(metadataProvider, variables);
+      ModelDialogValidationSupport.showCheckResults(shell, remarks);
+    } catch (Exception ex) {
+      new ErrorDialog(
+          shell,
+          BaseMessages.getString(ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"),
+          BaseMessages.getString(
+              ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Error", ex.getMessage()),
+          ex);
+    }
+  }
+
+  private IDmTable locateDraftTable(DimensionalModel draft) throws HopException {
+    if (draft == null || originalTableIndex < 0 || originalTableIndex >= draft.getTables().size()) {
+      throw new HopException("Unable to locate table in validation model");
+    }
+    return draft.getTables().get(originalTableIndex);
+  }
+
+  private void applyWidgetsToTable(IDmTable target, DimensionalModel contextModel) {
+    target.setName(wName.getText());
+    target.setDescription(wDescription.getText());
     if (!dimensionAlias && !range) {
-      input.setTableName(wTableName.getText());
-      input
+      target.setTableName(wTableName.getText());
+      target
           .getSourceOrDefault()
           .setSourceType(
               EnumDialogSupport.readCombo(wSourceType, DmSourceType.class, DmSourceType.SQL));
-      input.getSourceOrDefault().setSourceConnection(wSourceConnection.getText());
-      input.getSourceOrDefault().setSourceSql(wSourceSql.getText());
-      input.getSourceOrDefault().setSourcePipelineFile(wSourcePipelineFile.getText());
-      input.getSourceOrDefault().setSourcePipelineTransform(wSourcePipelineTransform.getText());
-      input
+      target.getSourceOrDefault().setSourceConnection(wSourceConnection.getText());
+      target.getSourceOrDefault().setSourceSql(wSourceSql.getText());
+      target.getSourceOrDefault().setSourcePipelineFile(wSourcePipelineFile.getText());
+      target.getSourceOrDefault().setSourcePipelineTransform(wSourcePipelineTransform.getText());
+      target
           .getSourceOrDefault()
           .setSourcePipelineRunConfiguration(wSourcePipelineRunConfiguration.getText());
-      input.getSourceOrDefault().setSourceCatalogConnection(wSourceCatalogConnection.getText());
-      input.getSourceOrDefault().setSourceRecordNamespace(wSourceRecordNamespace.getText());
-      input.getSourceOrDefault().setSourceRecordName(wSourceRecordName.getText());
+      target.getSourceOrDefault().setSourceCatalogConnection(wSourceCatalogConnection.getText());
+      target.getSourceOrDefault().setSourceRecordNamespace(wSourceRecordNamespace.getText());
+      target.getSourceOrDefault().setSourceRecordName(wSourceRecordName.getText());
     }
 
-    if (range && input instanceof DmRangeDimension rangeDimension) {
+    if (range && target instanceof DmRangeDimension rangeDimension) {
       if (wFallBackLabel != null) {
         rangeDimension.setFallBackLabel(wFallBackLabel.getText());
       }
@@ -2237,7 +2277,7 @@ public class HopGuiDmTableDialog {
       }
     }
 
-    if (junk && input instanceof DmJunkDimension junkDimension) {
+    if (junk && target instanceof DmJunkDimension junkDimension) {
       if (wSurrogateKeyStrategy != null) {
         junkDimension.setSurrogateKeyStrategy(
             EnumDialogSupport.readCombo(
@@ -2284,7 +2324,7 @@ public class HopGuiDmTableDialog {
       }
     }
 
-    if (bridge && input instanceof DmBridge dmBridge) {
+    if (bridge && target instanceof DmBridge dmBridge) {
       dmBridge.getDimensionRefs().clear();
       for (TableItem item : wOutriggers.getNonEmptyItems()) {
         String dimensionName = item.getText(1);
@@ -2295,18 +2335,18 @@ public class HopGuiDmTableDialog {
       }
     }
 
-    if (dimensionAlias && input instanceof DmDimensionAlias alias) {
+    if (dimensionAlias && target instanceof DmDimensionAlias alias) {
       if (wReferencedModelFilename != null) {
         alias.setReferencedModelFilename(wReferencedModelFilename.getText());
       }
       if (wReferencedDimension != null) {
         alias.setReferencedDimensionName(wReferencedDimension.getText());
       }
-      alias.syncPhysicalTableName(model, variables, metadataProvider);
-      input.setTableName(alias.getTableName());
+      alias.syncPhysicalTableName(contextModel, variables, metadataProvider);
+      target.setTableName(alias.getTableName());
     }
 
-    if (dimension && input instanceof DmDimension dmDimension) {
+    if (dimension && target instanceof DmDimension dmDimension) {
       dmDimension.setScdType(
           EnumDialogSupport.readCombo(
               wScdType, DmDimensionScdType.class, DmDimensionScdType.TYPE1));
@@ -2351,19 +2391,19 @@ public class HopGuiDmTableDialog {
       }
     }
 
-    if (factLike && input instanceof DmTableBase table) {
+    if (factLike && target instanceof DmTableBase table) {
       if (wDimensionLookupDateField != null) {
         table.setDimensionLookupDateField(wDimensionLookupDateField.getText());
       }
     }
 
-    if (factLike && input instanceof IDmFactLikeTable factLike) {
+    if (factLike && target instanceof IDmFactLikeTable factLikeTable) {
       List<DmFactDimensionRole> dimensionRoles = readDimensionRolesFromTable();
       List<DmFactMeasure> measures = readMeasuresFromTable();
       List<DmFactDegenerateDimension> degenerateDimensions = readDegenerateDimensionsFromTable();
       List<DmFactRangeDimensionRole> rangeDimensionRoles = readRangeDimensionRolesFromTable();
       List<DmFactJunkDimensionRole> junkDimensionRoles = readJunkDimensionRolesFromTable();
-      if (factLike instanceof DmFact dmFact) {
+      if (factLikeTable instanceof DmFact dmFact) {
         dmFact.getDimensionRoles().clear();
         dmFact.getDimensionRoles().addAll(dimensionRoles);
         dmFact.getMeasures().clear();
@@ -2374,7 +2414,7 @@ public class HopGuiDmTableDialog {
         dmFact.getRangeDimensionRoles().addAll(rangeDimensionRoles);
         dmFact.getJunkDimensionRoles().clear();
         dmFact.getJunkDimensionRoles().addAll(junkDimensionRoles);
-      } else if (factLike instanceof DmFactlessFact factlessFact) {
+      } else if (factLikeTable instanceof DmFactlessFact factlessFact) {
         factlessFact.getDimensionRoles().clear();
         factlessFact.getDimensionRoles().addAll(dimensionRoles);
         factlessFact.getDegenerateDimensions().clear();
@@ -2383,7 +2423,7 @@ public class HopGuiDmTableDialog {
         factlessFact.getRangeDimensionRoles().addAll(rangeDimensionRoles);
         factlessFact.getJunkDimensionRoles().clear();
         factlessFact.getJunkDimensionRoles().addAll(junkDimensionRoles);
-      } else if (factLike instanceof DmPeriodicSnapshotFact periodicFact) {
+      } else if (factLikeTable instanceof DmPeriodicSnapshotFact periodicFact) {
         periodicFact.getDimensionRoles().clear();
         periodicFact.getDimensionRoles().addAll(dimensionRoles);
         periodicFact.getMeasures().clear();
@@ -2394,7 +2434,7 @@ public class HopGuiDmTableDialog {
         periodicFact.getRangeDimensionRoles().addAll(rangeDimensionRoles);
         periodicFact.getJunkDimensionRoles().clear();
         periodicFact.getJunkDimensionRoles().addAll(junkDimensionRoles);
-      } else if (factLike instanceof DmAccumulatingSnapshotFact accumulatingFact) {
+      } else if (factLikeTable instanceof DmAccumulatingSnapshotFact accumulatingFact) {
         accumulatingFact.getDimensionRoles().clear();
         accumulatingFact.getDimensionRoles().addAll(dimensionRoles);
         accumulatingFact.getMeasures().clear();
@@ -2405,7 +2445,7 @@ public class HopGuiDmTableDialog {
         accumulatingFact.getRangeDimensionRoles().addAll(rangeDimensionRoles);
         accumulatingFact.getJunkDimensionRoles().clear();
         accumulatingFact.getJunkDimensionRoles().addAll(junkDimensionRoles);
-      } else if (factLike instanceof DmAggregateFact aggregateFact) {
+      } else if (factLikeTable instanceof DmAggregateFact aggregateFact) {
         aggregateFact.getDimensionRoles().clear();
         aggregateFact.getDimensionRoles().addAll(dimensionRoles);
         aggregateFact.getMeasures().clear();
@@ -2418,9 +2458,6 @@ public class HopGuiDmTableDialog {
         aggregateFact.getJunkDimensionRoles().addAll(junkDimensionRoles);
       }
     }
-
-    ok = true;
-    dispose();
   }
 
   private void cancel() {

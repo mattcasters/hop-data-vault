@@ -30,14 +30,18 @@ import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvIntegrationMode;
+import org.apache.hop.core.ICheckResult;
 import org.apache.hop.datavault.metadata.DvLink;
+import org.apache.hop.datavault.metadata.DvModelCheckOptions;
+import org.apache.hop.datavault.metadata.IDvTable;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelDialogValidationSupport;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvTableType;
-import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
+import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.core.widget.ColumnInfo;
@@ -76,6 +80,7 @@ public class DvLinkDialog {
   private final IVariables variables;
   private final DvLink input;
   private final DataVaultModel model;
+  private final int originalTableIndex;
   private Shell shell;
 
   private CTabFolder wTabFolder;
@@ -112,6 +117,7 @@ public class DvLinkDialog {
     this.variables = hopGui.getVariables();
     this.input = link;
     this.model = model;
+    this.originalTableIndex = model != null ? model.getTables().indexOf(link) : -1;
   }
 
   public boolean open() {
@@ -131,13 +137,19 @@ public class DvLinkDialog {
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
+    Button wValidate = new Button(shell, SWT.PUSH);
+    wValidate.setText(
+        BaseMessages.getString(
+            ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"));
+    wValidate.addListener(SWT.Selection, e -> validate());
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
 
     DialogHelpSupport.createHelpButton(shell, HelpTopics.DV_LINK);
 
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
+    BaseTransformDialog.positionBottomButtons(
+        shell, new Button[] {wOk, wValidate, wCancel}, margin, null);
 
     // Name at top (outside tabs)
     Label wlName = new Label(shell, SWT.RIGHT);
@@ -807,15 +819,51 @@ public class DvLinkDialog {
   }
 
   private void ok() {
-    input.setName(wName.getText());
-    input.setTableName(wTableName.getText());
-    input.setDescription(wDescription.getText());
-    input.setIntegrationMode(DvIntegrationMode.lookupDescription(wIntegrationMode.getText()));
-    input.setLinkHashKeyFieldName(wLinkHashKeyFieldName.getText());
-    input.setRecordSourceFieldName(wRecordSourceFieldName.getText());
-    input.setHasDescriptiveAttributes(wHasDescriptiveAttributes.getSelection());
+    applyWidgetsToTable(input);
+    input.setChanged();
+    ok = true;
+    dispose();
+  }
 
-    // Hubs from options tab table (single column)
+  private void validate() {
+    try {
+      DataVaultModel draft =
+          ModelDialogValidationSupport.cloneDataVaultModel(model, hopGui.getMetadataProvider());
+      DvLink draftTable = locateDraftTable(draft);
+      applyWidgetsToTable(draftTable);
+      List<ICheckResult> remarks =
+          draft.check(hopGui.getMetadataProvider(), variables, DvModelCheckOptions.defaults());
+      ModelDialogValidationSupport.showCheckResults(shell, remarks);
+    } catch (Exception ex) {
+      new ErrorDialog(
+          shell,
+          BaseMessages.getString(ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"),
+          BaseMessages.getString(
+              ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Error", ex.getMessage()),
+          ex);
+    }
+  }
+
+  private DvLink locateDraftTable(DataVaultModel draft) throws HopException {
+    if (draft == null || originalTableIndex < 0 || originalTableIndex >= draft.getTables().size()) {
+      throw new HopException("Unable to locate table in validation model");
+    }
+    IDvTable table = draft.getTables().get(originalTableIndex);
+    if (!(table instanceof DvLink link)) {
+      throw new HopException("Validation model table type mismatch");
+    }
+    return link;
+  }
+
+  private void applyWidgetsToTable(DvLink target) {
+    target.setName(wName.getText());
+    target.setTableName(wTableName.getText());
+    target.setDescription(wDescription.getText());
+    target.setIntegrationMode(DvIntegrationMode.lookupDescription(wIntegrationMode.getText()));
+    target.setLinkHashKeyFieldName(wLinkHashKeyFieldName.getText());
+    target.setRecordSourceFieldName(wRecordSourceFieldName.getText());
+    target.setHasDescriptiveAttributes(wHasDescriptiveAttributes.getSelection());
+
     List<String> hubs = new ArrayList<>();
     for (TableItem item : wHubNames.getNonEmptyItems()) {
       String h = item.getText(1);
@@ -823,7 +871,7 @@ public class DvLinkDialog {
         hubs.add(h);
       }
     }
-    input.setHubNames(hubs);
+    target.setHubNames(hubs);
 
     List<String> linkSats = new ArrayList<>();
     for (TableItem item : wLinkSatelliteNames.getNonEmptyItems()) {
@@ -832,9 +880,8 @@ public class DvLinkDialog {
         linkSats.add(s);
       }
     }
-    input.setLinkSatelliteNames(linkSats);
+    target.setLinkSatelliteNames(linkSats);
 
-    // Driving keys
     List<String> drives = new ArrayList<>();
     for (TableItem item : wDrivingKeyNames.getNonEmptyItems()) {
       String d = item.getText(1);
@@ -842,9 +889,9 @@ public class DvLinkDialog {
         drives.add(d);
       }
     }
-    input.setDrivingKeyNames(drives);
+    target.setDrivingKeyNames(drives);
 
-    input.getLinkHubSources().clear();
+    target.getLinkHubSources().clear();
     for (TableItem item : wLinkHubSources.getNonEmptyItems()) {
       String sname = item.getText(1);
       if (Utils.isEmpty(sname)) {
@@ -861,10 +908,10 @@ public class DvLinkDialog {
         match = new DvLink.DvLinkHubSource();
         match.setSourceName(sname);
       }
-      input.getLinkHubSources().add(match);
+      target.getLinkHubSources().add(match);
     }
 
-    input.getLinkSatelliteSources().clear();
+    target.getLinkSatelliteSources().clear();
     for (TableItem item : wLinkSatelliteSources.getNonEmptyItems()) {
       String sname = item.getText(1);
       if (Utils.isEmpty(sname)) {
@@ -881,12 +928,8 @@ public class DvLinkDialog {
         match = new DvLink.DvLinkSatelliteSource();
         match.setSourceName(sname);
       }
-      input.getLinkSatelliteSources().add(match);
+      target.getLinkSatelliteSources().add(match);
     }
-
-    input.setChanged();
-    ok = true;
-    dispose();
   }
 
   private void cancel() {

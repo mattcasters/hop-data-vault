@@ -32,8 +32,12 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvIntegrationMode;
+import org.apache.hop.core.ICheckResult;
+import org.apache.hop.datavault.metadata.DvModelCheckOptions;
 import org.apache.hop.datavault.metadata.DvSatellite;
+import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.SatelliteAttribute;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelDialogValidationSupport;
 import org.apache.hop.datavault.metadata.SourceField;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.FormDataBuilder;
@@ -73,6 +77,7 @@ public class DvSatelliteDialog {
   private IVariables variables;
   private DvSatellite input;
   private DataVaultModel model;
+  private final int originalTableIndex;
   private HopGui hopGui;
   private Shell shell;
 
@@ -109,6 +114,7 @@ public class DvSatelliteDialog {
     this.variables = hopGui.getVariables();
     this.input = satellite;
     this.model = model;
+    this.originalTableIndex = model != null ? model.getTables().indexOf(satellite) : -1;
   }
 
   public boolean open() {
@@ -127,13 +133,19 @@ public class DvSatelliteDialog {
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
+    Button wValidate = new Button(shell, SWT.PUSH);
+    wValidate.setText(
+        BaseMessages.getString(
+            ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"));
+    wValidate.addListener(SWT.Selection, e -> validate());
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
 
     DialogHelpSupport.createHelpButton(shell, HelpTopics.DV_SATELLITE);
 
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
+    BaseTransformDialog.positionBottomButtons(
+        shell, new Button[] {wOk, wValidate, wCancel}, margin, null);
 
     Label wlName = new Label(shell, SWT.RIGHT);
     wlName.setText(BaseMessages.getString(PKG, "DvSatelliteDialog.Name.Label"));
@@ -539,18 +551,52 @@ public class DvSatelliteDialog {
   }
 
   private void ok() {
-    input.setName(wName.getText());
-    input.setTableName(wTableName.getText());
-    input.setDescription(wDescription.getText());
-    input.setIntegrationMode(DvIntegrationMode.lookupDescription(wIntegrationMode.getText()));
-    String rsName = wRecordSource.getText();
+    applyWidgetsToTable(input);
+    input.setChanged();
+    ok = true;
+    dispose();
+  }
 
-    input.setRecordSourceName(rsName);
+  private void validate() {
+    try {
+      DataVaultModel draft =
+          ModelDialogValidationSupport.cloneDataVaultModel(model, hopGui.getMetadataProvider());
+      DvSatellite draftTable = locateDraftTable(draft);
+      applyWidgetsToTable(draftTable);
+      List<ICheckResult> remarks =
+          draft.check(hopGui.getMetadataProvider(), variables, DvModelCheckOptions.defaults());
+      ModelDialogValidationSupport.showCheckResults(shell, remarks);
+    } catch (Exception ex) {
+      new ErrorDialog(
+          shell,
+          BaseMessages.getString(ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"),
+          BaseMessages.getString(
+              ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Error", ex.getMessage()),
+          ex);
+    }
+  }
 
-    input.setHubName(wHubName.getText());
-    input.setLinkName(wLinkName.getText());
-    input.setDrivingKey(wDrivingKey.getText());
-    input.setDrivingKeySourceField(wDrivingKeySourceField.getText());
+  private DvSatellite locateDraftTable(DataVaultModel draft) throws HopException {
+    if (draft == null || originalTableIndex < 0 || originalTableIndex >= draft.getTables().size()) {
+      throw new HopException("Unable to locate table in validation model");
+    }
+    IDvTable table = draft.getTables().get(originalTableIndex);
+    if (!(table instanceof DvSatellite satellite)) {
+      throw new HopException("Validation model table type mismatch");
+    }
+    return satellite;
+  }
+
+  private void applyWidgetsToTable(DvSatellite target) {
+    target.setName(wName.getText());
+    target.setTableName(wTableName.getText());
+    target.setDescription(wDescription.getText());
+    target.setIntegrationMode(DvIntegrationMode.lookupDescription(wIntegrationMode.getText()));
+    target.setRecordSourceName(wRecordSource.getText());
+    target.setHubName(wHubName.getText());
+    target.setLinkName(wLinkName.getText());
+    target.setDrivingKey(wDrivingKey.getText());
+    target.setDrivingKeySourceField(wDrivingKeySourceField.getText());
 
     List<SatelliteAttribute> attrs = new ArrayList<>();
     for (TableItem item : wAttributes.getNonEmptyItems()) {
@@ -563,17 +609,13 @@ public class DvSatelliteDialog {
       attr.setIncludeInChangeDataCapture("Y".equalsIgnoreCase(item.getText(6)));
       attrs.add(attr);
     }
-    input.setAttributes(attrs);
+    target.setAttributes(attrs);
 
-    input.setStatusTrackingEnabled(wStatusTrackingEnabled.getSelection());
-    input.setStatusTableName(wStatusTableName.getText());
-    input.setStatusFieldName(wStatusFieldName.getText());
-    input.setActiveStatusValue(wActiveStatusValue.getText());
-    input.setDeletedStatusValue(wDeletedStatusValue.getText());
-
-    input.setChanged();
-    ok = true;
-    dispose();
+    target.setStatusTrackingEnabled(wStatusTrackingEnabled.getSelection());
+    target.setStatusTableName(wStatusTableName.getText());
+    target.setStatusFieldName(wStatusFieldName.getText());
+    target.setActiveStatusValue(wActiveStatusValue.getText());
+    target.setDeletedStatusValue(wDeletedStatusValue.getText());
   }
 
   private void cancel() {

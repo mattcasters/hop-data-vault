@@ -24,7 +24,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.Props;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
@@ -38,7 +40,10 @@ import org.apache.hop.datavault.metadata.businessvault.BvScd2Table;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
+import org.apache.hop.datavault.metadata.businessvault.IBvTable;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelDialogValidationSupport;
 import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.gui.WindowProperty;
@@ -71,6 +76,7 @@ public class HopGuiBvScd2TableDialog {
   private final BusinessVaultModel businessVaultModel;
   private final DataVaultModel dataVaultModel;
   private final IVariables variables;
+  private final int originalTableIndex;
   private Shell shell;
 
   private Text wName;
@@ -108,6 +114,8 @@ public class HopGuiBvScd2TableDialog {
     this.businessVaultModel = businessVaultModel;
     this.dataVaultModel = dataVaultModel;
     this.variables = variables;
+    this.originalTableIndex =
+        businessVaultModel != null ? businessVaultModel.getTables().indexOf(table) : -1;
   }
 
   public boolean open() {
@@ -127,12 +135,18 @@ public class HopGuiBvScd2TableDialog {
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
+    Button wValidate = new Button(shell, SWT.PUSH);
+    wValidate.setText(
+        BaseMessages.getString(
+            ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"));
+    wValidate.addListener(SWT.Selection, e -> validate());
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
     DialogHelpSupport.createHelpButton(shell, HelpTopics.BV_SCD2_TABLE);
 
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
+    BaseTransformDialog.positionBottomButtons(
+        shell, new Button[] {wOk, wValidate, wCancel}, margin, null);
 
     Label wlName = new Label(shell, SWT.RIGHT);
     wlName.setText(BaseMessages.getString(PKG, "HopGuiBvScd2TableDialog.Name.Label"));
@@ -592,7 +606,7 @@ public class HopGuiBvScd2TableDialog {
   }
 
   private void suggestMappings() {
-    applyDerivativesToInput();
+    applyDerivativesToTable(input);
     input.getFieldMappings().clear();
     for (TableItem item : wMappings.getNonEmptyItems()) {
       String satelliteName = item.getText(1);
@@ -686,8 +700,8 @@ public class HopGuiBvScd2TableDialog {
     wSatelliteConfigs.optWidth(true);
   }
 
-  private void applyDerivativesToInput() {
-    input.getDerivatives().clear();
+  private void applyDerivativesToTable(BvScd2Table target) {
+    target.getDerivatives().clear();
     for (TableItem item : wDerivatives.getNonEmptyItems()) {
       String dvName = item.getText(1);
       if (Utils.isEmpty(dvName)) {
@@ -707,54 +721,17 @@ public class HopGuiBvScd2TableDialog {
         }
       }
       if (dvType != null
-          && BusinessVaultDerivativeSupport.isValidDerivativePair(input.getTableType(), dvType)
-          && !BusinessVaultDerivativeSupport.hasDerivative(input, dvName)) {
-        input.getDerivatives().add(new BvDerivativeRef(dvName, dvType));
+          && BusinessVaultDerivativeSupport.isValidDerivativePair(target.getTableType(), dvType)
+          && !BusinessVaultDerivativeSupport.hasDerivative(target, dvName)) {
+        target.getDerivatives().add(new BvDerivativeRef(dvName, dvType));
       }
     }
   }
 
   private void ok() {
-    input.setName(wName.getText());
-    input.setDescription(wDescription.getText());
-    input.setTableName(wTableName.getText());
-    input.setIncludeHashKey(wIncludeHashKey.getSelectionIndex() == 0);
-    input.setFunctionalTimestampField(wFunctionalTimestamp.getText());
-    input.setValidFromField(wValidFromField.getText());
-    input.setValidToField(wValidToField.getText());
+    applyWidgetsToTable(input);
 
-    applyDerivativesToInput();
-    Set<String> activeSatellites = new HashSet<>(List.of(getSatelliteNamesFromDerivativesTable()));
-    BvScd2FieldMappingDialogSupport.pruneMappingsAndConfigs(input, activeSatellites);
-
-    input.getFieldMappings().clear();
-    for (TableItem item : wMappings.getNonEmptyItems()) {
-      String satelliteName = item.getText(1);
-      String sourceFieldName = item.getText(2);
-      String targetFieldName = item.getText(3);
-      if (Utils.isEmpty(satelliteName)
-          || Utils.isEmpty(sourceFieldName)
-          || Utils.isEmpty(targetFieldName)) {
-        continue;
-      }
-      input
-          .getFieldMappings()
-          .add(new BvScd2FieldMapping(satelliteName, sourceFieldName, targetFieldName));
-    }
-
-    input.getSatelliteConfigs().clear();
-    for (TableItem item : wSatelliteConfigs.getNonEmptyItems()) {
-      String satelliteName = item.getText(1);
-      if (Utils.isEmpty(satelliteName)) {
-        continue;
-      }
-      BvScd2SatelliteConfig config = new BvScd2SatelliteConfig(satelliteName);
-      config.setFunctionalTimestampField(item.getText(2));
-      config.setSourceIndicatorValue(item.getText(3));
-      input.getSatelliteConfigs().add(config);
-    }
-
-    List<org.apache.hop.core.ICheckResult> remarks =
+    List<ICheckResult> remarks =
         BvScd2FieldMappingDialogSupport.validateForDialog(
             input, businessVaultModel, dataVaultModel, variables);
     if (BvScd2FieldMappingDialogSupport.hasValidationErrors(remarks)) {
@@ -768,6 +745,78 @@ public class HopGuiBvScd2TableDialog {
 
     ok = true;
     dispose();
+  }
+
+  private void validate() {
+    try {
+      BusinessVaultModel draft =
+          ModelDialogValidationSupport.cloneBusinessVaultModel(
+              businessVaultModel, HopGui.getInstance().getMetadataProvider());
+      BvScd2Table draftTable = locateDraftTable(draft);
+      applyWidgetsToTable(draftTable);
+      List<ICheckResult> remarks =
+          draft.check(HopGui.getInstance().getMetadataProvider(), variables);
+      ModelDialogValidationSupport.showCheckResults(shell, remarks);
+    } catch (Exception ex) {
+      new ErrorDialog(
+          shell,
+          BaseMessages.getString(ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"),
+          BaseMessages.getString(
+              ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Error", ex.getMessage()),
+          ex);
+    }
+  }
+
+  private BvScd2Table locateDraftTable(BusinessVaultModel draft) throws HopException {
+    if (draft == null || originalTableIndex < 0 || originalTableIndex >= draft.getTables().size()) {
+      throw new HopException("Unable to locate table in validation model");
+    }
+    IBvTable table = draft.getTables().get(originalTableIndex);
+    if (!(table instanceof BvScd2Table scd2Table)) {
+      throw new HopException("Validation model table type mismatch");
+    }
+    return scd2Table;
+  }
+
+  private void applyWidgetsToTable(BvScd2Table target) {
+    target.setName(wName.getText());
+    target.setDescription(wDescription.getText());
+    target.setTableName(wTableName.getText());
+    target.setIncludeHashKey(wIncludeHashKey.getSelectionIndex() == 0);
+    target.setFunctionalTimestampField(wFunctionalTimestamp.getText());
+    target.setValidFromField(wValidFromField.getText());
+    target.setValidToField(wValidToField.getText());
+
+    applyDerivativesToTable(target);
+    Set<String> activeSatellites = new HashSet<>(List.of(getSatelliteNamesFromDerivativesTable()));
+    BvScd2FieldMappingDialogSupport.pruneMappingsAndConfigs(target, activeSatellites);
+
+    target.getFieldMappings().clear();
+    for (TableItem item : wMappings.getNonEmptyItems()) {
+      String satelliteName = item.getText(1);
+      String sourceFieldName = item.getText(2);
+      String targetFieldName = item.getText(3);
+      if (Utils.isEmpty(satelliteName)
+          || Utils.isEmpty(sourceFieldName)
+          || Utils.isEmpty(targetFieldName)) {
+        continue;
+      }
+      target
+          .getFieldMappings()
+          .add(new BvScd2FieldMapping(satelliteName, sourceFieldName, targetFieldName));
+    }
+
+    target.getSatelliteConfigs().clear();
+    for (TableItem item : wSatelliteConfigs.getNonEmptyItems()) {
+      String satelliteName = item.getText(1);
+      if (Utils.isEmpty(satelliteName)) {
+        continue;
+      }
+      BvScd2SatelliteConfig config = new BvScd2SatelliteConfig(satelliteName);
+      config.setFunctionalTimestampField(item.getText(2));
+      config.setSourceIndicatorValue(item.getText(3));
+      target.getSatelliteConfigs().add(config);
+    }
   }
 
   private void cancel() {

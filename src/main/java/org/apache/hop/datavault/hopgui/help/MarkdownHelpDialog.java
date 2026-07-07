@@ -53,10 +53,17 @@ public final class MarkdownHelpDialog {
 
     int margin = PropsUi.getMargin();
 
+    Button wOpenInBrowser = new Button(shell, SWT.PUSH);
+    wOpenInBrowser.setText(BaseMessages.getString(PKG, "MarkdownHelpDialog.OpenInBrowser"));
+    wOpenInBrowser.addListener(
+        SWT.Selection,
+        e -> MarkdownHelpBrowserSupport.openInBrowser(shell, shell.getText(), markdown, topicId));
+
     Button wClose = new Button(shell, SWT.PUSH);
     wClose.setText(BaseMessages.getString(PKG, "System.Button.Close"));
     wClose.addListener(SWT.Selection, e -> shell.dispose());
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wClose}, margin, null);
+    BaseTransformDialog.positionBottomButtons(
+        shell, new Button[] {wOpenInBrowser, wClose}, margin, null);
 
     MarkdownStyledTextComp markdownComp = new MarkdownStyledTextComp(shell, SWT.NONE);
     markdownComp.setMarkdown(markdown != null ? markdown : "");

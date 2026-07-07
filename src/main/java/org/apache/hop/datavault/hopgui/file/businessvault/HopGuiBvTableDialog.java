@@ -21,7 +21,9 @@ package org.apache.hop.datavault.hopgui.file.businessvault;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.hopgui.EnumDialogSupport;
 import org.apache.hop.datavault.metadata.DataVaultModel;
@@ -43,6 +45,9 @@ import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.core.dialog.BaseDialog;
+import org.apache.hop.ui.core.dialog.ErrorDialog;
+import org.apache.hop.ui.hopgui.HopGui;
+import org.apache.hop.datavault.hopgui.file.modelgraph.ModelDialogValidationSupport;
 import org.apache.hop.ui.core.widget.ColumnInfo;
 import org.apache.hop.ui.core.widget.TableView;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
@@ -68,6 +73,7 @@ public class HopGuiBvTableDialog {
   private final BusinessVaultModel businessVaultModel;
   private final DataVaultModel dataVaultModel;
   private final IVariables variables;
+  private final int originalTableIndex;
   private Shell shell;
 
   private Text wName;
@@ -111,6 +117,8 @@ public class HopGuiBvTableDialog {
     this.dataVaultModel = dataVaultModel;
     this.variables = variables;
     this.pit = table.getTableType() == BvTableType.PIT;
+    this.originalTableIndex =
+        businessVaultModel != null ? businessVaultModel.getTables().indexOf(table) : -1;
   }
 
   public boolean open() {
@@ -301,12 +309,18 @@ public class HopGuiBvTableDialog {
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
+    Button wValidate = new Button(shell, SWT.PUSH);
+    wValidate.setText(
+        BaseMessages.getString(
+            ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"));
+    wValidate.addListener(SWT.Selection, e -> validate());
     Button wCancel = new Button(shell, SWT.PUSH);
     wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
     wCancel.addListener(SWT.Selection, e -> cancel());
     DialogHelpSupport.createHelpButton(shell, HelpTopics.BV_TABLE);
 
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
+    BaseTransformDialog.positionBottomButtons(
+        shell, new Button[] {wOk, wValidate, wCancel}, margin, null);
 
     getData();
     if (pit) {
@@ -449,10 +463,43 @@ public class HopGuiBvTableDialog {
   }
 
   private void ok() {
-    input.setName(wName.getText());
-    input.setTableName(wTableName.getText());
-    input.setDescription(wDescription.getText());
-    if (input instanceof BvPitTable pit) {
+    applyWidgetsToTable(input);
+    ok = true;
+    dispose();
+  }
+
+  private void validate() {
+    try {
+      BusinessVaultModel draft =
+          ModelDialogValidationSupport.cloneBusinessVaultModel(
+              businessVaultModel, HopGui.getInstance().getMetadataProvider());
+      IBvTable draftTable = locateDraftTable(draft);
+      applyWidgetsToTable(draftTable);
+      List<ICheckResult> remarks =
+          draft.check(HopGui.getInstance().getMetadataProvider(), variables);
+      ModelDialogValidationSupport.showCheckResults(shell, remarks);
+    } catch (Exception ex) {
+      new ErrorDialog(
+          shell,
+          BaseMessages.getString(ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Label"),
+          BaseMessages.getString(
+              ModelDialogValidationSupport.class, "ModelTableDialog.Validate.Error", ex.getMessage()),
+          ex);
+    }
+  }
+
+  private IBvTable locateDraftTable(BusinessVaultModel draft) throws HopException {
+    if (draft == null || originalTableIndex < 0 || originalTableIndex >= draft.getTables().size()) {
+      throw new HopException("Unable to locate table in validation model");
+    }
+    return draft.getTables().get(originalTableIndex);
+  }
+
+  private void applyWidgetsToTable(IBvTable target) {
+    target.setName(wName.getText());
+    target.setTableName(wTableName.getText());
+    target.setDescription(wDescription.getText());
+    if (target instanceof BvPitTable pit) {
       pit.setSnapshotDateField(wSnapshotDateField.getText());
       BvPitSnapshotSchedule schedule = pit.getSnapshotScheduleOrDefault();
       schedule.setCadence(
@@ -474,7 +521,7 @@ public class HopGuiBvTableDialog {
       schedule.setSatellitePointerSuffix(wPointerSuffix.getText());
     }
 
-    input.getDerivatives().clear();
+    target.getDerivatives().clear();
     for (TableItem item : wDerivatives.getNonEmptyItems()) {
       String dvName = item.getText(1);
       if (Utils.isEmpty(dvName)) {
@@ -494,14 +541,11 @@ public class HopGuiBvTableDialog {
         }
       }
       if (dvType != null
-          && BusinessVaultDerivativeSupport.isValidDerivativePair(input.getTableType(), dvType)
-          && !BusinessVaultDerivativeSupport.hasDerivative(input, dvName)) {
-        input.getDerivatives().add(new BvDerivativeRef(dvName, dvType));
+          && BusinessVaultDerivativeSupport.isValidDerivativePair(target.getTableType(), dvType)
+          && !BusinessVaultDerivativeSupport.hasDerivative(target, dvName)) {
+        target.getDerivatives().add(new BvDerivativeRef(dvName, dvType));
       }
     }
-
-    ok = true;
-    dispose();
   }
 
   private static int parseHorizonDays(String text) {
