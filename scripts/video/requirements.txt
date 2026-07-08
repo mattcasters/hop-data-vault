@@ -1,0 +1,5 @@
+moviepy>=2.0
+pydub>=0.25.1
+requests>=2.31
+PyYAML>=6.0.1
+edge-tts>=6.1.9

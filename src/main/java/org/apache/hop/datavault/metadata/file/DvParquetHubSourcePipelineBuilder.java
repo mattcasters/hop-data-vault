@@ -66,7 +66,8 @@ public class DvParquetHubSourcePipelineBuilder extends DvParquetFileSourcePipeli
     }
 
     Map<String, String> sourceToTarget = new LinkedHashMap<>();
-    for (BusinessKey key : hub.getBusinessKeys()) {
+    String sourceName = variables.resolve(recordSource.getName());
+    for (BusinessKey key : hub.getBusinessKeysForSource(sourceName, variables)) {
       if (StringUtils.isNotEmpty(key.getSourceFieldName())) {
         sourceToTarget.put(key.getSourceFieldName(), key.getName());
       }
@@ -87,7 +88,7 @@ public class DvParquetHubSourcePipelineBuilder extends DvParquetFileSourcePipeli
       TransformMeta predecessor, Point location, ColumnMapping mapping) throws HopException {
     DvHub hub = (DvHub) dvTable;
     List<String> sortAndUniqueFields = new ArrayList<>();
-    for (BusinessKey key : hub.getBusinessKeys()) {
+    for (BusinessKey key : hub.getDistinctBusinessKeys()) {
       sortAndUniqueFields.add(variables.resolve(key.getName()));
     }
     String targetSourceFieldName =

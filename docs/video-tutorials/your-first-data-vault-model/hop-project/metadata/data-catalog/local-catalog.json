@@ -1,0 +1,11 @@
+{
+  "catalog": {
+    "FILE": {
+      "pluginId": "FILE",
+      "storageDirectory": "${PROJECT_HOME}/catalog-data"
+    }
+  },
+  "name": "local-catalog",
+  "description": "",
+  "enabled": true
+}

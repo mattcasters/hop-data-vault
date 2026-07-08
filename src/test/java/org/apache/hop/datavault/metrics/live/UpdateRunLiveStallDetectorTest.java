@@ -93,4 +93,70 @@ class UpdateRunLiveStallDetectorTest {
             .build();
     assertFalse(detector.isStalled(finished));
   }
+
+  @Test
+  void pipelineNotStalledWhenAnyRunningTransformStillProgresses() {
+    UpdateRunLiveStallDetector detector = new UpdateRunLiveStallDetector(60_000L);
+    TransformLiveMetrics stalledBranch =
+        TransformLiveMetrics.builder()
+            .transformName("junk_d_orders_junk_key")
+            .pluginId("JunkDimension")
+            .rowsRead(1L)
+            .rowsWritten(1L)
+            .running(true)
+            .secondsSinceLastProgress(140L)
+            .build();
+    TransformLiveMetrics activeSink =
+        TransformLiveMetrics.builder()
+            .transformName("stage_to_f_orders")
+            .pluginId("TextFileOutput")
+            .rowsRead(0L)
+            .rowsWritten(147_567L)
+            .running(true)
+            .secondsSinceLastProgress(0L)
+            .build();
+
+    assertFalse(detector.isPipelineStalled(List.of(stalledBranch, activeSink)));
+  }
+
+  @Test
+  void pipelineStalledWhenEveryRunningTransformIsQuiet() {
+    UpdateRunLiveStallDetector detector = new UpdateRunLiveStallDetector(60_000L);
+    TransformLiveMetrics stalledSource =
+        TransformLiveMetrics.builder()
+            .transformName("source_f_orders")
+            .pluginId("TableInput")
+            .rowsRead(0L)
+            .rowsWritten(0L)
+            .running(true)
+            .secondsSinceLastProgress(90L)
+            .build();
+    TransformLiveMetrics stalledLookup =
+        TransformLiveMetrics.builder()
+            .transformName("lookup_d_customer")
+            .pluginId("DimensionLookup")
+            .rowsRead(0L)
+            .rowsWritten(0L)
+            .running(true)
+            .secondsSinceLastProgress(75L)
+            .build();
+
+    assertTrue(detector.isPipelineStalled(List.of(stalledSource, stalledLookup)));
+  }
+
+  @Test
+  void pipelineNotStalledWhenNoTransformsAreRunning() {
+    UpdateRunLiveStallDetector detector = new UpdateRunLiveStallDetector(60_000L);
+    TransformLiveMetrics finished =
+        TransformLiveMetrics.builder()
+            .transformName("stage_to_f_orders")
+            .pluginId("TextFileOutput")
+            .rowsRead(0L)
+            .rowsWritten(600_261L)
+            .running(false)
+            .secondsSinceLastProgress(300L)
+            .build();
+
+    assertFalse(detector.isPipelineStalled(List.of(finished)));
+  }
 }

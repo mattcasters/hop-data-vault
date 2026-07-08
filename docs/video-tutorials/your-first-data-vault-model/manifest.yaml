@@ -1,0 +1,317 @@
+tutorial:
+  id: your-first-data-vault-model
+  title: "Your first Data Vault model"
+  locale: en
+  video:
+    width: 1920
+    height: 1080
+    fps: 30
+    default_transition: fadeblack
+    transition_ms: 500
+    ken_burns: smooth
+    padding_after_sec: 0.5
+  tts:
+    provider: xai
+    voice_id: ursa
+
+scenes:
+  - id: new-beginning
+    image: images/01-a-new-beginning.png
+    narration:
+      en: |
+        Welcome. We start with a fresh Hop project for our first Data Vault model.
+
+  - id: database-connections
+    image: images/02-three-database-connections.png
+    narration:
+      en: |
+        Configure three database connections: CRM for source data, Vault for the
+        warehouse, and OPS for load control.
+
+  - id: create-model-file
+    image: images/03-create-new-data-vault-model.png
+    narration:
+      en: |
+        Create a new Data Vault model file with the HDV extension.
+
+  - id: empty-model
+    image: images/04-an-empty-data-vault-model.png
+    narration:
+      en: |
+        You now have an empty model canvas, ready for hubs, links, and satellites.
+
+  - id: edit-model-properties
+    image: images/00-a-edit-the-model-properties.png
+    narration:
+      en: |
+        Open Edit model from the toolbar to configure model-wide settings.
+
+  - id: model-properties-dialog
+    image: images/00-b-the-model-properties-dialog.png
+    narration:
+      en: |
+        The model properties dialog holds hashing rules, column names, and
+        pipeline options for the entire model.
+
+  - id: target-database
+    image: images/00-c-select-the-target-database.png
+    narration:
+      en: |
+        Select Vault as the target database where Data Vault tables will be loaded.
+
+  - id: standard-columns
+    image: images/00-d-select-the-standard-column-names-you-like.png
+    narration:
+      en: |
+        Confirm the standard column names for load date, record source, and
+        hash keys.
+
+  - id: adding-sources
+    image: images/05-adding-sources.png
+    narration:
+      en: |
+        Before modeling, we need source definitions in the data catalog.
+
+  - id: create-catalog
+    image: images/06-create-a-data-catalog.png
+    narration:
+      en: |
+        Create a local data catalog connection for this project.
+
+  - id: empty-catalog
+    image: images/07-an-empty-data-catalog.png
+    narration:
+      en: |
+        The catalog starts empty. We will import tables from the CRM database.
+
+  - id: import-record-definitions
+    image: images/08-import-table-record-definitions-into-catalog.png
+    narration:
+      en: |
+        Use Import sources to bring database tables into the catalog as record
+        definitions.
+
+  - id: import-tables-dialog
+    image: images/09-import-database-tables-dialog.png
+    narration:
+      en: |
+        Pick the CRM connection and schema, then choose which tables to import.
+
+  - id: select-tables
+    image: images/10-select-tables-to-import-into-catalog.png
+    narration:
+      en: |
+        Select the customer, order, and product tables needed for this model.
+
+  - id: review-names
+    image: images/11-review-table-record-definition-names.png
+    narration:
+      en: |
+        Review the generated record definition names before finishing the import.
+
+  - id: import-complete
+    image: images/12-tables-successfully-imported.png
+    narration:
+      en: |
+        The catalog now lists all imported sources, ready for modeling.
+
+  - id: coaching-sources
+    image: images/13-a-list-of-coaching-sources.png
+    narration:
+      en: |
+        Add coaching sources to the model so the Coach panel can guide table
+        creation.
+
+  - id: coaching-panel
+    image: images/14-the-coaching-panel-populated.png
+    narration:
+      en: |
+        The Coach panel shows every source you can drag onto the canvas.
+
+  - id: coaching-expanded
+    image: images/15-one-coaching-source-expanded.png
+    narration:
+      en: |
+        Expand a source to preview its fields before creating a hub or satellite.
+
+  - id: drag-create-hub
+    image: images/16-drag-onto-model-create-hub-customer.png
+    narration:
+      en: |
+        Drag the customer hub source onto the canvas and choose Hub as the table
+        type.
+
+  - id: hub-created
+    image: images/17-your-first-hub-is-created.png
+    narration:
+      en: |
+        Your first hub appears on the canvas as hub customer.
+
+  - id: hub-hash-key
+    image: images/18-specify-the-hash-key-of-the-hub.png
+    narration:
+      en: |
+        Open the hub dialog and set the hash key column name.
+
+  - id: keys-tab
+    image: images/19-the-keys-tab-where-we-can-import-the-business-keys.png
+    narration:
+      en: |
+        On the Keys tab, import business keys from the attached record source.
+
+  - id: select-business-key
+    image: images/20-select-the-customer-hub-business-key.png
+    narration:
+      en: |
+        Select the customer business key field from the source.
+
+  - id: keys-populated
+    image: images/21-the-keys-tab-populated.png
+    narration:
+      en: |
+        The Keys tab now shows the business key mapped to the hub hash key.
+
+  - id: save-model
+    image: images/22-your-first-hub-is-created-do-not-forget-to-save-the-model.png
+    narration:
+      en: |
+        Save the model. Your first hub is in place.
+
+  - id: drag-create-satellite
+    image: images/23-drag-the-same-source-to-create-a-satellite.png
+    narration:
+      en: |
+        Drag a source onto the canvas again, this time choosing Satellite.
+
+  - id: satellite-created
+    image: images/24-the-newly-created-customer-address-satellite.png
+    narration:
+      en: |
+        A customer address satellite is created on the canvas.
+
+  - id: satellite-parent-hub
+    image: images/25-select-the-hub-for-the-customer-address-satellite.png
+    narration:
+      en: |
+        Set hub customer as the parent hub for this satellite.
+
+  - id: load-attributes
+    image: images/26-load-the-customer-address-attributes-with-the-button.png
+    narration:
+      en: |
+        Click Load from source to pull in the descriptive attribute fields.
+
+  - id: attributes-selected
+    image: images/27-the-customer-address-attributes-selected.png
+    narration:
+      en: |
+        Select the address attributes that belong on this satellite.
+
+  - id: first-satellite-done
+    image: images/28-your-first-satellite-is-done.png
+    narration:
+      en: |
+        Your first satellite is configured and linked to the customer hub.
+
+  - id: contact-satellite
+    image: images/29-adding-the-customer-contact-satellite.png
+    narration:
+      en: |
+        Add a customer contact satellite using the same drag-and-configure pattern.
+
+  - id: demo-satellite
+    image: images/30-adding-the-customer-demographics-satellite.png
+    narration:
+      en: |
+        Add a customer demographics satellite for profile attributes.
+
+  - id: more-satellites
+    image: images/31-adding-more-satellites-to-the-customer-hub.png
+    narration:
+      en: |
+        The customer hub now has several satellites hanging off it.
+
+  - id: more-hub-sources
+    image: images/32-adding-more-sources-to-the-hub.png
+    narration:
+      en: |
+        Attach additional record sources to the hub on the Record sources tab.
+
+  - id: five-sources
+    image: images/33-five-customer-hub-sources.png
+    narration:
+      en: |
+        The customer hub now draws business keys from five different sources.
+
+  - id: import-all-keys
+    image: images/34-import-all-the-keys-for-the-hub-sources.png
+    narration:
+      en: |
+        Import keys from every source and map each to the hub hash key.
+
+  - id: hub-complete
+    image: images/35-the-hub-completely-configured.png
+    narration:
+      en: |
+        The customer hub is fully configured with all sources and keys.
+
+  - id: validate-model
+    image: images/36-validate-the-model-check-for-errors.png
+    narration:
+      en: |
+        Run Check model to catch missing mappings or broken references early.
+
+  - id: order-hub
+    image: images/37-rince-repeat-for-the-order-hub-and-satellite.png
+    narration:
+      en: |
+        Repeat the same steps for an order hub and its satellite.
+
+  - id: create-link
+    image: images/38-create-our-first-link-table.png
+    narration:
+      en: |
+        Add a link table to connect the customer and order hubs.
+
+  - id: link-dialog
+    image: images/39-the-link-dialog.png
+    narration:
+      en: |
+        Open the link dialog to configure participating hubs and key mappings.
+
+  - id: link-hash-key
+    image: images/40-specify-the-link-hash-key-and-select-the-hubs.png
+    narration:
+      en: |
+        Set the link hash key and include both the customer and order hubs.
+
+  - id: source-hub-mapping
+    image: images/41-edit-the-source-to-hubs-mapping.png
+    narration:
+      en: |
+        Map the link record source to the participating hubs.
+
+  - id: link-customer-mapping
+    image: images/42-edit-the-link-key-mapping-to-the-customer-hub.png
+    narration:
+      en: |
+        Configure how the customer hub key is resolved in the link.
+
+  - id: customer-key-mapping
+    image: images/43-select-the-key-source-mapping-for-the-customer-hub.png
+    narration:
+      en: |
+        Select the key source mapping for the customer side of the link.
+
+  - id: order-key-mapping
+    image: images/44-enter-the-key-source-mapping-for-the-order-hub.png
+    narration:
+      en: |
+        Enter the key source mapping for the order side of the link.
+
+  - id: model-complete
+    image: images/45-the-first-model-is-complete.png
+    narration:
+      en: |
+        Congratulations. Your first Data Vault model is complete with hubs,
+        satellites, and a link, ready for validation and loading.

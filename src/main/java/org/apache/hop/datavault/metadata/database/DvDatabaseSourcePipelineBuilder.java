@@ -146,12 +146,20 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
       throw new HopException("Please specify at least one business key in Hub " + hub.getName());
     }
     List<String> pkQuotedFields = new ArrayList<>();
+    String sourceName = variables.resolve(recordSource.getName());
 
-    for (BusinessKey key : hub.getBusinessKeys()) {
+    for (BusinessKey key : hub.getBusinessKeysForSource(sourceName, variables)) {
       if (StringUtils.isNotEmpty(key.getSourceFieldName())) {
         String quotedPk = sourceDbMeta.quoteField(variables.resolve(key.getSourceFieldName()));
         pkQuotedFields.add(quotedPk);
       }
+    }
+    if (pkQuotedFields.isEmpty()) {
+      throw new HopException(
+          "Please specify at least one business key mapped to record source "
+              + sourceName
+              + " in Hub "
+              + hub.getName());
     }
     return pkQuotedFields;
   }

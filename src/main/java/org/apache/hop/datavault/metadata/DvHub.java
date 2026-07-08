@@ -21,6 +21,7 @@ package org.apache.hop.datavault.metadata;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -325,7 +326,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     if (Utils.isEmpty(recordSourceFieldName)) {
       remarks.add(
           new CheckResult(
-              ICheckResult.TYPE_RESULT_COMMENT,
+              ICheckResult.TYPE_RESULT_OK,
               BaseMessages.getString(PKG, "DvHub.CheckResult.NoRecordSourceFieldName"),
               this));
     } else {
@@ -565,7 +566,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
     // First add all the business key(s)
     List<String> bkQuotedBkFields = new ArrayList<>();
-    for (BusinessKey key : businessKeys) {
+    for (BusinessKey key : getDistinctBusinessKeys()) {
       String quotedBkField =
           ctx.targetDatabaseMeta.quoteField(ctx.variables.resolve(key.getName()));
       bkQuotedBkFields.add(quotedBkField);
@@ -625,7 +626,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     mergeRowsMeta.setFlagField("flag");
 
     List<String> keyFields = new ArrayList<>();
-    for (BusinessKey bk : businessKeys) {
+    for (BusinessKey bk : getDistinctBusinessKeys()) {
       keyFields.add(bk.getName());
     }
     mergeRowsMeta.setKeyFields(keyFields);
@@ -679,7 +680,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     }
 
     List<String> businessKeyNames = new ArrayList<>();
-    for (BusinessKey bk : businessKeys) {
+    for (BusinessKey bk : getDistinctBusinessKeys()) {
       businessKeyNames.add(bk.getName());
     }
     DvHashKeyMeta hashKeyMeta =
@@ -754,10 +755,56 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
   public List<String> getBusinessKeyFieldNames() {
     List<String> names = new ArrayList<>();
-    for (BusinessKey key : businessKeys) {
+    for (BusinessKey key : getDistinctBusinessKeys()) {
       names.add(key.getName());
     }
     return names;
+  }
+
+  /**
+   * Business keys that apply to the given record source. When {@link BusinessKey#getRecordSourceName()}
+   * is empty the key applies to every source.
+   */
+  public List<BusinessKey> getBusinessKeysForSource(String sourceName, IVariables variables) {
+    List<BusinessKey> result = new ArrayList<>();
+    if (businessKeys == null) {
+      return result;
+    }
+    String resolvedSourceName = resolveBusinessKeySourceName(sourceName, variables);
+    for (BusinessKey bk : businessKeys) {
+      if (bk != null && businessKeyAppliesToSource(bk, resolvedSourceName, variables)) {
+        result.add(bk);
+      }
+    }
+    return result;
+  }
+
+  /** One entry per hub business key name, preserving first-seen order for composite keys. */
+  public List<BusinessKey> getDistinctBusinessKeys() {
+    List<BusinessKey> result = new ArrayList<>();
+    if (businessKeys == null) {
+      return result;
+    }
+    Set<String> seen = new LinkedHashSet<>();
+    for (BusinessKey bk : businessKeys) {
+      if (bk != null && !Utils.isEmpty(bk.getName()) && seen.add(bk.getName())) {
+        result.add(bk);
+      }
+    }
+    return result;
+  }
+
+  private static boolean businessKeyAppliesToSource(
+      BusinessKey bk, String sourceName, IVariables variables) {
+    String bkSource = resolveBusinessKeySourceName(bk.getRecordSourceName(), variables);
+    if (Utils.isEmpty(bkSource)) {
+      return true;
+    }
+    return bkSource.equals(sourceName);
+  }
+
+  private static String resolveBusinessKeySourceName(String name, IVariables variables) {
+    return variables != null && name != null ? variables.resolve(name) : name;
   }
 
   /** Context object holding all loaded / derived objects for the hub update pipeline generation. */
@@ -938,7 +985,7 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
 
       // 2. Then business keys (type from the metadata)
       //
-      for (BusinessKey bk : businessKeys) {
+      for (BusinessKey bk : getDistinctBusinessKeys()) {
         String srcFieldName = bk.getSourceFieldName();
         if (Utils.isEmpty(srcFieldName)) {
           srcFieldName = bk.getName();

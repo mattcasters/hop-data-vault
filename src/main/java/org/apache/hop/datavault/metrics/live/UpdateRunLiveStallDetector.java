@@ -98,15 +98,25 @@ public final class UpdateRunLiveStallDetector {
     return transform.getSecondsSinceLastProgress() * 1000L >= stallThresholdMs;
   }
 
+  /**
+   * A pipeline is stalled only when every running transform has been quiet for the threshold
+   * period. Branching pipelines often leave side paths idle while the main path (for example a
+   * staging Text File Output) continues to make progress.
+   */
   public boolean isPipelineStalled(List<TransformLiveMetrics> transforms) {
-    if (transforms == null) {
+    if (transforms == null || transforms.isEmpty()) {
       return false;
     }
+    boolean hasRunningTransform = false;
     for (TransformLiveMetrics transform : transforms) {
-      if (isStalled(transform)) {
-        return true;
+      if (transform == null || !transform.isRunning()) {
+        continue;
+      }
+      hasRunningTransform = true;
+      if (!isStalled(transform)) {
+        return false;
       }
     }
-    return false;
+    return hasRunningTransform;
   }
 }

@@ -468,7 +468,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
     if (Utils.isEmpty(recordSourceFieldName)) {
       remarks.add(
           new CheckResult(
-              ICheckResult.TYPE_RESULT_COMMENT,
+              ICheckResult.TYPE_RESULT_OK,
               BaseMessages.getString(PKG, "DvLink.CheckResult.NoRecordSourceFieldName"),
               this));
     } else {

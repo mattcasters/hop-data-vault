@@ -1,0 +1,14 @@
+{
+  "publishDatabaseRows": true,
+  "dimLookupPreloadRatioThreshold": 100,
+  "virtualPath": "",
+  "autoCreateTables": true,
+  "targetDatabaseConnection": "OPS",
+  "metricsOutputFolder": "${PROJECT_HOME}/metrics/",
+  "name": "data-vault-metrics",
+  "dataCatalogConnection": "local-catalog",
+  "description": "",
+  "publishCatalogDefinitions": true,
+  "operationsSchema": "dv_ops",
+  "enabled": true
+}

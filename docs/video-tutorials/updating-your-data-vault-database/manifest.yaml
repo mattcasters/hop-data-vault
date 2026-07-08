@@ -1,0 +1,104 @@
+tutorial:
+  id: updating-your-data-vault-database
+  title: "Updating your Data Vault database"
+  locale: en
+  video:
+    width: 1920
+    height: 1080
+    fps: 30
+    default_transition: fadeblack
+    transition_ms: 500
+    ken_burns: smooth
+    padding_after_sec: 0.5
+  tts:
+    provider: xai
+    voice_id: ursa
+
+scenes:
+  - id: copy-update-action
+    image: images/01-copy-the-update-action-to-the-clipboard.png
+    narration:
+      en: |
+        In the Data Vault modeler, copy the Data Vault Update action to the clipboard.
+
+  - id: create-workflow
+    image: images/02-create-a-new-workflow.png
+    narration:
+      en: |
+        Create a new workflow where we will paste and run the update action.
+
+  - id: paste-update-action
+    image: images/03-paste-the-update-action-into-the-workflow.png
+    narration:
+      en: |
+        Paste the action from the clipboard and connect it after Start.
+
+  - id: configure-update-action
+    image: images/04-configure-the-update-data-vault-action.png
+    narration:
+      en: |
+        Open the action and point it at your HDV model, run configurations,
+        and data catalog connection.
+
+  - id: run-workflow
+    image: images/05-run-the-workflow.png
+    narration:
+      en: |
+        Run the workflow with the local run configuration.
+
+  - id: running-update
+    image: images/06-a-running-model-update.png
+    narration:
+      en: |
+        The update starts: Start completes and the Data Vault Update action runs.
+
+  - id: live-status
+    image: images/07-live-updates-from-inside-the-update.png
+    narration:
+      en: |
+        While the update runs, open Current status to watch model state and elapsed time.
+
+  - id: open-execution
+    image: images/08-open-the-execution-to-look-at-what-is-running.png
+    narration:
+      en: |
+        You can also choose Open execution on the running action to inspect it live.
+
+  - id: pipeline-level
+    image: images/09-look-at-the-executions-down-to-the-pipeline-level.png
+    narration:
+      en: |
+        Drill down through the orchestrator into the individual load pipelines.
+
+  - id: catalog-populated
+    image: images/10-after-execution-the-catalog-contains-your-data-vault-record-definitions.png
+    narration:
+      en: |
+        After a successful run, the catalog lists your Data Vault record definitions.
+
+  - id: create-metrics-profile
+    image: images/11-create-an-execution-metrics-profile.png
+    narration:
+      en: |
+        Create an execution metrics profile pointing at your operations database
+        and catalog.
+
+  - id: link-metrics-profile
+    image: images/12-configure-the-metrics-profile-in-your-update-action.png
+    narration:
+      en: |
+        Select that metrics profile on the Data Vault Update action.
+
+  - id: begin-end-actions
+    image: images/13-add-being-and-end-vault-update-actions.png
+    narration:
+      en: |
+        Wrap the update with Begin Vault Update and End Vault Update actions,
+        and configure the End action to publish metrics.
+
+  - id: metrics-panel
+    image: images/014-you-will-see-information-appearing-in-the-metrics-panel-on-the-right.png
+    narration:
+      en: |
+        Run again and the metrics panel in the modeler shows load durations
+        for every hub, link, and satellite.

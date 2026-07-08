@@ -42,3 +42,11 @@ retail-example/files/order_header_*.csv
 retail-example/files/order_line_*.csv
 retail-example/files/product_*.csv
 retail-example/files/warehouse_*.csv
+
+docs/video-tutorials/**/output/
+scripts/video/.venv/
+
+docs/video-tutorials/**/output/**
+docs/video-tutorials/**/hop-project/metrics/**
+
+
