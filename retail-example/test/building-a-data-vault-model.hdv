@@ -220,7 +220,7 @@
       <tableName>s_customer_address</tableName>
       <description/>
       <tableType>SATELLITE</tableType>
-      <integrationMode>CUSTOM_PIPELINES</integrationMode>
+      <integrationMode>HOP_MANAGED</integrationMode>
       <customUpdatePipelinePaths/>
       <xloc>352</xloc>
       <yloc>48</yloc>
