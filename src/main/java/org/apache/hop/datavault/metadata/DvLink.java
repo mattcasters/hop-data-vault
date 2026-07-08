@@ -559,7 +559,8 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
           String hubHashName = variables.resolve(hub.getHashKeyFieldName());
           hubHashNames.add(hubHashName);
-          List<String> hubBkFields = hub.getBusinessKeyFieldNames();
+          List<String> hubBkFields =
+              resolveHubSourceBusinessKeyFields(linkSource, hubName, hub, variables);
           TransformMeta checkSumTransform =
               addDvHashKeyForFields(
                   pipelineMeta,
@@ -871,6 +872,12 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       }
     }
     return null;
+  }
+
+  private List<String> resolveHubSourceBusinessKeyFields(
+      DvLinkHubSource linkSource, String hubName, DvHub hub, IVariables variables)
+      throws HopException {
+    return DvLinkHubSourceKeyFieldSupport.resolveSourceFieldNames(linkSource, hubName, hub, variables);
   }
 
   private TransformMeta addTargetTableInput(

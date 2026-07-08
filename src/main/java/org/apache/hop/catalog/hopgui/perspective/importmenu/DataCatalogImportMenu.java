@@ -24,6 +24,7 @@ import org.apache.hop.catalog.hopgui.perspective.DataCatalogPerspective;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.gui.plugin.action.GuiAction;
 import org.apache.hop.core.gui.plugin.action.GuiActionType;
+import org.apache.hop.datavault.hopgui.GuiBusySupport;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.hopgui.HopGui;
@@ -87,12 +88,15 @@ public final class DataCatalogImportMenu {
               label,
               tooltip,
               image,
-              (shiftClicked, controlClicked, parameters) -> {
-                importer.execute(context);
-                if (context.getOnComplete() != null) {
-                  context.getOnComplete().run();
-                }
-              }));
+              (shiftClicked, controlClicked, parameters) ->
+                  GuiBusySupport.showWhile(
+                      context.getShell(),
+                      () -> {
+                        importer.execute(context);
+                        if (context.getOnComplete() != null) {
+                          context.getOnComplete().run();
+                        }
+                      })));
     }
     return actions;
   }

@@ -470,20 +470,55 @@ public final class DvFieldMappingValidationSupport {
       ResolvedSourceFields resolved =
           resolveSourceFields(
               recordSource, options, metadataProvider, variables, checkSource, remarks);
-      if (resolved == null || linkHubSource.getHubSourceKeyFields() == null) {
+      if (resolved == null) {
         continue;
       }
-      for (DvLink.HubSourceKeyField hubSourceKeyField : linkHubSource.getHubSourceKeyFields()) {
-        if (hubSourceKeyField == null || hubSourceKeyField.getSourceBusinessKeyFields() == null) {
+      if (link.getHubNames() == null) {
+        continue;
+      }
+      for (String hubName : link.getHubNames()) {
+        if (Utils.isEmpty(hubName)) {
           continue;
         }
-        DvHub hub =
-            model.findHub(hubSourceKeyField.getHubName(), variables, metadataProvider);
-        for (BusinessKeySource bks : hubSourceKeyField.getSourceBusinessKeyFields()) {
-          if (bks == null || Utils.isEmpty(bks.getSourceFieldName())) {
-            continue;
-          }
-          String sourceFieldName = resolveName(bks.getSourceFieldName(), variables);
+        DvLink.HubSourceKeyField hubSourceKeyField =
+            DvLinkHubSourceKeyFieldSupport.findHubSourceKeyFieldOrNull(linkHubSource, hubName);
+        if (hubSourceKeyField == null) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG,
+                      "DvFieldMappingValidation.LinkHubMappingMissing",
+                      hubName,
+                      linkHubSource.getSourceName(),
+                      link.getName()),
+                  checkSource));
+          continue;
+        }
+        DvHub hub = model.findHub(hubName, variables, metadataProvider);
+        if (hub == null) {
+          continue;
+        }
+        List<DvLinkHubSourceKeyFieldSupport.ResolvedBusinessKeySource> resolvedMappings =
+            DvLinkHubSourceKeyFieldSupport.resolveBusinessKeySources(
+                hub, hubSourceKeyField, variables);
+        if (resolvedMappings.isEmpty()) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG,
+                      "DvFieldMappingValidation.LinkHubKeyFieldsMissing",
+                      hubName,
+                      linkHubSource.getSourceName(),
+                      link.getName()),
+                  checkSource));
+          continue;
+        }
+        for (DvLinkHubSourceKeyFieldSupport.ResolvedBusinessKeySource resolvedMapping :
+            resolvedMappings) {
+          String businessKeyField = resolvedMapping.getBusinessKeyField();
+          String sourceFieldName = resolvedMapping.getSourceFieldName();
           IValueMeta sourceMeta = resolved.fields.get(sourceFieldName);
           if (sourceMeta == null) {
             remarks.add(
@@ -494,11 +529,11 @@ public final class DvFieldMappingValidationSupport {
                         "DvFieldMappingValidation.SourceFieldMissing",
                         sourceFieldName,
                         recordSource.getName(),
-                        bks.getBusinessKeyField()),
+                        businessKeyField),
                     checkSource));
             continue;
           }
-          BusinessKey hubBk = findHubBusinessKey(hub, bks.getBusinessKeyField());
+          BusinessKey hubBk = findHubBusinessKey(hub, businessKeyField);
           if (hubBk == null) {
             remarks.add(
                 new CheckResult(
@@ -506,8 +541,8 @@ public final class DvFieldMappingValidationSupport {
                     BaseMessages.getString(
                         PKG,
                         "DvFieldMappingValidation.HubBusinessKeyMissing",
-                        bks.getBusinessKeyField(),
-                        hubSourceKeyField.getHubName()),
+                        businessKeyField,
+                        hubName),
                     checkSource));
             continue;
           }
@@ -519,10 +554,10 @@ public final class DvFieldMappingValidationSupport {
                 BaseMessages.getString(
                     PKG,
                     "DvFieldMappingValidation.Context.LinkHubKey",
-                    bks.getBusinessKeyField(),
+                    businessKeyField,
                     sourceFieldName,
                     recordSource.getName(),
-                    hubSourceKeyField.getHubName()),
+                    hubName),
                 checkSource,
                 remarks);
             if (resolved.usedLive) {
@@ -531,7 +566,7 @@ public final class DvFieldMappingValidationSupport {
                   sourceFieldName,
                   sourceMeta,
                   recordSource.getName(),
-                  bks.getBusinessKeyField(),
+                  businessKeyField,
                   variables,
                   checkSource,
                   remarks);

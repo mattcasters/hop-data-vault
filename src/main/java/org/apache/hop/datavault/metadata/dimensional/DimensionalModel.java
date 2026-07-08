@@ -40,6 +40,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DvNote;
+import org.apache.hop.datavault.metadata.coaching.ModelCoachingConfiguration;
 import org.apache.hop.datavault.metadata.DvTargetLoadModelCheckSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataBase;
@@ -77,6 +78,8 @@ public class DimensionalModel extends HopMetadataBase
   @HopMetadataProperty(key = "configuration")
   private DimensionalConfiguration configuration;
 
+  @HopMetadataProperty private ModelCoachingConfiguration coaching;
+
   @HopMetadataProperty(key = "table", groupKey = "tables")
   @Getter(AccessLevel.NONE)
   @Setter(AccessLevel.NONE)
@@ -104,6 +107,13 @@ public class DimensionalModel extends HopMetadataBase
       configuration = DimensionalConfiguration.createFromPluginDefaults();
     }
     return configuration;
+  }
+
+  public ModelCoachingConfiguration getCoachingOrDefault() {
+    if (coaching == null) {
+      coaching = ModelCoachingConfiguration.createEmpty();
+    }
+    return coaching;
   }
 
   public @NonNull List<IDmTable> getTables() {

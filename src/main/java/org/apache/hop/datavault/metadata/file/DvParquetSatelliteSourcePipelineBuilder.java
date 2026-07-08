@@ -36,6 +36,7 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
+import org.apache.hop.datavault.metadata.DvLinkHubSourceKeyFieldSupport;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSourceFieldMappingSupport;
 import org.apache.hop.datavault.metadata.IDvSource;
@@ -132,19 +133,13 @@ public class DvParquetSatelliteSourcePipelineBuilder extends DvParquetFileSource
 
     Set<String> added = new LinkedHashSet<>();
     for (String hubName : linkedLink.getHubNames()) {
-      for (DvLink.HubSourceKeyField sourceKeyField : dvLinkHubSource.getHubSourceKeyFields()) {
-        if (!hubName.equals(sourceKeyField.getHubName())) {
-          continue;
-        }
-        if (sourceKeyField.getSourceBusinessKeyFields() != null) {
-          for (BusinessKeySource businessKeySource : sourceKeyField.getSourceBusinessKeyFields()) {
-            if (businessKeySource != null
-                && StringUtils.isNotEmpty(businessKeySource.getSourceFieldName())
-                && added.add(businessKeySource.getSourceFieldName())) {
-              sourceToTarget.put(
-                  businessKeySource.getSourceFieldName(), businessKeySource.getSourceFieldName());
-            }
-          }
+      DvHub hub = findHub(hubName);
+      DvLink.HubSourceKeyField sourceKeyField =
+          DvLinkHubSourceKeyFieldSupport.findHubSourceKeyField(dvLinkHubSource, hubName);
+      for (String sourceFieldName :
+          DvLinkHubSourceKeyFieldSupport.resolveSourceFieldNames(hub, sourceKeyField, variables)) {
+        if (added.add(sourceFieldName)) {
+          sourceToTarget.put(sourceFieldName, sourceFieldName);
         }
       }
     }

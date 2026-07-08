@@ -38,11 +38,11 @@ class LoadFromSourceI18nTest {
   @Test
   void vaultDialogLoadFromSourceMessagesResolve() {
     assertResolvedLabel(
-        DvHubDialog.class, "DvHubDialog.GetKeys.Button", "Load from source");
+        DvHubDialog.class, "DvHubDialog.GetKeys.Button", "Import keys from sources");
     assertResolvedLabel(
         DvHubDialog.class,
         "DvHubDialog.GetKeys.ToolTip",
-        "Select source fields to add as business keys");
+        "Import business keys from record sources not yet mapped on the Keys tab");
     assertResolvedLabel(
         DvSatelliteDialog.class, "DvSatelliteDialog.GetAttributes.Button", "Load from source");
     assertResolvedLabel(

@@ -48,6 +48,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.hopgui.ai.DmAiAdvisorDialog;
+import org.apache.hop.datavault.hopgui.coaching.ICoachableModelGraph;
 import org.apache.hop.datavault.hopgui.file.dimensional.delegates.HopGuiDimensionalClipboardDelegate;
 import org.apache.hop.datavault.hopgui.file.dimensional.delegates.HopGuiDimensionalSnapshotUndo;
 import org.apache.hop.datavault.hopgui.file.modelgraph.HopGuiModelGraphBase;
@@ -69,6 +70,9 @@ import org.apache.hop.datavault.workflow.actions.dimensionalupdate.ActionDimensi
 import org.apache.hop.workflow.action.ActionMeta;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
+import org.apache.hop.datavault.metadata.coaching.CoachingSourceRef;
+import org.apache.hop.datavault.metadata.coaching.DmCoachingModelAdapter;
+import org.apache.hop.datavault.metadata.coaching.ICoachingModelAdapter;
 import org.apache.hop.datavault.metadata.dimensional.DmAccumulatingSnapshotFact;
 import org.apache.hop.datavault.metadata.dimensional.DmAggregateFact;
 import org.apache.hop.datavault.metadata.dimensional.DmBridge;
@@ -139,7 +143,7 @@ import org.w3c.dom.Node;
 @Getter
 @Setter
 public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
-    implements IHopFileTypeHandler, IGuiRefresher {
+    implements IHopFileTypeHandler, IGuiRefresher, ICoachableModelGraph {
 
   private static final Class<?> PKG = HopGuiDimensionalModelGraph.class;
 
@@ -164,6 +168,8 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
       "HopGuiDimensionalModelGraph-ToolBar-10070-Debug";
   public static final String TOOLBAR_ITEM_GENERATE_DDL =
       "HopGuiDimensionalModelGraph-ToolBar-10080-Generate-Ddl";
+  public static final String TOOLBAR_ITEM_TOGGLE_COACH =
+      "HopGuiDimensionalModelGraph-ToolBar-10084-Toggle-Coach";
   public static final String TOOLBAR_ITEM_TOGGLE_DURATIONS =
       "HopGuiDimensionalModelGraph-ToolBar-10086-Toggle-Durations";
   public static final String TOOLBAR_ITEM_REFRESH_DURATIONS =
@@ -1445,6 +1451,15 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
         perspective.updateTabItem(this);
       }
     }
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_TOGGLE_COACH,
+      toolTip = "i18n::ModelCoachPanel.Toggle.Tooltip",
+      image = "ui/images/view.svg")
+  public void toggleCoachPanelToolbar() {
+    toggleCoachPanel();
   }
 
   @GuiToolbarElement(
@@ -2794,5 +2809,77 @@ public class HopGuiDimensionalModelGraph extends HopGuiModelGraphBase
     public void refreshGui() {
       updateGui();
     }
+  }
+
+  @Override
+  public ICoachingModelAdapter createCoachingModelAdapter() {
+    if (model == null) {
+      return null;
+    }
+    return new DmCoachingModelAdapter(model, this::editDmTableByName, this::highlightDmTableByName);
+  }
+
+  @Override
+  public void notifyCoachModelChanged() {
+    setChanged();
+    refreshCoachPanel();
+  }
+
+  @Override
+  public String createTableFromCoachSource(
+      CoachingSourceRef sourceRef, String tableType, String tableName, Point location) {
+    if (model == null || Utils.isEmpty(tableType)) {
+      return null;
+    }
+    markUndoPoint();
+    IDmTable table = null;
+    String normalizedType = tableType.trim();
+    if ("DIMENSION".equalsIgnoreCase(normalizedType)) {
+      table = new DmDimension();
+    } else if ("FACT".equalsIgnoreCase(normalizedType)) {
+      table = new DmFact();
+    } else if ("BRIDGE".equalsIgnoreCase(normalizedType)) {
+      table = new DmBridge();
+    } else if ("JUNK_DIMENSION".equalsIgnoreCase(normalizedType)) {
+      table = new DmJunkDimension();
+    }
+    if (table == null) {
+      return null;
+    }
+    if (!Utils.isEmpty(tableName)) {
+      table.setName(tableName);
+      table.setTableName(tableName.toLowerCase().replace(' ', '_'));
+    } else {
+      String generated = getUniqueTableName(table.getTableType().name());
+      table.setName(generated);
+      table.setTableName(generated.toLowerCase().replace(' ', '_'));
+    }
+    PropsUi.setLocation(table, location != null ? location.x : 50, location != null ? location.y : 50);
+    model.getTables().add(table);
+    setChanged();
+    redraw();
+    return table.getName();
+  }
+
+  private void editDmTableByName(String tableName) {
+    if (Utils.isEmpty(tableName) || model == null) {
+      return;
+    }
+    IDmTable table = model.findTable(tableName);
+    if (table != null) {
+      editDmTable(table);
+    }
+  }
+
+  private void highlightDmTableByName(String tableName) {
+    if (Utils.isEmpty(tableName) || model == null) {
+      return;
+    }
+    for (IDmTable table : model.getTables()) {
+      if (table != null) {
+        table.setSelected(tableName.equals(table.getName()));
+      }
+    }
+    redraw();
   }
 }

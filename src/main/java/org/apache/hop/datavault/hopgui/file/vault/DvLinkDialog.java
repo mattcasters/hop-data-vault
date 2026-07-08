@@ -108,6 +108,7 @@ public class DvLinkDialog {
   // Satellite sources tab
   private TableView wLinkSatelliteSources;
   private List<DvLink.DvLinkSatelliteSource> currentLinkSatelliteSources = new ArrayList<>();
+  private DvCustomPipelinesTabSupport customPipelinesTab;
 
   private boolean ok;
 
@@ -198,14 +199,17 @@ public class DvLinkDialog {
             .bottom(new FormAttachment(wOk, -2 * margin))
             .result());
 
+    customPipelinesTab = new DvCustomPipelinesTabSupport(shell, hopGui, variables, margin);
     addOptionsTab();
     addDrivingKeysTab();
     addHubSourcesTab();
     addSatelliteSourcesTab();
+    customPipelinesTab.addTab(wTabFolder);
 
     wTabFolder.setSelection(0);
 
     getData();
+    customPipelinesTab.bindIntegrationMode(wIntegrationMode);
 
     BaseTransformDialog.setSize(shell, 700, 550);
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
@@ -816,6 +820,7 @@ public class DvLinkDialog {
     wLinkSatelliteSources.removeEmptyRows();
     wLinkSatelliteSources.setRowNums();
     wLinkSatelliteSources.optWidth(true);
+    customPipelinesTab.loadFrom(input);
   }
 
   private void ok() {
@@ -930,6 +935,7 @@ public class DvLinkDialog {
       }
       target.getLinkSatelliteSources().add(match);
     }
+    customPipelinesTab.applyTo(target);
   }
 
   private void cancel() {

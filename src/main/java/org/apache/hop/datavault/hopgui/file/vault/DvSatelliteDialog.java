@@ -32,6 +32,7 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvIntegrationMode;
+import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.datavault.metadata.DvModelCheckOptions;
 import org.apache.hop.datavault.metadata.DvSatellite;
@@ -89,8 +90,8 @@ public class DvSatelliteDialog {
   private Combo wIntegrationMode;
   private Text wTableName;
   private DvCatalogSourceSelectionLine wRecordSource;
-  private Text wHubName;
-  private Text wLinkName;
+  private Combo wHubName;
+  private Combo wLinkName;
   private Text wDrivingKey;
   private Combo wDrivingKeySourceField;
   private TableView wAttributes;
@@ -101,6 +102,7 @@ public class DvSatelliteDialog {
   private Text wActiveStatusValue;
   private Text wDeletedStatusValue;
   private Control[] stsDetailControls;
+  private DvCustomPipelinesTabSupport customPipelinesTab;
 
   private int margin;
   private int middle;
@@ -187,14 +189,17 @@ public class DvSatelliteDialog {
             .bottom(wOk, -2 * margin)
             .result());
 
+    customPipelinesTab = new DvCustomPipelinesTabSupport(shell, hopGui, variables, margin);
     addGeneralTab();
     addAttributesTab();
     addStatusTrackingTab();
+    customPipelinesTab.addTab(wTabFolder);
 
     wTabFolder.setSelection(0);
 
     getData();
     updateStsFieldsEnabled();
+    customPipelinesTab.bindIntegrationMode(wIntegrationMode);
 
     BaseTransformDialog.setSize(shell, 700, 550);
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
@@ -266,7 +271,7 @@ public class DvSatelliteDialog {
             .right(middle, -margin)
             .result());
 
-    wHubName = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    wHubName = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
     PropsUi.setLook(wHubName);
     wHubName.setLayoutData(
         new FormDataBuilder().left(middle, 0).top(wRecordSource, margin).right().result());
@@ -281,7 +286,7 @@ public class DvSatelliteDialog {
             .right(middle, -margin)
             .result());
 
-    wLinkName = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    wLinkName = new Combo(comp, SWT.READ_ONLY | SWT.BORDER);
     PropsUi.setLook(wLinkName);
     wLinkName.setLayoutData(
         new FormDataBuilder().left(middle, 0).top(wHubName, margin).right().result());
@@ -521,8 +526,10 @@ public class DvSatelliteDialog {
     } catch (HopException e) {
       wRecordSource.setText("");
     }
-    wHubName.setText(Const.NVL(input.getHubName(), ""));
-    wLinkName.setText(Const.NVL(input.getLinkName(), ""));
+    refreshHubNameItems();
+    selectComboValue(wHubName, Const.NVL(input.getHubName(), ""));
+    refreshLinkNameItems();
+    selectComboValue(wLinkName, Const.NVL(input.getLinkName(), ""));
     wDrivingKey.setText(Const.NVL(input.getDrivingKey(), ""));
     refreshDrivingKeySourceFieldItems();
     wDrivingKeySourceField.setText(Const.NVL(input.getDrivingKeySourceField(), ""));
@@ -548,6 +555,7 @@ public class DvSatelliteDialog {
         Const.NVL(input.getActiveStatusValue(), DvSatellite.DEFAULT_ACTIVE_STATUS_VALUE));
     wDeletedStatusValue.setText(
         Const.NVL(input.getDeletedStatusValue(), DvSatellite.DEFAULT_DELETED_STATUS_VALUE));
+    customPipelinesTab.loadFrom(input);
   }
 
   private void ok() {
@@ -616,11 +624,91 @@ public class DvSatelliteDialog {
     target.setStatusFieldName(wStatusFieldName.getText());
     target.setActiveStatusValue(wActiveStatusValue.getText());
     target.setDeletedStatusValue(wDeletedStatusValue.getText());
+    customPipelinesTab.applyTo(target);
   }
 
   private void cancel() {
     ok = false;
     dispose();
+  }
+
+  private List<String> getModelHubNames() {
+    List<String> names = new ArrayList<>();
+    if (model != null && model.getTables() != null) {
+      for (IDvTable table : model.getTables()) {
+        if (table != null
+            && table.getTableType() == DvTableType.HUB
+            && !Utils.isEmpty(table.getName())) {
+          names.add(table.getName());
+        }
+      }
+    }
+    if (!Utils.isEmpty(input.getHubName()) && !names.contains(input.getHubName())) {
+      names.add(input.getHubName());
+    }
+    Collections.sort(names);
+    return names;
+  }
+
+  private List<String> getModelLinkNames() {
+    List<String> names = new ArrayList<>();
+    if (model != null && model.getTables() != null) {
+      for (IDvTable table : model.getTables()) {
+        if (table != null
+            && table.getTableType() == DvTableType.LINK
+            && !Utils.isEmpty(table.getName())) {
+          names.add(table.getName());
+        }
+      }
+    }
+    if (!Utils.isEmpty(input.getLinkName()) && !names.contains(input.getLinkName())) {
+      names.add(input.getLinkName());
+    }
+    Collections.sort(names);
+    return names;
+  }
+
+  private void refreshHubNameItems() {
+    if (wHubName == null || wHubName.isDisposed()) {
+      return;
+    }
+    String current = wHubName.getText();
+    wHubName.removeAll();
+    for (String hubName : getModelHubNames()) {
+      wHubName.add(hubName);
+    }
+    selectComboValue(wHubName, current);
+  }
+
+  private void refreshLinkNameItems() {
+    if (wLinkName == null || wLinkName.isDisposed()) {
+      return;
+    }
+    String current = wLinkName.getText();
+    wLinkName.removeAll();
+    for (String linkName : getModelLinkNames()) {
+      wLinkName.add(linkName);
+    }
+    selectComboValue(wLinkName, current);
+  }
+
+  private static void selectComboValue(Combo combo, String value) {
+    if (combo == null || combo.isDisposed()) {
+      return;
+    }
+    if (Utils.isEmpty(value)) {
+      combo.deselectAll();
+      combo.setText("");
+      return;
+    }
+    int index = combo.indexOf(value);
+    if (index < 0) {
+      combo.add(value);
+      index = combo.indexOf(value);
+    }
+    if (index >= 0) {
+      combo.select(index);
+    }
   }
 
   private void refreshDrivingKeySourceFieldItems() {

@@ -32,6 +32,7 @@ import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DrivingKeySource;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
+import org.apache.hop.datavault.metadata.DvLinkHubSourceKeyFieldSupport;
 import org.apache.hop.datavault.metadata.DvSourceFieldMappingSupport;
 import org.apache.hop.datavault.metadata.IDvSource;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
@@ -72,42 +73,38 @@ public class DvIcebergLinkSourcePipelineBuilder extends DvIcebergSourcePipelineB
 
     Map<String, String> sourceToTarget = new LinkedHashMap<>();
     for (String hubName : link.getHubNames()) {
-      for (DvLink.HubSourceKeyField sourceKeyField : dvLinkHubSource.getHubSourceKeyFields()) {
-        if (!hubName.equals(sourceKeyField.getHubName())) {
-          continue;
+      DvHub hub = findHub(hubName);
+      DvLink.HubSourceKeyField sourceKeyField =
+          DvLinkHubSourceKeyFieldSupport.findHubSourceKeyField(dvLinkHubSource, hubName);
+      for (DvLinkHubSourceKeyFieldSupport.ResolvedBusinessKeySource resolvedMapping :
+          DvLinkHubSourceKeyFieldSupport.resolveBusinessKeySources(
+              hub, sourceKeyField, variables)) {
+        if (hub.findBusinessKey(resolvedMapping.getBusinessKeyField()) == null) {
+          throw new HopException(
+              "The specified business key field "
+                  + resolvedMapping.getBusinessKeyField()
+                  + " can not be found in Link table "
+                  + link.getName()
+                  + " with record source "
+                  + recordSource.getName());
         }
-        DvHub hub = findHub(hubName);
-        if (sourceKeyField.getSourceBusinessKeyFields() != null) {
-          for (BusinessKeySource businessKeySource : sourceKeyField.getSourceBusinessKeyFields()) {
-            String bkTargetField = businessKeySource.getBusinessKeyField();
-            String bkSourceField = businessKeySource.getSourceFieldName();
-            if (hub.findBusinessKey(bkTargetField) == null) {
-              throw new HopException(
-                  "The specified business key field "
-                      + bkTargetField
-                      + " can not be found in Link table "
-                      + link.getName()
-                      + " with record source "
-                      + recordSource.getName());
-            }
-            sourceToTarget.put(bkSourceField, bkSourceField);
+        sourceToTarget.put(
+            resolvedMapping.getSourceFieldName(), resolvedMapping.getSourceFieldName());
+      }
+      if (sourceKeyField.getDrivingKeySources() != null) {
+        for (DrivingKeySource keySource : sourceKeyField.getDrivingKeySources()) {
+          String drivingKey = keySource.getDrivingKey();
+          String drivingKeySource = keySource.getSourceField();
+          if (!link.getDrivingKeyNames().contains(drivingKey)) {
+            throw new HopException(
+                "The referenced driving key "
+                    + drivingKey
+                    + " doesn't exist in Link table "
+                    + link.getName()
+                    + ", reading from source "
+                    + recordSource.getName());
           }
-        }
-        if (sourceKeyField.getDrivingKeySources() != null) {
-          for (DrivingKeySource keySource : sourceKeyField.getDrivingKeySources()) {
-            String drivingKey = keySource.getDrivingKey();
-            String drivingKeySource = keySource.getSourceField();
-            if (!link.getDrivingKeyNames().contains(drivingKey)) {
-              throw new HopException(
-                  "The referenced driving key "
-                      + drivingKey
-                      + " doesn't exist in Link table "
-                      + link.getName()
-                      + ", reading from source "
-                      + recordSource.getName());
-            }
-            sourceToTarget.put(drivingKeySource, drivingKeySource);
-          }
+          sourceToTarget.put(drivingKeySource, drivingKeySource);
         }
       }
     }

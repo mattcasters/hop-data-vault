@@ -53,6 +53,7 @@ import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.command.svg.SvgExportService;
 import org.apache.hop.datavault.command.svg.SvgRenderOptions;
 import org.apache.hop.datavault.config.DataVaultConfigSingleton;
+import org.apache.hop.datavault.hopgui.coaching.ICoachableModelGraph;
 import org.apache.hop.datavault.hopgui.ModelGeneratedArtifactOpenSupport;
 import org.apache.hop.datavault.hopgui.ModelTableLayoutPreviewSupport;
 import org.apache.hop.datavault.hopgui.ModelUpdateActionAuditSupport;
@@ -78,6 +79,9 @@ import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvModelResol
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvReferenceSupport;
 import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
+import org.apache.hop.datavault.metadata.coaching.BvCoachingModelAdapter;
+import org.apache.hop.datavault.metadata.coaching.CoachingSourceRef;
+import org.apache.hop.datavault.metadata.coaching.ICoachingModelAdapter;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.businessvault.BvBusinessTable;
 import org.apache.hop.datavault.metadata.businessvault.BvDvTableReference;
@@ -133,7 +137,7 @@ import org.w3c.dom.Node;
 @Getter
 @Setter
 public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
-    implements IHopFileTypeHandler, IGuiRefresher {
+    implements IHopFileTypeHandler, IGuiRefresher, ICoachableModelGraph {
 
   private static final Class<?> PKG = HopGuiBusinessVaultGraph.class;
 
@@ -161,6 +165,8 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   public static final String TOOLBAR_ITEM_DEBUG = "HopGuiBusinessVaultGraph-ToolBar-10080-Debug";
   public static final String TOOLBAR_ITEM_GENERATE_DDL =
       "HopGuiBusinessVaultGraph-ToolBar-10085-Generate-Ddl";
+  public static final String TOOLBAR_ITEM_TOGGLE_COACH =
+      "HopGuiBusinessVaultGraph-ToolBar-10084-Toggle-Coach";
   public static final String TOOLBAR_ITEM_TOGGLE_DURATIONS =
       "HopGuiBusinessVaultGraph-ToolBar-10086-Toggle-Durations";
   public static final String TOOLBAR_ITEM_REFRESH_DURATIONS =
@@ -1298,6 +1304,15 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
         perspective.updateTabItem(this);
       }
     }
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_TOGGLE_COACH,
+      toolTip = "i18n::ModelCoachPanel.Toggle.Tooltip",
+      image = "ui/images/view.svg")
+  public void toggleCoachPanelToolbar() {
+    toggleCoachPanel();
   }
 
   @GuiToolbarElement(
@@ -2861,5 +2876,80 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       }
       return doRedraw;
     }
+  }
+
+  @Override
+  public ICoachingModelAdapter createCoachingModelAdapter() {
+    if (model == null) {
+      return null;
+    }
+    return new BvCoachingModelAdapter(model, this::editBvTableByName, this::highlightBvTableByName);
+  }
+
+  @Override
+  public void notifyCoachModelChanged() {
+    setChanged();
+    refreshCoachPanel();
+  }
+
+  @Override
+  public String createTableFromCoachSource(
+      CoachingSourceRef sourceRef, String tableType, String tableName, Point location) {
+    if (model == null || Utils.isEmpty(tableType)) {
+      return null;
+    }
+    markUndoPoint();
+    IBvTable table = null;
+    String normalizedType = tableType.trim();
+    if ("SCD2".equalsIgnoreCase(normalizedType)) {
+      table = new BvScd2Table();
+    } else if ("PIT".equalsIgnoreCase(normalizedType)) {
+      table = new BvPitTable();
+    }
+    if (table == null) {
+      return null;
+    }
+    if (!Utils.isEmpty(tableName)) {
+      table.setName(tableName);
+      table.setTableName(tableName.toLowerCase().replace(' ', '_'));
+    } else {
+      String generated = getUniqueBvTableName(table.getTableType().name());
+      table.setName(generated);
+      table.setTableName(generated.toLowerCase().replace(' ', '_'));
+    }
+    PropsUi.setLocation(table, location != null ? location.x : 50, location != null ? location.y : 50);
+    model.getTables().add(table);
+    setChanged();
+    redraw();
+    return table.getName();
+  }
+
+  private void editBvTableByName(String tableName) {
+    if (Utils.isEmpty(tableName) || model == null) {
+      return;
+    }
+    for (IBvTable table : model.getTables()) {
+      if (table != null && tableName.equals(table.getName())) {
+        editBvTable(table);
+        return;
+      }
+    }
+  }
+
+  private void highlightBvTableByName(String tableName) {
+    if (Utils.isEmpty(tableName) || model == null) {
+      return;
+    }
+    for (IBvTable table : model.getTables()) {
+      if (table != null) {
+        table.setSelected(tableName.equals(table.getName()));
+      }
+    }
+    for (BvDvTableReference reference : model.getDvReferences()) {
+      if (reference != null) {
+        reference.setSelected(tableName.equals(reference.getDvTableName()));
+      }
+    }
+    redraw();
   }
 }

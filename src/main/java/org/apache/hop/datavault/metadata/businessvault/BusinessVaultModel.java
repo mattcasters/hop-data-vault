@@ -43,6 +43,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvTargetLoadModelCheckSupport;
 import org.apache.hop.datavault.metadata.DvNote;
+import org.apache.hop.datavault.metadata.coaching.ModelCoachingConfiguration;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.i18n.BaseMessages;
@@ -90,6 +91,8 @@ public class BusinessVaultModel extends HopMetadataBase
   @HopMetadataProperty(key = "configuration")
   private BusinessVaultConfiguration configuration = new BusinessVaultConfiguration();
 
+  @HopMetadataProperty private ModelCoachingConfiguration coaching;
+
   @HopMetadataProperty(key = "table", groupKey = "tables")
   @Getter(AccessLevel.NONE)
   @Setter(AccessLevel.NONE)
@@ -117,6 +120,13 @@ public class BusinessVaultModel extends HopMetadataBase
       configuration = new BusinessVaultConfiguration();
     }
     return configuration;
+  }
+
+  public ModelCoachingConfiguration getCoachingOrDefault() {
+    if (coaching == null) {
+      coaching = ModelCoachingConfiguration.createEmpty();
+    }
+    return coaching;
   }
 
   public @NonNull List<IBvTable> getTables() {

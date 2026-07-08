@@ -85,6 +85,10 @@ import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSpecialRecordSupport;
 import org.apache.hop.datavault.metadata.DvTargetLoadMode;
 import org.apache.hop.datavault.metadata.DvUpdateExecutionSupport;
+import org.apache.hop.datavault.metadata.coaching.CoachingSourceRef;
+import org.apache.hop.datavault.metadata.coaching.DvCoachingModelAdapter;
+import org.apache.hop.datavault.metadata.coaching.ICoachingModelAdapter;
+import org.apache.hop.datavault.hopgui.coaching.ICoachableModelGraph;
 import org.apache.hop.datavault.hopgui.ModelGeneratedArtifactOpenSupport;
 import org.apache.hop.datavault.hopgui.ModelTableLayoutPreviewSupport;
 import org.apache.hop.datavault.hopgui.ModelUpdateActionAuditSupport;
@@ -159,7 +163,7 @@ import org.w3c.dom.Node;
 @Getter
 @Setter
 public class HopGuiVaultGraph extends HopGuiModelGraphBase
-    implements IHopFileTypeHandler, IGuiRefresher, IGraphSnapAlignDistribute {
+    implements IHopFileTypeHandler, IGuiRefresher, IGraphSnapAlignDistribute, ICoachableModelGraph {
   private static final Class<?> PKG = HopGuiVaultGraph.class;
 
   private static final String DEBUG_VARIABLES_AUDIT_GROUP = "DataVault";
@@ -202,6 +206,8 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
 
   public static final String TOOLBAR_ITEM_IMPORT_RECORD_DEFINITIONS =
       "HopGuiVaultGraph-ToolBar-10085-Import-Record-Definitions";
+  public static final String TOOLBAR_ITEM_TOGGLE_COACH =
+      "HopGuiVaultGraph-ToolBar-10084-Toggle-Coach";
   public static final String TOOLBAR_ITEM_TOGGLE_DURATIONS =
       "HopGuiVaultGraph-ToolBar-10086-Toggle-Durations";
   public static final String TOOLBAR_ITEM_REFRESH_DURATIONS =
@@ -707,6 +713,15 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
     if (dcp != null) {
       DataCatalogImportMenu.open(hopGui, model, null, () -> dcp.refresh());
     }
+  }
+
+  @GuiToolbarElement(
+      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
+      id = TOOLBAR_ITEM_TOGGLE_COACH,
+      toolTip = "i18n::ModelCoachPanel.Toggle.Tooltip",
+      image = "ui/images/view.svg")
+  public void toggleCoachPanelToolbar() {
+    toggleCoachPanel();
   }
 
   @GuiToolbarElement(
@@ -3274,5 +3289,75 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
         canvas.setToolTipText(null);
       }
     }
+  }
+
+  @Override
+  public ICoachingModelAdapter createCoachingModelAdapter() {
+    if (model == null) {
+      return null;
+    }
+    return new DvCoachingModelAdapter(model, this::editTableByName, this::highlightTableByName);
+  }
+
+  @Override
+  public void notifyCoachModelChanged() {
+    setChanged();
+    refreshCoachPanel();
+  }
+
+  @Override
+  public String createTableFromCoachSource(
+      CoachingSourceRef sourceRef, String tableType, String tableName, Point location) {
+    if (model == null || Utils.isEmpty(tableName) || Utils.isEmpty(tableType)) {
+      return null;
+    }
+    markUndoPoint();
+    String uniqueName =
+        hasTableWithNameInModel(tableName, model)
+            ? getUniqueTableNameFromModel(tableName, model)
+            : tableName;
+    IDvTable table = null;
+    String normalizedType = tableType.trim();
+    if ("HUB".equalsIgnoreCase(normalizedType)) {
+      table = new DvHub(uniqueName);
+    } else if ("SATELLITE".equalsIgnoreCase(normalizedType)) {
+      table = new DvSatellite(uniqueName);
+    } else if ("LINK".equalsIgnoreCase(normalizedType)) {
+      table = new DvLink(uniqueName);
+    }
+    if (table == null) {
+      return null;
+    }
+    int x = location != null ? location.x : 50;
+    int y = location != null ? location.y : 50;
+    PropsUi.setLocation(table, x, y);
+    model.getTables().add(table);
+    setChanged();
+    redraw();
+    return uniqueName;
+  }
+
+  private void editTableByName(String tableName) {
+    if (Utils.isEmpty(tableName) || model == null) {
+      return;
+    }
+    for (IDvTable table : model.getTables()) {
+      if (table != null && tableName.equals(table.getName())) {
+        editTable(table);
+        return;
+      }
+    }
+  }
+
+  private void highlightTableByName(String tableName) {
+    if (Utils.isEmpty(tableName) || model == null) {
+      return;
+    }
+    for (IDvTable table : model.getTables()) {
+      if (table != null) {
+        table.setSelected(tableName.equals(table.getName()));
+      }
+    }
+    redraw();
   }
 }

@@ -46,6 +46,7 @@ import org.apache.hop.core.util.StringUtil;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
+import org.apache.hop.datavault.metadata.coaching.ModelCoachingConfiguration;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
@@ -106,12 +107,22 @@ public class DataVaultModel extends HopMetadataBase
   @HopMetadataProperty(key = "configuration")
   private DataVaultConfiguration configuration = new DataVaultConfiguration();
 
+  /** Curated coaching sources for the model coach panel. */
+  @HopMetadataProperty private ModelCoachingConfiguration coaching;
+
   /** Returns the embedded configuration, or a new default instance if none is set. */
   public DataVaultConfiguration getConfigurationOrDefault() {
     if (configuration == null) {
       configuration = new DataVaultConfiguration();
     }
     return configuration;
+  }
+
+  public ModelCoachingConfiguration getCoachingOrDefault() {
+    if (coaching == null) {
+      coaching = ModelCoachingConfiguration.createEmpty();
+    }
+    return coaching;
   }
 
   /**

@@ -110,20 +110,20 @@ public class DvDatabaseSatelliteSourcePipelineBuilder extends DvDatabaseSourcePi
     List<String> quotedFields = new ArrayList<>();
 
     for (String hubName : linkedLink.getHubNames()) {
-      for (DvLink.HubSourceKeyField sourceKeyField : dvLinkHubSource.getHubSourceKeyFields()) {
-        if (hubName.equals(sourceKeyField.getHubName())) {
-          if (sourceKeyField.getSourceBusinessKeyFields() != null) {
-            for (BusinessKeySource businessKeySource :
-                sourceKeyField.getSourceBusinessKeyFields()) {
-              if (businessKeySource != null
-                  && StringUtils.isNotEmpty(businessKeySource.getSourceFieldName())) {
-                quotedFields.add(
-                    sourceDbMeta.quoteField(
-                        variables.resolve(businessKeySource.getSourceFieldName())));
-              }
-            }
-          }
-        }
+      DvHub hub = findHub(hubName);
+      if (hub == null) {
+        throw new HopException(
+            "Hub '"
+                + hubName
+                + "' referenced by link "
+                + linkedLink.getName()
+                + " was not found in the model");
+      }
+      DvLink.HubSourceKeyField sourceKeyField =
+          DvLinkHubSourceKeyFieldSupport.findHubSourceKeyField(dvLinkHubSource, hubName);
+      for (String sourceFieldName :
+          DvLinkHubSourceKeyFieldSupport.resolveSourceFieldNames(hub, sourceKeyField, variables)) {
+        quotedFields.add(sourceDbMeta.quoteField(sourceFieldName));
       }
     }
 

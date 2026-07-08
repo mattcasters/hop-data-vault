@@ -92,6 +92,7 @@ public class DvHubDialog {
   private Text wRecordSourceFieldName;
   private TableView wBusinessKeys;
   private TableView wSources;
+  private DvCustomPipelinesTabSupport customPipelinesTab;
 
   private boolean ok;
 
@@ -184,13 +185,16 @@ public class DvHubDialog {
             .bottom(new FormAttachment(wOk, -2 * margin))
             .result());
 
+    customPipelinesTab = new DvCustomPipelinesTabSupport(shell, hopGui, variables, margin);
     addOptionsTab();
     addSourcesTab();
     addKeysTab();
+    customPipelinesTab.addTab(wTabFolder);
 
     wTabFolder.setSelection(0);
 
     getData();
+    customPipelinesTab.bindIntegrationMode(wIntegrationMode);
 
     BaseTransformDialog.setSize(shell, 700, 550);
     BaseDialog.defaultShellHandling(shell, e -> ok(), e -> cancel());
@@ -446,6 +450,7 @@ public class DvHubDialog {
       item.setText(1, Const.NVL(recordSource, ""));
     }
     wSources.optimizeTableView();
+    customPipelinesTab.loadFrom(input);
   }
 
   private void ok() {
@@ -510,6 +515,7 @@ public class DvHubDialog {
     for (TableItem item : wSources.getNonEmptyItems()) {
       target.getRecordSources().add(item.getText(1));
     }
+    customPipelinesTab.applyTo(target);
   }
 
   private void cancel() {
@@ -519,8 +525,6 @@ public class DvHubDialog {
   }
 
   private void getKeys() {
-    // Select the first source and pick source field(s) to add as business keys.
-    //
     List<TableItem> sourceItems = wSources.getNonEmptyItems();
     if (sourceItems.isEmpty()) {
       MessageBox mb = new MessageBox(shell, SWT.OK | SWT.ICON_ERROR);
@@ -530,8 +534,54 @@ public class DvHubDialog {
       return;
     }
 
-    String sourceName = sourceItems.getFirst().getText(1);
+    Set<String> sourcesInKeys = new HashSet<>();
+    for (TableItem item : wBusinessKeys.getNonEmptyItems()) {
+      String sourceSystem = item.getText(6);
+      if (!Utils.isEmpty(sourceSystem)) {
+        sourcesInKeys.add(sourceSystem);
+      }
+    }
 
+    List<String> missingSources = new ArrayList<>();
+    for (TableItem sourceItem : sourceItems) {
+      String sourceName = sourceItem.getText(1);
+      if (!Utils.isEmpty(sourceName) && !sourcesInKeys.contains(sourceName)) {
+        missingSources.add(sourceName);
+      }
+    }
+
+    if (missingSources.isEmpty()) {
+      MessageBox mb = new MessageBox(shell, SWT.OK | SWT.ICON_INFORMATION);
+      mb.setMessage(BaseMessages.getString(PKG, "DvHubDialog.GetKeys.AllSourcesMapped.Message"));
+      mb.setText(BaseMessages.getString(PKG, "DvHubDialog.GetKeys.AllSourcesMapped.Title"));
+      mb.open();
+      return;
+    }
+
+    boolean changed = false;
+    for (String sourceName : missingSources) {
+      int added = importKeysFromSource(sourceName);
+      if (added < 0) {
+        break;
+      }
+      if (added > 0) {
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      wBusinessKeys.removeEmptyRows();
+      wBusinessKeys.setRowNums();
+      wBusinessKeys.optWidth(true);
+    }
+  }
+
+  /**
+   * Prompts for business key columns from the given record source and appends selected rows.
+   *
+   * @return the number of keys added, or {@code -1} if the user cancelled
+   */
+  private int importKeysFromSource(String sourceName) {
     DataVaultSource source = null;
     List<SourceField> sourceFields = null;
 
@@ -549,7 +599,7 @@ public class DvHubDialog {
           BaseMessages.getString(
               PKG, "DvHubDialog.GetKeys.ErrorLoadingSource.Message", sourceName),
           e);
-      return;
+      return 0;
     }
 
     if (source == null || sourceFields == null || sourceFields.isEmpty()) {
@@ -558,19 +608,17 @@ public class DvHubDialog {
           BaseMessages.getString(PKG, "DvHubDialog.GetKeys.NoFields.Message", sourceName));
       mb.setText(BaseMessages.getString(PKG, "DvHubDialog.GetKeys.NoFields.Title"));
       mb.open();
-      return;
+      return 0;
     }
 
     Set<String> preselectedSourceFields = new HashSet<>();
     for (TableItem item : wBusinessKeys.getNonEmptyItems()) {
+      if (!sourceName.equals(item.getText(6))) {
+        continue;
+      }
       String sourceFieldName = item.getText(5);
       if (!Utils.isEmpty(sourceFieldName)) {
         preselectedSourceFields.add(sourceFieldName);
-      } else {
-        String businessKeyName = item.getText(1);
-        if (!Utils.isEmpty(businessKeyName)) {
-          preselectedSourceFields.add(businessKeyName);
-        }
       }
     }
 
@@ -588,27 +636,27 @@ public class DvHubDialog {
         new EnterSelectionDialog(
             shell,
             choices,
-            BaseMessages.getString(PKG, "DvHubDialog.GetKeys.Title"),
-            BaseMessages.getString(PKG, "DvHubDialog.GetKeys.Message"));
+            BaseMessages.getString(PKG, "DvHubDialog.GetKeys.Title", sourceName),
+            BaseMessages.getString(PKG, "DvHubDialog.GetKeys.Message", sourceName));
     dialog.setMulti(true);
     dialog.setSelectedNrs(selectedIndexes);
     String result = dialog.open();
-    if (result != null) {
-      int[] indices = dialog.getSelectionIndeces();
-      for (int idx : indices) {
-        SourceField sf = sourceFields.get(idx);
-        TableItem item = new TableItem(wBusinessKeys.table, SWT.NONE);
-        item.setText(1, Const.NVL(sf.getName(), ""));
-        item.setText(2, Const.NVL(sf.getDescription(), ""));
-        item.setText(3, Const.NVL(sf.getSourceDataType(), ""));
-        item.setText(4, Const.NVL(sf.getLength(), ""));
-        item.setText(5, Const.NVL(sf.getName(), "")); // sourceFieldName
-        item.setText(6, Const.NVL(sourceName, "")); // sourceSystem
-      }
-      wBusinessKeys.removeEmptyRows();
-      wBusinessKeys.setRowNums();
-      wBusinessKeys.optWidth(true);
+    if (result == null) {
+      return -1;
     }
+
+    int[] indices = dialog.getSelectionIndeces();
+    for (int idx : indices) {
+      SourceField sf = sourceFields.get(idx);
+      TableItem item = new TableItem(wBusinessKeys.table, SWT.NONE);
+      item.setText(1, Const.NVL(sf.getName(), ""));
+      item.setText(2, Const.NVL(sf.getDescription(), ""));
+      item.setText(3, Const.NVL(sf.getSourceDataType(), ""));
+      item.setText(4, Const.NVL(sf.getLength(), ""));
+      item.setText(5, Const.NVL(sf.getName(), ""));
+      item.setText(6, Const.NVL(sourceName, ""));
+    }
+    return indices.length;
   }
 
   private void dispose() {

@@ -75,30 +75,19 @@ public class DvDatabaseLinkSourcePipelineBuilder extends DvDatabaseSourcePipelin
       throw new HopException("No DV link hub source was configured");
     }
 
-    // For the hubs attached we'll process the business keys for the given source
-    //
     for (String hubName : link.getHubNames()) {
-      for (DvLink.HubSourceKeyField sourceKeyField : dvLinkHubSource.getHubSourceKeyFields()) {
-        if (hubName.equals(sourceKeyField.getHubName())) {
-          // This is a business key to record source field mapping for the given hub.
-          //
-          DvHub hub = findHub(hubName);
-          if (hub == null) {
-            throw new HopException(
-                "No DV link source key field found for hub: "
-                    + hubName
-                    + " in Link "
-                    + link.getName());
-          }
-          // We know the fields to query from the source for this hub's business keys.
-          //
-          findKeySourceFieldsForHub(hubName, sourceKeyField, hub, link, sourceDbMeta);
-
-          // Now we want to get the driving key fields in a similar fashion.
-          //
-          findDrivingKeySourceFieldsForHub(hubName, sourceKeyField, link, sourceDbMeta);
-        }
+      DvHub hub = findHub(hubName);
+      if (hub == null) {
+        throw new HopException(
+            "No DV link source key field found for hub: "
+                + hubName
+                + " in Link "
+                + link.getName());
       }
+      DvLink.HubSourceKeyField sourceKeyField =
+          DvLinkHubSourceKeyFieldSupport.findHubSourceKeyField(dvLinkHubSource, hubName);
+      findKeySourceFieldsForHub(hubName, sourceKeyField, hub, link, sourceDbMeta);
+      findDrivingKeySourceFieldsForHub(hubName, sourceKeyField, link, sourceDbMeta);
     }
 
     // These are now the fields to retrieve:
@@ -137,23 +126,19 @@ public class DvDatabaseLinkSourcePipelineBuilder extends DvDatabaseSourcePipelin
       throws HopException {
     List<String> keyFields = hubKeyFields.computeIfAbsent(hubName, f -> new ArrayList<>());
 
-    for (BusinessKeySource businessKeySource : sourceKeyField.getSourceBusinessKeyFields()) {
-      String bkTargetField = businessKeySource.getBusinessKeyField();
-      String bkSourceField = businessKeySource.getSourceFieldName();
-
-      // Validate that the business key exists
-      //
-      if (hub.findBusinessKey(bkTargetField) == null) {
+    for (DvLinkHubSourceKeyFieldSupport.ResolvedBusinessKeySource resolvedMapping :
+        DvLinkHubSourceKeyFieldSupport.resolveBusinessKeySources(
+            hub, sourceKeyField, variables)) {
+      if (hub.findBusinessKey(resolvedMapping.getBusinessKeyField()) == null) {
         throw new HopException(
             "The specified business key field "
-                + bkTargetField
+                + resolvedMapping.getBusinessKeyField()
                 + " can not be found in Link table "
                 + link.getName()
                 + " with record source "
                 + recordSource.getName());
       }
-      // We want to grab this field
-      keyFields.add(sourceDbMeta.quoteField(bkSourceField));
+      keyFields.add(sourceDbMeta.quoteField(resolvedMapping.getSourceFieldName()));
     }
   }
 

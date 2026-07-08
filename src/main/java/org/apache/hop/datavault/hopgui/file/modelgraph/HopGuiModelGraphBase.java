@@ -31,7 +31,11 @@ import org.apache.hop.core.gui.IRedrawable;
 import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.gui.Rectangle;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.hopgui.ModelCoachPanelAuditSupport;
 import org.apache.hop.datavault.hopgui.ModelLoadDurationPaneAuditSupport;
+import org.apache.hop.datavault.hopgui.coaching.CoachingCanvasDropSupport;
+import org.apache.hop.datavault.hopgui.coaching.ICoachableModelGraph;
+import org.apache.hop.datavault.hopgui.coaching.ModelCoachPanel;
 import org.apache.hop.datavault.hopgui.file.metrics.ModelLoadDurationPane;
 import org.apache.hop.datavault.hopgui.file.vault.BasePainter;
 import org.apache.hop.datavault.hopgui.file.vault.DvNoteDialog;
@@ -98,8 +102,11 @@ public abstract class HopGuiModelGraphBase extends HopGuiAbstractGraph implement
 
   private ModelGraphMouseInteractions mouseInteractions;
 
-  protected SashForm modelSash;
+  protected SashForm outerModelSash;
+  protected SashForm innerModelSash;
+  protected ModelCoachPanel coachPanel;
   protected ModelLoadDurationPane loadDurationPane;
+  protected boolean coachPanelVisible = true;
   protected boolean loadDurationPanelVisible = true;
 
   protected HopGuiModelGraphBase(HopGui hopGui, Composite parent, ExplorerPerspective perspective) {
@@ -116,38 +123,60 @@ public abstract class HopGuiModelGraphBase extends HopGuiAbstractGraph implement
   protected abstract List<String> getMetricsTableNames();
 
   /**
-   * Creates the horizontal split between the model canvas (left) and load duration overview
-   * (right). Call after the toolbar is created; {@code registerPaintListener} should attach the
-   * subclass paint listener to {@link #canvas}.
+   * Creates coach panel (left), model canvas (center), and load duration overview (right). Call
+   * after the toolbar is created; {@code registerPaintListener} should attach the subclass paint
+   * listener to {@link #canvas}.
    */
   protected void createModelGraphBody(Control toolBar, Runnable registerPaintListener) {
-    modelSash = new SashForm(this, SWT.HORIZONTAL);
-    PropsUi.setLook(modelSash);
-    FormData fdSash = new FormData();
-    fdSash.left = new FormAttachment(0, 0);
-    fdSash.top = new FormAttachment(toolBar, 0);
-    fdSash.right = new FormAttachment(100, 0);
-    fdSash.bottom = new FormAttachment(100, 0);
-    modelSash.setLayoutData(fdSash);
+    outerModelSash = new SashForm(this, SWT.HORIZONTAL);
+    PropsUi.setLook(outerModelSash);
+    FormData fdOuterSash = new FormData();
+    fdOuterSash.left = new FormAttachment(0, 0);
+    fdOuterSash.top = new FormAttachment(toolBar, 0);
+    fdOuterSash.right = new FormAttachment(100, 0);
+    fdOuterSash.bottom = new FormAttachment(100, 0);
+    outerModelSash.setLayoutData(fdOuterSash);
 
-    Composite canvasHolder = new Composite(modelSash, SWT.NONE);
+    ICoachableModelGraph coachableGraph = this instanceof ICoachableModelGraph g ? g : null;
+    coachPanel =
+        new ModelCoachPanel(
+            outerModelSash,
+            hopGui,
+            variables,
+            this::getModelFilename,
+            () -> coachableGraph == null ? null : coachableGraph.createCoachingModelAdapter(),
+            () -> {
+              if (coachableGraph != null) {
+                coachableGraph.notifyCoachModelChanged();
+              }
+            });
+
+    innerModelSash = new SashForm(outerModelSash, SWT.HORIZONTAL);
+    PropsUi.setLook(innerModelSash);
+
+    Composite canvasHolder = new Composite(innerModelSash, SWT.NONE);
     canvasHolder.setLayout(new FillLayout());
     PropsUi.setLook(canvasHolder);
 
     canvas = new Canvas(canvasHolder, SWT.NO_BACKGROUND);
     registerPaintListener.run();
     registerCanvasMouseListeners();
+    if (coachableGraph != null) {
+      CoachingCanvasDropSupport.register(canvas, hopGui, coachableGraph, this, variables);
+    }
 
     loadDurationPane =
         new ModelLoadDurationPane(
-            modelSash,
+            innerModelSash,
             hopGui,
             variables,
             this::getMetricsModelName,
             this::getMetricsModelType,
             this::getMetricsTableNames);
 
-    modelSash.setWeights(new int[] {65, 35});
+    outerModelSash.setWeights(new int[] {25, 75});
+    innerModelSash.setWeights(new int[] {70, 30});
+    restoreCoachPanelVisibility();
     restoreLoadDurationPanelVisibility();
   }
 
@@ -158,8 +187,46 @@ public abstract class HopGuiModelGraphBase extends HopGuiAbstractGraph implement
     return null;
   }
 
+  protected void restoreCoachPanelVisibility() {
+    if (outerModelSash == null || coachPanel == null) {
+      return;
+    }
+    coachPanelVisible = ModelCoachPanelAuditSupport.retrievePanelVisible(getModelFilename());
+    applyCoachPanelVisibility();
+  }
+
+  public void toggleCoachPanel() {
+    if (outerModelSash == null || coachPanel == null) {
+      return;
+    }
+    coachPanelVisible = !coachPanelVisible;
+    applyCoachPanelVisibility();
+    ModelCoachPanelAuditSupport.storePanelVisible(getModelFilename(), coachPanelVisible);
+  }
+
+  private void applyCoachPanelVisibility() {
+    if (outerModelSash == null || coachPanel == null || innerModelSash == null) {
+      return;
+    }
+    if (coachPanelVisible) {
+      coachPanel.setVisible(true);
+      outerModelSash.setMaximizedControl(null);
+      outerModelSash.setWeights(new int[] {25, 75});
+    } else {
+      coachPanel.setVisible(false);
+      outerModelSash.setMaximizedControl(innerModelSash);
+    }
+    outerModelSash.layout(true, true);
+  }
+
+  public void refreshCoachPanel() {
+    if (coachPanel != null && coachPanelVisible) {
+      coachPanel.refresh();
+    }
+  }
+
   protected void restoreLoadDurationPanelVisibility() {
-    if (modelSash == null || canvas == null || loadDurationPane == null) {
+    if (innerModelSash == null || canvas == null || loadDurationPane == null) {
       return;
     }
     loadDurationPanelVisible =
@@ -168,7 +235,7 @@ public abstract class HopGuiModelGraphBase extends HopGuiAbstractGraph implement
   }
 
   public void toggleLoadDurationPanel() {
-    if (modelSash == null || canvas == null || loadDurationPane == null) {
+    if (innerModelSash == null || canvas == null || loadDurationPane == null) {
       return;
     }
     loadDurationPanelVisible = !loadDurationPanelVisible;
@@ -180,15 +247,15 @@ public abstract class HopGuiModelGraphBase extends HopGuiAbstractGraph implement
   private void applyLoadDurationPanelVisibility() {
     Composite canvasHolder = canvas.getParent();
     if (loadDurationPanelVisible) {
-      modelSash.setMaximizedControl(null);
+      innerModelSash.setMaximizedControl(null);
       loadDurationPane.setVisible(true);
-      modelSash.setWeights(new int[] {65, 35});
+      innerModelSash.setWeights(new int[] {70, 30});
       refreshLoadDurationOverview();
     } else {
-      modelSash.setMaximizedControl(canvasHolder);
+      innerModelSash.setMaximizedControl(canvasHolder);
       loadDurationPane.setVisible(false);
     }
-    modelSash.layout(true, true);
+    innerModelSash.layout(true, true);
   }
 
   public void refreshLoadDurationOverview() {

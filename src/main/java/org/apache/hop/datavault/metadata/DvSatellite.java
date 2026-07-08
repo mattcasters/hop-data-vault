@@ -2443,25 +2443,9 @@ public class DvSatellite extends DvTableBase
                     + linkedLink.getName()
                     + " was not found in the model");
           }
-          DvLink.HubSourceKeyField hubSourceKeyField =
-              findHubSourceKeyField(linkHubSource, hubName);
-          List<String> inputFieldNames = new ArrayList<>();
-          if (hubSourceKeyField.getSourceBusinessKeyFields() != null) {
-            for (BusinessKeySource bks : hubSourceKeyField.getSourceBusinessKeyFields()) {
-              if (bks != null && !Utils.isEmpty(bks.getSourceFieldName())) {
-                inputFieldNames.add(variables.resolve(bks.getSourceFieldName()));
-              }
-            }
-          }
-          if (inputFieldNames.isEmpty()) {
-            throw new HopException(
-                "No source business key fields mapped for hub "
-                    + hubName
-                    + " on link "
-                    + linkedLink.getName()
-                    + " and record source "
-                    + recordSource.getName());
-          }
+          List<String> inputFieldNames =
+              DvLinkHubSourceKeyFieldSupport.resolveSourceFieldNames(
+                  linkHubSource, hubName, hub, variables);
           String hubHashFieldName = variables.resolve(hub.getHashKeyFieldName());
           if (Utils.isEmpty(hubHashFieldName)) {
             if (!Utils.isEmpty(hub.getBusinessKeys())) {
@@ -2607,18 +2591,7 @@ public class DvSatellite extends DvTableBase
 
   private static DvLink.HubSourceKeyField findHubSourceKeyField(
       DvLink.DvLinkHubSource linkHubSource, String hubName) throws HopException {
-    if (linkHubSource.getHubSourceKeyFields() != null) {
-      for (DvLink.HubSourceKeyField hskf : linkHubSource.getHubSourceKeyFields()) {
-        if (hskf != null && hubName.equals(hskf.getHubName())) {
-          return hskf;
-        }
-      }
-    }
-    throw new HopException(
-        "No hub source key field mapping for hub "
-            + hubName
-            + " in link hub source "
-            + linkHubSource.getSourceName());
+    return DvLinkHubSourceKeyFieldSupport.findHubSourceKeyField(linkHubSource, hubName);
   }
 
   public static Set<String> excludedHubSatelliteSourceFieldNames(

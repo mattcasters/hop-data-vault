@@ -139,6 +139,92 @@ class DvLinkValidationTest {
   }
 
   @Test
+  void validateLinkHubKeyFieldsFlagsMissingHubMappingRow() {
+    DataVaultModel model = new DataVaultModel();
+    DvHub hubCustomer = new DvHub("hub_customer");
+    hubCustomer.setBusinessKeys(List.of(businessKey("customer_id")));
+    DvHub hubOrder = new DvHub("hub_order");
+    hubOrder.setBusinessKeys(List.of(businessKey("order_id")));
+
+    DvLink link = new DvLink("lnk_order");
+    link.getHubNames().add("hub_customer");
+    link.getHubNames().add("hub_order");
+
+    DataVaultSource source = sourceWithFields("order-header", "customer_id", "order_id");
+    DvLink.DvLinkHubSource linkSource = testLinkHubSource(source);
+    linkSource.setSourceName("order-header");
+
+    DvLink.HubSourceKeyField customerMapping = new DvLink.HubSourceKeyField();
+    customerMapping.setHubName("hub_customer");
+    linkSource.getHubSourceKeyFields().add(customerMapping);
+
+    link.getLinkHubSources().add(linkSource);
+    model.getTables().addAll(List.of(hubCustomer, hubOrder, link));
+
+    List<ICheckResult> remarks = new ArrayList<>();
+    DvFieldMappingValidationSupport.validateLinkHubKeyFields(
+        link,
+        model,
+        DvModelCheckOptions.fastOnly(),
+        new MemoryMetadataProvider(),
+        new Variables(),
+        link,
+        remarks);
+
+    assertTrue(
+        remarks.stream()
+            .anyMatch(
+                r ->
+                    r.getType() == ICheckResult.TYPE_RESULT_ERROR
+                        && r.getText().contains("hub_order")
+                        && r.getText().contains("order-header")
+                        && r.getText().contains("lnk_order")));
+  }
+
+  @Test
+  void validateLinkHubKeyFieldsFlagsMissingSourceColumnForImplicitMapping() {
+    DataVaultModel model = new DataVaultModel();
+    DvHub hubCustomer = new DvHub("hub_customer");
+    hubCustomer.setBusinessKeys(List.of(businessKey("customer_id")));
+    DvHub hubOrder = new DvHub("hub_order");
+    hubOrder.setBusinessKeys(List.of(businessKey("order_id")));
+
+    DvLink link = new DvLink("lnk_order");
+    link.getHubNames().add("hub_customer");
+    link.getHubNames().add("hub_order");
+
+    DataVaultSource source = sourceWithFields("order-header", "order_id");
+    DvLink.DvLinkHubSource linkSource = testLinkHubSource(source);
+    linkSource.setSourceName("order-header");
+
+    for (String hubName : link.getHubNames()) {
+      DvLink.HubSourceKeyField mapping = new DvLink.HubSourceKeyField();
+      mapping.setHubName(hubName);
+      linkSource.getHubSourceKeyFields().add(mapping);
+    }
+    link.getLinkHubSources().add(linkSource);
+    model.getTables().addAll(List.of(hubCustomer, hubOrder, link));
+
+    List<ICheckResult> remarks = new ArrayList<>();
+    DvFieldMappingValidationSupport.validateLinkHubKeyFields(
+        link,
+        model,
+        DvModelCheckOptions.fastOnly(),
+        new MemoryMetadataProvider(),
+        new Variables(),
+        link,
+        remarks);
+
+    assertTrue(
+        remarks.stream()
+            .anyMatch(
+                r ->
+                    r.getType() == ICheckResult.TYPE_RESULT_ERROR
+                        && r.getText().contains("customer_id")
+                        && r.getText().contains("order-header")));
+  }
+
+  @Test
   void validateLinkRecordSourceFieldsFlagsMissingSourceIndicator() {
     DataVaultModel model = new DataVaultModel();
     DvLink link = new DvLink("lnk_order");
@@ -147,17 +233,7 @@ class DvLinkValidationTest {
     DataVaultSource source = new DataVaultSource("order-header");
     source.getDvSourceOrDefault().setFields(List.of());
 
-    DvLink.DvLinkHubSource linkSource =
-        new DvLink.DvLinkHubSource() {
-          @Override
-          public DataVaultSource resolveSource(
-              org.apache.hop.core.variables.IVariables variables,
-              IHopMetadataProvider metadataProvider,
-              DataVaultModel model)
-              throws HopException {
-            return source;
-          }
-        };
+    DvLink.DvLinkHubSource linkSource = testLinkHubSource(source);
     linkSource.setSourceName("order-header");
     link.getLinkHubSources().add(linkSource);
     model.getTables().add(link);
@@ -180,5 +256,38 @@ class DvLinkValidationTest {
                         && r.getText()
                             .contains("order-header")
                             && r.getText().contains("lnk_order")));
+  }
+
+  private static BusinessKey businessKey(String name) {
+    BusinessKey key = new BusinessKey(name);
+    key.setDataType("String");
+    key.setLength("20");
+    return key;
+  }
+
+  private static DataVaultSource sourceWithFields(String name, String... fieldNames) {
+    DataVaultSource source = new DataVaultSource(name);
+    List<SourceField> fields = new ArrayList<>();
+    for (String fieldName : fieldNames) {
+      SourceField field = new SourceField();
+      field.setName(fieldName);
+      field.setSourceDataType("String");
+      field.setLength("20");
+      fields.add(field);
+    }
+    source.getDvSourceOrDefault().setFields(fields);
+    return source;
+  }
+
+  private static DvLink.DvLinkHubSource testLinkHubSource(DataVaultSource source) {
+    return new DvLink.DvLinkHubSource() {
+      @Override
+      public DataVaultSource resolveSource(
+          org.apache.hop.core.variables.IVariables variables,
+          IHopMetadataProvider metadataProvider,
+          DataVaultModel model) {
+        return source;
+      }
+    };
   }
 }
