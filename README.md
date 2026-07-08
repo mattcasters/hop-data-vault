@@ -21,6 +21,12 @@ Apache Hop plugin for **Data Vault 2.0**, **Business Vault**, and **dimensional*
 
 **Model once. Generate loads and consumption layers.** Sources live in the Hop **Data Catalog**; visual **`.hdv`**, **`.hbv`**, and **`.hdm`** models drive workflow actions and optional **execution maps** (`.hem`).
 
+## Tuturials
+
+* [Hop Data Vault Tutorial - 1 - Creating your first data vault model](https://youtu.be/YRUwPdDyNDE)
+* [Hop Data Vault Tutorial - 2 - Updating your data vault](https://www.youtube.com/watch?v=k64kxMmyA4U)
+
+
 ## Features
 
 Full capability list with maturity labels: **[docs/feature-overview.md](docs/feature-overview.md)**
