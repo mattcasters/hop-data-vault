@@ -494,7 +494,9 @@ public final class DvDatabaseSourceImportSupport {
     for (IValueMeta vm : rowMeta.getValueMetaList()) {
       SourceField sf = new SourceField(vm.getName());
       sf.setDescription("");
-      sf.setSourceDataType(vm.getTypeDesc());
+      String nativeType = vm.getOriginalColumnTypeName();
+      sf.setSourceDataType(
+          !org.apache.hop.core.util.Utils.isEmpty(nativeType) ? nativeType : vm.getTypeDesc());
       sf.setLength(vm.getLength() > 0 ? String.valueOf(vm.getLength()) : "");
       sf.setPrecision(vm.getPrecision() >= 0 ? String.valueOf(vm.getPrecision()) : "");
       sf.setHopType(vm.getType());

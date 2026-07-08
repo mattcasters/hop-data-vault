@@ -40,6 +40,8 @@ public class DvDatabaseHubSourcePipelineBuilder extends DvDatabaseSourcePipeline
     StringBuilder sql = new StringBuilder("SELECT DISTINCT ");
     DvHub hub = (DvHub) dvTable;
     DvDatabaseSource source = (DvDatabaseSource) dvSource;
+    List<BusinessKey> businessKeys =
+        hub.getBusinessKeysForSource(variables.resolve(recordSource.getName()), variables);
     List<String> pkQuotedFields = getQuotedPkFields(hub, sourceDbMeta);
 
     // PK
@@ -53,7 +55,7 @@ public class DvDatabaseHubSourcePipelineBuilder extends DvDatabaseSourcePipeline
     appendFrom(sourceDbMeta, source, sql);
 
     // ORDER BY
-    appendOrderByPk(sql, pkQuotedFields);
+    appendOrderByPk(sql, businessKeys, pkQuotedFields, sourceDbMeta);
 
     return sql.toString();
   }

@@ -28,6 +28,7 @@ import org.apache.hop.core.CheckResult;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.ICheckResultSource;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.exception.HopPluginException;
 import org.apache.hop.core.row.IRowMeta;
@@ -49,6 +50,8 @@ public final class DvFieldMappingValidationSupport {
   public static void validateHubBusinessKeys(
       DvHub hub,
       DataVaultSource recordSource,
+      DataVaultConfiguration config,
+      DatabaseMeta targetDatabaseMeta,
       DvModelCheckOptions options,
       IHopMetadataProvider metadataProvider,
       IVariables variables,
@@ -88,17 +91,27 @@ public final class DvFieldMappingValidationSupport {
       }
       try {
         IValueMeta targetMeta = buildTargetValueMetaForHubBusinessKey(bk, variables);
-        validateMapping(
-            sourceMeta,
-            targetMeta,
+        String mappingContext =
             BaseMessages.getString(
                 PKG,
                 "DvFieldMappingValidation.Context.HubBusinessKey",
                 bk.getName(),
                 sourceFieldName,
-                recordSource.getName()),
-            checkSource,
-            remarks);
+                recordSource.getName());
+        validateMapping(sourceMeta, targetMeta, mappingContext, checkSource, remarks);
+        if (options != null
+            && options.isDetailedDataTypeChecking()
+            && resolved.usedLive
+            && targetDatabaseMeta != null) {
+          DvSqlPhysicalTypeValidationSupport.validatePhysicalSqlTypeMapping(
+              sourceMeta,
+              targetMeta,
+              mappingContext,
+              targetDatabaseMeta,
+              config,
+              checkSource,
+              remarks);
+        }
         if (resolved.usedLive) {
           addStoredDriftWarnings(
               resolved.storedFields,
@@ -140,6 +153,8 @@ public final class DvFieldMappingValidationSupport {
     if (resolved == null) {
       return;
     }
+    DataVaultConfiguration config = model != null ? model.getConfigurationOrDefault() : null;
+    DatabaseMeta targetDatabaseMeta = resolveTargetDatabaseMeta(model, metadataProvider);
 
     if (!Utils.isEmpty(satellite.getHubName()) && model != null) {
       validateSatelliteHubBusinessKeys(
@@ -175,15 +190,22 @@ public final class DvFieldMappingValidationSupport {
                   ? valueMetaFromSourceField(stored, variables)
                   : cloneValueMeta(sourceMeta);
           targetMeta.setName(resolveName(satellite.getDrivingKey(), variables));
-          validateMapping(
-              sourceMeta,
-              targetMeta,
+          String mappingContext =
               BaseMessages.getString(
                   PKG,
                   "DvFieldMappingValidation.Context.SatelliteDrivingKey",
                   satellite.getDrivingKey(),
                   drivingKeySourceField,
-                  recordSource.getName()),
+                  recordSource.getName());
+          validateMapping(sourceMeta, targetMeta, mappingContext, checkSource, remarks);
+          validatePhysicalSqlTypeIfDetailed(
+              options,
+              resolved.usedLive,
+              sourceMeta,
+              targetMeta,
+              mappingContext,
+              targetDatabaseMeta,
+              config,
               checkSource,
               remarks);
           if (resolved.usedLive && stored != null) {
@@ -234,15 +256,22 @@ public final class DvFieldMappingValidationSupport {
       try {
         IValueMeta targetMeta =
             buildTargetValueMetaForSatelliteAttribute(attr, storedField, variables);
-        validateMapping(
-            sourceMeta,
-            targetMeta,
+        String mappingContext =
             BaseMessages.getString(
                 PKG,
                 "DvFieldMappingValidation.Context.SatelliteAttribute",
                 attr.getName(),
                 sourceFieldName,
-                recordSource.getName()),
+                recordSource.getName());
+        validateMapping(sourceMeta, targetMeta, mappingContext, checkSource, remarks);
+        validatePhysicalSqlTypeIfDetailed(
+            options,
+            resolved.usedLive,
+            sourceMeta,
+            targetMeta,
+            mappingContext,
+            targetDatabaseMeta,
+            config,
             checkSource,
             remarks);
         if (resolved.usedLive && storedField != null) {
@@ -1055,6 +1084,50 @@ public final class DvFieldMappingValidationSupport {
 
   private static IValueMeta cloneValueMeta(IValueMeta sourceMeta) throws HopPluginException {
     return ValueMetaFactory.cloneValueMeta(sourceMeta);
+  }
+
+  private static void validatePhysicalSqlTypeIfDetailed(
+      DvModelCheckOptions options,
+      boolean usedLive,
+      IValueMeta sourceMeta,
+      IValueMeta targetMeta,
+      String mappingContext,
+      DatabaseMeta targetDatabaseMeta,
+      DataVaultConfiguration config,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks) {
+    if (options == null
+        || !options.isDetailedDataTypeChecking()
+        || !usedLive
+        || targetDatabaseMeta == null) {
+      return;
+    }
+    DvSqlPhysicalTypeValidationSupport.validatePhysicalSqlTypeMapping(
+        sourceMeta,
+        targetMeta,
+        mappingContext,
+        targetDatabaseMeta,
+        config,
+        checkSource,
+        remarks);
+  }
+
+  private static DatabaseMeta resolveTargetDatabaseMeta(
+      DataVaultModel model, IHopMetadataProvider metadataProvider) {
+    if (model == null || metadataProvider == null) {
+      return null;
+    }
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
+    if (config == null || Utils.isEmpty(config.getTargetDatabase())) {
+      return null;
+    }
+    try {
+      return metadataProvider
+          .getSerializer(DatabaseMeta.class)
+          .load(config.getTargetDatabase());
+    } catch (Exception e) {
+      return null;
+    }
   }
 
   private static final class ResolvedSourceFields {

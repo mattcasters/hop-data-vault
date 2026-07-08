@@ -34,6 +34,7 @@ import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvSatellite;
 import org.apache.hop.datavault.metadata.DvSourceFieldMappingSupport;
+import org.apache.hop.datavault.metadata.DvSqlOrderBySupport;
 import org.apache.hop.datavault.metadata.DvSqlSupport;
 import org.apache.hop.datavault.metadata.DvSourcePipelineBuilder;
 import org.apache.hop.datavault.metadata.IDvSource;
@@ -164,10 +165,13 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
     return pkQuotedFields;
   }
 
-  protected void appendOrderByPk(StringBuilder sql, List<String> pkQuotedFields) {
-    if (!pkQuotedFields.isEmpty()) {
-      sql.append(" ORDER BY ").append(String.join(", ", pkQuotedFields));
-    }
+  protected void appendOrderByPk(
+      StringBuilder sql,
+      List<BusinessKey> businessKeys,
+      List<String> pkQuotedFields,
+      DatabaseMeta databaseMeta) {
+    DvSqlOrderBySupport.appendOrderBy(
+        sql, businessKeys, pkQuotedFields, databaseMeta, configuration, variables);
   }
 
   protected void appendFrom(DatabaseMeta sourceDbMeta, DvDatabaseSource source, StringBuilder sql) {

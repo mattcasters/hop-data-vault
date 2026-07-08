@@ -419,6 +419,25 @@ public class DataVaultConfiguration implements IDvTargetLoadConfiguration {
   private boolean bulkLoadLocalFileRequired = true;
 
   @GuiWidgetElement(
+      order = "0518",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::DataVaultConfiguration.HubMergeOnHashKey.Label",
+      toolTip = "i18n::DataVaultConfiguration.HubMergeOnHashKey.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private boolean hubMergeOnHashKey = false;
+
+  @GuiWidgetElement(
+      order = "0519",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::DataVaultConfiguration.HubOrderByCollation.Label",
+      toolTip = "i18n::DataVaultConfiguration.HubOrderByCollation.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_TARGET_LOAD_TAB_ID)
+  @HopMetadataProperty
+  private String hubOrderByCollation;
+
+  @GuiWidgetElement(
       order = "0520",
       type = GuiElementType.TEXT,
       variables = true,
@@ -563,6 +582,26 @@ public class DataVaultConfiguration implements IDvTargetLoadConfiguration {
       size = variables.resolve(size);
     }
     return size;
+  }
+
+  /** When true, hub update pipelines merge on the hub hash key with Sort Rows on both legs. */
+  public boolean isHubMergeOnHashKey() {
+    return hubMergeOnHashKey;
+  }
+
+  /**
+   * Optional SQL Server collation applied to string business-key ORDER BY expressions in generated
+   * hub source and target SQL.
+   */
+  public String resolveHubOrderByCollation(IVariables variables) {
+    String collation = hubOrderByCollation;
+    if (Utils.isEmpty(collation)) {
+      return null;
+    }
+    if (variables != null) {
+      collation = variables.resolve(collation);
+    }
+    return collation;
   }
 
   /** Combo items for the hash algorithm widget. */

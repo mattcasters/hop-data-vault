@@ -20,19 +20,32 @@ package org.apache.hop.datavault.metadata;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import org.apache.hop.catalog.impl.file.FileDataCatalog;
+import org.apache.hop.catalog.metadata.DataCatalogMeta;
+import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
+import org.apache.hop.catalog.xp.RegisterDataCatalogMetadataExtensionPoint;
 import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.Point;
+import org.apache.hop.core.logging.LogChannel;
+import org.apache.hop.core.plugins.PluginRegistry;
 import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.variables.Variables;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
+import org.apache.hop.datavault.transform.mergerowsplus.MergeRowsPlusMeta;
 import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
+import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -42,6 +55,8 @@ class DvHubUpdatePipelineTest {
   @BeforeAll
   static void initHop() throws HopException {
     HopEnvironment.init();
+    new RegisterDataCatalogMetadataExtensionPoint()
+        .callExtensionPoint(LogChannel.GENERAL, new Variables(), PluginRegistry.getInstance());
   }
 
   @Test
@@ -76,6 +91,90 @@ class DvHubUpdatePipelineTest {
     assertTrue(sql.contains("customer_prefs"));
     assertTrue(sql.contains("ORDER BY customer_id"));
     assertFalse(sql.contains("customer_id, customer_id"));
+  }
+
+  @Test
+  void hubSourceSqlAppendsOrderByCollationForSqlServerStringKey() throws Exception {
+    DvHub hub = stringItemHub();
+    DataVaultSource itemSource = itemSource();
+
+    DataVaultModel model = new DataVaultModel();
+    model.getConfigurationOrDefault().setHubOrderByCollation("SQL_Latin1_General_CP1_CI_AS");
+
+    PipelineMeta pipelineMeta = new PipelineMeta();
+    DvDatabaseHubSourcePipelineBuilder builder =
+        new DvDatabaseHubSourcePipelineBuilder(
+            new Variables(),
+            mssqlMetadataProvider(),
+            model,
+            pipelineMeta,
+            itemSource,
+            itemSource.getDvSourceOrDefault(),
+            hub,
+            new Point(0, 0));
+    builder.build();
+
+    TableInputMeta sourceMeta =
+        (TableInputMeta)
+            pipelineMeta.getTransforms().stream()
+                .filter(t -> t.getName().startsWith("source"))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+
+    String sql = sourceMeta.getSql().replace('\n', ' ');
+    assertTrue(sql.contains("ORDER BY"));
+    assertTrue(sql.contains("ITMREF_0"));
+    assertTrue(sql.contains("COLLATE SQL_Latin1_General_CP1_CI_AS"));
+  }
+
+  @Test
+  void hashKeyMergePipelineSortsAndMergesOnHashKey() throws Exception {
+    Variables variables = catalogVariables();
+    MemoryMetadataProvider metadataProvider = mssqlMetadataProvider();
+    DataVaultModel model = registerItemHubModel(metadataProvider, variables);
+    model.getConfigurationOrDefault().setHubMergeOnHashKey(true);
+
+    DvHub hub = model.findHub("hub_item");
+    List<PipelineMeta> pipelines =
+        hub.generateUpdatePipelines(metadataProvider, variables, model, new Date(), null);
+
+    assertEquals(1, pipelines.size());
+    PipelineMeta pipeline = pipelines.get(0);
+
+    assertEquals(
+        1,
+        pipeline.getTransforms().stream().filter(t -> "calc_item_hk".equals(t.getName())).count());
+    assertNotNull(pipeline.findTransform("sort_item_hk"));
+    assertNotNull(pipeline.findTransform("sort_target_item_hk"));
+
+    MergeRowsPlusMeta mergeRowsMeta =
+        (MergeRowsPlusMeta) pipeline.findTransform("merge_diff").getTransform();
+    assertEquals(List.of("item_hk"), mergeRowsMeta.getKeyFields());
+
+    TableInputMeta targetMeta =
+        (TableInputMeta) pipeline.findTransform("target_hub_item").getTransform();
+    assertTrue(targetMeta.getSql().contains("item_hk"));
+    assertFalse(targetMeta.getSql().contains("ORDER BY"));
+  }
+
+  @Test
+  void legacyPipelineMergesOnBusinessKeysAndHashesAfterFilter() throws Exception {
+    Variables variables = catalogVariables();
+    MemoryMetadataProvider metadataProvider = mssqlMetadataProvider();
+    DataVaultModel model = registerItemHubModel(metadataProvider, variables);
+
+    DvHub hub = model.findHub("hub_item");
+    List<PipelineMeta> pipelines =
+        hub.generateUpdatePipelines(metadataProvider, variables, model, new Date(), null);
+
+    PipelineMeta pipeline = pipelines.get(0);
+    MergeRowsPlusMeta mergeRowsMeta =
+        (MergeRowsPlusMeta) pipeline.findTransform("merge_diff").getTransform();
+    assertEquals(List.of("ITMREF_0"), mergeRowsMeta.getKeyFields());
+    assertNotNull(pipeline.findTransform("calc_item_hk"));
+    assertTrue(
+        pipeline.getTransforms().stream().noneMatch(t -> t.getTransform() instanceof SortRowsMeta));
   }
 
   @Test
@@ -133,11 +232,111 @@ class DvHubUpdatePipelineTest {
     return key;
   }
 
+  private static DvHub stringItemHub() {
+    DvHub hub = new DvHub("hub_item");
+    hub.setHashKeyFieldName("item_hk");
+    hub.setTableName("hub_item");
+    hub.setRecordSources(List.of("erp_item"));
+    BusinessKey key = new BusinessKey("ITMREF_0");
+    key.setName("ITMREF_0");
+    key.setSourceFieldName("ITMREF_0");
+    key.setRecordSourceName("erp_item");
+    key.setDataType("String");
+    key.setLength("20");
+    hub.setBusinessKeys(List.of(key));
+    return hub;
+  }
+
+  private static Variables catalogVariables() throws Exception {
+    Variables variables = new Variables();
+    Path projectHome = Files.createTempDirectory("hub-pipeline-test-");
+    variables.setVariable("PROJECT_HOME", projectHome.toString().replace('\\', '/'));
+    return variables;
+  }
+
+  private static DataVaultModel registerItemHubModel(
+      MemoryMetadataProvider metadataProvider, Variables variables) throws Exception {
+    DataVaultModel model = buildItemHubModel();
+    registerCatalog(metadataProvider, variables);
+    DvSourceCatalogService.upsertSource(
+        itemSource(), "local-catalog", variables, metadataProvider);
+    return model;
+  }
+
+  private static void registerCatalog(
+      MemoryMetadataProvider metadataProvider, Variables variables) throws HopException {
+    DataCatalogMeta catalog = new DataCatalogMeta();
+    catalog.setName("local-catalog");
+    catalog.setEnabled(true);
+    FileDataCatalog fileCatalog = new FileDataCatalog();
+    fileCatalog.setStorageDirectory(
+        Path.of(variables.resolve("${PROJECT_HOME}"), "catalog-data")
+            .toString()
+            .replace('\\', '/'));
+    catalog.setCatalog(fileCatalog);
+    metadataProvider.getSerializer(DataCatalogMeta.class).save(catalog);
+    RecordDefinitionRegistry.getInstance().invalidate();
+  }
+
+  private static DataVaultModel buildItemHubModel() {
+    DataVaultModel model = new DataVaultModel();
+    DataVaultConfiguration config = model.getConfigurationOrDefault();
+    config.setTargetDatabase("Vault");
+    config.setDataCatalogConnection("local-catalog");
+    config.setRecordSourceField("x_record_source");
+
+    DvHub hub = stringItemHub();
+    hub.setRecordSourceFieldName("x_record_source");
+    model.getTables().add(hub);
+    return model;
+  }
+
+  private static DataVaultSource itemSource() {
+    DataVaultSource source = new DataVaultSource("erp_item");
+    source.setSourceIndicator("erp_item");
+    DvDatabaseSource dbSource = new DvDatabaseSource();
+    dbSource.setDatabaseName("CRM");
+    dbSource.setSchemaName("dbo");
+    dbSource.setTableName("STA_XBIITM");
+    source.setSource(dbSource);
+    List<SourceField> fields = new ArrayList<>();
+    SourceField field = new SourceField();
+    field.setName("ITMREF_0");
+    field.setSourceDataType("nvarchar");
+    field.setHopType(IValueMeta.TYPE_STRING);
+    field.setLength("20");
+    fields.add(field);
+    source.getDvSourceOrDefault().setFields(fields);
+    return source;
+  }
+
   private static MemoryMetadataProvider testMetadataProvider() throws HopException {
     MemoryMetadataProvider metadataProvider = new MemoryMetadataProvider();
-    DatabaseMeta crm = new DatabaseMeta();
-    crm.setName("CRM");
+    DatabaseMeta crm = databaseMetaWithPluginId("CRM", "GENERIC");
     metadataProvider.getSerializer(DatabaseMeta.class).save(crm);
     return metadataProvider;
+  }
+
+  private static MemoryMetadataProvider mssqlMetadataProvider() throws HopException {
+    MemoryMetadataProvider metadataProvider = testMetadataProvider();
+    metadataProvider
+        .getSerializer(DatabaseMeta.class)
+        .save(databaseMetaWithPluginId("Vault", DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID));
+    metadataProvider
+        .getSerializer(DatabaseMeta.class)
+        .save(databaseMetaWithPluginId("CRM", DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID));
+    return metadataProvider;
+  }
+
+  private static DatabaseMeta databaseMetaWithPluginId(String name, String pluginId) {
+    DatabaseMeta databaseMeta =
+        new DatabaseMeta() {
+          @Override
+          public String getPluginId() {
+            return pluginId;
+          }
+        };
+    databaseMeta.setName(name);
+    return databaseMeta;
   }
 }
