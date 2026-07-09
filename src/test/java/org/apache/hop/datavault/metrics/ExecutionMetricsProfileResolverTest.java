@@ -116,6 +116,9 @@ class ExecutionMetricsProfileResolverTest {
     profile.setOperationsSchema("custom_ops");
     profile.setPublishDatabaseRows(false);
     profile.setDimLookupPreloadRatioThreshold(250L);
+    profile.setTargetReadRatioThreshold(25L);
+    profile.setSortRowsRiskThreshold(750_000L);
+    profile.setHighTransformDurationMs(300_000L);
     metadataProvider.getSerializer(ExecutionMetricsProfileMeta.class).save(profile);
 
     variables.setVariable("METRICS_DIR", "/project/metrics");
@@ -138,7 +141,37 @@ class ExecutionMetricsProfileResolverTest {
     assertEquals("action-catalog", resolved.publishContext().catalogConnectionName());
     assertFalse(resolved.publishContext().publishDatabaseRows());
     assertEquals(250L, resolved.publishContext().dimLookupPreloadRatioThreshold());
+    assertEquals(25L, resolved.publishContext().targetReadRatioThreshold());
+    assertEquals(750_000L, resolved.publishContext().sortRowsRiskThreshold());
+    assertEquals(300_000L, resolved.publishContext().highTransformDurationMs());
     assertEquals("dm", resolved.publishContext().modelType());
+  }
+
+  @Test
+  void legacyModeUsesDefaultInsightThresholds() throws HopException {
+    ResolvedExecutionMetrics resolved =
+        ExecutionMetricsProfileResolver.resolve(
+            null,
+            "/tmp/metrics",
+            "local-catalog",
+            "Vault",
+            "dv",
+            null,
+            variables,
+            metadataProvider);
+
+    assertEquals(
+        LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD,
+        resolved.publishContext().dimLookupPreloadRatioThreshold());
+    assertEquals(
+        LoadRunInsightEngine.DEFAULT_TARGET_READ_RATIO_THRESHOLD,
+        resolved.publishContext().targetReadRatioThreshold());
+    assertEquals(
+        LoadRunInsightEngine.DEFAULT_SORT_ROWS_RISK_THRESHOLD,
+        resolved.publishContext().sortRowsRiskThreshold());
+    assertEquals(
+        LoadRunInsightEngine.DEFAULT_HIGH_TRANSFORM_DURATION_MS,
+        resolved.publishContext().highTransformDurationMs());
   }
 
   @Test

@@ -63,6 +63,7 @@ public class ModelLoadDurationPane extends Composite {
   private final ScrolledComposite scrolledComposite;
   private final Canvas chartCanvas;
   private final Label titleLabel;
+  private final Button refreshButton;
   private final Button viewDataButton;
 
   private LoadRunDurationSnapshot snapshot = LoadRunDurationSnapshot.builder().build();
@@ -118,7 +119,19 @@ public class ModelLoadDurationPane extends Composite {
     fdViewData.right = new FormAttachment(100, -PropsUi.getMargin());
     fdViewData.bottom = new FormAttachment(100, -PropsUi.getMargin());
     viewDataButton.setLayoutData(fdViewData);
-    fdTitle.right = new FormAttachment(viewDataButton, -PropsUi.getMargin());
+
+    refreshButton = new Button(header, SWT.PUSH);
+    PropsUi.setLook(refreshButton);
+    applyStandardBackground(refreshButton);
+    refreshButton.setText(BaseMessages.getString(PKG, "ModelLoadDurationPane.Refresh"));
+    refreshButton.setToolTipText(BaseMessages.getString(PKG, "ModelLoadDurationPane.Refresh.Tooltip"));
+    refreshButton.addListener(SWT.Selection, event -> refresh());
+    FormData fdRefresh = new FormData();
+    fdRefresh.top = new FormAttachment(0, PropsUi.getMargin());
+    fdRefresh.right = new FormAttachment(viewDataButton, -PropsUi.getMargin());
+    fdRefresh.bottom = new FormAttachment(100, -PropsUi.getMargin());
+    refreshButton.setLayoutData(fdRefresh);
+    fdTitle.right = new FormAttachment(refreshButton, -PropsUi.getMargin());
 
     scrolledComposite = new ScrolledComposite(this, SWT.H_SCROLL | SWT.V_SCROLL | SWT.BORDER);
     PropsUi.setLook(scrolledComposite);
@@ -144,7 +157,7 @@ public class ModelLoadDurationPane extends Composite {
     chartCanvas.addListener(SWT.MouseMove, this::onMouseMove);
 
     scrolledComposite.setContent(canvasHolder);
-    updateViewDataButtonState();
+    updateHeaderButtonState();
     refresh();
   }
 
@@ -153,11 +166,15 @@ public class ModelLoadDurationPane extends Composite {
         getShell(), variables, modelNameSupplier.get(), snapshot);
   }
 
-  private void updateViewDataButtonState() {
+  private void updateHeaderButtonState() {
     if (viewDataButton == null || viewDataButton.isDisposed()) {
       return;
     }
-    viewDataButton.setEnabled(!loading && LoadRunDurationPreviewSupport.hasPreviewRows(snapshot));
+    boolean canInteract = !loading;
+    if (refreshButton != null && !refreshButton.isDisposed()) {
+      refreshButton.setEnabled(canInteract);
+    }
+    viewDataButton.setEnabled(canInteract && LoadRunDurationPreviewSupport.hasPreviewRows(snapshot));
   }
 
   public void refresh() {
@@ -170,7 +187,7 @@ public class ModelLoadDurationPane extends Composite {
             .status(LoadRunDurationSnapshot.Status.LOADED)
             .message(BaseMessages.getString(PKG, "ModelLoadDurationPane.Loading"))
             .build();
-    updateViewDataButtonState();
+    updateHeaderButtonState();
     resizeChart();
     redrawChart();
 
@@ -196,7 +213,7 @@ public class ModelLoadDurationPane extends Composite {
                     }
                     loading = false;
                     snapshot = loaded;
-                    updateViewDataButtonState();
+                    updateHeaderButtonState();
                     resizeChart();
                     redrawChart();
                   });

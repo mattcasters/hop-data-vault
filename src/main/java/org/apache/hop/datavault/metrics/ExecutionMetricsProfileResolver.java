@@ -85,6 +85,9 @@ public final class ExecutionMetricsProfileResolver {
             profile.isPublishDatabaseRows(),
             profile.isAutoCreateTables(),
             profile.getDimLookupPreloadRatioThreshold(),
+            profile.getTargetReadRatioThreshold(),
+            profile.getSortRowsRiskThreshold(),
+            profile.getHighTransformDurationMs(),
             null);
 
     return new ResolvedExecutionMetrics(true, metricsFolder, publishContext);

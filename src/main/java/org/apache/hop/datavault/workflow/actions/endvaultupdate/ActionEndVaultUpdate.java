@@ -26,6 +26,7 @@ import org.apache.hop.core.Result;
 import org.apache.hop.core.annotations.Action;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.file.IHasFilename;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
@@ -38,8 +39,12 @@ import org.apache.hop.datavault.metrics.WorkflowLoadOverviewReport;
 import org.apache.hop.datavault.metrics.WorkflowLoadOverviewReportFormatter;
 import org.apache.hop.datavault.metrics.WorkflowOverviewMetricsResolver;
 import org.apache.hop.datavault.metrics.metadata.ExecutionMetricsProfileMeta;
+import org.apache.hop.datavault.workflow.ReferencedFilename;
+import org.apache.hop.datavault.workflow.WorkflowReferencedObjectVariableSupport;
 import org.apache.hop.i18n.BaseMessages;
+import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.action.ActionBase;
 import org.apache.hop.workflow.action.IAction;
@@ -62,6 +67,9 @@ public class ActionEndVaultUpdate extends ActionBase implements Cloneable, IActi
   private static final Class<?> PKG = ActionEndVaultUpdate.class;
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "END_VAULT_UPDATE_ACTION";
+
+  public static final int REFERENCED_OBJECT_MARKDOWN = 0;
+  public static final int REFERENCED_OBJECT_HTML = 1;
 
   @GuiWidgetElement(
       order = "0050",
@@ -347,10 +355,72 @@ public class ActionEndVaultUpdate extends ActionBase implements Cloneable, IActi
 
   private String resolveRootWorkflowName() {
     IWorkflowEngine<WorkflowMeta> parentWorkflow = getParentWorkflow();
-    if (parentWorkflow == null || parentWorkflow.getWorkflowMeta() == null) {
+    if (parentWorkflow != null && parentWorkflow.getWorkflowMeta() != null) {
+      return parentWorkflow.getWorkflowMeta().getName();
+    }
+    WorkflowMeta parentWorkflowMeta = getParentWorkflowMeta();
+    if (parentWorkflowMeta != null) {
+      return parentWorkflowMeta.getName();
+    }
+    return null;
+  }
+
+  @Override
+  public String[] getReferencedObjectDescriptions() {
+    return new String[] {
+      BaseMessages.getString(PKG, "ActionEndVaultUpdate.ReferencedObject.MarkdownDescription"),
+      BaseMessages.getString(PKG, "ActionEndVaultUpdate.ReferencedObject.HtmlDescription"),
+    };
+  }
+
+  @Override
+  public boolean[] isReferencedObjectEnabled() {
+    IVariables variables =
+        WorkflowReferencedObjectVariableSupport.effectiveVariables(
+            getVariables(), getParentWorkflowMeta());
+    return new boolean[] {
+      writeMarkdownReport && canOpenReferencedReport(REFERENCED_OBJECT_MARKDOWN, variables),
+      writeHtmlReport && canOpenReferencedReport(REFERENCED_OBJECT_HTML, variables),
+    };
+  }
+
+  @Override
+  public IHasFilename loadReferencedObject(
+      int index, IHopMetadataProvider metadataProvider, IVariables variables) throws HopException {
+    String path = resolveReferencedReportPath(index, variables);
+    if (Utils.isEmpty(path)) {
       return null;
     }
-    return parentWorkflow.getWorkflowMeta().getName();
+    return new ReferencedFilename(path);
+  }
+
+  @Override
+  public boolean supportsDrillDown() {
+    return true;
+  }
+
+  private boolean canOpenReferencedReport(int index, IVariables variables) {
+    try {
+      return !Utils.isEmpty(resolveReferencedReportPath(index, variables));
+    } catch (HopException e) {
+      return false;
+    }
+  }
+
+  private String resolveReferencedReportPath(int index, IVariables variables) throws HopException {
+    IVariables effectiveVariables =
+        WorkflowReferencedObjectVariableSupport.effectiveVariables(
+            getVariables(), getParentWorkflowMeta(), variables);
+    String extension =
+        index == REFERENCED_OBJECT_HTML
+            ? WorkflowLoadOverviewFileWriter.HTML_EXTENSION
+            : WorkflowLoadOverviewFileWriter.MARKDOWN_EXTENSION;
+    return WorkflowLoadOverviewFileWriter.resolveExistingReportPath(
+        reportOutputFolder,
+        reportFileBaseName,
+        extension,
+        resolveRootWorkflowName(),
+        effectiveVariables);
   }
 
   @Override

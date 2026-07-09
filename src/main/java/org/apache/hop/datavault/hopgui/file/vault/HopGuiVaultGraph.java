@@ -210,8 +210,6 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       "HopGuiVaultGraph-ToolBar-10084-Toggle-Coach";
   public static final String TOOLBAR_ITEM_TOGGLE_DURATIONS =
       "HopGuiVaultGraph-ToolBar-10086-Toggle-Durations";
-  public static final String TOOLBAR_ITEM_REFRESH_DURATIONS =
-      "HopGuiVaultGraph-ToolBar-10087-Refresh-Durations";
 
   private final HopVaultFileType fileType;
   private final HopGuiVaultClipboardDelegate clipboardDelegate;
@@ -731,15 +729,6 @@ public class HopGuiVaultGraph extends HopGuiModelGraphBase
       image = "ui/images/show-results.svg")
   public void toggleLoadDurationPanelToolbar() {
     toggleLoadDurationPanel();
-  }
-
-  @GuiToolbarElement(
-      root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
-      id = TOOLBAR_ITEM_REFRESH_DURATIONS,
-      toolTip = "i18n:org.apache.hop.datavault.hopgui.file.metrics:ModelLoadDurationPane.Refresh.Tooltip",
-      image = "ui/images/refresh.svg")
-  public void refreshLoadDurationOverviewToolbar() {
-    refreshLoadDurationOverview();
   }
 
   @GuiToolbarElement(

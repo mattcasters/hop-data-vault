@@ -160,6 +160,83 @@ class LoadRunInsightEngineTest {
   }
 
   @Test
+  void suppressesHighTransformDurationWhenCustomThresholdIsHigher() {
+    DvUpdateTableMetrics pipeline =
+        DvUpdateTableMetrics.builder()
+            .pipelineName("sat_customer_details-CRM-customer")
+            .tableType("satellite")
+            .tableName("sat_customer_details")
+            .transform(
+                TransformRunMetrics.builder()
+                    .transformName("merge_changes")
+                    .logicalRole(GeneratedPipelineMetadataConstants.ROLE_CDC_MERGE)
+                    .elementName("sat_customer_details")
+                    .durationMs(120_000L)
+                    .build())
+            .build();
+
+    List<LoadRunInsight> insights =
+        LoadRunInsightEngine.evaluate(
+            List.of(pipeline),
+            LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD,
+            LoadRunInsightEngine.DEFAULT_TARGET_READ_RATIO_THRESHOLD,
+            LoadRunInsightEngine.DEFAULT_SORT_ROWS_RISK_THRESHOLD,
+            300_000L);
+
+    assertTrue(insights.isEmpty());
+  }
+
+  @Test
+  void respectsCustomTargetReadRatioThreshold() {
+    DvUpdateTableMetrics hubPipeline =
+        DvUpdateTableMetrics.builder()
+            .pipelineName("hub_customer-CRM-customer")
+            .tableType("hub")
+            .tableName("hub_customer")
+            .sourceName("CRM-customer")
+            .sourceRowsRead(1000L)
+            .targetRowsRead(15_000L)
+            .build();
+
+    List<LoadRunInsight> insights =
+        LoadRunInsightEngine.evaluate(
+            List.of(hubPipeline),
+            LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD,
+            20L,
+            LoadRunInsightEngine.DEFAULT_SORT_ROWS_RISK_THRESHOLD,
+            LoadRunInsightEngine.DEFAULT_HIGH_TRANSFORM_DURATION_MS);
+
+    assertTrue(insights.isEmpty());
+  }
+
+  @Test
+  void respectsCustomSortRowsRiskThreshold() {
+    DvUpdateTableMetrics pipeline =
+        DvUpdateTableMetrics.builder()
+            .pipelineName("sat_customer_details-CRM-customer")
+            .tableType("satellite")
+            .tableName("sat_customer_details")
+            .transform(
+                TransformRunMetrics.builder()
+                    .transformName("sort_changes")
+                    .logicalRole(GeneratedPipelineMetadataConstants.ROLE_SORT)
+                    .elementName("sat_customer_details")
+                    .rowsRead(600_000L)
+                    .build())
+            .build();
+
+    List<LoadRunInsight> insights =
+        LoadRunInsightEngine.evaluate(
+            List.of(pipeline),
+            LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD,
+            LoadRunInsightEngine.DEFAULT_TARGET_READ_RATIO_THRESHOLD,
+            1_000_000L,
+            LoadRunInsightEngine.DEFAULT_HIGH_TRANSFORM_DURATION_MS);
+
+    assertTrue(insights.isEmpty());
+  }
+
+  @Test
   void emitsBulkLoadUsedForBulkWriteTransform() {
     DvUpdateTableMetrics pipeline =
         DvUpdateTableMetrics.builder()

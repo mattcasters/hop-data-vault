@@ -66,6 +66,15 @@ public class ExecutionMetricsProfileMeta extends HopMetadataBase implements IHop
   @HopMetadataProperty private long dimLookupPreloadRatioThreshold =
       LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD;
 
+  @HopMetadataProperty private long targetReadRatioThreshold =
+      LoadRunInsightEngine.DEFAULT_TARGET_READ_RATIO_THRESHOLD;
+
+  @HopMetadataProperty private long sortRowsRiskThreshold =
+      LoadRunInsightEngine.DEFAULT_SORT_ROWS_RISK_THRESHOLD;
+
+  @HopMetadataProperty private long highTransformDurationMs =
+      LoadRunInsightEngine.DEFAULT_HIGH_TRANSFORM_DURATION_MS;
+
   public ExecutionMetricsProfileMeta() {
     super();
   }

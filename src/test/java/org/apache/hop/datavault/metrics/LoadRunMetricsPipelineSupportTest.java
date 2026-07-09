@@ -55,6 +55,9 @@ class LoadRunMetricsPipelineSupportTest {
                 true,
                 true,
                 100,
+                LoadRunInsightEngine.DEFAULT_TARGET_READ_RATIO_THRESHOLD,
+                LoadRunInsightEngine.DEFAULT_SORT_ROWS_RISK_THRESHOLD,
+                LoadRunInsightEngine.DEFAULT_HIGH_TRANSFORM_DURATION_MS,
                 null)));
     assertFalse(LoadRunMetricsPipelineSupport.isMetricsCollectionEnabled("", null));
   }

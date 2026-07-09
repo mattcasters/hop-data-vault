@@ -61,6 +61,9 @@ public class ExecutionMetricsProfileMetaEditor extends MetadataEditor<ExecutionM
   private Button wPublishCatalogDefinitions;
   private Button wPublishDatabaseRows;
   private Text wDimLookupPreloadRatioThreshold;
+  private Text wTargetReadRatioThreshold;
+  private Text wSortRowsRiskThreshold;
+  private Text wHighTransformDurationMs;
 
   public ExecutionMetricsProfileMetaEditor(
       HopGui hopGui,
@@ -271,13 +274,43 @@ public class ExecutionMetricsProfileMetaEditor extends MetadataEditor<ExecutionM
     tab.setControl(comp);
 
     wDimLookupPreloadRatioThreshold = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    Control previous =
+        addField(
+            comp,
+            middle,
+            margin,
+            null,
+            "ExecutionMetricsProfileMetaEditor.DimLookupPreloadRatioThreshold.Label",
+            wDimLookupPreloadRatioThreshold);
+
+    wTargetReadRatioThreshold = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    previous =
+        addField(
+            comp,
+            middle,
+            margin,
+            previous,
+            "ExecutionMetricsProfileMetaEditor.TargetReadRatioThreshold.Label",
+            wTargetReadRatioThreshold);
+
+    wSortRowsRiskThreshold = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    previous =
+        addField(
+            comp,
+            middle,
+            margin,
+            previous,
+            "ExecutionMetricsProfileMetaEditor.SortRowsRiskThreshold.Label",
+            wSortRowsRiskThreshold);
+
+    wHighTransformDurationMs = new Text(comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
     addField(
         comp,
         middle,
         margin,
-        null,
-        "ExecutionMetricsProfileMetaEditor.DimLookupPreloadRatioThreshold.Label",
-        wDimLookupPreloadRatioThreshold);
+        previous,
+        "ExecutionMetricsProfileMetaEditor.HighTransformDurationMs.Label",
+        wHighTransformDurationMs);
   }
 
   private Control addField(
@@ -382,6 +415,9 @@ public class ExecutionMetricsProfileMetaEditor extends MetadataEditor<ExecutionM
     wPublishCatalogDefinitions.setSelection(meta.isPublishCatalogDefinitions());
     wPublishDatabaseRows.setSelection(meta.isPublishDatabaseRows());
     wDimLookupPreloadRatioThreshold.setText(Long.toString(meta.getDimLookupPreloadRatioThreshold()));
+    wTargetReadRatioThreshold.setText(Long.toString(meta.getTargetReadRatioThreshold()));
+    wSortRowsRiskThreshold.setText(Long.toString(meta.getSortRowsRiskThreshold()));
+    wHighTransformDurationMs.setText(Long.toString(meta.getHighTransformDurationMs()));
   }
 
   @Override
@@ -396,12 +432,29 @@ public class ExecutionMetricsProfileMetaEditor extends MetadataEditor<ExecutionM
     meta.setAutoCreateTables(wAutoCreateTables.getSelection());
     meta.setPublishCatalogDefinitions(wPublishCatalogDefinitions.getSelection());
     meta.setPublishDatabaseRows(wPublishDatabaseRows.getSelection());
+    meta.setDimLookupPreloadRatioThreshold(
+        parseThreshold(
+            wDimLookupPreloadRatioThreshold,
+            org.apache.hop.datavault.metrics.LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD));
+    meta.setTargetReadRatioThreshold(
+        parseThreshold(
+            wTargetReadRatioThreshold,
+            org.apache.hop.datavault.metrics.LoadRunInsightEngine.DEFAULT_TARGET_READ_RATIO_THRESHOLD));
+    meta.setSortRowsRiskThreshold(
+        parseThreshold(
+            wSortRowsRiskThreshold,
+            org.apache.hop.datavault.metrics.LoadRunInsightEngine.DEFAULT_SORT_ROWS_RISK_THRESHOLD));
+    meta.setHighTransformDurationMs(
+        parseThreshold(
+            wHighTransformDurationMs,
+            org.apache.hop.datavault.metrics.LoadRunInsightEngine.DEFAULT_HIGH_TRANSFORM_DURATION_MS));
+  }
+
+  private static long parseThreshold(Text widget, long defaultValue) {
     try {
-      meta.setDimLookupPreloadRatioThreshold(
-          Long.parseLong(wDimLookupPreloadRatioThreshold.getText().trim()));
+      return Long.parseLong(widget.getText().trim());
     } catch (NumberFormatException e) {
-      meta.setDimLookupPreloadRatioThreshold(
-          org.apache.hop.datavault.metrics.LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD);
+      return defaultValue;
     }
   }
 

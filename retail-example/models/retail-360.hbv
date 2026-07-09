@@ -1,5 +1,5 @@
 <business-vault-model>
-  <filename>${PROJECT_HOME}/models/retail-360.hbv</filename>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-360.hbv</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description>Retail customer 360 business vault: four satellites merged into one functional SCD2 table</description>
   <dataVaultModelPath>${PROJECT_HOME}/models/retail-360.hdv</dataVaultModelPath>
@@ -26,6 +26,9 @@
     <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
     <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
   </configuration>
+  <coaching>
+    <coaching_sources/>
+  </coaching>
   <tables>
     <table>
       <functionalTimestampField>x_load_ts</functionalTimestampField>
@@ -142,26 +145,26 @@
     <dv_reference>
       <dvTableName>sat_customer_demo</dvTableName>
       <dvTableType>SATELLITE</dvTableType>
-      <xloc>240</xloc>
+      <xloc>96</xloc>
       <yloc>112</yloc>
     </dv_reference>
     <dv_reference>
       <dvTableName>sat_customer_contact</dvTableName>
       <dvTableType>SATELLITE</dvTableType>
       <xloc>128</xloc>
-      <yloc>240</yloc>
+      <yloc>176</yloc>
     </dv_reference>
     <dv_reference>
       <dvTableName>sat_customer_address</dvTableName>
       <dvTableType>SATELLITE</dvTableType>
-      <xloc>128</xloc>
-      <yloc>352</yloc>
+      <xloc>160</xloc>
+      <yloc>240</yloc>
     </dv_reference>
     <dv_reference>
       <dvTableName>sat_customer_prefs</dvTableName>
       <dvTableType>SATELLITE</dvTableType>
-      <xloc>448</xloc>
-      <yloc>80</yloc>
+      <xloc>208</xloc>
+      <yloc>304</yloc>
     </dv_reference>
   </dv_references>
   <name>retail-360</name>

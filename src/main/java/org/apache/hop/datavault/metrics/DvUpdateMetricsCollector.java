@@ -223,11 +223,15 @@ public final class DvUpdateMetricsCollector {
       logAtLevel(log, effectiveLevel, line);
     }
 
-    long lookupRatioThreshold =
+    List<LoadRunInsight> insights =
         publishContext != null
-            ? publishContext.dimLookupPreloadRatioThreshold()
-            : LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD;
-    List<LoadRunInsight> insights = LoadRunInsightEngine.evaluate(metrics, lookupRatioThreshold);
+            ? LoadRunInsightEngine.evaluate(
+                metrics,
+                publishContext.dimLookupPreloadRatioThreshold(),
+                publishContext.targetReadRatioThreshold(),
+                publishContext.sortRowsRiskThreshold(),
+                publishContext.highTransformDurationMs())
+            : LoadRunInsightEngine.evaluate(metrics);
     List<LoadRunInsight> reportableInsights = LoadRunInsightSupport.reportableInsights(insights);
     for (LoadRunInsight insight : insights) {
       logAtLevel(log, effectiveLevel, "Load insight [" + insight.getCode() + "]: " + insight.getMessage());
@@ -413,6 +417,9 @@ public final class DvUpdateMetricsCollector {
       boolean publishDatabaseRows,
       boolean autoCreateTables,
       long dimLookupPreloadRatioThreshold,
+      long targetReadRatioThreshold,
+      long sortRowsRiskThreshold,
+      long highTransformDurationMs,
       String pipelineRunConfiguration) {
 
     public LoadRunPublishContext withPipelineRunConfiguration(String pipelineRunConfiguration) {
@@ -430,6 +437,9 @@ public final class DvUpdateMetricsCollector {
           publishDatabaseRows,
           autoCreateTables,
           dimLookupPreloadRatioThreshold,
+          targetReadRatioThreshold,
+          sortRowsRiskThreshold,
+          highTransformDurationMs,
           pipelineRunConfiguration);
     }
 
@@ -448,6 +458,9 @@ public final class DvUpdateMetricsCollector {
           true,
           true,
           LoadRunInsightEngine.DEFAULT_LOOKUP_RATIO_THRESHOLD,
+          LoadRunInsightEngine.DEFAULT_TARGET_READ_RATIO_THRESHOLD,
+          LoadRunInsightEngine.DEFAULT_SORT_ROWS_RISK_THRESHOLD,
+          LoadRunInsightEngine.DEFAULT_HIGH_TRANSFORM_DURATION_MS,
           null);
     }
   }
