@@ -23,6 +23,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
+import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
@@ -71,8 +72,14 @@ public final class CoachingMappingApplier {
     } else if (table instanceof DvLink link) {
       applyLink(link, sourceName);
     }
+    DataVaultSource resolvedSource = null;
     if (metadataProvider != null) {
-      DvSourceCatalogService.resolveSource(sourceName, model, variables, metadataProvider);
+      resolvedSource =
+          DvSourceCatalogService.resolveSource(sourceName, model, variables, metadataProvider);
+    }
+    if (table instanceof DvHub hub && resolvedSource != null) {
+      CoachingHubBusinessKeySupport.populateBusinessKeysFromSource(
+          hub, resolvedSource, sourceName, metadataProvider);
     }
   }
 

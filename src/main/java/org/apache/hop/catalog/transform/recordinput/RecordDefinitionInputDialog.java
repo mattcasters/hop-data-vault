@@ -90,6 +90,7 @@ public class RecordDefinitionInputDialog extends BaseTransformDialog {
   private Text wOutFieldType;
   private Text wOutFieldLength;
   private Text wOutFieldPrecision;
+  private Text wOutFieldPrimaryKeyPosition;
 
   private final List<String> inputFields = new ArrayList<>();
 
@@ -305,6 +306,14 @@ public class RecordDefinitionInputDialog extends BaseTransformDialog {
     last = wOutFieldType = addTextField(wRenamesComp, "RecordDefinitionInputDialog.OutputFieldTypeField.Label", last, middle, margin);
     last = wOutFieldLength = addTextField(wRenamesComp, "RecordDefinitionInputDialog.OutputFieldLengthField.Label", last, middle, margin);
     last = wOutFieldPrecision = addTextField(wRenamesComp, "RecordDefinitionInputDialog.OutputFieldPrecisionField.Label", last, middle, margin);
+    last =
+        wOutFieldPrimaryKeyPosition =
+            addTextField(
+                wRenamesComp,
+                "RecordDefinitionInputDialog.OutputFieldPrimaryKeyPositionField.Label",
+                last,
+                middle,
+                margin);
 
     FormData fdRenames = new FormData();
     fdRenames.left = new FormAttachment(0, 0);
@@ -435,6 +444,8 @@ public class RecordDefinitionInputDialog extends BaseTransformDialog {
     wOutFieldType.setText(Const.NVL(input.getOutputFieldTypeField(), ""));
     wOutFieldLength.setText(Const.NVL(input.getOutputFieldLengthField(), ""));
     wOutFieldPrecision.setText(Const.NVL(input.getOutputFieldPrecisionField(), ""));
+    wOutFieldPrimaryKeyPosition.setText(
+        Const.NVL(input.getOutputFieldPrimaryKeyPositionField(), ""));
 
     setFlags();
   }
@@ -484,6 +495,7 @@ public class RecordDefinitionInputDialog extends BaseTransformDialog {
     input.setOutputFieldTypeField(wOutFieldType.getText());
     input.setOutputFieldLengthField(wOutFieldLength.getText());
     input.setOutputFieldPrecisionField(wOutFieldPrecision.getText());
+    input.setOutputFieldPrimaryKeyPositionField(wOutFieldPrimaryKeyPosition.getText());
 
     input.setChanged();
     dispose();

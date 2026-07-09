@@ -96,6 +96,19 @@ public class SourceField {
   @HopMetadataProperty(intCodeConverter = ValueMetaBase.ValueTypeCodeConverter.class)
   private int hopType;
 
+  /**
+   * Position of this field in the source primary key (1-based). Zero means the field is not part of
+   * the primary key. Order matters for composite keys.
+   */
+  @GuiWidgetElement(
+      order = "0700",
+      type = GuiElementType.TEXT,
+      label = "i18n:org.apache.hop.datavault.metadata.database:SourceField.PrimaryKeyPosition.Label",
+      toolTip = "i18n:org.apache.hop.datavault.metadata.database:SourceField.PrimaryKeyPosition.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private int primaryKeyPosition;
+
   @HopMetadataProperty private SourceFieldInputOptions inputOptions;
 
   public SourceField() {}

@@ -55,7 +55,7 @@ class DvDdlSupportTest {
             "hub_customer",
             fields,
             new String[] {"customer_hk"},
-            null,
+            (String) null,
             true);
 
     assertTrue(ddl.toUpperCase().contains("CREATE TABLE"));
@@ -76,7 +76,7 @@ class DvDdlSupportTest {
             "sat_customer_phone",
             fields,
             new String[] {"customer_hk", "phone_type"},
-            null,
+            (String) null,
             true);
 
     assertTrue(ddl.toUpperCase().contains("SHARD KEY (CUSTOMER_HK, PHONE_TYPE)"));
@@ -113,6 +113,26 @@ class DvDdlSupportTest {
     assertEquals(
         "sat_syn_product",
         DvDdlSupport.extractCreateTableName("CREATE TABLE \"sat_syn_product\" (id INT);"));
+  }
+
+  @Test
+  void buildCreateTableStatementIncludesCompositePrimaryKeyClause() {
+    DatabaseMeta databaseMeta = singleStoreDatabaseMeta();
+    IRowMeta fields = hubLayout();
+
+    String ddl =
+        DvDdlSupport.buildCreateTableStatement(
+            databaseMeta,
+            new Variables(),
+            "hub_customer",
+            fields,
+            null,
+            java.util.List.of("customer_hk", "customer_id"),
+            true);
+
+    assertTrue(ddl.toUpperCase().contains("PRIMARY KEY"));
+    assertTrue(ddl.contains("customer_id"));
+    assertTrue(ddl.contains("customer_hk"));
   }
 
   @Test

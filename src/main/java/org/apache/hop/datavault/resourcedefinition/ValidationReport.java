@@ -32,6 +32,7 @@ public final class ValidationReport {
     FIELD_ADDED,
     FIELD_REMOVED,
     FIELD_TYPE_CHANGED,
+    PRIMARY_KEY_CHANGED,
     MAPPING_BROKEN
   }
 

@@ -21,9 +21,11 @@ package org.apache.hop.datavault.workflow.actions.generateexecutionmap;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.annotations.Action;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.file.IHasFilename;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
@@ -31,9 +33,11 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.command.executionmap.ExecutionMapService;
 import org.apache.hop.datavault.command.executionmap.ExecutionMapService.GenerateResult;
 import org.apache.hop.datavault.executionmap.CrawlOptions;
+import org.apache.hop.datavault.executionmap.ExecutionMapPersistence;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.action.ActionBase;
 import org.apache.hop.workflow.action.IAction;
@@ -226,12 +230,23 @@ public class ActionGenerateExecutionMap extends ActionBase implements Cloneable,
   }
 
   String resolveRootArtifactPath() throws HopException {
-    return resolveRootArtifactPath(rootArtifactFilename, getParentWorkflow(), getVariables());
+    return resolveRootArtifactPath(
+        rootArtifactFilename, getParentWorkflow(), getParentWorkflowMeta(), getVariables());
   }
 
   static String resolveRootArtifactPath(
       String configuredRootArtifactFilename,
       IWorkflowEngine<WorkflowMeta> parentWorkflow,
+      IVariables variables)
+      throws HopException {
+    return resolveRootArtifactPath(
+        configuredRootArtifactFilename, parentWorkflow, null, variables);
+  }
+
+  static String resolveRootArtifactPath(
+      String configuredRootArtifactFilename,
+      IWorkflowEngine<WorkflowMeta> parentWorkflow,
+      WorkflowMeta parentWorkflowMeta,
       IVariables variables)
       throws HopException {
     if (!Utils.isEmpty(configuredRootArtifactFilename)) {
@@ -241,6 +256,12 @@ public class ActionGenerateExecutionMap extends ActionBase implements Cloneable,
     }
     if (parentWorkflow != null && parentWorkflow.getWorkflowMeta() != null) {
       String filename = parentWorkflow.getWorkflowMeta().getFilename();
+      if (!Utils.isEmpty(filename)) {
+        return variables != null ? variables.resolve(filename) : filename;
+      }
+    }
+    if (parentWorkflowMeta != null) {
+      String filename = parentWorkflowMeta.getFilename();
       if (!Utils.isEmpty(filename)) {
         return variables != null ? variables.resolve(filename) : filename;
       }
@@ -266,7 +287,55 @@ public class ActionGenerateExecutionMap extends ActionBase implements Cloneable,
   }
 
   @Override
+  public String[] getReferencedObjectDescriptions() {
+    return new String[] {
+      BaseMessages.getString(PKG, "ActionGenerateExecutionMap.ReferencedObject.Description"),
+    };
+  }
+
+  @Override
+  public boolean[] isReferencedObjectEnabled() {
+    return new boolean[] {canResolveReferencedExecutionMapPath(getVariables())};
+  }
+
+  @Override
+  public IHasFilename loadReferencedObject(
+      int index, IHopMetadataProvider metadataProvider, IVariables variables) throws HopException {
+    return loadReferencedExecutionMap(metadataProvider, variables);
+  }
+
+  @Override
   public boolean isEvaluation() {
     return true;
+  }
+
+  @Override
+  public boolean supportsDrillDown() {
+    return true;
+  }
+
+  private boolean canResolveReferencedExecutionMapPath(IVariables variables) {
+    try {
+      resolveReferencedExecutionMapPath(variables);
+      return true;
+    } catch (HopException e) {
+      return false;
+    }
+  }
+
+  private IHasFilename loadReferencedExecutionMap(
+      IHopMetadataProvider metadataProvider, IVariables variables) throws HopException {
+    return ExecutionMapPersistence.load(
+        resolveReferencedExecutionMapPath(variables), metadataProvider, variables);
+  }
+
+  String resolveReferencedExecutionMapPath(IVariables variables) throws HopException {
+    if (!Utils.isEmpty(outputHemFile)) {
+      return variables.resolve(outputHemFile);
+    }
+    String rootPath =
+        resolveRootArtifactPath(
+            rootArtifactFilename, getParentWorkflow(), getParentWorkflowMeta(), variables);
+    return ExecutionMapService.resolveOutputPath(rootPath, null, variables);
   }
 }

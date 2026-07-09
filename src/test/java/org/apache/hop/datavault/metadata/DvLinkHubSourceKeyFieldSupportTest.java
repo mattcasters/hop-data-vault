@@ -54,6 +54,28 @@ class DvLinkHubSourceKeyFieldSupportTest {
   }
 
   @Test
+  void resolveBusinessKeySourcesDeduplicatesRepeatedBusinessKeyNamesPerRecordSource() {
+    DvHub hub = new DvHub("hub_customer");
+    hub.setBusinessKeys(
+        List.of(
+            businessKeyForSource("customer_id", "E2E-customer-hub"),
+            businessKeyForSource("customer_id", "E2E-customer-address"),
+            businessKeyForSource("customer_id", "E2E-customer-contact")));
+
+    DvLink.HubSourceKeyField hubSourceKeyField = new DvLink.HubSourceKeyField();
+    hubSourceKeyField.setHubName("hub_customer");
+    hubSourceKeyField
+        .getSourceBusinessKeyFields()
+        .add(new BusinessKeySource("customer_id", "customer_id"));
+
+    List<String> sourceFieldNames =
+        DvLinkHubSourceKeyFieldSupport.resolveSourceFieldNames(
+            hub, hubSourceKeyField, new Variables());
+
+    assertEquals(List.of("customer_id"), sourceFieldNames);
+  }
+
+  @Test
   void resolveBusinessKeySourcesUsesExplicitSourceFieldNamesWhenProvided() {
     DvHub hub = new DvHub("hub_customer");
     hub.setBusinessKeys(List.of(businessKey("customer_id")));
@@ -91,6 +113,12 @@ class DvLinkHubSourceKeyFieldSupportTest {
     BusinessKey key = new BusinessKey(name);
     key.setDataType("String");
     key.setLength("20");
+    return key;
+  }
+
+  private static BusinessKey businessKeyForSource(String name, String recordSourceName) {
+    BusinessKey key = businessKey(name);
+    key.setRecordSourceName(recordSourceName);
     return key;
   }
 }

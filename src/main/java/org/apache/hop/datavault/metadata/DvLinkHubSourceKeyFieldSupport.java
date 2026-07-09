@@ -98,7 +98,7 @@ public final class DvLinkHubSourceKeyFieldSupport {
       }
     }
 
-    for (BusinessKey businessKey : hub.getBusinessKeys()) {
+    for (BusinessKey businessKey : hub.getDistinctBusinessKeys()) {
       if (businessKey == null || Utils.isEmpty(businessKey.getName())) {
         continue;
       }

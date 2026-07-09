@@ -149,6 +149,12 @@ public class RecordDefinitionInputMeta
   @HopMetadataProperty(key = "output_field_precision_field")
   private String outputFieldPrecisionField = "field_precision";
 
+  @HopMetadataProperty(key = "output_field_primary_key_position_field")
+  private String outputFieldPrimaryKeyPositionField = "field_primary_key_position";
+
+  /** Number of record-level output columns before denormalized field metadata. */
+  public static final int FIELD_METADATA_START_OFFSET = 22;
+
   public RecordDefinitionInputMeta() {}
 
   @Override
@@ -187,6 +193,7 @@ public class RecordDefinitionInputMeta
     meta.outputFieldTypeField = outputFieldTypeField;
     meta.outputFieldLengthField = outputFieldLengthField;
     meta.outputFieldPrecisionField = outputFieldPrecisionField;
+    meta.outputFieldPrimaryKeyPositionField = outputFieldPrimaryKeyPositionField;
     return meta;
   }
 
@@ -228,6 +235,11 @@ public class RecordDefinitionInputMeta
       addField(inputRowMeta, variables.resolve(outputFieldTypeField), IValueMeta.TYPE_STRING, name);
       addField(inputRowMeta, variables.resolve(outputFieldLengthField), IValueMeta.TYPE_INTEGER, name);
       addField(inputRowMeta, variables.resolve(outputFieldPrecisionField), IValueMeta.TYPE_INTEGER, name);
+      addField(
+          inputRowMeta,
+          variables.resolve(outputFieldPrimaryKeyPositionField),
+          IValueMeta.TYPE_INTEGER,
+          name);
     }
   }
 

@@ -34,5 +34,7 @@ public class CatalogSourceField {
   private String length;
   private String precision;
   private int hopType;
+  /** 1-based position in the source primary key; zero when not part of the key. */
+  private int primaryKeyPosition;
   private CatalogSourceFieldInputOptions inputOptions;
 }

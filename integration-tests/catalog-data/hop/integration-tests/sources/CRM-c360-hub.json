@@ -46,6 +46,7 @@
         "length": "9",
         "precision": "0",
         "hopType": 5,
+        "primaryKeyPosition": 1,
         "inputOptions": null
       },
       {

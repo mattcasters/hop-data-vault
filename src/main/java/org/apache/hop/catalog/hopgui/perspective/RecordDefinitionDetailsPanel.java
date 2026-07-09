@@ -87,9 +87,10 @@ public class RecordDefinitionDetailsPanel {
   private static final int COL_TYPE = 2;
   private static final int COL_LENGTH = 3;
   private static final int COL_PRECISION = 4;
-  private static final int COL_FORMAT = 5;
-  private static final int COL_DECIMAL = 6;
-  private static final int COL_GROUPING = 7;
+  private static final int COL_PRIMARY_KEY_POSITION = 5;
+  private static final int COL_FORMAT = 6;
+  private static final int COL_DECIMAL = 7;
+  private static final int COL_GROUPING = 8;
   private static final int MIN_CSV_FORMAT_COLUMN_WIDTH = 90;
 
   private final Composite parent;
@@ -973,6 +974,10 @@ public class RecordDefinitionDetailsPanel {
               ColumnInfo.COLUMN_TYPE_TEXT,
               false),
           new ColumnInfo(
+              BaseMessages.getString(PKG, messageKey("Fields.PrimaryKeyPosition.Column")),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
+          new ColumnInfo(
               BaseMessages.getString(PKG, messageKey("Fields.Format.Column")),
               ColumnInfo.COLUMN_TYPE_TEXT,
               false),
@@ -1228,6 +1233,7 @@ public class RecordDefinitionDetailsPanel {
         String typeDesc = item.getText(COL_TYPE);
         String lengthStr = item.getText(COL_LENGTH);
         String precisionStr = item.getText(COL_PRECISION);
+        String primaryKeyPositionStr = item.getText(COL_PRIMARY_KEY_POSITION);
 
         int type = ValueMetaFactory.getIdForValueMeta(typeDesc);
         int length = Const.toInt(lengthStr, -1);
@@ -1242,6 +1248,7 @@ public class RecordDefinitionDetailsPanel {
           sourceField.setLength(lengthStr);
           sourceField.setPrecision(precisionStr);
           sourceField.setHopType(type);
+          sourceField.setPrimaryKeyPosition(Const.toInt(primaryKeyPositionStr, 0));
           applyCsvOptionsFromTable(sourceField, item, csvSource);
           sourceFields.add(sourceField);
         }
@@ -1495,8 +1502,9 @@ public class RecordDefinitionDetailsPanel {
       item.setText(COL_TYPE, Const.NVL(valueMeta.getTypeDesc(), ""));
       item.setText(COL_LENGTH, formatDimension(valueMeta.getLength()));
       item.setText(COL_PRECISION, formatDimension(valueMeta.getPrecision()));
+      CatalogSourceField catalogField = catalogFieldsByName.get(name);
+      item.setText(COL_PRIMARY_KEY_POSITION, formatPrimaryKeyPosition(catalogField));
       if (csvSource) {
-        CatalogSourceField catalogField = catalogFieldsByName.get(name);
         item.setText(COL_FORMAT, csvFormat(catalogField));
         item.setText(COL_DECIMAL, csvDecimalSymbol(catalogField));
         item.setText(COL_GROUPING, csvGroupingSymbol(catalogField));
@@ -1606,6 +1614,13 @@ public class RecordDefinitionDetailsPanel {
 
   private static String formatDimension(int value) {
     return value >= 0 ? Integer.toString(value) : "";
+  }
+
+  private static String formatPrimaryKeyPosition(CatalogSourceField field) {
+    if (field == null || field.getPrimaryKeyPosition() <= 0) {
+      return "";
+    }
+    return Integer.toString(field.getPrimaryKeyPosition());
   }
 
   private static String messageKey(String suffix) {

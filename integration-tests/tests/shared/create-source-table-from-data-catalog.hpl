@@ -15,18 +15,18 @@
       </parameter>
       <parameter>
         <name>CATALOG_NAME</name>
-        <description>The name in the catalog</description>
-        <default_value>CRM-customer</default_value>
+        <description>The name of the record definition in the catalog</description>
+        <default_value>E2E-product</default_value>
       </parameter>
       <parameter>
         <name>CATALOG_NAMESPACE</name>
-        <description>The namespace in the catalog</description>
-        <default_value>hop/integration-tests/sources</default_value>
+        <description>The namespace of the record definition in the catalog</description>
+        <default_value>hop/retail-example/sources</default_value>
       </parameter>
       <parameter>
         <name>PHYSICAL_TABLE</name>
         <description>The db table name</description>
-        <default_value>customer</default_value>
+        <default_value>product</default_value>
       </parameter>
       <parameter>
         <name>PHYSICAL_SCHEMA</name>
@@ -231,7 +231,7 @@
     <hop>
       <from>Select values</from>
       <to>DDL</to>
-      <enabled>Y</enabled>
+      <enabled>N</enabled>
     </hop>
   </order>
   <notepads/>

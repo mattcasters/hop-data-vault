@@ -44,7 +44,8 @@
         "length": "9",
         "precision": "0",
         "hopType": 5,
-        "inputOptions": null
+        "inputOptions": null,
+        "primaryKeyPosition": 1
       },
       {
         "name": "address_line1",

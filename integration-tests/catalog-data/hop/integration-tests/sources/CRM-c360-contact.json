@@ -19,7 +19,7 @@
   "physicalTable": null,
   "physicalFile": {
     "folder": "${PROJECT_HOME}/files/multi-satellite-bv",
-    "includeFileMask": "contact_update4\\.csv",
+    "includeFileMask": "contact_load1\\.csv",
     "excludeFileMask": ".*\\.txt",
     "includeSubfolders": false,
     "required": true
@@ -46,6 +46,7 @@
         "length": "9",
         "precision": "0",
         "hopType": 5,
+        "primaryKeyPosition": 1,
         "inputOptions": null
       },
       {

@@ -111,6 +111,25 @@ class RecordDefinitionSchemaDiffSupportTest {
   }
 
   @Test
+  void diff_reportsPrimaryKeyCompositionChanges() {
+    SourceField storedPk = field("customer_id", "Integer", IValueMeta.TYPE_INTEGER);
+    storedPk.setPrimaryKeyPosition(1);
+    SourceField discoveredPk = field("cust_id", "Integer", IValueMeta.TYPE_INTEGER);
+    discoveredPk.setPrimaryKeyPosition(1);
+
+    RecordDefinitionSchemaDiffSupport.SchemaDiff diff =
+        RecordDefinitionSchemaDiffSupport.diff(
+            List.of(storedPk), List.of(discoveredPk));
+
+    assertTrue(diff.hasChanges());
+    assertEquals(3, diff.changes().size());
+    assertEquals(
+        RecordDefinitionSchemaDiffSupport.ChangeKind.PRIMARY_KEY_CHANGED,
+        diff.changes().getLast().kind());
+    assertEquals("[customer_id] -> [cust_id]", diff.changes().getLast().details());
+  }
+
+  @Test
   void diffTypesOnly_ignoresLengthAndPrecisionDifferences() {
     SourceField stored = field("name", "String", IValueMeta.TYPE_STRING);
     stored.setLength("50");

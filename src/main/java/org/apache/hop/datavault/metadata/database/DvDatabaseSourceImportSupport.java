@@ -46,6 +46,7 @@ import org.apache.hop.datavault.catalog.RecordSourceIndicatorSupport;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.SourceField;
+import org.apache.hop.datavault.metadata.SourceFieldPrimaryKeySupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.ui.core.dialog.EditRowsDialog;
@@ -502,6 +503,11 @@ public final class DvDatabaseSourceImportSupport {
       sf.setHopType(vm.getType());
       fields.add(sf);
     }
+
+    List<String> primaryKeyColumnNames =
+        DatabasePrimaryKeyDiscoverySupport.discoverPrimaryKeyColumnNames(
+            db, db.getDatabaseMeta(), resolvedSchema, resolvedTable);
+    SourceFieldPrimaryKeySupport.applyPrimaryKeyFieldNames(fields, primaryKeyColumnNames);
     return fields;
   }
 

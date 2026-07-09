@@ -51,6 +51,7 @@ public final class DvSourceFieldSupport {
       catalogField.setLength(field.getLength());
       catalogField.setPrecision(field.getPrecision());
       catalogField.setHopType(field.getHopType());
+      catalogField.setPrimaryKeyPosition(field.getPrimaryKeyPosition());
       catalogField.setInputOptions(SourceFieldInputOptionsSupport.toCatalog(field.getInputOptions()));
       result.add(catalogField);
     }
@@ -90,6 +91,7 @@ public final class DvSourceFieldSupport {
       sourceField.setLength(field.getLength());
       sourceField.setPrecision(field.getPrecision());
       sourceField.setHopType(field.getHopType());
+      sourceField.setPrimaryKeyPosition(field.getPrimaryKeyPosition());
       sourceField.setInputOptions(SourceFieldInputOptionsSupport.fromCatalog(field.getInputOptions()));
       result.add(sourceField);
     }

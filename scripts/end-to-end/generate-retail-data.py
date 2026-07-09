@@ -355,6 +355,23 @@ def order_line_rows(
     return rows
 
 
+def unique_random_pairs(
+    rng: random.Random,
+    warehouse_ids: list[int],
+    product_ids: list[int],
+    count: int,
+) -> list[tuple[int, int]]:
+    """Return up to count unique (warehouse_id, product_id) pairs."""
+    if not warehouse_ids or not product_ids or count <= 0:
+        return []
+    max_pairs = len(warehouse_ids) * len(product_ids)
+    target = min(count, max_pairs)
+    pairs: set[tuple[int, int]] = set()
+    while len(pairs) < target:
+        pairs.add((rng.choice(warehouse_ids), rng.choice(product_ids)))
+    return list(pairs)
+
+
 def warehouse_product_rows(
     scale: Scale,
     rng: random.Random,
@@ -468,10 +485,12 @@ def generate_initial(files_dir: Path, scale: Scale, rng: random.Random) -> str:
         order_line_rows(scale, rng, load_date, order_subset, anchor),
     )
 
-    pairs = [
-        (rng.randint(1, scale.warehouses), rng.randint(1, scale.products))
-        for _ in range(min(5_000, scale.warehouses * 20))
-    ]
+    pairs = unique_random_pairs(
+        rng,
+        list(warehouse_subset),
+        list(product_subset),
+        min(5_000, scale.warehouses * 20),
+    )
     write_csv(
         files_dir / f"warehouse_product_{wave}.csv",
         ["warehouse_id", "product_id", "stock_qty", "reorder_point", "load_date", "record_source"],
@@ -581,10 +600,12 @@ def generate_update(files_dir: Path, scale: Scale, base_rng: random.Random, cont
 
     new_warehouse_list = list(new_warehouses)
     new_product_list = list(new_products)
-    pairs = [
-        (order_rng.choice(new_warehouse_list), order_rng.choice(new_product_list))
-        for _ in range(min(500, sample_warehouses * sample_products))
-    ]
+    pairs = unique_random_pairs(
+        order_rng,
+        new_warehouse_list,
+        new_product_list,
+        min(500, sample_warehouses * sample_products),
+    )
     write_csv(
         files_dir / f"warehouse_product_{wave}.csv",
         ["warehouse_id", "product_id", "stock_qty", "reorder_point", "load_date", "record_source"],

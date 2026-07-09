@@ -52,9 +52,14 @@ CATALOG_DIR = (
     Path(__file__).resolve().parents[2] / "catalog-data" / "hop" / "integration-tests" / "sources"
 )
 
+def primary_key_positions(primary_keys: list[str]) -> dict[str, int]:
+    return {name: index + 1 for index, name in enumerate(primary_keys)}
+
+
 FIELD_SPECS = {
     "CRM-c360-hub": {
         "prefix": "hub",
+        "primary_keys": ["customer_id"],
         "fields": [
             ("customer_id", "Integer", "9", "0", 5),
             ("load_date", "Timestamp", "", "", 9),
@@ -63,6 +68,7 @@ FIELD_SPECS = {
     },
     "CRM-c360-demo": {
         "prefix": "demo",
+        "primary_keys": ["customer_id"],
         "fields": [
             ("customer_id", "Integer", "9", "0", 5),
             ("segment", "String", "20", "", 2),
@@ -74,6 +80,7 @@ FIELD_SPECS = {
     },
     "CRM-c360-contact": {
         "prefix": "contact",
+        "primary_keys": ["customer_id"],
         "fields": [
             ("customer_id", "Integer", "9", "0", 5),
             ("email", "String", "50", "", 2),
@@ -84,6 +91,7 @@ FIELD_SPECS = {
     },
     "CRM-c360-address": {
         "prefix": "address",
+        "primary_keys": ["customer_id"],
         "fields": [
             ("customer_id", "Integer", "9", "0", 5),
             ("address_line1", "String", "50", "", 2),
@@ -95,6 +103,7 @@ FIELD_SPECS = {
     },
     "CRM-c360-prefs": {
         "prefix": "prefs",
+        "primary_keys": ["customer_id"],
         "fields": [
             ("customer_id", "Integer", "9", "0", 5),
             ("newsletter_opt_in", "String", "1", "", 2),
@@ -107,7 +116,10 @@ FIELD_SPECS = {
 }
 
 
-def build_source(name: str, prefix: str, fields: list[tuple]) -> dict:
+def build_source(name: str, spec: dict) -> dict:
+    prefix = spec["prefix"]
+    fields = spec["fields"]
+    pk_positions = primary_key_positions(spec.get("primary_keys", []))
     dv_fields = []
     for field_name, data_type, length, precision, hop_type in fields:
         entry = {
@@ -118,6 +130,9 @@ def build_source(name: str, prefix: str, fields: list[tuple]) -> dict:
             "precision": precision,
             "hopType": hop_type,
         }
+        pk_position = pk_positions.get(field_name, 0)
+        if pk_position > 0:
+            entry["primaryKeyPosition"] = pk_position
         if field_name == "load_date":
             entry["inputOptions"] = {
                 "csv": {
@@ -186,7 +201,7 @@ def main() -> None:
     CATALOG_DIR.mkdir(parents=True, exist_ok=True)
     for name, spec in FIELD_SPECS.items():
         path = CATALOG_DIR / f"{name}.json"
-        payload = build_source(name, spec["prefix"], spec["fields"])
+        payload = build_source(name, spec)
         path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         print(f"Wrote {path}")
 

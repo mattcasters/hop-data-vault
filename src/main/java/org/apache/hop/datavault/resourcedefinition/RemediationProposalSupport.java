@@ -115,6 +115,25 @@ public final class RemediationProposalSupport {
                   fieldName,
                   Utils.isEmpty(change.details()) ? "" : change.details()),
               proposalsForChangedField(fieldName, change.details(), mapped, usages));
+      case PRIMARY_KEY_CHANGED ->
+          new ValidationIssue(
+              ValidationIssueSupport.buildIssueId(IssueKind.PRIMARY_KEY_CHANGED, change),
+              IssueKind.PRIMARY_KEY_CHANGED,
+              IssueSeverity.BLOCKING,
+              null,
+              BaseMessages.getString(
+                  PKG,
+                  "RemediationProposalSupport.Issue.PrimaryKeyChanged",
+                  Utils.isEmpty(change.details()) ? "" : change.details()),
+              List.of(
+                  new RemediationProposal(
+                      ProposalType.REFRESH_CATALOG_CONTRACT,
+                      BaseMessages.getString(
+                          PKG, "RemediationProposalSupport.RefreshCatalogContract.Summary"),
+                      BaseMessages.getString(
+                          PKG,
+                          "RemediationProposalSupport.RefreshCatalogContract.PrimaryKeyDetails",
+                          Utils.isEmpty(change.details()) ? "" : change.details()))));
     };
   }
 

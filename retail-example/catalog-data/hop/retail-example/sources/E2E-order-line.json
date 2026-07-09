@@ -44,7 +44,8 @@
         "length": "7",
         "precision": "",
         "hopType": 2,
-        "inputOptions": null
+        "inputOptions": null,
+        "primaryKeyPosition": 1
       },
       {
         "name": "product_id",
@@ -53,7 +54,8 @@
         "length": "7",
         "precision": "",
         "hopType": 2,
-        "inputOptions": null
+        "inputOptions": null,
+        "primaryKeyPosition": 2
       },
       {
         "name": "line_number",
@@ -62,7 +64,8 @@
         "length": "9",
         "precision": "0",
         "hopType": 5,
-        "inputOptions": null
+        "inputOptions": null,
+        "primaryKeyPosition": 3
       },
       {
         "name": "quantity",

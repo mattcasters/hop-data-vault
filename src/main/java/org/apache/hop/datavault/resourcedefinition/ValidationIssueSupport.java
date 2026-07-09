@@ -50,6 +50,8 @@ public final class ValidationIssueSupport {
     }
     String signature =
         change.kind() == RecordDefinitionSchemaDiffSupport.ChangeKind.CHANGED
+                || change.kind()
+                    == RecordDefinitionSchemaDiffSupport.ChangeKind.PRIMARY_KEY_CHANGED
             ? change.details()
             : null;
     return buildIssueId(kind, change.fieldName(), signature);
@@ -105,7 +107,24 @@ public final class ValidationIssueSupport {
           hasFieldChange(diff, RecordDefinitionSchemaDiffSupport.ChangeKind.REMOVED, parsed.fieldName(), parsed.changeSignature());
       case FIELD_TYPE_CHANGED ->
           hasFieldChange(diff, RecordDefinitionSchemaDiffSupport.ChangeKind.CHANGED, parsed.fieldName(), parsed.changeSignature());
+      case PRIMARY_KEY_CHANGED ->
+          hasPrimaryKeyChange(diff, parsed.changeSignature());
     };
+  }
+
+  private static boolean hasPrimaryKeyChange(
+      RecordDefinitionSchemaDiffSupport.SchemaDiff diff, String changeSignature) {
+    if (diff == null || !diff.hasChanges()) {
+      return false;
+    }
+    for (RecordDefinitionSchemaDiffSupport.FieldChange change : diff.changes()) {
+      if (change == null
+          || change.kind() != RecordDefinitionSchemaDiffSupport.ChangeKind.PRIMARY_KEY_CHANGED) {
+        continue;
+      }
+      return Const.NVL(change.details(), "").equals(Const.NVL(changeSignature, ""));
+    }
+    return false;
   }
 
   private static boolean hasFieldChange(

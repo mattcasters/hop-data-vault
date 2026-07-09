@@ -65,6 +65,19 @@ class DvSourceFieldSupportTest {
   }
 
   @Test
+  void roundTripsPrimaryKeyPositionBetweenCatalogAndSourceFields() {
+    SourceField sourceField = new SourceField("customer_id");
+    sourceField.setPrimaryKeyPosition(2);
+
+    List<CatalogSourceField> catalogFields =
+        DvSourceFieldSupport.toCatalogFields(List.of(sourceField));
+    assertEquals(2, catalogFields.getFirst().getPrimaryKeyPosition());
+
+    List<SourceField> restored = DvSourceFieldSupport.fromCatalogFields(catalogFields);
+    assertEquals(2, restored.getFirst().getPrimaryKeyPosition());
+  }
+
+  @Test
   void preservesNullInputOptions() {
     SourceField sourceField = new SourceField("name");
     List<CatalogSourceField> catalogFields =

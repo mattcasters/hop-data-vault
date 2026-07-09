@@ -127,7 +127,7 @@ public final class ExecutionMapService {
     OpenLineageExportSupport.writeJson(document, resolvedOutput);
   }
 
-  private static String resolveOutputPath(
+  public static String resolveOutputPath(
       String rootArtifactPath, String outputPath, IVariables variables) {
     if (!Utils.isEmpty(outputPath)) {
       return variables != null ? variables.resolve(outputPath) : outputPath;

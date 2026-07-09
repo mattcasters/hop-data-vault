@@ -22,6 +22,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import org.apache.hop.catalog.model.CatalogSourceField;
 import org.apache.hop.catalog.model.DvSourceRecord;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
@@ -183,11 +184,13 @@ public class RecordDefinitionInput
           Object[] outputRow = RowDataUtil.createResizedCopy(baseRow, data.outputRowMeta.size());
           populateRecordFields(outputRow, startIdx, definition);
 
-          int fIdx = startIdx + 22; // index where field metadata starts
+          int fIdx = startIdx + RecordDefinitionInputMeta.FIELD_METADATA_START_OFFSET;
           outputRow[fIdx] = valueMeta.getName();
           outputRow[fIdx + 1] = valueMeta.getTypeDesc();
           outputRow[fIdx + 2] = (long) valueMeta.getLength();
           outputRow[fIdx + 3] = (long) valueMeta.getPrecision();
+          outputRow[fIdx + 4] =
+              (long) primaryKeyPositionForField(definition, valueMeta.getName());
 
           putRow(data.outputRowMeta, outputRow);
         }
@@ -199,11 +202,12 @@ public class RecordDefinitionInput
     populateRecordFields(outputRow, startIdx, definition);
 
     if (meta.isOutputFieldsMetadata()) {
-      int fIdx = startIdx + 22;
+      int fIdx = startIdx + RecordDefinitionInputMeta.FIELD_METADATA_START_OFFSET;
       outputRow[fIdx] = null;
       outputRow[fIdx + 1] = null;
       outputRow[fIdx + 2] = null;
       outputRow[fIdx + 3] = null;
+      outputRow[fIdx + 4] = null;
     }
 
     putRow(data.outputRowMeta, outputRow);
@@ -258,6 +262,19 @@ public class RecordDefinitionInput
       outputRow[startIdx + 20] = null;
       outputRow[startIdx + 21] = null;
     }
+  }
+
+  private int primaryKeyPositionForField(RecordDefinition definition, String fieldName) {
+    DvSourceRecord dvSource = definition.getDvSource();
+    if (dvSource == null || dvSource.getFields() == null || Utils.isEmpty(fieldName)) {
+      return 0;
+    }
+    for (CatalogSourceField field : dvSource.getFields()) {
+      if (field != null && fieldName.equals(field.getName())) {
+        return field.getPrimaryKeyPosition();
+      }
+    }
+    return 0;
   }
 
   private String formatDate(Date date) {

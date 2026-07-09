@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.SourceField;
+import org.apache.hop.datavault.metadata.SourceFieldPrimaryKeySupport;
 import org.apache.hop.i18n.BaseMessages;
 
 /** Compares stored catalog field contracts against freshly discovered source fields. */
@@ -37,7 +38,8 @@ public final class RecordDefinitionSchemaDiffSupport {
   public enum ChangeKind {
     ADDED,
     REMOVED,
-    CHANGED
+    CHANGED,
+    PRIMARY_KEY_CHANGED
   }
 
   public record FieldChange(ChangeKind kind, String fieldName, String details) {}
@@ -88,6 +90,15 @@ public final class RecordDefinitionSchemaDiffSupport {
       }
     }
 
+    if (!typesOnly) {
+      String primaryKeyDetails =
+          SourceFieldPrimaryKeySupport.describePrimaryKeyCompositionDifference(
+              storedFields, discoveredFields);
+      if (!Utils.isEmpty(primaryKeyDetails)) {
+        changes.add(new FieldChange(ChangeKind.PRIMARY_KEY_CHANGED, null, primaryKeyDetails));
+      }
+    }
+
     return new SchemaDiff(changes);
   }
 
@@ -116,6 +127,12 @@ public final class RecordDefinitionSchemaDiffSupport {
                     PKG,
                     "RecordDefinitionSchemaDiffSupport.Change.Changed",
                     change.fieldName(),
+                    Const.NVL(change.details(), "")));
+        case PRIMARY_KEY_CHANGED ->
+            builder.append(
+                BaseMessages.getString(
+                    PKG,
+                    "RecordDefinitionSchemaDiffSupport.Change.PrimaryKeyChanged",
                     Const.NVL(change.details(), "")));
         default -> builder.append(change.fieldName());
       }

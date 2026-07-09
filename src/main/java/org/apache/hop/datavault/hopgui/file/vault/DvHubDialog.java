@@ -30,6 +30,7 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.metadata.BusinessKey;
+import org.apache.hop.datavault.metadata.SourceFieldPrimaryKeySupport;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.core.ICheckResult;
@@ -609,6 +610,20 @@ public class DvHubDialog {
       mb.setText(BaseMessages.getString(PKG, "DvHubDialog.GetKeys.NoFields.Title"));
       mb.open();
       return 0;
+    }
+
+    List<SourceField> primaryKeyFields = SourceFieldPrimaryKeySupport.primaryKeyFields(sourceFields);
+    if (!primaryKeyFields.isEmpty()) {
+      for (SourceField sf : primaryKeyFields) {
+        TableItem item = new TableItem(wBusinessKeys.table, SWT.NONE);
+        item.setText(1, Const.NVL(sf.getName(), ""));
+        item.setText(2, Const.NVL(sf.getDescription(), ""));
+        item.setText(3, Const.NVL(sf.getSourceDataType(), ""));
+        item.setText(4, Const.NVL(sf.getLength(), ""));
+        item.setText(5, Const.NVL(sf.getName(), ""));
+        item.setText(6, Const.NVL(sourceName, ""));
+      }
+      return primaryKeyFields.size();
     }
 
     Set<String> preselectedSourceFields = new HashSet<>();

@@ -201,6 +201,20 @@ public final class DvDdlSupport {
       String[] shardKeyColumns,
       String primaryKeyColumn,
       boolean semicolon) {
+    List<String> primaryKeyFieldNames =
+        Utils.isEmpty(primaryKeyColumn) ? List.of() : List.of(primaryKeyColumn);
+    return buildCreateTableStatement(
+        databaseMeta, variables, tableName, fields, shardKeyColumns, primaryKeyFieldNames, semicolon);
+  }
+
+  public static String buildCreateTableStatement(
+      DatabaseMeta databaseMeta,
+      IVariables variables,
+      String tableName,
+      IRowMeta fields,
+      String[] shardKeyColumns,
+      List<String> primaryKeyFieldNames,
+      boolean semicolon) {
     if (databaseMeta == null || Utils.isEmpty(tableName) || fields == null || fields.isEmpty()) {
       return "";
     }
@@ -216,9 +230,12 @@ public final class DvDdlSupport {
         ddl.append(",").append(Const.CR);
       }
       IValueMeta valueMeta = fields.getValueMeta(i);
-      ddl.append(
-          databaseMeta.getFieldDefinition(valueMeta, primaryKeyColumn, null, false));
+      // Use a table-level PRIMARY KEY clause so JDBC discovery finds the constraint and
+      // PostgreSQL does not emit BIGSERIAL for the first key column.
+      ddl.append(databaseMeta.getFieldDefinition(valueMeta, null, null, false));
     }
+
+    appendPrimaryKeyClause(ddl, databaseMeta, primaryKeyFieldNames);
 
     if (shardKeyColumns != null && shardKeyColumns.length > 0) {
       ddl.append(",").append(Const.CR);
@@ -239,5 +256,21 @@ public final class DvDdlSupport {
       ddl.append(";");
     }
     return ddl.toString();
+  }
+
+  static void appendPrimaryKeyClause(
+      StringBuilder ddl, DatabaseMeta databaseMeta, List<String> primaryKeyFieldNames) {
+    if (primaryKeyFieldNames == null || primaryKeyFieldNames.isEmpty()) {
+      return;
+    }
+    ddl.append(",").append(Const.CR);
+    ddl.append("PRIMARY KEY (");
+    for (int i = 0; i < primaryKeyFieldNames.size(); i++) {
+      if (i > 0) {
+        ddl.append(", ");
+      }
+      ddl.append(databaseMeta.quoteField(primaryKeyFieldNames.get(i)));
+    }
+    ddl.append(")");
   }
 }

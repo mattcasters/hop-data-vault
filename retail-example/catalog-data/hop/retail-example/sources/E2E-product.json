@@ -44,7 +44,8 @@
         "length": "7",
         "precision": "",
         "hopType": 2,
-        "inputOptions": null
+        "inputOptions": null,
+        "primaryKeyPosition": 1
       },
       {
         "name": "product_name",

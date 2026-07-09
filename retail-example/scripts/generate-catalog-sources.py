@@ -59,10 +59,15 @@ HOP_TYPE_NAMES = {
     9: "Timestamp",
 }
 
+def primary_key_positions(primary_keys: list[str]) -> dict[str, int]:
+    return {name: index + 1 for index, name in enumerate(primary_keys)}
+
+
 SOURCE_DEFINITIONS = {
     "E2E-customer-hub": {
         "prefix": "customer_hub",
         "description": "Retail customer hub database source",
+        "primary_keys": ["customer_id"],
         "fields": [
             ("customer_id", "Integer", "9", "0", 5),
             ("load_date", "Timestamp", "", "", 9),
@@ -72,6 +77,7 @@ SOURCE_DEFINITIONS = {
     "E2E-customer-demo": {
         "prefix": "customer_demo",
         "description": "Retail customer demographics satellite database source",
+        "primary_keys": ["customer_id"],
         "fields": [
             ("customer_id", "Integer", "9", "0", 5),
             ("segment", "String", "20", "", 2),
@@ -84,6 +90,7 @@ SOURCE_DEFINITIONS = {
     "E2E-customer-contact": {
         "prefix": "customer_contact",
         "description": "Retail customer contact satellite database source",
+        "primary_keys": ["customer_id"],
         "fields": [
             ("customer_id", "Integer", "9", "0", 5),
             ("email", "String", "50", "", 2),
@@ -95,6 +102,7 @@ SOURCE_DEFINITIONS = {
     "E2E-customer-address": {
         "prefix": "customer_address",
         "description": "Retail customer address satellite database source",
+        "primary_keys": ["customer_id"],
         "fields": [
             ("customer_id", "Integer", "9", "0", 5),
             ("address_line1", "String", "50", "", 2),
@@ -107,6 +115,7 @@ SOURCE_DEFINITIONS = {
     "E2E-customer-prefs": {
         "prefix": "customer_prefs",
         "description": "Retail customer preference satellite database source",
+        "primary_keys": ["customer_id"],
         "fields": [
             ("customer_id", "Integer", "9", "0", 5),
             ("newsletter_opt_in", "String", "1", "", 2),
@@ -119,6 +128,7 @@ SOURCE_DEFINITIONS = {
     "E2E-product": {
         "prefix": "product",
         "description": "Retail product hub/satellite database source",
+        "primary_keys": ["product_id"],
         "fields": [
             ("product_id", "String", "7", "", 2),
             ("product_name", "String", "50", "", 2),
@@ -131,6 +141,7 @@ SOURCE_DEFINITIONS = {
     "E2E-order-header": {
         "prefix": "order_header",
         "description": "Retail order header satellite database source",
+        "primary_keys": ["order_id"],
         "fields": [
             ("order_id", "String", "7", "", 2),
             ("customer_id", "Integer", "9", "0", 5),
@@ -146,6 +157,7 @@ SOURCE_DEFINITIONS = {
     "E2E-order-line": {
         "prefix": "order_line",
         "description": "Retail order line link satellite database source",
+        "primary_keys": ["order_id", "product_id", "line_number"],
         "fields": [
             ("order_id", "String", "7", "", 2),
             ("product_id", "String", "7", "", 2),
@@ -160,6 +172,7 @@ SOURCE_DEFINITIONS = {
     "E2E-warehouse": {
         "prefix": "warehouse",
         "description": "Retail warehouse hub/satellite database source",
+        "primary_keys": ["warehouse_id"],
         "fields": [
             ("warehouse_id", "Integer", "9", "0", 5),
             ("warehouse_name", "String", "50", "", 2),
@@ -173,6 +186,7 @@ SOURCE_DEFINITIONS = {
     "E2E-warehouse-product": {
         "prefix": "warehouse_product",
         "description": "Retail warehouse-product link satellite database source",
+        "primary_keys": ["warehouse_id", "product_id"],
         "fields": [
             ("warehouse_id", "Integer", "9", "0", 5),
             ("product_id", "String", "7", "", 2),
@@ -223,7 +237,14 @@ def build_row_meta_xml(fields: list[tuple]) -> str:
     return "<row-meta>" + "".join(value_metas) + "</row-meta>"
 
 
-def field_entry(name: str, data_type: str, length: str, precision: str, hop_type: int) -> dict:
+def field_entry(
+    name: str,
+    data_type: str,
+    length: str,
+    precision: str,
+    hop_type: int,
+    primary_key_position: int = 0,
+) -> dict:
     entry = {
         "name": name,
         "description": None,
@@ -233,6 +254,8 @@ def field_entry(name: str, data_type: str, length: str, precision: str, hop_type
         "hopType": hop_type,
         "inputOptions": None,
     }
+    if primary_key_position > 0:
+        entry["primaryKeyPosition"] = primary_key_position
     if name == "load_date":
         entry["inputOptions"] = {
             "csv": {
@@ -260,6 +283,7 @@ def project_sources_namespace(project_home: Path) -> str:
 
 def build_source(name: str, definition: dict, namespace: str) -> dict:
     table_name = definition["prefix"]
+    pk_positions = primary_key_positions(definition.get("primary_keys", []))
     return {
         "namespace": namespace,
         "name": name,
@@ -294,7 +318,7 @@ def build_source(name: str, definition: dict, namespace: str) -> dict:
             "group": None,
             "deliveryType": "FULL_SNAPSHOT",
             "fields": [
-                field_entry(*field)
+                field_entry(*field, primary_key_position=pk_positions.get(field[0], 0))
                 for field in definition["fields"]
             ],
         },

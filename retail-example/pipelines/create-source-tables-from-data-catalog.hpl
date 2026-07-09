@@ -200,61 +200,23 @@
     <attributes/>
   </transform>
   <transform>
-    <type>PipelineExecutor</type>
-    <name>create-source-table-from-data-catalog.hpl</name>
-    <run_configuration>local</run_configuration>
-    <filenameInField>N</filenameInField>
-    <filenameField/>
-    <group_size>1</group_size>
-    <group_field/>
-    <group_time/>
-    <parameters>
-      <variable_mapping>
-        <variable>CATALOG_NAMESPACE</variable>
-        <field>namespace</field>
-        <input/>
-      </variable_mapping>
-      <variable_mapping>
-        <variable>CATALOG_NAME</variable>
-        <field>name</field>
-        <input/>
-      </variable_mapping>
-      <variable_mapping>
-        <variable>PHYISICAL_DATABASE</variable>
-        <field>physical_database</field>
-        <input/>
-      </variable_mapping>
-      <variable_mapping>
-        <variable>PHYSICAL_SCHEMA</variable>
-        <field>physical_schema</field>
-        <input/>
-      </variable_mapping>
-      <variable_mapping>
-        <variable>PHYSICAL_TABLE</variable>
-        <field>physical_table</field>
-        <input/>
-      </variable_mapping>
-    </parameters>
-    <inherit_all_vars>N</inherit_all_vars>
-    <execution_result_target_transform/>
-    <execution_time_field>ExecutionTime</execution_time_field>
-    <execution_result_field>ExecutionResult</execution_result_field>
-    <execution_errors_field>ExecutionNrErrors</execution_errors_field>
-    <execution_lines_read_field>ExecutionLinesRead</execution_lines_read_field>
-    <execution_lines_written_field>ExecutionLinesWritten</execution_lines_written_field>
-    <execution_lines_input_field>ExecutionLinesInput</execution_lines_input_field>
-    <execution_lines_output_field>ExecutionLinesOutput</execution_lines_output_field>
-    <execution_lines_rejected_field>ExecutionLinesRejected</execution_lines_rejected_field>
-    <execution_lines_updated_field>ExecutionLinesUpdated</execution_lines_updated_field>
-    <execution_lines_deleted_field>ExecutionLinesDeleted</execution_lines_deleted_field>
-    <execution_files_retrieved_field>ExecutionFilesRetrieved</execution_files_retrieved_field>
-    <execution_exit_status_field>ExecutionExitStatus</execution_exit_status_field>
-    <execution_log_text_field>ExecutionLogText</execution_log_text_field>
-    <execution_log_channelid_field>ExecutionLogChannelId</execution_log_channelid_field>
-    <result_rows_target_transform/>
-    <result_files_target_transform/>
-    <result_files_file_name_field>FileName</result_files_file_name_field>
-    <filename>${PROJECT_HOME}/../integration-tests/tests/shared/create-source-table-from-data-catalog.hpl</filename>
+    <type>RecordDefinitionDdl</type>
+    <name>Record Definition DDL</name>
+    <catalog_connection>local-catalog</catalog_connection>
+    <select_from_input>Y</select_from_input>
+    <namespace_field>namespace</namespace_field>
+    <name_field>name</name_field>
+    <namespace_value/>
+    <name_value/>
+    <override_connection/>
+    <override_schema/>
+    <override_table/>
+    <execute_ddl>Y</execute_ddl>
+    <drop_table_if_exists>Y</drop_table_if_exists>
+    <skip_if_table_exists>N</skip_if_table_exists>
+    <append_semicolon>Y</append_semicolon>
+    <output_ddl_field>ddl</output_ddl_field>
+    <output_status_field>ddl_status</output_status_field>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
@@ -280,7 +242,7 @@
     </hop>
     <hop>
       <from>Select values</from>
-      <to>create-source-table-from-data-catalog.hpl</to>
+      <to>Record Definition DDL</to>
       <enabled>Y</enabled>
     </hop>
   </order>
