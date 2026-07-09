@@ -1595,7 +1595,8 @@ public final class DmValidationSupport {
     String fkColumn = resolve(role.getForeignKeyColumn(), variables);
     if (!Utils.isEmpty(naturalKey)
         && naturalKey.equals(fkColumn)
-        && dimension.getScdTypeOrDefault() != DmDimensionScdType.TYPE1) {
+        && DmDimensionLoadStrategySupport.resolveLoadStrategy(dimension)
+            != DmDimensionLoadStrategySupport.DmDimensionLoadStrategy.PURE_TYPE1) {
       String lookupKeyField =
           DmLayoutSupport.resolveDimensionLookupKeyField(dimension, config, variables);
       remarks.add(
@@ -1853,8 +1854,9 @@ public final class DmValidationSupport {
       }
     }
     for (DmDimensionAttribute attribute : dimension.getAttributesOrEmpty()) {
-      String fieldName = resolve(attribute != null ? attribute.getFieldName() : null, variables);
-      if (!Utils.isEmpty(fieldName) && !available.contains(fieldName)) {
+      String sourceField =
+          DmDimensionLoadStrategySupport.resolveSourceFieldName(attribute, variables);
+      if (!Utils.isEmpty(sourceField) && !available.contains(sourceField)) {
         remarks.add(
             new CheckResult(
                 ICheckResult.TYPE_RESULT_ERROR,
@@ -1862,12 +1864,12 @@ public final class DmValidationSupport {
                     PKG,
                     "DmValidationSupport.CheckResult.DimensionSourceMissingField",
                     dimension.getName(),
-                    fieldName),
+                    sourceField),
                 dimension));
       }
     }
-    if (dimension.getScdTypeOrDefault() == DmDimensionScdType.TYPE1
-        && !dimensionUsesHybridAttributes(dimension)) {
+    if (DmDimensionLoadStrategySupport.resolveLoadStrategy(dimension)
+        == DmDimensionLoadStrategySupport.DmDimensionLoadStrategy.PURE_TYPE1) {
       String loadDateField = resolve(config.resolveLoadDateField(variables), variables);
       if (!Utils.isEmpty(loadDateField) && !available.contains(loadDateField)) {
         remarks.add(
@@ -1944,8 +1946,8 @@ public final class DmValidationSupport {
     }
     DimensionalConfiguration config =
         model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
-    if (dimension.getScdTypeOrDefault() == DmDimensionScdType.TYPE1
-        && !dimensionUsesHybridAttributes(dimension)) {
+    if (DmDimensionLoadStrategySupport.resolveLoadStrategy(dimension)
+        == DmDimensionLoadStrategySupport.DmDimensionLoadStrategy.PURE_TYPE1) {
       String loadDateField = resolve(config.resolveLoadDateField(variables), variables);
       if (!Utils.isEmpty(loadDateField)) {
         DmSourceTargetTypeValidationSupport.validateMappedField(
@@ -1980,7 +1982,8 @@ public final class DmValidationSupport {
     if (remarks == null || dimension == null || model == null) {
       return;
     }
-    if (dimension.getScdTypeOrDefault() != DmDimensionScdType.TYPE2) {
+    if (DmDimensionLoadStrategySupport.resolveLoadStrategy(dimension)
+        != DmDimensionLoadStrategySupport.DmDimensionLoadStrategy.PURE_TYPE2) {
       return;
     }
     DmSourceConfiguration source = dimension.getSourceOrDefault();
@@ -2029,7 +2032,8 @@ public final class DmValidationSupport {
     }
     DmSurrogateKeyStrategy strategy = DmSurrogateKeySupport.resolveStrategy(dimension);
     if (strategy == DmSurrogateKeyStrategy.NONE
-        && dimension.getScdTypeOrDefault() == DmDimensionScdType.TYPE2) {
+        && DmDimensionLoadStrategySupport.resolveLoadStrategy(dimension)
+            == DmDimensionLoadStrategySupport.DmDimensionLoadStrategy.PURE_TYPE2) {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_WARNING,
@@ -2152,17 +2156,6 @@ public final class DmValidationSupport {
                   junkDimension.getName()),
               junkDimension));
     }
-  }
-
-  private static boolean dimensionUsesHybridAttributes(DmDimension dimension) {
-    for (DmDimensionAttribute attribute : dimension.getAttributesOrEmpty()) {
-      if (attribute != null
-          && attribute.getScdUpdatePolicy() != null
-          && attribute.getScdUpdatePolicy() != DmScdUpdatePolicy.TYPE1) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private static void validateSourceConfiguration(

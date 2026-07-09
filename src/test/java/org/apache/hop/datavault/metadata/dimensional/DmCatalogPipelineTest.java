@@ -82,9 +82,13 @@ class DmCatalogPipelineTest {
             .orElseThrow();
     DimensionLookupMeta lookupMeta = (DimensionLookupMeta) lookup.getTransform();
     assertTrue(lookupMeta.isUpdate());
+    DimensionLookupMeta.DLField previousField =
+        lookupMeta.getFields().getFields().stream()
+            .filter(f -> "city_prev".equals(f.getLookup()))
+            .findFirst()
+            .orElseThrow();
     assertEquals(
-        DimensionLookupMeta.DimensionUpdateType.LAST_VERSION,
-        lookupMeta.getFields().getFields().get(1).getUpdateType());
+        DimensionLookupMeta.DimensionUpdateType.LAST_VERSION, previousField.getUpdateType());
   }
 
   @Test
@@ -177,17 +181,19 @@ class DmCatalogPipelineTest {
     List<IDmTable> ordered =
         DmUpdateExecutionSupport.orderTablesForPipelineExecution(model.getTables());
 
-    assertEquals(9, ordered.size());
+    assertEquals(10, ordered.size());
     assertEquals(DmTableType.DIMENSION, ordered.get(0).getTableType());
     assertEquals(DmTableType.DIMENSION, ordered.get(1).getTableType());
-    assertEquals(DmTableType.JUNK_DIMENSION, ordered.get(2).getTableType());
-    assertEquals(DmTableType.BRIDGE, ordered.get(3).getTableType());
-    assertEquals(DmTableType.FACTLESS_FACT, ordered.get(4).getTableType());
-    assertEquals(DmTableType.PERIODIC_SNAPSHOT_FACT, ordered.get(5).getTableType());
-    assertEquals(DmTableType.ACCUMULATING_SNAPSHOT_FACT, ordered.get(6).getTableType());
-    assertEquals(DmTableType.FACT, ordered.get(7).getTableType());
-    assertEquals("fact_sales", ordered.get(7).getName());
-    assertEquals(DmTableType.AGGREGATE_FACT, ordered.get(8).getTableType());
+    assertEquals(DmTableType.DIMENSION, ordered.get(2).getTableType());
+    assertEquals("dim_patient", ordered.get(2).getName());
+    assertEquals(DmTableType.JUNK_DIMENSION, ordered.get(3).getTableType());
+    assertEquals(DmTableType.BRIDGE, ordered.get(4).getTableType());
+    assertEquals(DmTableType.FACTLESS_FACT, ordered.get(5).getTableType());
+    assertEquals(DmTableType.PERIODIC_SNAPSHOT_FACT, ordered.get(6).getTableType());
+    assertEquals(DmTableType.ACCUMULATING_SNAPSHOT_FACT, ordered.get(7).getTableType());
+    assertEquals(DmTableType.FACT, ordered.get(8).getTableType());
+    assertEquals("fact_sales", ordered.get(8).getName());
+    assertEquals(DmTableType.AGGREGATE_FACT, ordered.get(9).getTableType());
   }
 
   private static IHopMetadataProvider testMetadataProvider() throws HopException {

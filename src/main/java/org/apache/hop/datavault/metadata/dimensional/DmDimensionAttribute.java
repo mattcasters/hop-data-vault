@@ -29,7 +29,11 @@ import org.apache.hop.metadata.api.HopMetadataProperty;
 @NoArgsConstructor
 public class DmDimensionAttribute {
 
+  /** Warehouse / target column name. */
   @HopMetadataProperty private String fieldName;
+
+  /** Source stream column; defaults to {@link #fieldName} when empty. */
+  @HopMetadataProperty private String sourceFieldName;
 
   @HopMetadataProperty(storeWithCode = true)
   private DmScdUpdatePolicy scdUpdatePolicy;

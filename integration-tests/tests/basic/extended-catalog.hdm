@@ -70,6 +70,37 @@
       <name>dim_product</name>
     </table>
     <table>
+      <natural_keys>
+        <natural_key>
+          <fieldName>patient_id</fieldName>
+        </natural_key>
+      </natural_keys>
+      <attributes>
+        <attribute>
+          <sourceFieldName>birthdate</sourceFieldName>
+          <fieldName>birthdate</fieldName>
+          <scdUpdatePolicy>TYPE1_PUNCH_THROUGH</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <sourceFieldName>birthdate</sourceFieldName>
+          <fieldName>birthdate_hist</fieldName>
+          <scdUpdatePolicy>TYPE2</scdUpdatePolicy>
+        </attribute>
+        <attribute>
+          <fieldName>patient_name</fieldName>
+          <scdUpdatePolicy>TYPE1</scdUpdatePolicy>
+        </attribute>
+      </attributes>
+      <outriggers/>
+      <tableName>d_patient</tableName>
+      <description>Hybrid patient dimension (birthdate punch-through + historized)</description>
+      <tableType>DIMENSION</tableType>
+      <sourceSql>SELECT patient_id, birthdate, patient_name FROM stg_patient</sourceSql>
+      <xloc>944</xloc>
+      <yloc>496</yloc>
+      <name>dim_patient</name>
+    </table>
+    <table>
       <key_fields>
         <key_field>
           <fieldName>promo_flag</fieldName>

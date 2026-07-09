@@ -47,12 +47,13 @@ class DmSurrogateKeyPipelineTest {
     DmDimension dimension = new DmDimension();
     dimension.setName("dim_customer");
     dimension.setTableName("d_customer");
-    dimension.setScdType(DmDimensionScdType.TYPE3);
     dimension.setSurrogateKeyStrategy(DmSurrogateKeyStrategy.USE_SOURCE_FIELD);
     dimension.setSurrogateKeyField("customer_hk");
     dimension.setSurrogateKeySourceField("customer_hk");
     dimension.getNaturalKeys().add(new DmNaturalKeyField("customer_id"));
-    dimension.getAttributes().add(new DmDimensionAttribute("customer_name", DmScdUpdatePolicy.TYPE1));
+    dimension
+        .getAttributes()
+        .add(new DmDimensionAttribute("customer_name", DmScdUpdatePolicy.TYPE3_CURRENT));
     dimension.getSourceOrDefault().setSourceSql("SELECT customer_id, customer_hk, customer_name FROM stg_customer");
     model.getTables().add(dimension);
 

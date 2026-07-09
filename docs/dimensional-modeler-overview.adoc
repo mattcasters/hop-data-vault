@@ -93,11 +93,11 @@ Generators are thin builders over native Hop warehouse transforms:
 |===
 |Kimball pattern |Hop transform |Notes
 
-|SCD Type 1 |Insert/Update |Overwrite attributes on natural key match
+|SCD Type 1 (all attributes Type 1) |Insert/Update |Overwrite attributes on natural key match
 
-|SCD Type 2 |MergeRows chain (satellite pattern) |Ported from `DvSatellite` load-end-date chain
+|SCD Type 2 (all attributes Type 2) |MergeRows chain (satellite pattern) |Ported from `DvSatellite` load-end-date chain
 
-|SCD Type 3 / hybrid |Dimension Lookup (`update=true`) |Per-attribute update types
+|Hybrid / Type 3 (mixed attribute policies) |Dimension Lookup (`update=true`) |Per-attribute update types; optional source→target rename; `is_current` via Last Version
 
 |Junk dimension |Combination Lookup |Key field combinations → surrogate key
 

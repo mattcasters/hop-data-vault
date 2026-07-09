@@ -35,6 +35,7 @@ import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionLoadStrategySupport;
 import org.apache.hop.datavault.metadata.dimensional.DmSourceConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DmSourcePipelineSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmSourceRecordDefinitionSupport;
@@ -411,11 +412,10 @@ public final class DmPipelineBuilderSupport {
       if (attribute.getScdUpdatePolicy() == org.apache.hop.datavault.metadata.dimensional.DmScdUpdatePolicy.TYPE2) {
         continue;
       }
-      String field = attribute.getFieldName();
-      if (variables != null) {
-        field = variables.resolve(field);
+      String field = DmDimensionLoadStrategySupport.resolveTargetFieldName(attribute, variables);
+      if (!Utils.isEmpty(field)) {
+        names.add(field);
       }
-      names.add(field);
     }
     return names;
   }
@@ -427,11 +427,10 @@ public final class DmPipelineBuilderSupport {
       if (attribute == null || Utils.isEmpty(attribute.getFieldName())) {
         continue;
       }
-      String field = attribute.getFieldName();
-      if (variables != null) {
-        field = variables.resolve(field);
+      String field = DmDimensionLoadStrategySupport.resolveTargetFieldName(attribute, variables);
+      if (!Utils.isEmpty(field)) {
+        names.add(field);
       }
-      names.add(field);
     }
     return names;
   }

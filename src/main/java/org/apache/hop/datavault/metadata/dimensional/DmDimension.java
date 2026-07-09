@@ -28,6 +28,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionLoadStrategySupport.DmDimensionLoadStrategy;
 import org.apache.hop.datavault.metadata.dimensional.pipeline.DmDimensionLookupBuilder;
 import org.apache.hop.datavault.metadata.dimensional.pipeline.DmInsertUpdateBuilder;
 import org.apache.hop.datavault.metadata.dimensional.pipeline.DmScd2DimensionBuilder;
@@ -40,6 +41,11 @@ import org.apache.hop.pipeline.PipelineMeta;
 @Setter
 public class DmDimension extends DmTableBase {
 
+  /**
+   * @deprecated Load strategy is derived from per-attribute {@link DmScdUpdatePolicy} values. Retained
+   *     for deserializing legacy {@code .hdm} files; not written on save.
+   */
+  @Deprecated
   @HopMetadataProperty(storeWithCode = true)
   private DmDimensionScdType scdType = DmDimensionScdType.TYPE1;
 
@@ -69,8 +75,14 @@ public class DmDimension extends DmTableBase {
     super(DmTableType.DIMENSION);
   }
 
+  /** @deprecated Use {@link DmDimensionLoadStrategySupport#resolveDerivedScdType(DmDimension)}. */
+  @Deprecated
   public DmDimensionScdType getScdTypeOrDefault() {
-    return scdType != null ? scdType : DmDimensionScdType.TYPE1;
+    return DmDimensionLoadStrategySupport.resolveDerivedScdType(this);
+  }
+
+  public DmDimensionLoadStrategy resolveLoadStrategy() {
+    return DmDimensionLoadStrategySupport.resolveLoadStrategy(this);
   }
 
   public List<DmNaturalKeyField> getNaturalKeysOrEmpty() {
@@ -92,16 +104,34 @@ public class DmDimension extends DmTableBase {
     return variables != null ? variables.resolve(effectiveDateSourceField) : effectiveDateSourceField;
   }
 
-  public boolean usesHybridDimensionLookup() {
-    if (getScdTypeOrDefault() == DmDimensionScdType.TYPE3) {
-      return true;
+  /**
+   * Materializes per-attribute policies from a legacy stored {@link #scdType} when attributes lack
+   * explicit policies.
+   */
+  public void normalizeLegacyScdType() {
+    if (hasExplicitAttributePolicies()) {
+      return;
     }
+    DmDimensionScdType legacy = scdType != null ? scdType : DmDimensionScdType.TYPE1;
+    if (legacy == DmDimensionScdType.HYBRID) {
+      return;
+    }
+    DmScdUpdatePolicy defaultPolicy =
+        switch (legacy) {
+          case TYPE2 -> DmScdUpdatePolicy.TYPE2;
+          case TYPE3 -> DmScdUpdatePolicy.TYPE3_CURRENT;
+          default -> DmScdUpdatePolicy.TYPE1;
+        };
     for (DmDimensionAttribute attribute : getAttributesOrEmpty()) {
-      if (attribute == null || attribute.getScdUpdatePolicy() == null) {
-        continue;
+      if (attribute != null && attribute.getScdUpdatePolicy() == null) {
+        attribute.setScdUpdatePolicy(defaultPolicy);
       }
-      if (attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_CURRENT
-          || attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_PREVIOUS) {
+    }
+  }
+
+  private boolean hasExplicitAttributePolicies() {
+    for (DmDimensionAttribute attribute : getAttributesOrEmpty()) {
+      if (attribute != null && attribute.getScdUpdatePolicy() != null) {
         return true;
       }
     }
@@ -114,6 +144,7 @@ public class DmDimension extends DmTableBase {
       IHopMetadataProvider metadataProvider,
       IVariables variables,
       DimensionalModel model) {
+    normalizeLegacyScdType();
     super.check(remarks, metadataProvider, variables, model);
     DmValidationSupport.validateDimension(remarks, this, model, metadataProvider, variables);
   }
@@ -122,6 +153,7 @@ public class DmDimension extends DmTableBase {
   public IRowMeta getTargetTableLayout(
       IHopMetadataProvider metadataProvider, IVariables variables, DimensionalModel model)
       throws HopException {
+    normalizeLegacyScdType();
     DimensionalConfiguration config =
         model != null ? model.getConfigurationOrDefault() : new DimensionalConfiguration();
     IRowMeta sourceRowMeta =
@@ -138,19 +170,18 @@ public class DmDimension extends DmTableBase {
       DimensionalModel model,
       Date loadTimestamp)
       throws HopException {
-    PipelineMeta pipelineMeta;
-    if (getScdTypeOrDefault() == DmDimensionScdType.TYPE2) {
-      pipelineMeta =
-          DmScd2DimensionBuilder.generatePipeline(
-              metadataProvider, variables, model, this, loadTimestamp);
-    } else if (usesHybridDimensionLookup()) {
-      pipelineMeta =
-          DmDimensionLookupBuilder.generateHybridDimensionPipeline(
-              metadataProvider, variables, model, this);
-    } else {
-      pipelineMeta =
-          DmInsertUpdateBuilder.generatePipeline(metadataProvider, variables, model, this);
-    }
+    normalizeLegacyScdType();
+    PipelineMeta pipelineMeta =
+        switch (resolveLoadStrategy()) {
+          case PURE_TYPE2 ->
+              DmScd2DimensionBuilder.generatePipeline(
+                  metadataProvider, variables, model, this, loadTimestamp);
+          case DIMENSION_LOOKUP ->
+              DmDimensionLookupBuilder.generateHybridDimensionPipeline(
+                  metadataProvider, variables, model, this);
+          default ->
+              DmInsertUpdateBuilder.generatePipeline(metadataProvider, variables, model, this);
+        };
     return List.of(pipelineMeta);
   }
 }

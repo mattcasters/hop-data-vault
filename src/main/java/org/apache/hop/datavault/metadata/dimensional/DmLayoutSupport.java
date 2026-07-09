@@ -62,11 +62,13 @@ public final class DmLayoutSupport {
     }
     DimensionalConfiguration resolvedConfig =
         config != null ? config : new DimensionalConfiguration();
-    DmDimensionScdType scdType = dimension.getScdTypeOrDefault();
+    DmDimensionLoadStrategySupport.DmDimensionLoadStrategy loadStrategy =
+        DmDimensionLoadStrategySupport.resolveLoadStrategy(dimension);
     RowMeta rowMeta = new RowMeta();
     Set<String> added = new HashSet<>();
 
-    if (scdType == DmDimensionScdType.TYPE2) {
+    if (loadStrategy == DmDimensionLoadStrategySupport.DmDimensionLoadStrategy.PURE_TYPE2
+        || loadStrategy == DmDimensionLoadStrategySupport.DmDimensionLoadStrategy.DIMENSION_LOOKUP) {
       addSurrogateKeyColumn(rowMeta, added, dimension, resolvedConfig, variables);
       for (DmNaturalKeyField naturalKey : dimension.getNaturalKeysOrEmpty()) {
         addSourceMappedColumn(
@@ -82,17 +84,6 @@ public final class DmLayoutSupport {
           added,
           resolvedConfig.resolveCurrentFlagField(variables),
           new ValueMetaBoolean());
-    } else if (scdType == DmDimensionScdType.TYPE3 || dimensionUsesHybridAttributes(dimension)) {
-      addSurrogateKeyColumn(rowMeta, added, dimension, resolvedConfig, variables);
-      for (DmNaturalKeyField naturalKey : dimension.getNaturalKeysOrEmpty()) {
-        addSourceMappedColumn(
-            rowMeta, added, resolveFieldName(naturalKey.getFieldName(), variables), sourceRowMeta);
-      }
-      addColumn(rowMeta, added, resolvedConfig.resolveVersionField(variables), new ValueMetaInteger());
-      addColumn(
-          rowMeta, added, resolvedConfig.resolveDateFromField(variables), new ValueMetaTimestamp());
-      addColumn(
-          rowMeta, added, resolvedConfig.resolveDateToField(variables), new ValueMetaTimestamp());
     } else {
       if (DmSurrogateKeySupport.usesSurrogateColumn(dimension)) {
         addSurrogateKeyColumn(rowMeta, added, dimension, resolvedConfig, variables);
@@ -104,8 +95,12 @@ public final class DmLayoutSupport {
     }
 
     for (DmDimensionAttribute attribute : dimension.getAttributesOrEmpty()) {
-      addSourceMappedColumn(
-          rowMeta, added, resolveFieldName(attribute.getFieldName(), variables), sourceRowMeta);
+      String targetField =
+          DmDimensionLoadStrategySupport.resolveTargetFieldName(attribute, variables);
+      if (Utils.isEmpty(targetField)) {
+        continue;
+      }
+      addSourceMappedColumn(rowMeta, added, targetField, sourceRowMeta);
       if (attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_PREVIOUS) {
         addColumn(rowMeta, added, resolvePreviousFieldName(attribute, variables));
       }
@@ -791,29 +786,9 @@ public final class DmLayoutSupport {
     return valueMeta;
   }
 
-  /** Whether fact dimension lookups need effectivity date columns (TYPE2, TYPE3, or hybrid). */
+  /** Whether fact dimension lookups need effectivity date columns. */
   public static boolean dimensionUsesEffectivityLookup(DmDimension dimension) {
-    if (dimension == null) {
-      return false;
-    }
-    DmDimensionScdType scdType = dimension.getScdTypeOrDefault();
-    return scdType == DmDimensionScdType.TYPE2
-        || scdType == DmDimensionScdType.TYPE3
-        || dimensionUsesHybridAttributes(dimension);
-  }
-
-  private static boolean dimensionUsesHybridAttributes(DmDimension dimension) {
-    if (dimension == null) {
-      return false;
-    }
-    for (DmDimensionAttribute attribute : dimension.getAttributesOrEmpty()) {
-      if (attribute != null
-          && (attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_CURRENT
-              || attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_PREVIOUS)) {
-        return true;
-      }
-    }
-    return false;
+    return DmDimensionLoadStrategySupport.usesEffectivityLookup(dimension);
   }
 
   private static String resolveFieldName(String fieldName, IVariables variables) {

@@ -209,12 +209,12 @@ public final class DmDatabaseTableImportSupport {
     dimension.setTableName(tableName);
     dimension.setDescription(
         BaseMessages.getString(PKG, "DmDatabaseTableImportSupport.Dimension.Description", tableName));
-    dimension.setScdType(
+    DmDimensionScdType defaultScdType =
         options != null && options.getDefaultDimensionScdType() != null
             ? options.getDefaultDimensionScdType()
-            : DmDimensionScdType.TYPE1);
+            : DmDimensionScdType.TYPE1;
     DmScdUpdatePolicy attributePolicy =
-        dimension.getScdTypeOrDefault() == DmDimensionScdType.TYPE2
+        defaultScdType == DmDimensionScdType.TYPE2
             ? DmScdUpdatePolicy.TYPE2
             : DmScdUpdatePolicy.TYPE1;
 

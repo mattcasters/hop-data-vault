@@ -1308,7 +1308,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_TOGGLE_COACH,
       toolTip = "i18n:org.apache.hop.datavault.hopgui.coaching:ModelCoachPanel.Toggle.Tooltip",
-      image = "ui/images/view.svg")
+      image = "coach-panel.svg")
   public void toggleCoachPanelToolbar() {
     toggleCoachPanel();
   }

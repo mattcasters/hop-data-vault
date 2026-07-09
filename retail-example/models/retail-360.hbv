@@ -31,6 +31,7 @@
   </coaching>
   <tables>
     <table>
+      <buildMode>FULL_REBUILD</buildMode>
       <functionalTimestampField>x_load_ts</functionalTimestampField>
       <validFromField/>
       <validToField/>
@@ -140,7 +141,17 @@
       <name>customer_360_bv</name>
     </table>
   </tables>
-  <notes/>
+  <notes>
+    <note>
+      <text>This reloads the complete customer_360_bv table.
+It is possible to load incrementally as well.</text>
+      <noteType>INFORMATION</noteType>
+      <xloc>48</xloc>
+      <yloc>416</yloc>
+      <width>32</width>
+      <height>32</height>
+    </note>
+  </notes>
   <dv_references>
     <dv_reference>
       <dvTableName>sat_customer_demo</dvTableName>

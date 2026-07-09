@@ -22,11 +22,12 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
-import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAttribute;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionLoadStrategySupport;
 import org.apache.hop.datavault.metadata.dimensional.DmFactDimensionRole;
 import org.apache.hop.datavault.metadata.dimensional.DmLayoutSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmScdUpdatePolicy;
@@ -38,7 +39,7 @@ import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.dimensionlookup.DimensionLookupMeta;
 
-/** Builds Dimension Lookup transforms for fact FK resolution and SCD3/hybrid dimensions. */
+/** Builds Dimension Lookup transforms for fact FK resolution and hybrid / Type 3 dimensions. */
 public final class DmDimensionLookupBuilder {
 
   private DmDimensionLookupBuilder() {}
@@ -58,9 +59,18 @@ public final class DmDimensionLookupBuilder {
 
     PipelineMeta pipelineMeta = new PipelineMeta();
     pipelineMeta.setName(ctx.pipelineName);
+    GeneratedPipelineMetadataSupport.stampDmTablePipeline(pipelineMeta, ctx);
 
     TransformMeta sourceTransform = DmPipelineBuilderSupport.addSourceInput(ctx, pipelineMeta);
-    addHybridDimensionLookup(ctx, pipelineMeta, sourceTransform, dimension);
+    TransformMeta lookupTransform = addHybridDimensionLookup(ctx, pipelineMeta, sourceTransform, dimension);
+    if (lookupTransform != null) {
+      GeneratedPipelineMetadataSupport.stampWriteTarget(
+          lookupTransform,
+          "dimension",
+          dimension.getName(),
+          ctx.targetTableName,
+          ctx.targetDbName);
+    }
 
     DmGeneratedPipelineSupport.applyLayout(pipelineMeta);
     return pipelineMeta;
@@ -185,19 +195,30 @@ public final class DmDimensionLookupBuilder {
       if (attribute == null || Utils.isEmpty(attribute.getFieldName())) {
         continue;
       }
-      String fieldName = attribute.getFieldName();
-      if (ctx.variables != null) {
-        fieldName = ctx.variables.resolve(fieldName);
+      DmScdUpdatePolicy policy = DmDimensionLoadStrategySupport.resolveEffectivePolicy(attribute);
+      if (policy == DmScdUpdatePolicy.TYPE3_PREVIOUS) {
+        DimensionLookupMeta.DLField previousField = new DimensionLookupMeta.DLField();
+        previousField.setLookup(DmLayoutSupport.resolvePreviousFieldName(attribute, ctx.variables));
+        previousField.setUpdate(DimensionLookupMeta.DimensionUpdateType.LAST_VERSION.getCode());
+        attributeFields.add(previousField);
+        continue;
       }
+      String sourceField =
+          DmDimensionLoadStrategySupport.resolveSourceFieldName(attribute, ctx.variables);
+      String targetField =
+          DmDimensionLoadStrategySupport.resolveTargetFieldName(attribute, ctx.variables);
       DimensionLookupMeta.DLField dlField = new DimensionLookupMeta.DLField();
-      dlField.setName(fieldName);
-      dlField.setLookup(fieldName);
-      dlField.setUpdateType(resolveUpdateType(attribute));
-      if (attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_PREVIOUS) {
-        dlField.setUpdate(DmLayoutSupport.resolvePreviousFieldName(attribute, ctx.variables));
-      }
+      dlField.setName(sourceField);
+      dlField.setLookup(targetField);
+      dlField.setUpdate(resolveUpdateType(attribute).getCode());
       attributeFields.add(dlField);
     }
+
+    DimensionLookupMeta.DLField currentFlag = new DimensionLookupMeta.DLField();
+    currentFlag.setLookup(config.resolveCurrentFlagField(ctx.variables));
+    currentFlag.setUpdate(DimensionLookupMeta.DimensionUpdateType.LAST_VERSION.getCode());
+    attributeFields.add(currentFlag);
+
     dlFields.setFields(attributeFields);
     return dlFields;
   }
@@ -234,12 +255,12 @@ public final class DmDimensionLookupBuilder {
 
   private static DimensionLookupMeta.DimensionUpdateType resolveUpdateType(
       DmDimensionAttribute attribute) {
-    DmScdUpdatePolicy policy =
-        attribute.getScdUpdatePolicy() != null ? attribute.getScdUpdatePolicy() : DmScdUpdatePolicy.TYPE1;
+    DmScdUpdatePolicy policy = DmDimensionLoadStrategySupport.resolveEffectivePolicy(attribute);
     return switch (policy) {
-      case TYPE3_CURRENT, TYPE1 -> DimensionLookupMeta.DimensionUpdateType.UPDATE;
-      case TYPE3_PREVIOUS -> DimensionLookupMeta.DimensionUpdateType.LAST_VERSION;
+      case TYPE1, TYPE3_CURRENT -> DimensionLookupMeta.DimensionUpdateType.UPDATE;
+      case TYPE1_PUNCH_THROUGH -> DimensionLookupMeta.DimensionUpdateType.PUNCH_THROUGH;
       case TYPE2 -> DimensionLookupMeta.DimensionUpdateType.INSERT;
+      case TYPE3_PREVIOUS -> DimensionLookupMeta.DimensionUpdateType.LAST_VERSION;
     };
   }
 }

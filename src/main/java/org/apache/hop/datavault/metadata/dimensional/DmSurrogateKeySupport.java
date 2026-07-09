@@ -34,8 +34,8 @@ public final class DmSurrogateKeySupport {
     if (dimension.getSurrogateKeyStrategy() != null) {
       return dimension.getSurrogateKeyStrategy();
     }
-    DmDimensionScdType scdType = dimension.getScdTypeOrDefault();
-    if (scdType == DmDimensionScdType.TYPE1 && !dimensionUsesHybridAttributes(dimension)) {
+    if (DmDimensionLoadStrategySupport.resolveLoadStrategy(dimension)
+        == DmDimensionLoadStrategySupport.DmDimensionLoadStrategy.PURE_TYPE1) {
       return DmSurrogateKeyStrategy.NONE;
     }
     return DmSurrogateKeyStrategy.AUTO_INCREMENT;
@@ -122,10 +122,8 @@ public final class DmSurrogateKeySupport {
     if (resolveStrategy(dimension) != DmSurrogateKeyStrategy.NONE) {
       return false;
     }
-    if (dimension.getScdTypeOrDefault() != DmDimensionScdType.TYPE1) {
-      return false;
-    }
-    if (dimensionUsesHybridAttributes(dimension)) {
+    if (DmDimensionLoadStrategySupport.resolveLoadStrategy(dimension)
+        != DmDimensionLoadStrategySupport.DmDimensionLoadStrategy.PURE_TYPE1) {
       return false;
     }
     return dimension.getNaturalKeysOrEmpty().stream()
@@ -220,23 +218,6 @@ public final class DmSurrogateKeySupport {
       base = base.substring(4);
     }
     return base + "_key";
-  }
-
-  private static boolean dimensionUsesHybridAttributes(DmDimension dimension) {
-    if (dimension == null) {
-      return false;
-    }
-    if (dimension.getScdTypeOrDefault() == DmDimensionScdType.TYPE3) {
-      return true;
-    }
-    for (DmDimensionAttribute attribute : dimension.getAttributesOrEmpty()) {
-      if (attribute != null
-          && (attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_CURRENT
-              || attribute.getScdUpdatePolicy() == DmScdUpdatePolicy.TYPE3_PREVIOUS)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private static String resolve(String value, IVariables variables) {

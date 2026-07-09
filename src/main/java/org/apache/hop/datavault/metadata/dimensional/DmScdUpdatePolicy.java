@@ -27,6 +27,9 @@ import org.apache.hop.metadata.api.IEnumHasCodeAndDescription;
 @Getter
 public enum DmScdUpdatePolicy implements IEnumHasCodeAndDescription {
   TYPE1("TYPE1", BaseMessages.getString(DmScdUpdatePolicy.class, "DmScdUpdatePolicy.Type1")),
+  TYPE1_PUNCH_THROUGH(
+      "TYPE1_PUNCH_THROUGH",
+      BaseMessages.getString(DmScdUpdatePolicy.class, "DmScdUpdatePolicy.Type1PunchThrough")),
   TYPE2("TYPE2", BaseMessages.getString(DmScdUpdatePolicy.class, "DmScdUpdatePolicy.Type2")),
   TYPE3_CURRENT(
       "TYPE3_CURRENT",

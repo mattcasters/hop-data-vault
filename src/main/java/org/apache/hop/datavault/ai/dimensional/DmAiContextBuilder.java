@@ -30,6 +30,7 @@ import org.apache.hop.datavault.ai.DvTargetLoadAiConfigurationSupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalConfiguration;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.datavault.metadata.dimensional.DmDimension;
+import org.apache.hop.datavault.metadata.dimensional.DmDimensionLoadStrategySupport;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionAlias;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionResolutionSupport;
 import org.apache.hop.datavault.metadata.dimensional.DmSurrogateKeyStrategy;
@@ -133,8 +134,10 @@ public final class DmAiContextBuilder {
           .append(DvAiContextBuilder.jsonString(String.valueOf(table.getTableType())));
       json.append(",\"targetTable\":").append(DvAiContextBuilder.jsonString(table.getTableName()));
       if (table instanceof DmDimension dimension) {
-        json.append(",\"scdType\":")
-            .append(DvAiContextBuilder.jsonString(String.valueOf(dimension.getScdTypeOrDefault())));
+        json.append(",\"loadStrategy\":")
+            .append(
+                DvAiContextBuilder.jsonString(
+                    DmDimensionLoadStrategySupport.resolveDisplayLabel(dimension)));
         DmSurrogateKeyStrategy strategy = DmSurrogateKeySupport.resolveStrategy(dimension);
         json.append(",\"surrogateKeyStrategy\":")
             .append(DvAiContextBuilder.jsonString(String.valueOf(strategy)));

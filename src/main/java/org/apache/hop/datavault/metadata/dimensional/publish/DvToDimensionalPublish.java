@@ -144,7 +144,6 @@ public final class DvToDimensionalPublish {
 
     List<DvSatellite> satellites = context.hubSatellitesByHub.getOrDefault(hub.getName(), List.of());
     boolean historized = !satellites.isEmpty() || context.usesLoadEndDate();
-    dimension.setScdType(historized ? DmDimensionScdType.TYPE2 : DmDimensionScdType.TYPE1);
     DmScdUpdatePolicy attributePolicy =
         historized ? DmScdUpdatePolicy.TYPE2 : DmScdUpdatePolicy.TYPE1;
 
