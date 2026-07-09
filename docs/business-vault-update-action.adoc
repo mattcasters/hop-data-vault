@@ -101,5 +101,6 @@ SCD2 and PIT read independent data paths (PIT does not consume SCD2 output). Ord
 
 Sample workflows:
 
-* `integration-tests/tests/multi-satellite-bv/update-customer-360.hwf` — multi-satellite SCD2
+* `integration-tests/tests/multi-satellite-bv/update-customer-360.hwf` — multi-satellite SCD2 (full rebuild)
+* `integration-tests/tests/multi-satellite-bv/update-customer-360-incremental.hwf` — multi-satellite SCD2 incremental build mode
 * `integration-tests/tests/basic/update-vault1.hwf` — SCD2 + PIT on the introductory vault1 model

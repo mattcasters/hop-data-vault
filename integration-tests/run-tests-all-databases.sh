@@ -101,6 +101,7 @@ for db in ${DATABASES}; do
   docker compose -f "${COMPOSE_FILE}" down -v --remove-orphans
   reclaim_rdbms_connection_ownership
   reclaim_metrics_folder_ownership "${db}" "${COMPOSE_FILE}"
+  reclaim_vault_catalog_ownership "${COMPOSE_FILE}"
 
   if [ "${EXIT_CODE}" -ne 0 ]; then
     echo "FAILED: ${db} (exit code ${EXIT_CODE})" >&2

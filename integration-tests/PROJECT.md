@@ -57,7 +57,7 @@ integration-tests/
 | `metadata/data-vault-configuration/` | Hash / naming / satellite strategy (`vault-config`, `load-end-date-config`) |
 | `metadata/data-catalog/` | Data catalog connections (`local-catalog` → `catalog-data/`, `vault-catalog` → `vault-catalog/`) |
 | `catalog-data/hop/integration-tests/sources/` | DV record sources (CRM feeds, field layouts, groups) under namespace `hop/integration-tests/sources` — read by pipelines and DV Update |
-| `vault-catalog/` | Runtime catalog output from Data Vault Update publish (gitignored) |
+| `vault-catalog/` | Runtime catalog output from Data Vault Update publish (gitignored); Docker test scripts reclaim ownership so Hop GUI runs can write here |
 
 **Two catalogs:** `local-catalog` holds stable, version-controlled DV source record definitions. Data Vault Update actions with **Update data catalog** enabled publish only target table snapshots (`hop/project/models/`) to `vault-catalog` so test runs do not dirty `catalog-data/` in git.
 | `metadata/dataset/` | Hop dataset definitions pointing at `datasets/*.csv` |
@@ -133,7 +133,8 @@ The orchestrator creates CRM source tables from the data catalog, then runs each
 6. **`tests/hash-key/run-hash-key-tests.hwf`** — hash key generation unit tests
 7. **`tests/status-tracking/update-status-tracking.hwf`** — status tracking satellite
 8. **`tests/multi-source-hub/update-multi-source-hub.hwf`** — multi-source hub
-9. **`tests/multi-satellite-bv/update-customer-360.hwf`** — four DV satellites → Customer 360 BV SCD2
+9. **`tests/multi-satellite-bv/update-customer-360.hwf`** — four DV satellites → Customer 360 BV SCD2 (full rebuild)
+10. **`tests/multi-satellite-bv/update-customer-360-incremental.hwf`** — same fixture with incremental SCD2 build mode
 
 All suites must succeed for a full test run.
 
@@ -421,6 +422,14 @@ The SCD2 table dialog (General, Field mappings, Satellite settings):
 2. **Data Vault Update** on `customer-360.hdv` (or external variant if vault tables are pre-loaded)
 3. **Business Vault Update** on the matching `.hbv` — rebuild `customer_360_bv`
 4. **validate-customer-360-bv.hpl** — unit test against golden dataset
+
+### Workflow: `tests/multi-satellite-bv/update-customer-360-incremental.hwf`
+
+Same DV load waves as above, but uses `customer-360-incremental.hbv` (`buildMode=INCREMENTAL`):
+
+1. **Data Vault Update** on `customer-360.hdv` (all four satellite waves)
+2. **Business Vault Update** on `customer-360-incremental.hbv` — incremental SCD2 build (append path, watermark filter, close transform)
+3. **validate-customer-360-bv.hpl** — same golden current-state rows as the full-rebuild fixture
 
 Fixture walkthrough: [docs/getting-started-integration-tests.adoc](../docs/getting-started-integration-tests.adoc).
 

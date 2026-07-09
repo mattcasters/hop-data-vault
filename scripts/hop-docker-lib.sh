@@ -340,6 +340,19 @@ reclaim_metrics_tree_ownership() {
     || true
 }
 
+reclaim_vault_catalog_ownership() {
+  compose_file="${1:-${HOP_COMPOSE_FILE}}"
+  vault_catalog_dir="${INTEGRATION_TESTS_DIR}/vault-catalog"
+  if [ ! -d "${vault_catalog_dir}" ]; then
+    return 0
+  fi
+  docker compose -f "${compose_file}" run --rm --no-deps --entrypoint chown hop \
+    -R "${HOST_UID}:${HOST_GID}" "${WORKSPACE_PREFIX}/integration-tests/vault-catalog" >/dev/null 2>&1 || true
+  chown -R "${HOST_UID}:${HOST_GID}" "${vault_catalog_dir}" 2>/dev/null \
+    || sudo chown -R "${HOST_UID}:${HOST_GID}" "${vault_catalog_dir}" 2>/dev/null \
+    || true
+}
+
 collect_metrics_overview() {
   if [ "${HOP_PROJECT_DIR}" != "integration-tests" ]; then
     return 0

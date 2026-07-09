@@ -137,6 +137,10 @@ public final class BvAiContextBuilder {
       appendDerivatives(json, table.getDerivatives());
       json.append(']');
       if (table instanceof BvScd2Table scd2) {
+        json.append(",\"buildMode\":")
+            .append(DvAiContextBuilder.jsonString(String.valueOf(scd2.getBuildModeOrDefault())));
+        json.append(",\"incrementalWatermarkField\":")
+            .append(DvAiContextBuilder.jsonString(scd2.getIncrementalWatermarkField()));
         json.append(",\"satelliteConfigs\":[");
         appendSatelliteConfigs(json, scd2.getSatelliteConfigs());
         json.append(']');

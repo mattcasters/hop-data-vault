@@ -24,11 +24,23 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import org.apache.hop.datavault.catalog.RecordSourceIndicatorSupport;
 import org.apache.hop.datavault.metadata.DvIntegrationMode;
 import org.apache.hop.datavault.metadata.DvSourceDeliveryType;
+import org.apache.hop.datavault.metadata.businessvault.BvScd2BuildMode;
 import org.apache.hop.datavault.metadata.HashAlgorithm;
 import org.apache.hop.datavault.metadata.dimensional.DmDimensionScdType;
 import org.junit.jupiter.api.Test;
 
 class EnumDialogSupportTest {
+
+  @Test
+  void lookupTextResolvesBvScd2BuildModeByDescriptionAndCode() {
+    assertSame(
+        BvScd2BuildMode.INCREMENTAL,
+        EnumDialogSupport.lookupText(
+            BvScd2BuildMode.INCREMENTAL.getDescription(), BvScd2BuildMode.class, null));
+    assertSame(
+        BvScd2BuildMode.FULL_REBUILD,
+        EnumDialogSupport.lookupText("FULL_REBUILD", BvScd2BuildMode.class, null));
+  }
 
   @Test
   void lookupTextResolvesDescriptionAndLegacyCode() {

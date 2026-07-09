@@ -82,6 +82,7 @@ run_hop_docker_short_lived "${HOP_COMPOSE_FILE}" "${HOP_FILE_PATH}" "${METRICS_F
 
 if [ "${HOP_PROJECT_DIR}" = "integration-tests" ]; then
   reclaim_metrics_tree_ownership
+  reclaim_vault_catalog_ownership
   if [ "${COLLECT_METRICS}" = "Y" ]; then
     collect_metrics_overview || EXIT_CODE=1
     print_metrics_overview_table

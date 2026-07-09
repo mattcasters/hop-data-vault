@@ -44,7 +44,12 @@ public class BvScd2Table extends BvTableBase {
 
   private static final Class<?> PKG = BvScd2Table.class;
 
+  @HopMetadataProperty(storeWithCode = true)
+  private BvScd2BuildMode buildMode = BvScd2BuildMode.FULL_REBUILD;
+
   @HopMetadataProperty private String functionalTimestampField;
+
+  @HopMetadataProperty private String incrementalWatermarkField;
 
   @HopMetadataProperty private String validFromField;
 
@@ -74,6 +79,25 @@ public class BvScd2Table extends BvTableBase {
       satelliteConfigs = new ArrayList<>();
     }
     return satelliteConfigs;
+  }
+
+  public BvScd2BuildMode getBuildModeOrDefault() {
+    return buildMode != null ? buildMode : BvScd2BuildMode.FULL_REBUILD;
+  }
+
+  public boolean isIncrementalBuild() {
+    return getBuildModeOrDefault() == BvScd2BuildMode.INCREMENTAL;
+  }
+
+  public String resolveIncrementalWatermarkField(
+      BusinessVaultConfiguration bvConfig,
+      DataVaultConfiguration dvConfig,
+      IVariables variables) {
+    if (!Utils.isEmpty(incrementalWatermarkField)) {
+      return variables.resolve(incrementalWatermarkField);
+    }
+    return BvScd2PipelineSupport.resolveFunctionalTimestampField(
+        this, bvConfig, dvConfig, variables);
   }
 
   @Override
@@ -108,11 +132,62 @@ public class BvScd2Table extends BvTableBase {
               this));
     }
 
+    if (isIncrementalBuild()) {
+      if (Utils.isEmpty(
+          resolveIncrementalWatermarkField(bvConfig, dvConfig, variables))) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG, "BvScd2Table.CheckResult.MissingIncrementalWatermark", getName()),
+                this));
+      }
+      if (Utils.isEmpty(bvConfig.getOpenEndSentinel())) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG, "BvScd2Table.CheckResult.MissingOpenEndSentinel", getName()),
+                this));
+      }
+      validateIncrementalMultiSatelliteHints(remarks, variables);
+    }
+
     if (dataVaultModel != null) {
       BvScd2FieldMappingValidationSupport.validate(
           remarks, this, bvConfig, dvConfig, dataVaultModel, variables);
       BvScd2PipelineSupport.validateTargetDatabases(
           remarks, metadataProvider, model, dataVaultModel, this);
+    }
+  }
+
+  private void validateIncrementalMultiSatelliteHints(
+      List<ICheckResult> remarks, IVariables variables) {
+    long satelliteCount =
+        getDerivatives().stream()
+            .filter(ref -> ref != null && ref.getDvTableType() == DvTableType.SATELLITE)
+            .count();
+    if (satelliteCount <= 1) {
+      return;
+    }
+    long configuredIndicators =
+        getSatelliteConfigs().stream()
+            .filter(
+                config ->
+                    config != null
+                        && !Utils.isEmpty(config.getSatelliteName())
+                        && !Utils.isEmpty(
+                            variables != null
+                                ? variables.resolve(config.getSourceIndicatorValue())
+                                : config.getSourceIndicatorValue()))
+            .count();
+    if (configuredIndicators < satelliteCount) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_WARNING,
+              BaseMessages.getString(
+                  PKG, "BvScd2Table.CheckResult.IncrementalMultiSatelliteSourceIndicators", getName()),
+              this));
     }
   }
 

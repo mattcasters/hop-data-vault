@@ -17,9 +17,35 @@ For each SCD2 table the plugin builds a Hop pipeline that:
 5. Computes validity bounds with `Analytic Query` (LAG/LEAD)
 6. Applies open-interval sentinels with `If Null`
 7. Collapses duplicate timestamps with `Group By`
-8. Loads the Business Vault target table with `TableOutput`
+8. Loads the Business Vault target table with `TableOutput` (full rebuild) or runs the incremental write path below
 
 Use **Debug** or **Show build pipeline** on an SCD2 table in the `.hbv` editor to inspect the generated pipeline before running a workflow.
+
+=== Incremental build mode
+
+Set **Build mode** to *Incremental* on the SCD2 table when you want to append new functional versions instead of truncating and reloading the BV table on every run.
+
+Incremental pipelines extend the shared analytic tail with:
+
+1. **Satellite filter** — each `TableInput` reads only rows where the source functional timestamp is greater than `COALESCE(MAX(watermark) FROM bv_table, sentinel)`
+2. **Open target baseline** (multi-satellite) — reads current open BV rows (`valid_to = open end sentinel`) for hash keys touched by the delta, then merges them ahead of `Analytic Query` so sparse satellites carry forward
+3. **Watermark attach** — at pipeline generation time the plugin queries `SELECT COALESCE(MAX(watermark), sentinel) ...` and a `Constant` transform adds `_incremental_watermark` to every row
+4. **Incremental row filter** — `FilterRows` keeps computed rows where `functional_timestamp > _incremental_watermark`
+5. **Append** — `TableOutput` with `truncate=false`
+6. **Close open version** — `Update` sets `valid_to = valid_from` on the prior open row (match hash key + open `valid_to`) before new open versions are inserted
+
+**Watermark field** resolution:
+
+1. Per-table **Incremental watermark field** override (optional)
+2. Per-table **Functional timestamp** field
+3. Model-level functional timestamp default
+4. Load-date fallback from Data Vault configuration
+
+The watermark is always read from the **Business Vault target table** (`MAX(watermark_field)`), matching the PIT incremental pattern.
+
+On the first incremental run against an empty BV table the sentinel (`1900-01-01 00:00:00`) applies, so behaviour matches a full rebuild. Later runs process only satellite deltas and close prior open rows in place.
+
+Integration test: `integration-tests/tests/multi-satellite-bv/update-customer-360-incremental.hwf` loads four DV satellite waves, runs **Business Vault Update** once on `customer-360-incremental.hbv`, then validates current open rows against the same golden dataset as the full-rebuild fixture. Multi-run close-and-append behaviour is covered by unit tests in `BvScd2PipelineSupportTest`.
 
 == Single-satellite SCD2
 
@@ -86,6 +112,12 @@ Open intervals use sentinels from configuration (default `1900-01-01 00:00:00` a
 
 |Functional timestamp
 |Column on the satellite stream used as the timeline (see resolution order above).
+
+|Build mode
+|`FULL_REBUILD` (default) truncates and reloads the BV table; `INCREMENTAL` filters satellite history and appends/closes versions.
+
+|Incremental watermark field
+|Optional BV column used for `MAX(...)` watermark reads and incremental write filtering. Defaults to the resolved functional timestamp field.
 
 |Valid from / Valid to
 |Output column names for SCD2 interval bounds.

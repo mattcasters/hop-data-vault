@@ -19,4 +19,5 @@
 <dependencies>
     <folder>../../transforms/languagemodelchat</folder>
     <folder>../../transforms/languagemodelchat/lib</folder>
+    <folder>../../transforms/streamlookup</folder>
 </dependencies>

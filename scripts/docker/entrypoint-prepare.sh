@@ -38,7 +38,8 @@ mkdir -p "${HOP_PROJECT_FOLDER}/metrics/${DB_TYPE}" "${HOP_PROJECT_FOLDER}/vault
 
 if [ -n "${HOST_UID:-}" ] && [ -n "${HOST_GID:-}" ]; then
   chown "${HOST_UID}:${HOST_GID}" "${HOP_PROJECT_FOLDER}/metadata/rdbms/CRM.json" "${HOP_PROJECT_FOLDER}/metadata/rdbms/Vault.json"
-  chown "${HOST_UID}:${HOST_GID}" "${HOP_PROJECT_FOLDER}/metrics/${DB_TYPE}" "${HOP_PROJECT_FOLDER}/vault-catalog"
+  chown "${HOST_UID}:${HOST_GID}" "${HOP_PROJECT_FOLDER}/metrics/${DB_TYPE}"
+  chown -R "${HOST_UID}:${HOST_GID}" "${HOP_PROJECT_FOLDER}/vault-catalog"
 fi
 
 echo "Activated CRM/Vault RDBMS profiles for ${DB_TYPE} in ${HOP_PROJECT_FOLDER}"

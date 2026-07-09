@@ -42,6 +42,9 @@ import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
+import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataSupport;
+import org.apache.hop.datavault.metadata.businessvault.BvScd2PipelineSupport.Scd2BuildContext;
 import org.apache.hop.datavault.transform.sortedschemamerge.SortedSchemaMergeMeta;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -158,6 +161,83 @@ class BvScd2MultiSatelliteFixtureTest {
             .filter(hop -> hop.getToTransform().equals(mergeTransform))
             .count();
     assertEquals(4, mergeIncomingHops);
+  }
+
+  @Test
+  void incrementalCustomer360PipelineAddsOpenTargetBaselineLeg() throws Exception {
+    DataVaultModel dvModel = loadDataVaultModel(DV_PATH);
+    BusinessVaultModel bvModel = loadBusinessVaultModel(BV_PATH);
+    BvScd2Table scd2Table = findCustomer360Table(bvModel);
+    scd2Table.setBuildMode(BvScd2BuildMode.INCREMENTAL);
+
+    IHopMetadataProvider metadataProvider = testMetadataProvider();
+    List<PipelineMeta> pipelines =
+        scd2Table.generateBuildPipelines(metadataProvider, new Variables(), bvModel, dvModel);
+    assertEquals(1, pipelines.size());
+
+    PipelineMeta pipelineMeta = pipelines.get(0);
+    List<TransformMeta> transforms = pipelineMeta.getTransforms();
+    assertEquals(27, transforms.size());
+    assertEquals(5, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
+    assertTrue(
+        transforms.stream()
+            .anyMatch(
+                t ->
+                    ("set_" + BvScd2PipelineSupport.INCREMENTAL_WATERMARK_FIELD)
+                        .equals(t.getName())));
+    assertTrue(
+        transforms.stream().anyMatch(t -> "read_open_customer_360_bv".equals(t.getName())));
+
+    Scd2BuildContext buildContext =
+        BvScd2PipelineSupport.createContext(
+            metadataProvider, new Variables(), bvModel, dvModel, scd2Table);
+    String openReadSql = BvScd2PipelineSupport.buildOpenTargetTableInputSql(buildContext);
+    assertTrue(openReadSql.contains("FROM customer_360_bv"));
+    assertTrue(openReadSql.contains("x_to_ts = TIMESTAMP '9999-12-31 23:59:59'"));
+    assertTrue(openReadSql.contains("customer_hk IN ("));
+    assertTrue(openReadSql.contains("FROM sat_customer_demo WHERE"));
+    assertTrue(openReadSql.contains("UNION"));
+    assertTrue(openReadSql.contains("FROM sat_customer_prefs WHERE"));
+    TransformMeta openReadTransform =
+        transforms.stream()
+            .filter(t -> "read_open_customer_360_bv".equals(t.getName()))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(
+        GeneratedPipelineMetadataConstants.ROLE_TARGET_READ,
+        GeneratedPipelineMetadataSupport.getTransformAttribute(
+            openReadTransform, GeneratedPipelineMetadataConstants.LOGICAL_ROLE));
+
+    TransformMeta mergeTransform =
+        transforms.stream()
+            .filter(t -> t.getTransform() instanceof SortedSchemaMergeMeta)
+            .findFirst()
+            .orElseThrow();
+    SortedSchemaMergeMeta mergeMeta = (SortedSchemaMergeMeta) mergeTransform.getTransform();
+    assertEquals(5, mergeMeta.getInputs().size());
+    assertTrue(
+        mergeMeta.getInputs().stream()
+            .anyMatch(input -> "select_baseline".equals(input.getTransformName())));
+    assertTrue(
+        pipelineMeta.getPipelineHops().stream()
+            .anyMatch(
+                hop ->
+                    "select_baseline".equals(hop.getFromTransform().getName())
+                        && hop.getToTransform().equals(mergeTransform)));
+
+    TransformMeta repeatTransform =
+        transforms.stream()
+            .filter(t -> t.getTransform() instanceof RepeatFieldsMeta)
+            .findFirst()
+            .orElseThrow();
+    RepeatFieldsMeta repeatMeta = (RepeatFieldsMeta) repeatTransform.getTransform();
+    assertEquals(22, repeatMeta.getRepeats().size());
+    assertTrue(
+        repeatMeta.getRepeats().stream()
+            .anyMatch(
+                repeat ->
+                    BvScd2PipelineSupport.BASELINE_SOURCE_INDICATOR.equals(repeat.getIndicatorValue())
+                        && "cust_email".equals(repeat.getSourceField())));
   }
 
   private static BvScd2Table findCustomer360Table(BusinessVaultModel bvModel) {

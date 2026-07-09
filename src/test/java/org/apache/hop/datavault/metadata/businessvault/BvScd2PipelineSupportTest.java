@@ -53,8 +53,11 @@ import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta;
 import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta.RepeatType;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
+import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
+import org.apache.hop.pipeline.transforms.streamlookup.StreamLookupMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
+import org.apache.hop.pipeline.transforms.update.UpdateMeta;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
@@ -179,6 +182,215 @@ class BvScd2PipelineSupportTest {
     assertTrue(sql.contains("sat_customer"));
     assertTrue(sql.contains("ORDER BY "));
     assertTrue(sql.indexOf("ORDER BY") < sql.lastIndexOf("x_load_ts"));
+    assertFalse(sql.contains(" WHERE "));
+  }
+
+  @Test
+  void buildIncrementalSatelliteFilterSqlUsesMaxWatermarkOnTarget() {
+    DatabaseMeta databaseMeta = new TestDatabaseMeta("Vault");
+
+    String sql =
+        BvScd2PipelineSupport.buildIncrementalSatelliteFilterSql(
+            databaseMeta,
+            new Variables(),
+            "customer_360_bv",
+            "x_load_ts",
+            "x_load_ts");
+
+    assertTrue(
+        sql.contains(
+            "x_load_ts > COALESCE((SELECT MAX(x_load_ts) FROM customer_360_bv)"));
+    assertTrue(sql.contains(BvScd2PipelineSupport.DEFAULT_INCREMENTAL_SENTINEL));
+  }
+
+  @Test
+  void buildLegTableInputSqlIncludesIncrementalFilterForSingleSatellite() throws Exception {
+    Scd2BuildContext ctx = singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null);
+
+    String sql = BvScd2PipelineSupport.buildSatelliteTableInputSql(ctx);
+
+    assertTrue(sql.contains(" WHERE "));
+    assertTrue(sql.contains("x_load_ts > COALESCE((SELECT MAX(x_load_ts) FROM bv_customer_scd2)"));
+    assertTrue(sql.contains(BvScd2PipelineSupport.DEFAULT_INCREMENTAL_SENTINEL));
+    assertTrue(sql.indexOf(" WHERE ") < sql.indexOf(" ORDER BY "));
+  }
+
+  @Test
+  void buildLegTableInputSqlUsesCustomIncrementalWatermarkField() throws Exception {
+    Scd2BuildContext ctx =
+        singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, "event_ts");
+
+    String sql = BvScd2PipelineSupport.buildSatelliteTableInputSql(ctx);
+
+    assertTrue(sql.contains("x_load_ts > COALESCE((SELECT MAX(event_ts) FROM bv_customer_scd2)"));
+  }
+
+  @Test
+  void buildOpenTargetTableInputSqlReadsOpenRowsForDeltaHashKeys() throws Exception {
+    Scd2BuildContext ctx = singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null);
+
+    String sql = BvScd2PipelineSupport.buildOpenTargetTableInputSql(ctx);
+
+    assertTrue(sql.contains("FROM bv_customer_scd2"));
+    assertTrue(sql.contains("valid_to = TIMESTAMP '9999-12-31 23:59:59'"));
+    assertTrue(sql.contains("customer_hk IN ("));
+    assertTrue(sql.contains("FROM sat_customer WHERE"));
+    assertTrue(sql.contains("x_load_ts > COALESCE((SELECT MAX(x_load_ts) FROM bv_customer_scd2)"));
+    assertTrue(sql.contains("ORDER BY customer_hk, x_load_ts"));
+  }
+
+  @Test
+  void buildIncrementalWatermarkSqlUsesCoalesceMaxFromTarget() throws Exception {
+    Scd2BuildContext ctx = singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null);
+
+    String sql = BvScd2PipelineSupport.buildIncrementalWatermarkSql(ctx);
+
+    assertTrue(sql.contains("SELECT COALESCE(MAX(x_load_ts)"));
+    assertTrue(sql.contains("FROM bv_customer_scd2"));
+    assertTrue(sql.contains(BvScd2PipelineSupport.DEFAULT_INCREMENTAL_SENTINEL));
+    assertTrue(sql.contains(BvScd2PipelineSupport.INCREMENTAL_WATERMARK_FIELD));
+  }
+
+  @Test
+  void incrementalPipelineCloseUpdateUsesHashKeyAndOpenValidTo() throws Exception {
+    Scd2BuildContext ctx = singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null);
+
+    PipelineMeta pipelineMeta = BvScd2PipelineSupport.generatePipeline(ctx);
+    UpdateMeta updateMeta =
+        (UpdateMeta)
+            pipelineMeta.getTransforms().stream()
+                .filter(t -> t.getTransform() instanceof UpdateMeta)
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+
+    assertEquals("bv_customer_scd2", updateMeta.getLookupField().getTableName());
+    assertEquals(2, updateMeta.getLookupField().getLookupKeys().size());
+    assertEquals("customer_hk", updateMeta.getLookupField().getLookupKeys().get(0).getKeyLookup());
+    assertEquals("valid_from", updateMeta.getLookupField().getLookupKeys().get(1).getKeyLookup());
+    assertEquals(
+        BvScd2PipelineSupport.CLOSE_LOOKUP_VALID_FROM_FIELD,
+        updateMeta.getLookupField().getLookupKeys().get(1).getKeyStream());
+    assertEquals(1, updateMeta.getLookupField().getUpdateFields().size());
+    assertEquals("valid_to", updateMeta.getLookupField().getUpdateFields().get(0).getUpdateLookup());
+    assertEquals("valid_from", updateMeta.getLookupField().getUpdateFields().get(0).getUpdateStream());
+    assertTrue(updateMeta.isErrorIgnored());
+  }
+
+  @Test
+  void incrementalSingleSatellitePipelineAddsBaselineMergeLeg() throws Exception {
+    Scd2BuildContext ctx = singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null);
+
+    PipelineMeta pipelineMeta = BvScd2PipelineSupport.generatePipeline(ctx);
+    List<TransformMeta> transforms = pipelineMeta.getTransforms();
+
+    assertEquals(12, transforms.size());
+    assertEquals(2, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
+    assertTrue(
+        transforms.stream().anyMatch(t -> "read_open_bv_customer_scd2".equals(t.getName())));
+    assertTrue(
+        transforms.stream()
+            .anyMatch(
+                t ->
+                    ("set_" + BvScd2PipelineSupport.INCREMENTAL_WATERMARK_FIELD)
+                        .equals(t.getName())));
+    assertEquals(1, transforms.stream().filter(t -> t.getTransform() instanceof SortedSchemaMergeMeta).count());
+    assertEquals(1, transforms.stream().filter(t -> t.getTransform() instanceof StreamLookupMeta).count());
+    assertEquals(2, transforms.stream().filter(t -> t.getTransform() instanceof FilterRowsMeta).count());
+    assertEquals(1, transforms.stream().filter(t -> t.getTransform() instanceof UpdateMeta).count());
+
+    TableOutputMeta tableOutputMeta =
+        (TableOutputMeta)
+            transforms.stream()
+                .filter(t -> t.getTransform() instanceof TableOutputMeta)
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+    assertFalse(tableOutputMeta.isTruncateTable());
+
+    TransformMeta mergeTransform =
+        transforms.stream()
+            .filter(t -> t.getTransform() instanceof SortedSchemaMergeMeta)
+            .findFirst()
+            .orElseThrow();
+    SortedSchemaMergeMeta mergeMeta = (SortedSchemaMergeMeta) mergeTransform.getTransform();
+    assertEquals(2, mergeMeta.getInputs().size());
+  }
+
+  @Test
+  void buildLegTableInputSqlUsesPerLegTimestampForMultiSatelliteIncremental() throws Exception {
+    DataVaultModel dvModel = loadVault1ModelWithDemoSatellite();
+    DvSatellite customerSatellite = (DvSatellite) dvModel.findTable("sat_customer");
+    DvSatellite demoSatellite = (DvSatellite) dvModel.findTable("sat_customer_demo");
+    DatabaseMeta databaseMeta = new TestDatabaseMeta("Vault");
+
+    BvScd2Table scd2Table = new BvScd2Table();
+    scd2Table.setName("customer_bv");
+    scd2Table.setTableName("customer_bv");
+    scd2Table.setBuildMode(BvScd2BuildMode.INCREMENTAL);
+    scd2Table.setFunctionalTimestampField("x_load_ts");
+    scd2Table.getDerivatives().add(new BvDerivativeRef("sat_customer", DvTableType.SATELLITE));
+    scd2Table.getDerivatives().add(new BvDerivativeRef("sat_customer_demo", DvTableType.SATELLITE));
+    scd2Table
+        .getFieldMappings()
+        .add(new BvScd2FieldMapping("sat_customer", "name", "customer_name"));
+    scd2Table
+        .getFieldMappings()
+        .add(new BvScd2FieldMapping("sat_customer_demo", "demo_score", "demo_score"));
+    scd2Table.getSatelliteConfigs().add(new BvScd2SatelliteConfig("sat_customer_demo"));
+    scd2Table.getSatelliteConfigs().get(0).setFunctionalTimestampField("effective_ts");
+    scd2Table.getSatelliteConfigs().get(0).setSourceIndicatorValue("DEMO");
+
+    BusinessVaultModel bvModel = new BusinessVaultModel();
+    bvModel.getConfigurationOrDefault().setTargetDatabase("Vault");
+
+    Scd2BuildContext ctx =
+        new Scd2BuildContext(
+            scd2Table,
+            List.of(
+                new SatelliteLeg(
+                    customerSatellite,
+                    "sat_customer",
+                    "sat_customer",
+                    "x_load_ts",
+                    List.of(scd2Table.getFieldMappings().get(0))),
+                new SatelliteLeg(
+                    demoSatellite,
+                    "sat_customer_demo",
+                    "DEMO",
+                    "effective_ts",
+                    List.of(scd2Table.getFieldMappings().get(1)))),
+            true,
+            List.of("customer_name", "demo_score"),
+            bvModel,
+            dvModel,
+            bvModel.getConfigurationOrDefault(),
+            dvModel.getConfigurationOrDefault(),
+            null,
+            new Variables(),
+            databaseMeta,
+            "Vault",
+            databaseMeta,
+            "Vault",
+            "sat_customer",
+            "customer_bv",
+            "bv-scd2-customer_bv-customer_bv",
+            "customer_hk",
+            null,
+            List.of("customer_name", "demo_score"),
+            "x_load_ts",
+            "valid_from",
+            "valid_to",
+            "x_record_source",
+            BusinessVaultConfiguration.DEFAULT_OPEN_START_SENTINEL,
+            BusinessVaultConfiguration.DEFAULT_OPEN_END_SENTINEL,
+            true);
+
+    String customerSql = BvScd2PipelineSupport.buildLegTableInputSql(ctx, ctx.legs.get(0));
+    String demoSql = BvScd2PipelineSupport.buildLegTableInputSql(ctx, ctx.legs.get(1));
+
+    assertTrue(customerSql.contains("x_load_ts > COALESCE((SELECT MAX(x_load_ts) FROM customer_bv)"));
+    assertTrue(demoSql.contains("effective_ts > COALESCE((SELECT MAX(x_load_ts) FROM customer_bv)"));
   }
 
   @Test
@@ -481,6 +693,51 @@ class BvScd2PipelineSupportTest {
 
     assertFalse(layout.getValueMetaList().stream().anyMatch(vm -> "customer_hk".equals(vm.getName())));
     assertEquals("name", layout.getValueMeta(0).getName());
+  }
+
+  private static Scd2BuildContext singleSatelliteContext(
+      BvScd2BuildMode buildMode, String incrementalWatermarkField) throws Exception {
+    DataVaultModel dvModel = loadVault1Model();
+    DvSatellite satellite = (DvSatellite) dvModel.findTable("sat_customer");
+    DatabaseMeta databaseMeta = new TestDatabaseMeta("Vault");
+
+    BvScd2Table scd2Table = new BvScd2Table();
+    scd2Table.setName("bv_customer_scd2");
+    scd2Table.setTableName("bv_customer_scd2");
+    scd2Table.setBuildMode(buildMode);
+    scd2Table.setFunctionalTimestampField("x_load_ts");
+    scd2Table.setIncrementalWatermarkField(incrementalWatermarkField);
+    scd2Table.getDerivatives().add(new BvDerivativeRef("sat_customer", DvTableType.SATELLITE));
+
+    BusinessVaultModel bvModel = new BusinessVaultModel();
+    bvModel.getConfigurationOrDefault().setTargetDatabase("Vault");
+
+    return new Scd2BuildContext(
+        scd2Table,
+        satellite,
+        bvModel,
+        dvModel,
+        bvModel.getConfigurationOrDefault(),
+        dvModel.getConfigurationOrDefault(),
+        null,
+        new Variables(),
+        databaseMeta,
+        "Vault",
+        databaseMeta,
+        "Vault",
+        "sat_customer",
+        "bv_customer_scd2",
+        "bv-scd2-bv_customer_scd2-sat_customer",
+        "customer_hk",
+        null,
+        BvScd2PipelineSupport.resolveAttributeFieldNames(satellite),
+        "x_load_ts",
+        "valid_from",
+        "valid_to",
+        "x_record_source",
+        BusinessVaultConfiguration.DEFAULT_OPEN_START_SENTINEL,
+        BusinessVaultConfiguration.DEFAULT_OPEN_END_SENTINEL,
+        true);
   }
 
   private static DataVaultModel loadVault1Model() throws Exception {

@@ -102,4 +102,4 @@ Used by the test and SVG scripts. Provides:
 - Hop image build (`ensure_hop_image`)
 - Workflow path translation for containers
 - Local Postgres readiness checks (`local_postgres_ready`, `wait_for_local_postgres`, `require_local_postgres`)
-- Metrics collection and ownership fix-up after Docker runs
+- Metrics and vault-catalog ownership fix-up after Docker runs (Hop container runs as root)

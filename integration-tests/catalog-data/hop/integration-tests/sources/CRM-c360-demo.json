@@ -19,7 +19,7 @@
   "physicalTable": null,
   "physicalFile": {
     "folder": "${PROJECT_HOME}/files/multi-satellite-bv",
-    "includeFileMask": "demo_load1\\.csv",
+    "includeFileMask": "demo_update4\\.csv",
     "excludeFileMask": ".*\\.txt",
     "includeSubfolders": false,
     "required": true

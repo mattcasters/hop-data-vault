@@ -102,6 +102,8 @@ image::images/business-vault-scd2-table-dialog-satellite-settings.png[SCD2 table
 
 Run `integration-tests/tests/multi-satellite-bv/update-customer-360.hwf` for end-to-end DV load + BV rebuild + validation.
 
+For incremental SCD2, open `customer-360-incremental.hbv` (same mappings, `buildMode=INCREMENTAL`) and run `update-customer-360-incremental.hwf`. That workflow runs the same DV load waves, then **Business Vault Update** with the incremental pipeline, and validates against the same golden current-state dataset.
+
 == Chapter 7 — External read-only raw vault tables
 
 When dbt or another tool loads raw vault tables, Hop can still model them for Business Vault.
