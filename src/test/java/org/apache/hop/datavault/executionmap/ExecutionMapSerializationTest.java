@@ -28,9 +28,9 @@ import java.nio.file.Path;
 import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.Variables;
-import org.apache.hop.core.xml.XmlFormatter;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.hopgui.file.executionmap.HopExecutionMapFileType;
+import org.apache.hop.datavault.metadata.ModelXmlWriteSupport;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
 import org.junit.jupiter.api.BeforeAll;
@@ -86,11 +86,7 @@ class ExecutionMapSerializationTest {
 
     Path output = tempDir.resolve("update-retail-dv-bv-dm.hem");
     String xml =
-        XmlHandler.getLicenseHeader(variables)
-            + XmlFormatter.format(
-                XmlHandler.aroundTag(
-                    HopExecutionMapFileType.XML_TAG,
-                    XmlMetadataUtil.serializeObjectToXml(original)));
+        ModelXmlWriteSupport.formatModelXml(HopExecutionMapFileType.XML_TAG, original, variables);
     Files.writeString(output, xml, StandardCharsets.UTF_8);
 
     assertTrue(Files.exists(output));

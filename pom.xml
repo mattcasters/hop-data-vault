@@ -454,6 +454,9 @@
             <exclude>**/*.hdv</exclude>
             <exclude>**/*.hpl</exclude>
             <exclude>**/*.hwf</exclude>
+            <exclude>**/*.hdv</exclude>
+            <exclude>**/*.hbv</exclude>
+            <exclude>**/*.hdm</exclude>
             <exclude>**/datasets/*.csv</exclude>
             <exclude>**/*.jpg</exclude>
             <exclude>**/*.png</exclude>
@@ -462,6 +465,78 @@
             <exclude>AGENTS.md</exclude>
             <exclude>docs/**</exclude>
             <exclude>project/**</exclude>
+            <exclude>**/prompts/**/*.txt</exclude>
+            <exclude>**/requirements.txt</exclude>
+            <exclude>**/requirements.txt</exclude>
+            <exclude>.gitattributes</exclude>
+
+            <!-- General Exclusions -->
+            <exclude>DISCLAIMER</exclude>
+            <exclude>LICENSE</exclude>
+            <exclude>NOTICE</exclude>
+            <exclude>.asf.yaml</exclude>
+            <exclude>**/licenses/*</exclude>
+            <exclude>**/target/**</exclude>
+            <exclude>**/*.svg</exclude>
+            <exclude>**/*.json</exclude>
+            <exclude>**/hop.pwd</exclude>
+            <exclude>**/*.iml</exclude>
+            <exclude>.dockerignore</exclude>
+            <!-- symlink alias of AGENTS.md (header lives on the target) -->
+            <exclude>CLAUDE.md</exclude>
+
+            <!-- Unit Test Exclusions -->
+            <exclude>**/test/**/*.txt</exclude>
+            <exclude>**/test/**/*.xml</exclude>
+            <exclude>**/test/**/*.xsd</exclude>
+            <exclude>**/test/**/*.csv</exclude>
+            <exclude>**/test/**/*.csv.bz2</exclude>
+            <exclude>**/test/**/*.csv.gz</exclude>
+            <exclude>**/test/**/*.ods</exclude>
+            <exclude>**/test/**/*.xls</exclude>
+            <exclude>**/test/**/*.xlsx</exclude>
+            <exclude>**/test/**/*.edi</exclude>
+            <exclude>**/test/**/*.avro</exclude>
+            <exclude>**/test/**/*.snippet</exclude>
+
+            <!-- Integration Test Exclusion -->
+            <exclude>**/datasets/*.csv</exclude>
+            <exclude>**/it/**/*.csv</exclude>
+
+            <!-- External Integration Test Exclusion -->
+            <exclude>**/integration-tests/**/*.txt</exclude>
+            <exclude>**/integration-tests/**/*.md</exclude>
+            <exclude>**/integration-tests/**/*.csv</exclude>
+            <exclude>**/integration-tests/**/*.avro</exclude>
+            <exclude>**/integration-tests/**/*.xls</exclude>
+            <exclude>**/integration-tests/**/*.xlsx</exclude>
+            <exclude>**/integration-tests/**/*.json</exclude>
+            <exclude>**/integration-tests/**/*.json.old</exclude>
+            <exclude>**/integration-tests/**/*.edi</exclude>
+            <exclude>**/integration-tests/**/db.data</exclude>
+            <exclude>**/integration-tests/**/jmxremote.*</exclude>
+            <exclude>**/integration-tests/**/jwt_publickey</exclude>
+            <exclude>**/integration-tests/**/*.key</exclude>
+            <exclude>**/integration-tests/**/*.crt</exclude>
+            <exclude>**/integration-tests/**/*.csr</exclude>
+            <exclude>**/integration-tests/**/mtls.conf</exclude>
+            <!-- Goldens compared byte-for-byte to Hop output (no ASF header; see FILE_COMPARE in xml integration HWFs) -->
+            <exclude>**/integration-tests/xml/files/expected/**</exclude>
+            <exclude>**/integration-tests/ssh/keys/it_rsa</exclude>
+            <exclude>**/integration-tests/ssh/keys/it_rsa.pub</exclude>
+
+            <!-- Samples Exclusions -->
+            <!-- plugins/engines/beam -->
+            <exclude>**/src/main/samples/**/*.txt</exclude>
+            <exclude>**/src/main/samples/**/*.csv</exclude>
+
+            <!-- Documentation Exclusions-->
+            <exclude>docs/content/**</exclude>
+            <exclude>docs/resources/**</exclude>
+            <exclude>docs/node_modules/**</exclude>
+            <exclude>docs/.pnp/**</exclude>
+            <exclude>docs/.pnp.js</exclude>
+            <exclude>docs/yarn.lock</exclude>
           </excludes>
         </configuration>
       </plugin>

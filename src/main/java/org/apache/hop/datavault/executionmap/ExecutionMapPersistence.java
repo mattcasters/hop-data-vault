@@ -18,15 +18,11 @@
 
 package org.apache.hop.datavault.executionmap;
 
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.IVariables;
-import org.apache.hop.core.variables.Variables;
-import org.apache.hop.core.vfs.HopVfs;
-import org.apache.hop.core.xml.XmlFormatter;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.hopgui.file.executionmap.HopExecutionMapFileType;
+import org.apache.hop.datavault.metadata.ModelXmlWriteSupport;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
@@ -65,17 +61,8 @@ public final class ExecutionMapPersistence {
       throw new HopException("No execution map document to save");
     }
     try {
-      String xml =
-          XmlHandler.getLicenseHeader(
-              variables != null ? variables : Variables.getADefaultVariableSpace())
-              + XmlFormatter.format(
-                  XmlHandler.aroundTag(
-                      HopExecutionMapFileType.XML_TAG,
-                      XmlMetadataUtil.serializeObjectToXml(document)));
-      try (OutputStream outputStream =
-          HopVfs.getOutputStream(filename, false)) {
-        outputStream.write(xml.getBytes(StandardCharsets.UTF_8));
-      }
+      ModelXmlWriteSupport.writeModelXml(
+          HopExecutionMapFileType.XML_TAG, document, filename, variables);
       document.setFilename(filename);
     } catch (HopException e) {
       throw e;

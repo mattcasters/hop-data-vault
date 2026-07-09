@@ -18,17 +18,15 @@
 
 package org.apache.hop.datavault.metadata.dimensional.publish;
 
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
-import org.apache.hop.core.xml.XmlFormatter;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.datavault.hopgui.file.dimensional.HopDimensionalFileType;
 import org.apache.hop.datavault.hopgui.file.vault.HopVaultFileType;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.ModelXmlWriteSupport;
 import org.apache.hop.datavault.metadata.dimensional.DimensionalModel;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
@@ -118,16 +116,8 @@ public final class DvPublishModelSupport {
     try {
       String resolvedFilename = HopVfs.normalize(variables.resolve(filename));
       model.setFilename(resolvedFilename);
-      String xml =
-          XmlHandler.getLicenseHeader(variables)
-              + XmlFormatter.format(
-                  XmlHandler.aroundTag(
-                      HopDimensionalFileType.XML_TAG,
-                      XmlMetadataUtil.serializeObjectToXml(model)));
-
-      try (OutputStream out = HopVfs.getOutputStream(resolvedFilename, false)) {
-        out.write(xml.getBytes(StandardCharsets.UTF_8));
-      }
+      ModelXmlWriteSupport.writeModelXml(
+          HopDimensionalFileType.XML_TAG, model, resolvedFilename, variables);
       model.clearChanged();
     } catch (HopException e) {
       throw e;

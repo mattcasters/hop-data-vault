@@ -19,9 +19,7 @@
 package org.apache.hop.datavault.hopgui.file.businessvault;
 
 import java.io.File;
-import java.io.OutputStream;
 import java.lang.reflect.Field;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -32,12 +30,13 @@ import org.apache.hop.core.gui.plugin.action.GuiAction;
 import org.apache.hop.core.gui.plugin.action.GuiActionType;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
-import org.apache.hop.core.xml.XmlFormatter;
 import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.datavault.metadata.ModelXmlWriteSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
+
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
 import org.apache.hop.ui.core.gui.GuiResource;
@@ -298,14 +297,7 @@ public class HopBusinessVaultFileType extends HopFileTypeBase {
       IHopMetadataProvider metadataProvider)
       throws HopException {
     try {
-      String xml =
-          XmlHandler.getLicenseHeader(variables)
-              + XmlFormatter.format(
-                  XmlHandler.aroundTag(XML_TAG, XmlMetadataUtil.serializeObjectToXml(model)));
-
-      try (OutputStream out = HopVfs.getOutputStream(filename, false)) {
-        out.write(xml.getBytes(StandardCharsets.UTF_8));
-      }
+      ModelXmlWriteSupport.writeModelXml(XML_TAG, model, filename, variables);
     } catch (Exception e) {
       throw new HopException("Error saving Business Vault model to '" + filename + "'", e);
     }

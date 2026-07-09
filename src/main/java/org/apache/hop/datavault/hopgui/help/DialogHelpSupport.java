@@ -89,7 +89,8 @@ public final class DialogHelpSupport {
         throw new HopException(
             BaseMessages.getString(PKG, "DialogHelp.MissingTopic", topicId));
       }
-      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+      return MarkdownHelpContentSupport.stripLicenseHeader(
+          new String(in.readAllBytes(), StandardCharsets.UTF_8));
     } catch (HopException e) {
       throw e;
     } catch (Exception e) {

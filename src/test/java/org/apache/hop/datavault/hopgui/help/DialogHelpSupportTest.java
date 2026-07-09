@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.hopgui.help;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -52,6 +53,7 @@ class DialogHelpSupportTest {
   @Test
   void hubHelpTopicIsRegistered() throws HopException {
     String markdown = DialogHelpSupport.loadMarkdown(HelpTopics.DV_HUB);
+    assertFalse(markdown.startsWith("<!--"));
     assertTrue(markdown.contains("Hub editor"));
     MarkdownStyleRenderer.RenderedMarkdown rendered = MarkdownStyleRenderer.render(markdown);
     assertTrue(rendered.displayText().contains("Hub editor"));
