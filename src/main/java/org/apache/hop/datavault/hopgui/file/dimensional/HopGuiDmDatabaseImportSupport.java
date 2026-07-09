@@ -51,7 +51,7 @@ import org.eclipse.swt.widgets.Shell;
 /** GUI helper for importing database tables into a dimensional model. */
 public final class HopGuiDmDatabaseImportSupport {
 
-  private static final Class<?> PKG = HopGuiDmDatabaseImportSupport.class;
+  private static final Class<?> PKG = ImportDmDatabaseTablesOptionsDialog.class;
 
   private HopGuiDmDatabaseImportSupport() {}
 

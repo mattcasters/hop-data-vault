@@ -52,6 +52,7 @@ import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.BaseTransformMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.combinationlookup.CFields;
+import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.combinationlookup.KeyField;
 import org.apache.hop.pipeline.transforms.combinationlookup.ReturnFields;
 import org.w3c.dom.Node;
@@ -319,7 +320,7 @@ public class JunkDimensionMeta
           new CheckResult(
               ICheckResult.TYPE_RESULT_ERROR,
               BaseMessages.getString(
-                  PKG,
+                  TableInputMeta.class,
                   "TableInputMeta.CheckResult.DatabaseMetaError",
                   variables.resolve(connectionName)),
               transformMeta);

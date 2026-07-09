@@ -45,8 +45,8 @@ public class SourceField {
   @GuiWidgetElement(
       order = "0100",
       type = GuiElementType.TEXT,
-      label = "i18n::SourceField.Name.Label",
-      toolTip = "i18n::SourceField.Name.ToolTip",
+      label = "i18n:org.apache.hop.datavault.metadata.database:SourceField.Name.Label",
+      toolTip = "i18n:org.apache.hop.datavault.metadata.database:SourceField.Name.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String name;
@@ -54,8 +54,8 @@ public class SourceField {
   @GuiWidgetElement(
       order = "0200",
       type = GuiElementType.TEXT,
-      label = "i18n::SourceField.Description.Label",
-      toolTip = "i18n::SourceField.Description.ToolTip",
+      label = "i18n:org.apache.hop.datavault.metadata.database:SourceField.Description.Label",
+      toolTip = "i18n:org.apache.hop.datavault.metadata.database:SourceField.Description.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String description;
@@ -63,8 +63,8 @@ public class SourceField {
   @GuiWidgetElement(
       order = "0300",
       type = GuiElementType.TEXT,
-      label = "i18n::SourceField.SourceDataType.Label",
-      toolTip = "i18n::SourceField.SourceDataType.ToolTip",
+      label = "i18n:org.apache.hop.datavault.metadata.database:SourceField.SourceDataType.Label",
+      toolTip = "i18n:org.apache.hop.datavault.metadata.database:SourceField.SourceDataType.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String sourceDataType;
@@ -72,8 +72,8 @@ public class SourceField {
   @GuiWidgetElement(
       order = "0400",
       type = GuiElementType.TEXT,
-      label = "i18n::SourceField.Length.Label",
-      toolTip = "i18n::SourceField.Length.ToolTip",
+      label = "i18n:org.apache.hop.datavault.metadata.database:SourceField.Length.Label",
+      toolTip = "i18n:org.apache.hop.datavault.metadata.database:SourceField.Length.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String length;
@@ -81,8 +81,8 @@ public class SourceField {
   @GuiWidgetElement(
       order = "0500",
       type = GuiElementType.TEXT,
-      label = "i18n::SourceField.Precision.Label",
-      toolTip = "i18n::SourceField.Precision.ToolTip",
+      label = "i18n:org.apache.hop.datavault.metadata.database:SourceField.Precision.Label",
+      toolTip = "i18n:org.apache.hop.datavault.metadata.database:SourceField.Precision.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String precision;
@@ -90,8 +90,8 @@ public class SourceField {
   @GuiWidgetElement(
       order = "0600",
       type = GuiElementType.TEXT,
-      label = "i18n::SourceField.HopType.Label",
-      toolTip = "i18n::SourceField.HopType.ToolTip",
+      label = "i18n:org.apache.hop.datavault.metadata.database:SourceField.HopType.Label",
+      toolTip = "i18n:org.apache.hop.datavault.metadata.database:SourceField.HopType.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty(intCodeConverter = ValueMetaBase.ValueTypeCodeConverter.class)
   private int hopType;

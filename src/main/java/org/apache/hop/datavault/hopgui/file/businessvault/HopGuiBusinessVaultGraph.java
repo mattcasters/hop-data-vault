@@ -1309,7 +1309,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   @GuiToolbarElement(
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_TOGGLE_COACH,
-      toolTip = "i18n::ModelCoachPanel.Toggle.Tooltip",
+      toolTip = "i18n:org.apache.hop.datavault.hopgui.coaching:ModelCoachPanel.Toggle.Tooltip",
       image = "ui/images/view.svg")
   public void toggleCoachPanelToolbar() {
     toggleCoachPanel();
@@ -1318,7 +1318,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   @GuiToolbarElement(
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_TOGGLE_DURATIONS,
-      toolTip = "i18n::ModelLoadDurationPane.Toggle.Tooltip",
+      toolTip = "i18n:org.apache.hop.datavault.hopgui.file.metrics:ModelLoadDurationPane.Toggle.Tooltip",
       image = "ui/images/show-results.svg")
   public void toggleLoadDurationPanelToolbar() {
     toggleLoadDurationPanel();
@@ -1327,7 +1327,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   @GuiToolbarElement(
       root = GUI_PLUGIN_TOOLBAR_PARENT_ID,
       id = TOOLBAR_ITEM_REFRESH_DURATIONS,
-      toolTip = "i18n::ModelLoadDurationPane.Refresh.Tooltip",
+      toolTip = "i18n:org.apache.hop.datavault.hopgui.file.metrics:ModelLoadDurationPane.Refresh.Tooltip",
       image = "ui/images/refresh.svg")
   public void refreshLoadDurationOverviewToolbar() {
     refreshLoadDurationOverview();

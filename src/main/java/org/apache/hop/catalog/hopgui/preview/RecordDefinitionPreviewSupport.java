@@ -18,6 +18,7 @@
 
 package org.apache.hop.catalog.hopgui.preview;
 
+import org.apache.hop.catalog.hopgui.perspective.DataCatalogPerspective;
 import org.apache.hop.catalog.model.DvCsvFormatRecord;
 import org.apache.hop.catalog.model.DvSourceRecord;
 import org.apache.hop.catalog.model.PhysicalFileRef;
@@ -41,7 +42,7 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 /** Builds preview pipelines from catalog record definitions. */
 public final class RecordDefinitionPreviewSupport {
 
-  private static final Class<?> PKG = RecordDefinitionPreviewSupport.class;
+  private static final Class<?> PKG = DataCatalogPerspective.class;
 
   private RecordDefinitionPreviewSupport() {}
 

@@ -18,6 +18,7 @@
 
 package org.apache.hop.catalog.hopgui.preview;
 
+import org.apache.hop.catalog.hopgui.perspective.DataCatalogPerspective;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
 import org.apache.hop.core.Props;
@@ -40,7 +41,7 @@ import org.eclipse.swt.widgets.Shell;
 /** Runs a record-definition preview using the standard Hop transform preview flow. */
 public final class RecordDefinitionPreviewRunner {
 
-  private static final Class<?> PKG = RecordDefinitionPreviewRunner.class;
+  private static final Class<?> PKG = DataCatalogPerspective.class;
 
   private RecordDefinitionPreviewRunner() {}
 

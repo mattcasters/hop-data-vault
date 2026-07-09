@@ -81,7 +81,7 @@ public class DvTableReference extends DvTableBase {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_ERROR,
-              BaseMessages.getString(PKG, "DvTableBase.CheckResult.MissingName"),
+              BaseMessages.getString(PKG, "DvTableBase.CheckResult.NoName"),
               this));
     }
     syncPhysicalTableName(model, variables, metadataProvider);
@@ -91,8 +91,7 @@ public class DvTableReference extends DvTableBase {
       remarks.add(
           new CheckResult(
               ICheckResult.TYPE_RESULT_ERROR,
-              BaseMessages.getString(
-                  PKG, "DvTableBase.CheckResult.MissingTableName", Const.NVL(getName(), "?")),
+              BaseMessages.getString(PKG, "DvTableBase.CheckResult.NoTableName"),
               this));
     }
   }

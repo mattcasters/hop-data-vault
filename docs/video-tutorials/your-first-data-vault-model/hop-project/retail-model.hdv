@@ -36,6 +36,7 @@
     <bulkLoadEnclosure>"</bulkLoadEnclosure>
     <bulkLoadEncoding>UTF-8</bulkLoadEncoding>
     <bulkLoadLocalFileRequired>Y</bulkLoadLocalFileRequired>
+    <hubMergeOnHashKey>N</hubMergeOnHashKey>
     <sortRowsSize>1000000</sortRowsSize>
     <execution_log_level>Basic</execution_log_level>
     <singleStoreShardKeyOnHashKey>N</singleStoreShardKeyOnHashKey>
