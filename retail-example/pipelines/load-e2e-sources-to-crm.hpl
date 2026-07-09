@@ -17,7 +17,7 @@
   <transform>
     <type>CSVInput</type>
     <name>customer_hub_csv</name>
-    <filename>${PROJECT_HOME}/files/customer_hub_initial.csv</filename>
+    <filename>${PROJECT_HOME}/files/customer_hub_2024-02.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -85,7 +85,7 @@
     <schema/>
     <table>customer_hub</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
+    <truncate>N</truncate>
     <only_when_have_rows>N</only_when_have_rows>
     <ignore_errors>N</ignore_errors>
     <use_batch>Y</use_batch>
@@ -119,7 +119,7 @@
   <transform>
     <type>CSVInput</type>
     <name>customer_demo_csv</name>
-    <filename>${PROJECT_HOME}/files/customer_demo_initial.csv</filename>
+    <filename>${PROJECT_HOME}/files/customer_demo_2024-02.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -214,31 +214,51 @@
     <attributes/>
   </transform>
   <transform>
-    <type>TableOutput</type>
+    <type>InsertUpdate</type>
     <name>customer_demo_out</name>
     <connection>CRM</connection>
-    <schema/>
-    <table>customer_demo</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
-    <only_when_have_rows>N</only_when_have_rows>
-    <ignore_errors>N</ignore_errors>
-    <use_batch>Y</use_batch>
-    <partitioning_enabled>N</partitioning_enabled>
-    <partitioning_field/>
-    <partitioning_daily>N</partitioning_daily>
-    <partitioning_monthly>Y</partitioning_monthly>
-    <tablename_in_field>N</tablename_in_field>
-    <tablename_field/>
-    <tablename_in_table>Y</tablename_in_table>
-    <return_keys>N</return_keys>
-    <return_field/>
-    <specify_fields>N</specify_fields>
-    <auto_update_table_structure>N</auto_update_table_structure>
-    <always_drop_and_recreate>N</always_drop_and_recreate>
-    <add_columns>N</add_columns>
-    <drop_columns>N</drop_columns>
-    <change_column_types>N</change_column_types>
+    <update_bypassed>N</update_bypassed>
+    <lookup>
+      <schema/>
+      <table>customer_demo</table>
+      <key>
+        <name>customer_id</name>
+        <field>customer_id</field>
+        <condition>=</condition>
+        <name2/>
+      </key>
+      <value>
+        <name>customer_id</name>
+        <rename>customer_id</rename>
+        <update>N</update>
+      </value>
+      <value>
+        <name>segment</name>
+        <rename>segment</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>loyalty_tier</name>
+        <rename>loyalty_tier</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>demo_score</name>
+        <rename>demo_score</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>load_date</name>
+        <rename>load_date</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>record_source</name>
+        <rename>record_source</rename>
+        <update>Y</update>
+      </value>
+    </lookup>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
@@ -254,7 +274,7 @@
   <transform>
     <type>CSVInput</type>
     <name>customer_contact_csv</name>
-    <filename>${PROJECT_HOME}/files/customer_contact_initial.csv</filename>
+    <filename>${PROJECT_HOME}/files/customer_contact_2024-02.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -338,31 +358,46 @@
     <attributes/>
   </transform>
   <transform>
-    <type>TableOutput</type>
+    <type>InsertUpdate</type>
     <name>customer_contact_out</name>
     <connection>CRM</connection>
-    <schema/>
-    <table>customer_contact</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
-    <only_when_have_rows>N</only_when_have_rows>
-    <ignore_errors>N</ignore_errors>
-    <use_batch>Y</use_batch>
-    <partitioning_enabled>N</partitioning_enabled>
-    <partitioning_field/>
-    <partitioning_daily>N</partitioning_daily>
-    <partitioning_monthly>Y</partitioning_monthly>
-    <tablename_in_field>N</tablename_in_field>
-    <tablename_field/>
-    <tablename_in_table>Y</tablename_in_table>
-    <return_keys>N</return_keys>
-    <return_field/>
-    <specify_fields>N</specify_fields>
-    <auto_update_table_structure>N</auto_update_table_structure>
-    <always_drop_and_recreate>N</always_drop_and_recreate>
-    <add_columns>N</add_columns>
-    <drop_columns>N</drop_columns>
-    <change_column_types>N</change_column_types>
+    <update_bypassed>N</update_bypassed>
+    <lookup>
+      <schema/>
+      <table>customer_contact</table>
+      <key>
+        <name>customer_id</name>
+        <field>customer_id</field>
+        <condition>=</condition>
+        <name2/>
+      </key>
+      <value>
+        <name>customer_id</name>
+        <rename>customer_id</rename>
+        <update>N</update>
+      </value>
+      <value>
+        <name>email</name>
+        <rename>email</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>phone</name>
+        <rename>phone</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>load_date</name>
+        <rename>load_date</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>record_source</name>
+        <rename>record_source</rename>
+        <update>Y</update>
+      </value>
+    </lookup>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
@@ -378,7 +413,7 @@
   <transform>
     <type>CSVInput</type>
     <name>customer_address_csv</name>
-    <filename>${PROJECT_HOME}/files/customer_address_initial.csv</filename>
+    <filename>${PROJECT_HOME}/files/customer_address_2024-02.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -473,31 +508,51 @@
     <attributes/>
   </transform>
   <transform>
-    <type>TableOutput</type>
+    <type>InsertUpdate</type>
     <name>customer_address_out</name>
     <connection>CRM</connection>
-    <schema/>
-    <table>customer_address</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
-    <only_when_have_rows>N</only_when_have_rows>
-    <ignore_errors>N</ignore_errors>
-    <use_batch>Y</use_batch>
-    <partitioning_enabled>N</partitioning_enabled>
-    <partitioning_field/>
-    <partitioning_daily>N</partitioning_daily>
-    <partitioning_monthly>Y</partitioning_monthly>
-    <tablename_in_field>N</tablename_in_field>
-    <tablename_field/>
-    <tablename_in_table>Y</tablename_in_table>
-    <return_keys>N</return_keys>
-    <return_field/>
-    <specify_fields>N</specify_fields>
-    <auto_update_table_structure>N</auto_update_table_structure>
-    <always_drop_and_recreate>N</always_drop_and_recreate>
-    <add_columns>N</add_columns>
-    <drop_columns>N</drop_columns>
-    <change_column_types>N</change_column_types>
+    <update_bypassed>N</update_bypassed>
+    <lookup>
+      <schema/>
+      <table>customer_address</table>
+      <key>
+        <name>customer_id</name>
+        <field>customer_id</field>
+        <condition>=</condition>
+        <name2/>
+      </key>
+      <value>
+        <name>customer_id</name>
+        <rename>customer_id</rename>
+        <update>N</update>
+      </value>
+      <value>
+        <name>address_line1</name>
+        <rename>address_line1</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>city</name>
+        <rename>city</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>postal_code</name>
+        <rename>postal_code</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>load_date</name>
+        <rename>load_date</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>record_source</name>
+        <rename>record_source</rename>
+        <update>Y</update>
+      </value>
+    </lookup>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
@@ -513,7 +568,7 @@
   <transform>
     <type>CSVInput</type>
     <name>customer_prefs_csv</name>
-    <filename>${PROJECT_HOME}/files/customer_prefs_initial.csv</filename>
+    <filename>${PROJECT_HOME}/files/customer_prefs_2024-02.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -608,31 +663,51 @@
     <attributes/>
   </transform>
   <transform>
-    <type>TableOutput</type>
+    <type>InsertUpdate</type>
     <name>customer_prefs_out</name>
     <connection>CRM</connection>
-    <schema/>
-    <table>customer_prefs</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
-    <only_when_have_rows>N</only_when_have_rows>
-    <ignore_errors>N</ignore_errors>
-    <use_batch>Y</use_batch>
-    <partitioning_enabled>N</partitioning_enabled>
-    <partitioning_field/>
-    <partitioning_daily>N</partitioning_daily>
-    <partitioning_monthly>Y</partitioning_monthly>
-    <tablename_in_field>N</tablename_in_field>
-    <tablename_field/>
-    <tablename_in_table>Y</tablename_in_table>
-    <return_keys>N</return_keys>
-    <return_field/>
-    <specify_fields>N</specify_fields>
-    <auto_update_table_structure>N</auto_update_table_structure>
-    <always_drop_and_recreate>N</always_drop_and_recreate>
-    <add_columns>N</add_columns>
-    <drop_columns>N</drop_columns>
-    <change_column_types>N</change_column_types>
+    <update_bypassed>N</update_bypassed>
+    <lookup>
+      <schema/>
+      <table>customer_prefs</table>
+      <key>
+        <name>customer_id</name>
+        <field>customer_id</field>
+        <condition>=</condition>
+        <name2/>
+      </key>
+      <value>
+        <name>customer_id</name>
+        <rename>customer_id</rename>
+        <update>N</update>
+      </value>
+      <value>
+        <name>newsletter_opt_in</name>
+        <rename>newsletter_opt_in</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>preferred_channel</name>
+        <rename>preferred_channel</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>language_code</name>
+        <rename>language_code</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>load_date</name>
+        <rename>load_date</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>record_source</name>
+        <rename>record_source</rename>
+        <update>Y</update>
+      </value>
+    </lookup>
     <distribute>Y</distribute>
     <copies>1</copies>
     <GUI>
@@ -648,7 +723,7 @@
   <transform>
     <type>CSVInput</type>
     <name>product_csv</name>
-    <filename>${PROJECT_HOME}/files/product_initial.csv</filename>
+    <filename>${PROJECT_HOME}/files/product_2024-02.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -749,7 +824,7 @@
     <schema/>
     <table>product</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
+    <truncate>N</truncate>
     <only_when_have_rows>N</only_when_have_rows>
     <ignore_errors>N</ignore_errors>
     <use_batch>Y</use_batch>
@@ -783,7 +858,7 @@
   <transform>
     <type>CSVInput</type>
     <name>order_header_csv</name>
-    <filename>${PROJECT_HOME}/files/order_header_initial.csv</filename>
+    <filename>${PROJECT_HOME}/files/order_header_2024-02.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -917,7 +992,7 @@
     <schema/>
     <table>order_header</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
+    <truncate>N</truncate>
     <only_when_have_rows>N</only_when_have_rows>
     <ignore_errors>N</ignore_errors>
     <use_batch>Y</use_batch>
@@ -951,7 +1026,7 @@
   <transform>
     <type>CSVInput</type>
     <name>order_line_csv</name>
-    <filename>${PROJECT_HOME}/files/order_line_initial.csv</filename>
+    <filename>${PROJECT_HOME}/files/order_line_2024-02.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -1074,7 +1149,7 @@
     <schema/>
     <table>order_line</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
+    <truncate>N</truncate>
     <only_when_have_rows>N</only_when_have_rows>
     <ignore_errors>N</ignore_errors>
     <use_batch>Y</use_batch>
@@ -1108,7 +1183,7 @@
   <transform>
     <type>CSVInput</type>
     <name>warehouse_csv</name>
-    <filename>${PROJECT_HOME}/files/warehouse_initial.csv</filename>
+    <filename>${PROJECT_HOME}/files/warehouse_2024-02.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -1220,7 +1295,7 @@
     <schema/>
     <table>warehouse</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
+    <truncate>N</truncate>
     <only_when_have_rows>N</only_when_have_rows>
     <ignore_errors>N</ignore_errors>
     <use_batch>Y</use_batch>
@@ -1254,7 +1329,7 @@
   <transform>
     <type>CSVInput</type>
     <name>warehouse_product_csv</name>
-    <filename>${PROJECT_HOME}/files/warehouse_product_initial.csv</filename>
+    <filename>${PROJECT_HOME}/files/warehouse_product_2024-02.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -1355,7 +1430,7 @@
     <schema/>
     <table>warehouse_product</table>
     <commit>1000</commit>
-    <truncate>Y</truncate>
+    <truncate>N</truncate>
     <only_when_have_rows>N</only_when_have_rows>
     <ignore_errors>N</ignore_errors>
     <use_batch>Y</use_batch>

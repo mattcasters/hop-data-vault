@@ -19,6 +19,15 @@ sys.modules[_spec.name] = _module
 _spec.loader.exec_module(_module)
 
 
+class SampleExistingIdsTest(unittest.TestCase):
+    def test_samples_within_existing_range(self) -> None:
+        rng = random.Random(11)
+        ids = _module.sample_existing_ids(rng, existing_count=100, sample_size=20)
+        self.assertEqual(20, len(ids))
+        self.assertTrue(all(1 <= customer_id <= 100 for customer_id in ids))
+        self.assertEqual(len(ids), len(set(ids)))
+
+
 class UniqueRandomPairsTest(unittest.TestCase):
     def test_returns_unique_pairs_up_to_requested_count(self) -> None:
         rng = random.Random(42)
@@ -37,6 +46,31 @@ class UniqueRandomPairsTest(unittest.TestCase):
         self.assertEqual([], _module.unique_random_pairs(rng, [], [1, 2], 5))
         self.assertEqual([], _module.unique_random_pairs(rng, [1], [], 5))
         self.assertEqual([], _module.unique_random_pairs(rng, [1], [2], 0))
+
+
+class UpdateWaveCustomerIdsTest(unittest.TestCase):
+    def test_update_wave_uses_new_customer_ids_for_hub_and_mixed_ids_for_satellites(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project_home = Path(tmp)
+            files_dir = project_home / "files"
+            files_dir.mkdir()
+            scale = _module.Scale(customers=100, products=50, orders=200, warehouses=10)
+            context = _module.LoadContext(
+                progress_date=_module.date(2024, 2, 1),
+                period_months=1,
+                wave_label="2024-02",
+            )
+            _module.generate_update(files_dir, scale, random.Random(42), context)
+
+            with (files_dir / "customer_hub_2024-02.csv").open(encoding="utf-8") as handle:
+                hub_ids = {int(row["customer_id"]) for row in csv.DictReader(handle)}
+            with (files_dir / "customer_demo_2024-02.csv").open(encoding="utf-8") as handle:
+                demo_ids = {int(row["customer_id"]) for row in csv.DictReader(handle)}
+
+            self.assertTrue(all(customer_id > scale.customers for customer_id in hub_ids))
+            self.assertTrue(any(1 <= customer_id <= scale.customers for customer_id in demo_ids))
+            self.assertTrue(any(customer_id > scale.customers for customer_id in demo_ids))
+            self.assertEqual(set(), hub_ids & {customer_id for customer_id in demo_ids if customer_id <= scale.customers})
 
 
 class WarehouseProductCsvTest(unittest.TestCase):

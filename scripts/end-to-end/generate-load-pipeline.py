@@ -128,6 +128,67 @@ def csv_input_transform(prefix: str, wave: str, yloc: int) -> str:
   </transform>"""
 
 
+def source_definition_for_prefix(prefix: str) -> dict:
+    for definition in SOURCE_DEFINITIONS.values():
+        if definition["prefix"] == prefix:
+            return definition
+    raise KeyError(f"No source definition for prefix {prefix}")
+
+
+def insert_update_transform(prefix: str, yloc: int) -> str:
+    definition = source_definition_for_prefix(prefix)
+    table_name = prefix
+    primary_keys = set(definition["primary_keys"])
+    field_names = [field[0] for field in definition["fields"]]
+
+    keys_xml = []
+    for key_name in definition["primary_keys"]:
+        keys_xml.append(
+            f"""      <key>
+        <name>{key_name}</name>
+        <field>{key_name}</field>
+        <condition>=</condition>
+        <name2/>
+      </key>"""
+        )
+
+    values_xml = []
+    for field_name in field_names:
+        update_flag = "N" if field_name in primary_keys else "Y"
+        values_xml.append(
+            f"""      <value>
+        <name>{field_name}</name>
+        <rename>{field_name}</rename>
+        <update>{update_flag}</update>
+      </value>"""
+        )
+
+    return f"""  <transform>
+    <type>InsertUpdate</type>
+    <name>{table_name}_out</name>
+    <connection>CRM</connection>
+    <commit>1000</commit>
+    <update_bypassed>N</update_bypassed>
+    <lookup>
+      <schema/>
+      <table>{table_name}</table>
+{chr(10).join(keys_xml)}
+{chr(10).join(values_xml)}
+    </lookup>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>400</xloc>
+      <yloc>{yloc}</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <attributes/>
+  </transform>"""
+
+
 def table_output_transform(table_name: str, yloc: int, truncate: str) -> str:
     return f"""  <transform>
     <type>TableOutput</type>
@@ -169,6 +230,15 @@ def table_output_transform(table_name: str, yloc: int, truncate: str) -> str:
   </transform>"""
 
 
+# Customer satellites include changed existing ids on update and must be upserted into CRM.
+UPDATE_UPSERT_PREFIXES = {
+    "customer_demo",
+    "customer_contact",
+    "customer_address",
+    "customer_prefs",
+}
+
+
 def build_pipeline(wave: str) -> str:
     truncate = "Y" if wave == "initial" else "N"
     prefixes = [definition["prefix"] for definition in SOURCE_DEFINITIONS.values()]
@@ -177,7 +247,10 @@ def build_pipeline(wave: str) -> str:
     for index, prefix in enumerate(prefixes):
         yloc = 64 + index * 48
         transforms.append(csv_input_transform(prefix, wave, yloc))
-        transforms.append(table_output_transform(prefix, yloc, truncate))
+        if wave != "initial" and prefix in UPDATE_UPSERT_PREFIXES:
+            transforms.append(insert_update_transform(prefix, yloc))
+        else:
+            transforms.append(table_output_transform(prefix, yloc, truncate))
         hops.append(
             f"""    <hop>
       <from>{prefix}_csv</from>

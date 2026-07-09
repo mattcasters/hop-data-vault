@@ -1,13 +1,16 @@
 {
-  "publishDatabaseRows": true,
-  "dimLookupPreloadRatioThreshold": 100,
+  "targetReadRatioThreshold": 10,
+  "highTransformDurationMs": 300000,
   "autoCreateTables": true,
   "targetDatabaseConnection": "OPS",
   "metricsOutputFolder": "${PROJECT_HOME}/metrics",
-  "name": "retail-execution-metrics",
   "dataCatalogConnection": "local-catalog",
   "description": "Load-run metrics for retail DV/BV/DM update workflows",
+  "operationsSchema": "dv_ops",
+  "enabled": true,
+  "publishDatabaseRows": true,
+  "dimLookupPreloadRatioThreshold": 100,
+  "name": "retail-execution-metrics",
   "publishCatalogDefinitions": true,
-  "operationsSchema": "",
-  "enabled": true
+  "sortRowsRiskThreshold": 500000
 }

@@ -355,6 +355,18 @@ def order_line_rows(
     return rows
 
 
+def sample_existing_ids(
+    rng: random.Random,
+    existing_count: int,
+    sample_size: int,
+) -> list[int]:
+    """Return a deterministic sample of existing entity ids in the range 1..existing_count."""
+    if existing_count <= 0 or sample_size <= 0:
+        return []
+    target = min(sample_size, existing_count)
+    return sorted(rng.sample(range(1, existing_count + 1), target))
+
+
 def unique_random_pairs(
     rng: random.Random,
     warehouse_ids: list[int],
@@ -510,7 +522,8 @@ def generate_update(files_dir: Path, scale: Scale, base_rng: random.Random, cont
     sample_products = update_sample_size(scale.products)
     sample_warehouses = update_sample_size(scale.warehouses)
 
-    changed_customers = range(1, sample_customers + 1)
+    # Satellite CRM tables are upserted on update; include changed existing ids plus new ids.
+    changed_customers = sample_existing_ids(satellite_rng, scale.customers, sample_customers)
     new_customers = range(scale.customers + 1, scale.customers + sample_customers + 1)
     satellite_customers = chain(changed_customers, new_customers)
     new_orders = range(scale.orders + 1, scale.orders + sample_orders + 1)
