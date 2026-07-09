@@ -19,5 +19,5 @@
 <dependencies>
     <folder>../../transforms/languagemodelchat</folder>
     <folder>../../transforms/languagemodelchat/lib</folder>
-    <folder>../../transforms/streamlookup</folder>
+    <folder>../../transforms/mergejoin</folder>
 </dependencies>

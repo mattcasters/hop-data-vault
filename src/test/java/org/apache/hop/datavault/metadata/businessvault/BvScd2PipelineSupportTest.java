@@ -54,7 +54,8 @@ import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta.RepeatTy
 import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
-import org.apache.hop.pipeline.transforms.streamlookup.StreamLookupMeta;
+import org.apache.hop.pipeline.transforms.mergejoin.MergeJoinMeta;
+import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.tableoutput.TableOutputMeta;
 import org.apache.hop.pipeline.transforms.update.UpdateMeta;
@@ -240,6 +241,21 @@ class BvScd2PipelineSupportTest {
   }
 
   @Test
+  void buildOpenTargetCloseLookupSqlSelectsOnlyJoinKeyAndValidFrom() throws Exception {
+    Scd2BuildContext ctx = singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null);
+
+    String sql = BvScd2PipelineSupport.buildOpenTargetCloseLookupSql(ctx);
+
+    assertTrue(sql.contains("SELECT customer_hk, valid_from AS _close_lookup_valid_from"));
+    assertTrue(sql.contains("FROM bv_customer_scd2"));
+    assertTrue(sql.contains("valid_to = TIMESTAMP '9999-12-31 23:59:59'"));
+    assertTrue(sql.contains("customer_hk IN ("));
+    assertTrue(sql.contains("ORDER BY customer_hk"));
+    assertFalse(sql.contains("name"));
+    assertFalse(sql.contains("x_record_source"));
+  }
+
+  @Test
   void buildIncrementalWatermarkSqlUsesCoalesceMaxFromTarget() throws Exception {
     Scd2BuildContext ctx = singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null);
 
@@ -284,10 +300,16 @@ class BvScd2PipelineSupportTest {
     PipelineMeta pipelineMeta = BvScd2PipelineSupport.generatePipeline(ctx);
     List<TransformMeta> transforms = pipelineMeta.getTransforms();
 
-    assertEquals(12, transforms.size());
-    assertEquals(2, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
+    assertEquals(13, transforms.size());
+    assertEquals(3, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
     assertTrue(
         transforms.stream().anyMatch(t -> "read_open_bv_customer_scd2".equals(t.getName())));
+    assertTrue(
+        transforms.stream()
+            .anyMatch(
+                t ->
+                    (BvScd2PipelineSupport.CLOSE_LOOKUP_READ_PREFIX + "bv_customer_scd2")
+                        .equals(t.getName())));
     assertTrue(
         transforms.stream()
             .anyMatch(
@@ -295,7 +317,8 @@ class BvScd2PipelineSupportTest {
                     ("set_" + BvScd2PipelineSupport.INCREMENTAL_WATERMARK_FIELD)
                         .equals(t.getName())));
     assertEquals(1, transforms.stream().filter(t -> t.getTransform() instanceof SortedSchemaMergeMeta).count());
-    assertEquals(1, transforms.stream().filter(t -> t.getTransform() instanceof StreamLookupMeta).count());
+    assertEquals(1, transforms.stream().filter(t -> t.getTransform() instanceof MergeJoinMeta).count());
+    assertEquals(0, transforms.stream().filter(t -> t.getTransform() instanceof SortRowsMeta).count());
     assertEquals(2, transforms.stream().filter(t -> t.getTransform() instanceof FilterRowsMeta).count());
     assertEquals(1, transforms.stream().filter(t -> t.getTransform() instanceof UpdateMeta).count());
 
@@ -315,6 +338,58 @@ class BvScd2PipelineSupportTest {
             .orElseThrow();
     SortedSchemaMergeMeta mergeMeta = (SortedSchemaMergeMeta) mergeTransform.getTransform();
     assertEquals(2, mergeMeta.getInputs().size());
+
+    TransformMeta joinCloseLookupTransform =
+        transforms.stream()
+            .filter(t -> BvScd2PipelineSupport.JOIN_CLOSE_LOOKUP_VALID_FROM.equals(t.getName()))
+            .findFirst()
+            .orElseThrow();
+    MergeJoinMeta mergeJoinMeta = (MergeJoinMeta) joinCloseLookupTransform.getTransform();
+    assertEquals("INNER", mergeJoinMeta.getJoinType());
+    assertEquals(List.of("customer_hk"), mergeJoinMeta.getKeyFields1());
+    assertEquals(List.of("customer_hk"), mergeJoinMeta.getKeyFields2());
+    assertEquals("filter_new_open_rows", mergeJoinMeta.getLeftTransformName());
+    assertEquals(
+        BvScd2PipelineSupport.CLOSE_LOOKUP_READ_PREFIX + "bv_customer_scd2",
+        mergeJoinMeta.getRightTransformName());
+    long baselineReadOutgoingHops =
+        pipelineMeta.getPipelineHops().stream()
+            .filter(hop -> "read_open_bv_customer_scd2".equals(hop.getFromTransform().getName()))
+            .count();
+    assertEquals(1, baselineReadOutgoingHops);
+    assertTrue(
+        pipelineMeta.getPipelineHops().stream()
+            .anyMatch(
+                hop ->
+                    "read_open_bv_customer_scd2".equals(hop.getFromTransform().getName())
+                        && hop.getToTransform().equals(mergeTransform)));
+    assertFalse(
+        pipelineMeta.getPipelineHops().stream()
+            .anyMatch(
+                hop ->
+                    "read_open_bv_customer_scd2".equals(hop.getFromTransform().getName())
+                        && hop.getToTransform().equals(joinCloseLookupTransform)));
+    assertTrue(
+        pipelineMeta.getPipelineHops().stream()
+            .anyMatch(
+                hop ->
+                    "filter_new_open_rows".equals(hop.getFromTransform().getName())
+                        && hop.getToTransform().equals(joinCloseLookupTransform)));
+    long closeLookupReadOutgoingHops =
+        pipelineMeta.getPipelineHops().stream()
+            .filter(
+                hop ->
+                    (BvScd2PipelineSupport.CLOSE_LOOKUP_READ_PREFIX + "bv_customer_scd2")
+                        .equals(hop.getFromTransform().getName()))
+            .count();
+    assertEquals(1, closeLookupReadOutgoingHops);
+    assertTrue(
+        pipelineMeta.getPipelineHops().stream()
+            .anyMatch(
+                hop ->
+                    (BvScd2PipelineSupport.CLOSE_LOOKUP_READ_PREFIX + "bv_customer_scd2")
+                        .equals(hop.getFromTransform().getName())
+                        && hop.getToTransform().equals(joinCloseLookupTransform)));
   }
 
   @Test

@@ -88,7 +88,7 @@ import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta.RepeatTy
 import org.apache.hop.pipeline.transforms.selectvalues.SelectField;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
-import org.apache.hop.pipeline.transforms.streamlookup.StreamLookupMeta;
+import org.apache.hop.pipeline.transforms.mergejoin.MergeJoinMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.pipeline.transforms.update.UpdateField;
 import org.apache.hop.pipeline.transforms.update.UpdateKeyField;
@@ -111,6 +111,8 @@ public final class BvScd2PipelineSupport {
   public static final String DEFAULT_INCREMENTAL_SENTINEL = "1900-01-01 00:00:00";
   static final String INCREMENTAL_WATERMARK_FIELD = "_incremental_watermark";
   static final String CLOSE_LOOKUP_VALID_FROM_FIELD = "_close_lookup_valid_from";
+  static final String CLOSE_LOOKUP_READ_PREFIX = "read_open_close_lookup_";
+  static final String JOIN_CLOSE_LOOKUP_VALID_FROM = "join_close_lookup_valid_from";
   private static final String REPEAT_FIELD_PREFIX = "_r_";
 
   private BvScd2PipelineSupport() {}
@@ -827,6 +829,47 @@ public final class BvScd2PipelineSupport {
     return sql.toString();
   }
 
+  public static String buildOpenTargetCloseLookupSql(Scd2BuildContext ctx) {
+    List<String> selectFields = new ArrayList<>();
+
+    if (ctx.includeHashKey) {
+      selectFields.add(ctx.targetDatabaseMeta.quoteField(ctx.hashKeyFieldName));
+    }
+    if (ctx.hasDrivingKey()) {
+      selectFields.add(ctx.targetDatabaseMeta.quoteField(ctx.drivingKeyFieldName));
+    }
+    selectFields.add(
+        ctx.targetDatabaseMeta.quoteField(ctx.validFromField)
+            + " AS "
+            + ctx.targetDatabaseMeta.quoteField(CLOSE_LOOKUP_VALID_FROM_FIELD));
+
+    StringBuilder sql = new StringBuilder("SELECT ");
+    sql.append(String.join(", ", selectFields));
+    sql.append(" FROM ");
+    sql.append(
+        ctx.targetDatabaseMeta.getQuotedSchemaTableCombination(
+            ctx.variables, null, ctx.bvTargetTableName));
+    sql.append(" WHERE ");
+    sql.append(ctx.targetDatabaseMeta.quoteField(ctx.validToField));
+    sql.append(" = TIMESTAMP '");
+    sql.append(ctx.openEndSentinel);
+    sql.append("'");
+    if (ctx.includeHashKey) {
+      sql.append(" AND ");
+      sql.append(ctx.targetDatabaseMeta.quoteField(ctx.hashKeyFieldName));
+      sql.append(" IN (");
+      sql.append(buildDeltaHashKeysSubquerySql(ctx));
+      sql.append(")");
+    }
+    sql.append(" ORDER BY ");
+    if (ctx.includeHashKey) {
+      sql.append(ctx.targetDatabaseMeta.quoteField(ctx.hashKeyFieldName));
+    } else if (ctx.hasDrivingKey()) {
+      sql.append(ctx.targetDatabaseMeta.quoteField(ctx.drivingKeyFieldName));
+    }
+    return sql.toString();
+  }
+
   public static String buildIncrementalSatelliteFilterSql(
       DatabaseMeta bvDatabaseMeta,
       IVariables variables,
@@ -1176,6 +1219,22 @@ public final class BvScd2PipelineSupport {
 
     TransformMeta tm =
         new TransformMeta("TableInput", "read_open_" + ctx.bvTargetTableName, tableInputMeta);
+    tm.setLocation(location);
+    pipelineMeta.addTransform(tm);
+    GeneratedPipelineMetadataSupport.stampTargetRead(
+        tm, "scd2", ctx.scd2Table.getName(), ctx.bvTargetTableName, ctx.targetDbName);
+    return tm;
+  }
+
+  private static TransformMeta addOpenTargetCloseLookupTableInput(
+      Scd2BuildContext ctx, PipelineMeta pipelineMeta, Point location) {
+    TableInputMeta tableInputMeta = new TableInputMeta();
+    tableInputMeta.setConnection(ctx.targetDbName);
+    DvSqlSupport.assignDisplaySql(tableInputMeta, buildOpenTargetCloseLookupSql(ctx));
+
+    TransformMeta tm =
+        new TransformMeta(
+            "TableInput", CLOSE_LOOKUP_READ_PREFIX + ctx.bvTargetTableName, tableInputMeta);
     tm.setLocation(location);
     pipelineMeta.addTransform(tm);
     GeneratedPipelineMetadataSupport.stampTargetRead(
@@ -1628,13 +1687,14 @@ public final class BvScd2PipelineSupport {
 
     TransformMeta filterOpen =
         addFilterNewOpenRows(ctx, pipelineMeta, rowsToWrite, new Point(x, y + 40));
-    TransformMeta openTargetRead =
-        findTransform(pipelineMeta, "read_open_" + ctx.bvTargetTableName);
-    TransformMeta attachCloseLookup =
-        addAttachCloseLookupValidFrom(
-            ctx, pipelineMeta, filterOpen, openTargetRead, new Point(x + SPACING_WIDTH, y + 40));
+    TransformMeta closeLookupRead =
+        addOpenTargetCloseLookupTableInput(
+            ctx, pipelineMeta, new Point(x - SPACING_WIDTH, y + 40));
+    TransformMeta joinCloseLookup =
+        addJoinCloseLookupValidFrom(
+            ctx, pipelineMeta, filterOpen, closeLookupRead, new Point(x + SPACING_WIDTH, y + 40));
     addCloseOpenVersion(
-        ctx, pipelineMeta, attachCloseLookup, new Point(x + 2 * SPACING_WIDTH, y + 40));
+        ctx, pipelineMeta, joinCloseLookup, new Point(x + 2 * SPACING_WIDTH, y + 40));
 
     return writeTransform;
   }
@@ -1651,40 +1711,39 @@ public final class BvScd2PipelineSupport {
     return null;
   }
 
-  private static TransformMeta addAttachCloseLookupValidFrom(
+  private static TransformMeta addJoinCloseLookupValidFrom(
       Scd2BuildContext ctx,
       PipelineMeta pipelineMeta,
       TransformMeta mainPredecessor,
-      TransformMeta openTargetRead,
+      TransformMeta closeLookupRead,
       Point location) {
-    if (openTargetRead == null || mainPredecessor == null) {
+    if (closeLookupRead == null || mainPredecessor == null) {
       return mainPredecessor;
     }
 
-    StreamLookupMeta streamLookupMeta = new StreamLookupMeta();
-    streamLookupMeta.setSourceTransformName(openTargetRead.getName());
-    StreamLookupMeta.MatchKey matchKey = new StreamLookupMeta.MatchKey();
-    if (ctx.includeHashKey) {
-      matchKey.setKeyStream(ctx.hashKeyFieldName);
-      matchKey.setKeyLookup(ctx.hashKeyFieldName);
-    } else if (ctx.hasDrivingKey()) {
-      matchKey.setKeyStream(ctx.drivingKeyFieldName);
-      matchKey.setKeyLookup(ctx.drivingKeyFieldName);
+    String joinKeyField =
+        ctx.includeHashKey
+            ? ctx.hashKeyFieldName
+            : ctx.hasDrivingKey() ? ctx.drivingKeyFieldName : null;
+    if (Utils.isEmpty(joinKeyField)) {
+      return mainPredecessor;
     }
-    streamLookupMeta.getLookup().getMatchKeys().add(matchKey);
 
-    StreamLookupMeta.ReturnValue returnValue = new StreamLookupMeta.ReturnValue();
-    returnValue.setValue(ctx.validFromField);
-    returnValue.setValueName(CLOSE_LOOKUP_VALID_FROM_FIELD);
-    returnValue.setValueDefaultType(IValueMeta.TYPE_TIMESTAMP);
-    streamLookupMeta.getLookup().getReturnValues().add(returnValue);
+    MergeJoinMeta mergeJoinMeta = new MergeJoinMeta();
+    mergeJoinMeta.setJoinType("INNER");
+    mergeJoinMeta.setLeftTransformName(mainPredecessor.getName());
+    mergeJoinMeta.setRightTransformName(closeLookupRead.getName());
+    mergeJoinMeta.getKeyFields1().add(joinKeyField);
+    mergeJoinMeta.getKeyFields2().add(joinKeyField);
 
     TransformMeta tm =
-        new TransformMeta("StreamLookup", "attach_close_lookup_valid_from", streamLookupMeta);
+        new TransformMeta("MergeJoin", JOIN_CLOSE_LOOKUP_VALID_FROM, mergeJoinMeta);
     tm.setLocation(location);
     pipelineMeta.addTransform(tm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(mainPredecessor, tm));
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(openTargetRead, tm));
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(closeLookupRead, tm));
+    mergeJoinMeta.setParentTransformMeta(tm);
+    mergeJoinMeta.searchInfoAndTargetTransforms(pipelineMeta.getTransforms());
     return tm;
   }
 

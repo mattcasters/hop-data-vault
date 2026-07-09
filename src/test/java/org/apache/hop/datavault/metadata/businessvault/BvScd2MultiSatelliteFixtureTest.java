@@ -177,8 +177,8 @@ class BvScd2MultiSatelliteFixtureTest {
 
     PipelineMeta pipelineMeta = pipelines.get(0);
     List<TransformMeta> transforms = pipelineMeta.getTransforms();
-    assertEquals(27, transforms.size());
-    assertEquals(5, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
+    assertEquals(28, transforms.size());
+    assertEquals(6, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
     assertTrue(
         transforms.stream()
             .anyMatch(
@@ -187,6 +187,12 @@ class BvScd2MultiSatelliteFixtureTest {
                         .equals(t.getName())));
     assertTrue(
         transforms.stream().anyMatch(t -> "read_open_customer_360_bv".equals(t.getName())));
+    assertTrue(
+        transforms.stream()
+            .anyMatch(
+                t ->
+                    (BvScd2PipelineSupport.CLOSE_LOOKUP_READ_PREFIX + "customer_360_bv")
+                        .equals(t.getName())));
 
     Scd2BuildContext buildContext =
         BvScd2PipelineSupport.createContext(
@@ -198,6 +204,10 @@ class BvScd2MultiSatelliteFixtureTest {
     assertTrue(openReadSql.contains("FROM sat_customer_demo WHERE"));
     assertTrue(openReadSql.contains("UNION"));
     assertTrue(openReadSql.contains("FROM sat_customer_prefs WHERE"));
+    String closeLookupSql = BvScd2PipelineSupport.buildOpenTargetCloseLookupSql(buildContext);
+    assertTrue(closeLookupSql.contains("SELECT customer_hk, x_from_ts AS _close_lookup_valid_from"));
+    assertTrue(closeLookupSql.contains("FROM customer_360_bv"));
+    assertFalse(closeLookupSql.contains("cust_email"));
     TransformMeta openReadTransform =
         transforms.stream()
             .filter(t -> "read_open_customer_360_bv".equals(t.getName()))
@@ -224,6 +234,42 @@ class BvScd2MultiSatelliteFixtureTest {
                 hop ->
                     "select_baseline".equals(hop.getFromTransform().getName())
                         && hop.getToTransform().equals(mergeTransform)));
+
+    TransformMeta joinCloseLookupTransform =
+        transforms.stream()
+            .filter(t -> BvScd2PipelineSupport.JOIN_CLOSE_LOOKUP_VALID_FROM.equals(t.getName()))
+            .findFirst()
+            .orElseThrow();
+    long baselineReadOutgoingHops =
+        pipelineMeta.getPipelineHops().stream()
+            .filter(hop -> "read_open_customer_360_bv".equals(hop.getFromTransform().getName()))
+            .count();
+    assertEquals(1, baselineReadOutgoingHops);
+    assertTrue(
+        pipelineMeta.getPipelineHops().stream()
+            .anyMatch(
+                hop ->
+                    "read_open_customer_360_bv".equals(hop.getFromTransform().getName())
+                        && "source_baseline".equals(hop.getToTransform().getName())));
+    assertFalse(
+        pipelineMeta.getPipelineHops().stream()
+            .anyMatch(
+                hop ->
+                    "read_open_customer_360_bv".equals(hop.getFromTransform().getName())
+                        && hop.getToTransform().equals(joinCloseLookupTransform)));
+    assertTrue(
+        pipelineMeta.getPipelineHops().stream()
+            .anyMatch(
+                hop ->
+                    "filter_new_open_rows".equals(hop.getFromTransform().getName())
+                        && hop.getToTransform().equals(joinCloseLookupTransform)));
+    assertTrue(
+        pipelineMeta.getPipelineHops().stream()
+            .anyMatch(
+                hop ->
+                    (BvScd2PipelineSupport.CLOSE_LOOKUP_READ_PREFIX + "customer_360_bv")
+                        .equals(hop.getFromTransform().getName())
+                        && hop.getToTransform().equals(joinCloseLookupTransform)));
 
     TransformMeta repeatTransform =
         transforms.stream()

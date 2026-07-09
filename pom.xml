@@ -152,7 +152,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hop</groupId>
-      <artifactId>hop-transform-streamlookup</artifactId>
+      <artifactId>hop-transform-mergejoin</artifactId>
       <version>${hop.version}</version>
     </dependency>
     <dependency>
