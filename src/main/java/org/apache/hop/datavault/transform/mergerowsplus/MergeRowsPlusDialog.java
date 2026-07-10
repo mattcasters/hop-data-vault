@@ -213,7 +213,7 @@ public class MergeRowsPlusDialog extends BaseTransformDialog {
     wAlignInputLayouts.setSelection(true);
     wAlignInputLayouts.addListener(SWT.Selection, e -> input.setChanged());
     FormData fdAlign = new FormData();
-    fdAlign.top = new FormAttachment(wDiffField, margin);
+    fdAlign.top = new FormAttachment(wlAlign, 0, SWT.CENTER);
     fdAlign.left = new FormAttachment(middle, 0);
     fdAlign.right = new FormAttachment(100, 0);
     wAlignInputLayouts.setLayoutData(fdAlign);

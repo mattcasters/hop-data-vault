@@ -1,4 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 <workflow>
   <name>run-retail-update</name>
   <name_sync_with_filename>Y</name_sync_with_filename>
@@ -52,143 +69,26 @@
       <attributes_hac/>
     </action>
     <action>
-      <filename>${PROJECT_HOME}/pipelines/write-load-control-context.hpl</filename>
-      <params_from_previous>N</params_from_previous>
-      <exec_per_row>N</exec_per_row>
-      <clear_rows>N</clear_rows>
-      <clear_files>N</clear_files>
-      <create_parent_folder>N</create_parent_folder>
-      <set_logfile>N</set_logfile>
-      <set_append_logfile>N</set_append_logfile>
-      <logfile/>
-      <logext/>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <loglevel>Basic</loglevel>
-      <wait_until_finished>Y</wait_until_finished>
-      <parameters>
-        <pass_all_parameters>Y</pass_all_parameters>
-      </parameters>
-      <run_configuration>local</run_configuration>
-      <name>Read load control</name>
-      <description/>
-      <type>PIPELINE</type>
+      <rootArtifactFilename/>
+      <outputHemFile>${PROJECT_HOME}/execution-maps/run-retail-update.hem</outputHemFile>
+      <includeGeneratedPipelines>Y</includeGeneratedPipelines>
+      <includeDatasetNodes>Y</includeDatasetNodes>
+      <captureSnapshots>Y</captureSnapshots>
+      <followNestedWorkflows>Y</followNestedWorkflows>
+      <followNestedPipelines>Y</followNestedPipelines>
+      <includeWorkflowActions>N</includeWorkflowActions>
+      <includePipelineTransforms>N</includePipelineTransforms>
+      <exportLineage>N</exportLineage>
+      <name>Generate  update execution map</name>
+      <type>GENERATE_EXECUTION_MAP</type>
       <attributes/>
-      <xloc>208</xloc>
-      <yloc>64</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <filename/>
-      <work_directory>${PROJECT_HOME}</work_directory>
-      <arguments/>
-      <arg_from_previous>N</arg_from_previous>
-      <set_logfile>N</set_logfile>
-      <logfile/>
-      <logext/>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <loglevel>Basic</loglevel>
-      <exec_per_row>N</exec_per_row>
-      <set_append_logfile>N</set_append_logfile>
-      <insertScript>Y</insertScript>
-      <script>#!/bin/sh
-exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --project-home "${PROJECT_HOME}"</script>
-      <name>Generate update data</name>
-      <description/>
-      <type>SHELL</type>
-      <attributes/>
-      <xloc>384</xloc>
-      <yloc>64</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <filename>${PROJECT_HOME}/pipelines/load-e2e-sources-to-crm.hpl</filename>
-      <params_from_previous>N</params_from_previous>
-      <exec_per_row>N</exec_per_row>
-      <clear_rows>N</clear_rows>
-      <clear_files>N</clear_files>
-      <create_parent_folder>N</create_parent_folder>
-      <set_logfile>N</set_logfile>
-      <set_append_logfile>N</set_append_logfile>
-      <logfile/>
-      <logext/>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <loglevel>Basic</loglevel>
-      <wait_until_finished>Y</wait_until_finished>
-      <parameters>
-        <pass_all_parameters>Y</pass_all_parameters>
-      </parameters>
-      <run_configuration>local</run_configuration>
-      <name>Load CSV to CRM</name>
-      <description/>
-      <type>PIPELINE</type>
-      <attributes/>
-      <xloc>576</xloc>
-      <yloc>64</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <sql/>
-      <connection>Vault</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>Y</sqlfromfile>
-      <sqlfilename>${PROJECT_HOME}/sql/advance-load-control.sql</sqlfilename>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>Advance load control</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>656</xloc>
+      <xloc>432</xloc>
       <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
     <action>
-      <workflowExecutionIdVariable/>
-      <useWorkflowLogChannelId>Y</useWorkflowLogChannelId>
-      <reuseExistingExecutionId>N</reuseExistingExecutionId>
-      <logToWorkflow>Y</logToWorkflow>
-      <name>Begin Vault Update</name>
-      <description/>
-      <type>BEGIN_VAULT_UPDATE</type>
-      <attributes/>
-      <xloc>208</xloc>
-      <yloc>192</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <workflowExecutionIdVariable/>
-      <useWorkflowLogChannelId>Y</useWorkflowLogChannelId>
-      <executionMetricsProfile>retail-execution-metrics</executionMetricsProfile>
-      <dataCatalogConnection>local-catalog</dataCatalogConnection>
-      <publishToDatabase>Y</publishToDatabase>
-      <publishToCatalog>Y</publishToCatalog>
-      <logToWorkflow>Y</logToWorkflow>
-      <writeMarkdownReport>Y</writeMarkdownReport>
-      <writeHtmlReport>Y</writeHtmlReport>
-      <reportOutputFolder>${PROJECT_HOME}/reports</reportOutputFolder>
-      <reportFileBaseName>retail-dv-update-report</reportFileBaseName>
-      <failIfNoMetricsFound>N</failIfNoMetricsFound>
-      <includePipelineDetail>Y</includePipelineDetail>
-      <includeInsights>Y</includeInsights>
-      <name>End Vault Update</name>
-      <description/>
-      <type>END_VAULT_UPDATE</type>
-      <attributes/>
-      <xloc>448</xloc>
-      <yloc>336</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <filename>${PROJECT_HOME}/workflows/update-retail-dv-bv-dm.hwf</filename>
+      <filename>${PROJECT_HOME}/workflows/run-retail-update-models.hwf</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
       <set_logfile>N</set_logfile>
@@ -203,199 +103,118 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <parameters>
         <pass_all_parameters>Y</pass_all_parameters>
         <parameter>
-          <name>DV_LOAD_DATE</name>
+          <name>DV_ACTUAL_LOAD_DATE</name>
           <value>${DV_UPDATE_LOAD_DATE}</value>
           <stream_name/>
         </parameter>
       </parameters>
       <run_configuration>local</run_configuration>
-      <name>update-retail-dv-bv-dm</name>
+      <name>run-retail-update-models</name>
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>448</xloc>
+      <xloc>192</xloc>
       <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
     <action>
-      <rootArtifactFilename/>
-      <outputHemFile>${PROJECT_HOME}/execution-maps/run-retail-update.hem</outputHemFile>
-      <includeGeneratedPipelines>Y</includeGeneratedPipelines>
-      <includeDatasetNodes>Y</includeDatasetNodes>
-      <captureSnapshots>Y</captureSnapshots>
-      <followNestedWorkflows>Y</followNestedWorkflows>
-      <followNestedPipelines>Y</followNestedPipelines>
-      <includeWorkflowActions>N</includeWorkflowActions>
-      <includePipelineTransforms>N</includePipelineTransforms>
-      <exportLineage>N</exportLineage>
-      <name>Generate execution map</name>
-      <type>GENERATE_EXECUTION_MAP</type>
+      <hostname>${DB_HOST}</hostname>
+      <timeout>3000</timeout>
+      <nbrPackets>2</nbrPackets>
+      <pingtype>classicPing</pingtype>
+      <name>ping db</name>
+      <description/>
+      <type>PING</type>
       <attributes/>
-      <xloc>656</xloc>
-      <yloc>336</yloc>
+      <xloc>192</xloc>
+      <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
     <action>
-      <catalogConnection>local-catalog</catalogConnection>
-      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
-      <recordDefinitionKeys/>
-      <namespacePrefix/>
-      <evaluationMode>AUTO</evaluationMode>
-      <lifecycle>PRE_UPDATE</lifecycle>
-      <sampleLimit>1000</sampleLimit>
-      <persistHistory>Y</persistHistory>
-      <historyDatabase>OPS</historyDatabase>
-      <historySchema>dv_ops</historySchema>
-      <loadId>${DV_WORKFLOW_EXECUTION_ID}</loadId>
-      <name>Measure source data quality</name>
-      <description>Profile CRM source extracts against retail-source-quality rules</description>
-      <type>MEASURE_DATA_QUALITY</type>
+      <connections>
+        <connection>
+          <name>OPS</name>
+          <waitfor>0</waitfor>
+          <waittime>millisecond</waittime>
+        </connection>
+        <connection>
+          <name>Vault</name>
+          <waitfor>0</waitfor>
+          <waittime>millisecond</waittime>
+        </connection>
+        <connection>
+          <name>CRM</name>
+          <waitfor>0</waitfor>
+          <waittime>millisecond</waittime>
+        </connection>
+      </connections>
+      <name>Check DB connections</name>
+      <description/>
+      <type>CHECK_DB_CONNECTIONS</type>
       <attributes/>
-      <xloc>64</xloc>
-      <yloc>192</yloc>
+      <xloc>336</xloc>
+      <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
     <action>
-      <dispositionMode>FAIL_ON_BLOCKING</dispositionMode>
-      <remeasureIfNoPriorReport>Y</remeasureIfNoPriorReport>
-      <catalogConnection>local-catalog</catalogConnection>
-      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
-      <recordDefinitionKeys/>
-      <namespacePrefix/>
-      <name>Evaluate source quality gate</name>
-      <description>Fail the workflow when source quality has blocking findings</description>
-      <type>EVALUATE_QUALITY_GATE</type>
+      <filename>${PROJECT_HOME}/workflows/run-retail-update-db-update.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>run-retail-update-db-update</name>
+      <description/>
+      <type>WORKFLOW</type>
       <attributes/>
-      <xloc>136</xloc>
-      <yloc>192</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <catalogConnection>local-catalog</catalogConnection>
-      <resourceDefinitionGroup/>
-      <recordDefinitionKeys>hop/retail-example/models/retail-360/hub_customer,hop/retail-example/models/retail-360/sat_customer_demo,hop/retail-example/models/retail-360/hub_order</recordDefinitionKeys>
-      <namespacePrefix/>
-      <evaluationMode>AUTO</evaluationMode>
-      <lifecycle>POST_UPDATE</lifecycle>
-      <sampleLimit>1000</sampleLimit>
-      <persistHistory>Y</persistHistory>
-      <historyDatabase>OPS</historyDatabase>
-      <historySchema>dv_ops</historySchema>
-      <loadId>${DV_WORKFLOW_EXECUTION_ID}</loadId>
-      <name>Measure target data quality (post)</name>
-      <description>Measure published vault targets after update (POST_UPDATE, persist to OPS)</description>
-      <type>MEASURE_DATA_QUALITY</type>
-      <attributes/>
-      <xloc>528</xloc>
-      <yloc>336</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dispositionMode>ALERT_ONLY</dispositionMode>
-      <remeasureIfNoPriorReport>N</remeasureIfNoPriorReport>
-      <catalogConnection>local-catalog</catalogConnection>
-      <resourceDefinitionGroup/>
-      <recordDefinitionKeys>hop/retail-example/models/retail-360/hub_customer,hop/retail-example/models/retail-360/sat_customer_demo,hop/retail-example/models/retail-360/hub_order</recordDefinitionKeys>
-      <namespacePrefix/>
-      <alertSinks>log,ops_table</alertSinks>
-      <historyDatabase>OPS</historyDatabase>
-      <historySchema>dv_ops</historySchema>
-      <name>Alert on target quality (post)</name>
-      <description>Alert on target quality findings after update without failing the workflow</description>
-      <type>EVALUATE_QUALITY_GATE</type>
-      <attributes/>
-      <xloc>600</xloc>
-      <yloc>336</yloc>
+      <xloc>544</xloc>
+      <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
   </actions>
   <hops>
     <hop>
+      <from>run-retail-update-models</from>
+      <to>Generate  update execution map</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>ping db</from>
+      <to>Check DB connections</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
       <from>Start</from>
-      <to>Read load control</to>
+      <to>ping db</to>
       <evaluation>Y</evaluation>
       <unconditional>Y</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Read load control</from>
-      <to>Generate update data</to>
+      <from>Check DB connections</from>
+      <to>run-retail-update-db-update</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Generate update data</from>
-      <to>Load CSV to CRM</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Load CSV to CRM</from>
-      <to>Measure source data quality</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Begin Vault Update</from>
-      <to>update-retail-dv-bv-dm</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>update-retail-dv-bv-dm</from>
-      <to>End Vault Update</to>
-      <evaluation>N</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>update-retail-dv-bv-dm</from>
-      <to>Advance load control</to>
-      <evaluation>N</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>End Vault Update</from>
-      <to>Measure target data quality (post)</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Measure source data quality</from>
-      <to>Evaluate source quality gate</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Evaluate source quality gate</from>
-      <to>Begin Vault Update</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Measure target data quality (post)</from>
-      <to>Alert on target quality (post)</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Alert on target quality (post)</from>
-      <to>Generate execution map</to>
+      <from>run-retail-update-db-update</from>
+      <to>run-retail-update-models</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

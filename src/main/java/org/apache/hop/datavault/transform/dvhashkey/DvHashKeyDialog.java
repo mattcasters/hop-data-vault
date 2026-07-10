@@ -215,7 +215,7 @@ public class DvHashKeyDialog extends BaseTransformDialog {
     PropsUi.setLook(wTrimBusinessKeys);
     FormData fdTrimBusinessKeys = new FormData();
     fdTrimBusinessKeys.left = new FormAttachment(middle, 0);
-    fdTrimBusinessKeys.top = new FormAttachment(wHashContentSuffix, margin);
+    fdTrimBusinessKeys.top = new FormAttachment(wlTrimBusinessKeys, 0, SWT.CENTER);
     wTrimBusinessKeys.setLayoutData(fdTrimBusinessKeys);
 
     Label wlResult = new Label(shell, SWT.RIGHT);

@@ -150,7 +150,7 @@ public class RecordDefinitionDdlDialog extends BaseTransformDialog {
     wSelectFromInput.addListener(SWT.Selection, e -> setFlags());
     FormData fdSelect = new FormData();
     fdSelect.left = new FormAttachment(middle, 0);
-    fdSelect.top = new FormAttachment(wCatalogConnection, margin);
+    fdSelect.top = new FormAttachment(wlSelect, 0, SWT.CENTER);
     wSelectFromInput.setLayoutData(fdSelect);
 
     Label wlNamespaceField = new Label(comp, SWT.RIGHT);
@@ -305,7 +305,7 @@ public class RecordDefinitionDdlDialog extends BaseTransformDialog {
     PropsUi.setLook(wExecuteDdl);
     FormData fdExecuteDdl = new FormData();
     fdExecuteDdl.left = new FormAttachment(middle, 0);
-    fdExecuteDdl.top = new FormAttachment(0, margin);
+    fdExecuteDdl.top = new FormAttachment(wlExecuteDdl, 0, SWT.CENTER);
     wExecuteDdl.setLayoutData(fdExecuteDdl);
 
     wDropTableIfExists = addCheckbox(comp, "RecordDefinitionDdlDialog.DropTableIfExists.Label", middle, margin, wExecuteDdl);
@@ -372,7 +372,7 @@ public class RecordDefinitionDdlDialog extends BaseTransformDialog {
     PropsUi.setLook(button);
     FormData fd = new FormData();
     fd.left = new FormAttachment(middle, 0);
-    fd.top = fdl.top;
+    fd.top = new FormAttachment(label, 0, SWT.CENTER);
     button.setLayoutData(fd);
     return button;
   }

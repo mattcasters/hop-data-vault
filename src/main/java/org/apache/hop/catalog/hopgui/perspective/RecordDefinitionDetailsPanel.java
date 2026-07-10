@@ -94,7 +94,12 @@ public class RecordDefinitionDetailsPanel {
   private static final int MIN_CSV_FORMAT_COLUMN_WIDTH = 90;
 
   private final Composite parent;
+  /**
+   * Fallback variables from construction time. Prefer {@link #activeVariables()} for any DB / path
+   * resolution: HopGui replaces its variables instance when a project/environment is enabled.
+   */
   private final IVariables variables;
+
   private final Runnable onUpdate;
 
   private String catalogConnectionName;
@@ -172,6 +177,23 @@ public class RecordDefinitionDetailsPanel {
     this.onUpdate = onUpdate;
     createControls();
     clear();
+  }
+
+  /**
+   * Current HopGui variable space (project/environment). Must not use the construction-time
+   * reference alone: {@code ProjectsGuiPlugin.enableHopGuiProject} calls {@code
+   * hopGui.setVariables(...)} with a new instance when the environment loads.
+   */
+  private IVariables activeVariables() {
+    try {
+      HopGui hopGui = HopGui.getInstance();
+      if (hopGui != null && hopGui.getVariables() != null) {
+        return hopGui.getVariables();
+      }
+    } catch (Exception ignored) {
+      // headless / unit-test contexts without a HopGui singleton
+    }
+    return variables;
   }
 
   private void createControls() {
@@ -1061,7 +1083,7 @@ public class RecordDefinitionDetailsPanel {
   private TableView createTableView(Composite tabComp, ColumnInfo[] columns, int rows) {
     TableView tableView =
         new TableView(
-            variables,
+            activeVariables(),
             tabComp,
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
             columns,
@@ -1144,7 +1166,8 @@ public class RecordDefinitionDetailsPanel {
       wUpdatedBy.setText(Const.NVL(origin.getUpdatedBy(), ""));
       wLastWorkflow.setText(Const.NVL(origin.getLastWorkflow(), ""));
       wLastPipeline.setText(Const.NVL(origin.getLastPipeline(), ""));
-      wGoToOrigin.setEnabled(RecordOriginNavigationSupport.canNavigateToOrigin(origin, variables));
+      wGoToOrigin.setEnabled(
+          RecordOriginNavigationSupport.canNavigateToOrigin(origin, activeVariables()));
     } else {
       clearOriginFields();
     }
@@ -1253,7 +1276,7 @@ public class RecordDefinitionDetailsPanel {
     RecordDefinitionPreviewRunner.run(
         parent.getShell(),
         definition,
-        HopGui.getInstance().getVariables(),
+        activeVariables(),
         HopGui.getInstance().getMetadataProvider());
   }
 
@@ -1265,7 +1288,7 @@ public class RecordDefinitionDetailsPanel {
         parent.getShell(),
         definition,
         catalogConnectionName,
-        HopGui.getInstance().getVariables(),
+        activeVariables(),
         () -> {
           setRecordDefinition(catalogConnectionName, definition);
           if (onUpdate != null) {
@@ -1458,7 +1481,7 @@ public class RecordDefinitionDetailsPanel {
         .update(
             catalogConnectionName,
             definition,
-            variables,
+            activeVariables(),
             HopGui.getInstance().getMetadataProvider());
 
     if (onUpdate != null) {
@@ -1519,7 +1542,7 @@ public class RecordDefinitionDetailsPanel {
     }
     try {
       RecordOriginNavigationSupport.navigateToOrigin(
-          HopGui.getInstance(), definition.getOrigin(), variables);
+          HopGui.getInstance(), definition.getOrigin(), activeVariables());
     } catch (Exception e) {
       new ErrorDialog(
           parent.getShell(),
@@ -1735,18 +1758,26 @@ public class RecordDefinitionDetailsPanel {
           org.apache.hop.quality.model.QualitySeverity.WARNING.name(),
           org.apache.hop.quality.model.QualitySeverity.INFO.name()
         };
+    ColumnInfo colRuleSet =
+        new ColumnInfo(
+            BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.RuleSet.Column"),
+            ColumnInfo.COLUMN_TYPE_CCOMBO,
+            listDataQualityRuleSetNames(),
+            false);
+    ColumnInfo colRuleId =
+        new ColumnInfo(
+            BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.RuleId.Column"),
+            ColumnInfo.COLUMN_TYPE_CCOMBO,
+            new String[] {""},
+            false);
+    // When the Rule id combo is opened, load rule ids from the rule set on this row (column 1).
+    colRuleId.setComboValuesSelectionListener(
+        (tableItem, rowNr, colNr) -> listRuleIdsForRuleSet(tableItem.getText(1)));
+
     ColumnInfo[] columns =
         new ColumnInfo[] {
-          new ColumnInfo(
-              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.RuleSet.Column"),
-              ColumnInfo.COLUMN_TYPE_CCOMBO,
-              listDataQualityRuleSetNames(),
-              false),
-          new ColumnInfo(
-              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.RuleId.Column"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false,
-              false),
+          colRuleSet,
+          colRuleId,
           new ColumnInfo(
               BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Field.Column"),
               ColumnInfo.COLUMN_TYPE_TEXT,
@@ -1765,12 +1796,12 @@ public class RecordDefinitionDetailsPanel {
         };
     TableView table =
         new TableView(
-            variables,
+            activeVariables(),
             tabComp,
             SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI | SWT.V_SCROLL | SWT.H_SCROLL,
             columns,
             1,
-            true,
+            false,
             null,
             PropsUi.getInstance());
     FormData fd = new FormData();
@@ -1796,6 +1827,41 @@ public class RecordDefinitionDetailsPanel {
       withBlank.add("");
       withBlank.addAll(names);
       return withBlank.toArray(new String[0]);
+    } catch (Exception e) {
+      return new String[] {""};
+    }
+  }
+
+  /**
+   * Rule id choices for the quality bindings grid. Leading empty entry means "apply every rule in
+   * the set" (matches {@code updateQualityRules} / {@link
+   * org.apache.hop.quality.resolve.QualityRuleResolver}).
+   */
+  private static String[] listRuleIdsForRuleSet(String ruleSetName) {
+    if (Utils.isEmpty(ruleSetName)) {
+      return new String[] {""};
+    }
+    try {
+      org.apache.hop.quality.metadata.DataQualityRuleSetMeta ruleSet =
+          HopGui.getInstance()
+              .getMetadataProvider()
+              .getSerializer(org.apache.hop.quality.metadata.DataQualityRuleSetMeta.class)
+              .load(ruleSetName.trim());
+      if (ruleSet == null || ruleSet.getRules() == null || ruleSet.getRules().isEmpty()) {
+        return new String[] {""};
+      }
+      List<String> ids = new ArrayList<>();
+      ids.add("");
+      for (org.apache.hop.quality.model.DataQualityRule rule : ruleSet.getRules()) {
+        if (rule == null) {
+          continue;
+        }
+        String id = Const.NVL(rule.getId(), "").trim();
+        if (!Utils.isEmpty(id) && !ids.contains(id)) {
+          ids.add(id);
+        }
+      }
+      return ids.toArray(new String[0]);
     } catch (Exception e) {
       return new String[] {""};
     }
@@ -1908,7 +1974,7 @@ public class RecordDefinitionDetailsPanel {
               org.apache.hop.quality.model.QualityEvaluationMode.AUTO,
               org.apache.hop.quality.model.QualityLifecycle.AD_HOC,
               1000,
-              variables,
+              activeVariables(),
               metadataProvider,
               org.apache.hop.core.logging.LogChannel.GENERAL);
       String text =
@@ -1940,7 +2006,7 @@ public class RecordDefinitionDetailsPanel {
           HopGui.getInstance().getMetadataProvider();
       org.apache.hop.quality.history.DataQualityHistoryReader.HistoryConnection connection =
           org.apache.hop.quality.history.DataQualityHistoryReader.resolveConnection(
-              catalogConnectionName, variables, metadataProvider);
+              catalogConnectionName, activeVariables(), metadataProvider);
       if (connection == null) {
         MessageBox box = new MessageBox(parent.getShell(), SWT.OK | SWT.ICON_INFORMATION);
         box.setText(
@@ -1974,7 +2040,7 @@ public class RecordDefinitionDetailsPanel {
               databaseMeta,
               connection.schemaName(),
               subjectKey,
-              variables,
+              activeVariables(),
               org.apache.hop.quality.history.DataQualityHistoryReader.DEFAULT_HISTORY_LIMIT);
       if (entries.isEmpty()) {
         MessageBox box = new MessageBox(parent.getShell(), SWT.OK | SWT.ICON_INFORMATION);
@@ -1987,7 +2053,7 @@ public class RecordDefinitionDetailsPanel {
 
       new QualityHistoryBrowserDialog(
               parent.getShell(),
-              variables,
+              activeVariables(),
               databaseMeta,
               connection.schemaName(),
               subjectKey,

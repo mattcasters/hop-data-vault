@@ -318,7 +318,7 @@ public class DvLinkDialog {
     PropsUi.setLook(wHasDescriptiveAttributes);
     FormData fdHasDescriptive = new FormData();
     fdHasDescriptive.left = new FormAttachment(middle, 0);
-    fdHasDescriptive.top = new FormAttachment(wRecordSourceFieldName, margin);
+    fdHasDescriptive.top = new FormAttachment(wlHasDescriptive, 0, SWT.CENTER);
     wHasDescriptiveAttributes.setLayoutData(fdHasDescriptive);
 
     // Participating hubs (single column table) inside options

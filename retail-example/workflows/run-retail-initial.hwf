@@ -69,101 +69,6 @@ limitations under the License.
       <attributes_hac/>
     </action>
     <action>
-      <filename>${PROJECT_HOME}/workflows/update-retail-dv-bv-dm.hwf</filename>
-      <params_from_previous>N</params_from_previous>
-      <exec_per_row>N</exec_per_row>
-      <set_logfile>N</set_logfile>
-      <logfile/>
-      <logext/>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <loglevel>Nothing</loglevel>
-      <set_append_logfile>N</set_append_logfile>
-      <create_parent_folder>N</create_parent_folder>
-      <wait_until_finished>Y</wait_until_finished>
-      <parameters>
-        <pass_all_parameters>Y</pass_all_parameters>
-        <parameter>
-          <name>DV_LOAD_DATE</name>
-          <value>${DV_INITIAL_LOAD_DATE}</value>
-          <stream_name/>
-        </parameter>
-      </parameters>
-      <run_configuration>local</run_configuration>
-      <name>update-retail-dv-bv-dm</name>
-      <description/>
-      <type>WORKFLOW</type>
-      <attributes/>
-      <xloc>304</xloc>
-      <yloc>256</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <sql/>
-      <connection>Vault</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>Y</sqlfromfile>
-      <sqlfilename>${PROJECT_HOME}/sql/advance-load-control.sql</sqlfilename>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>advance-load-control.sql</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>304</xloc>
-      <yloc>384</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
-      <failOnWarnings>Y</failOnWarnings>
-      <name>Validate resource definitions</name>
-      <type>VALIDATE_RESOURCE_DEFINITIONS</type>
-      <attributes/>
-      <xloc>112</xloc>
-      <yloc>144</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <workflowExecutionIdVariable/>
-      <useWorkflowLogChannelId>Y</useWorkflowLogChannelId>
-      <executionMetricsProfile>retail-execution-metrics</executionMetricsProfile>
-      <dataCatalogConnection>local-catalog</dataCatalogConnection>
-      <publishToDatabase>Y</publishToDatabase>
-      <publishToCatalog>Y</publishToCatalog>
-      <logToWorkflow>Y</logToWorkflow>
-      <writeMarkdownReport>Y</writeMarkdownReport>
-      <writeHtmlReport>Y</writeHtmlReport>
-      <reportOutputFolder>${PROJECT_HOME}/reports</reportOutputFolder>
-      <reportFileBaseName>retail-dv-initial-report</reportFileBaseName>
-      <failIfNoMetricsFound>Y</failIfNoMetricsFound>
-      <includePipelineDetail>Y</includePipelineDetail>
-      <includeInsights>Y</includeInsights>
-      <name>End Vault Update</name>
-      <type>END_VAULT_UPDATE</type>
-      <attributes/>
-      <xloc>464</xloc>
-      <yloc>256</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <workflowExecutionIdVariable/>
-      <useWorkflowLogChannelId>Y</useWorkflowLogChannelId>
-      <reuseExistingExecutionId>N</reuseExistingExecutionId>
-      <logToWorkflow>Y</logToWorkflow>
-      <name>Begin Vault Update</name>
-      <type>BEGIN_VAULT_UPDATE</type>
-      <attributes/>
-      <xloc>112</xloc>
-      <yloc>256</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
       <rootArtifactFilename/>
       <outputHemFile>${PROJECT_HOME}/execution-maps/run-retail-initial.hem</outputHemFile>
       <includeGeneratedPipelines>Y</includeGeneratedPipelines>
@@ -174,105 +79,11 @@ limitations under the License.
       <includeWorkflowActions>N</includeWorkflowActions>
       <includePipelineTransforms>N</includePipelineTransforms>
       <exportLineage>N</exportLineage>
-      <name>Generate execution map</name>
+      <name>Generate initial execution map</name>
       <type>GENERATE_EXECUTION_MAP</type>
       <attributes/>
-      <xloc>464</xloc>
-      <yloc>384</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <catalogConnection>local-catalog</catalogConnection>
-      <ruleSetName/>
-      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
-      <recordDefinitionKeys/>
-      <namespacePrefix/>
-      <evaluationMode>AUTO</evaluationMode>
-      <lifecycle>PRE_UPDATE</lifecycle>
-      <sampleLimit>1000</sampleLimit>
-      <persistHistory>Y</persistHistory>
-      <historyDatabase>OPS</historyDatabase>
-      <historySchema>dv_ops</historySchema>
-      <loadId>${DV_WORKFLOW_EXECUTION_ID}</loadId>
-      <autoCreateTables>Y</autoCreateTables>
-      <publishCatalogDefinitions>Y</publishCatalogDefinitions>
-      <failOnPersistError>N</failOnPersistError>
-      <name>Measure source data quality</name>
-      <description>Profile CRM source extracts against retail-source-quality rules</description>
-      <type>MEASURE_DATA_QUALITY</type>
-      <attributes/>
-      <xloc>352</xloc>
-      <yloc>144</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dispositionMode>FAIL_ON_BLOCKING</dispositionMode>
-      <remeasureIfNoPriorReport>Y</remeasureIfNoPriorReport>
-      <catalogConnection>local-catalog</catalogConnection>
-      <ruleSetName/>
-      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
-      <recordDefinitionKeys/>
-      <namespacePrefix/>
-      <alertSinks>log</alertSinks>
-      <alertOnGateFailure>Y</alertOnGateFailure>
-      <historyDatabase>OPS</historyDatabase>
-      <historySchema>dv_ops</historySchema>
-      <autoCreateHistoryTables>Y</autoCreateHistoryTables>
-      <name>Evaluate source quality gate</name>
-      <description>Fail the workflow when source quality has blocking findings</description>
-      <type>EVALUATE_QUALITY_GATE</type>
-      <attributes/>
       <xloc>528</xloc>
-      <yloc>144</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <catalogConnection>local-catalog</catalogConnection>
-      <ruleSetName/>
-      <resourceDefinitionGroup/>
-      <recordDefinitionKeys>hop/retail-example/models/retail-360/hub_customer,hop/retail-example/models/retail-360/sat_customer_demo,hop/retail-example/models/retail-360/hub_order</recordDefinitionKeys>
-      <namespacePrefix/>
-      <evaluationMode>AUTO</evaluationMode>
-      <lifecycle>POST_UPDATE</lifecycle>
-      <sampleLimit>1000</sampleLimit>
-      <persistHistory>Y</persistHistory>
-      <historyDatabase>OPS</historyDatabase>
-      <historySchema>dv_ops</historySchema>
-      <loadId>${DV_WORKFLOW_EXECUTION_ID}</loadId>
-      <autoCreateTables>N</autoCreateTables>
-      <publishCatalogDefinitions>N</publishCatalogDefinitions>
-      <failOnPersistError>N</failOnPersistError>
-      <name>Measure target data quality (post)</name>
-      <description>Measure published vault targets after update (POST_UPDATE, persist to OPS)</description>
-      <type>MEASURE_DATA_QUALITY</type>
-      <attributes/>
-      <xloc>672</xloc>
-      <yloc>256</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <dispositionMode>ALERT_ONLY</dispositionMode>
-      <remeasureIfNoPriorReport>N</remeasureIfNoPriorReport>
-      <catalogConnection>local-catalog</catalogConnection>
-      <ruleSetName/>
-      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
-      <recordDefinitionKeys>hop/retail-example/models/retail-360/hub_customer,hop/retail-example/models/retail-360/sat_customer_demo,hop/retail-example/models/retail-360/hub_order</recordDefinitionKeys>
-      <namespacePrefix/>
-      <alertSinks>log,ops_table</alertSinks>
-      <alertOnGateFailure>Y</alertOnGateFailure>
-      <historyDatabase>OPS</historyDatabase>
-      <historySchema>dv_ops</historySchema>
-      <autoCreateHistoryTables>N</autoCreateHistoryTables>
-      <name>Alert on target quality (post)</name>
-      <description>Alert on target quality findings after update without failing the workflow</description>
-      <type>EVALUATE_QUALITY_GATE</type>
-      <attributes/>
-      <xloc>896</xloc>
-      <yloc>256</yloc>
+      <yloc>192</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -340,71 +151,39 @@ limitations under the License.
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
+    <action>
+      <filename>${PROJECT_HOME}/workflows/run-retail-update-models.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <logfile/>
+      <logext/>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <loglevel>Nothing</loglevel>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+        <parameter>
+          <name>DV_ACTUAL_LOAD_DATE</name>
+          <value>${DV_INITIAL_LOAD_DATE}</value>
+          <stream_name/>
+        </parameter>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>run-retail-update-models</name>
+      <description/>
+      <type>WORKFLOW</type>
+      <attributes/>
+      <xloc>304</xloc>
+      <yloc>192</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
   </actions>
   <hops>
-    <hop>
-      <from>update-retail-dv-bv-dm</from>
-      <to>advance-load-control.sql</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>update-retail-dv-bv-dm</from>
-      <to>End Vault Update</to>
-      <evaluation>N</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Validate resource definitions</from>
-      <to>Measure source data quality</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Begin Vault Update</from>
-      <to>update-retail-dv-bv-dm</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>End Vault Update</from>
-      <to>Measure target data quality (post)</to>
-      <evaluation>N</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Measure source data quality</from>
-      <to>Evaluate source quality gate</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Evaluate source quality gate</from>
-      <to>Begin Vault Update</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Measure target data quality (post)</from>
-      <to>Alert on target quality (post)</to>
-      <evaluation>N</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>End Vault Update</from>
-      <to>Generate execution map</to>
-      <evaluation>N</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
     <hop>
       <from>Start</from>
       <to>ping db</to>
@@ -428,7 +207,14 @@ limitations under the License.
     </hop>
     <hop>
       <from>run-retail-initial-setup-db</from>
-      <to>Validate resource definitions</to>
+      <to>run-retail-update-models</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>run-retail-update-models</from>
+      <to>Generate initial execution map</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
