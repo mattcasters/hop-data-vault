@@ -60,6 +60,24 @@ public final class DataQualityMeasureService {
       IHopMetadataProvider metadataProvider,
       ILogChannel log)
       throws HopException {
+    return measureDefinitions(
+        definitions, mode, lifecycle, sampleLimit, variables, metadataProvider, log, null);
+  }
+
+  /**
+   * @param additionalRuleSetName optional Hop metadata name of a {@code DataQualityRuleSetMeta}
+   *     selected on Measure / Evaluate (applied to every subject in addition to catalog bindings)
+   */
+  public static DataQualityReport measureDefinitions(
+      List<RecordDefinition> definitions,
+      QualityEvaluationMode mode,
+      QualityLifecycle lifecycle,
+      int sampleLimit,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      ILogChannel log,
+      String additionalRuleSetName)
+      throws HopException {
     DataQualityReport report =
         new DataQualityReport(lifecycle != null ? lifecycle : QualityLifecycle.AD_HOC);
     if (definitions == null || definitions.isEmpty()) {
@@ -76,7 +94,8 @@ public final class DataQualityMeasureService {
       report.addSubjectKey(subjectKey);
       try {
         List<RecordQualityRuleBinding> bindings = definition.getQualityRules();
-        List<DataQualityRule> rules = QualityRuleResolver.resolve(bindings, metadataProvider);
+        List<DataQualityRule> rules =
+            QualityRuleResolver.resolve(bindings, metadataProvider, additionalRuleSetName);
         if (rules.isEmpty()) {
           logger.logDetailed("No quality rules bound for " + subjectKey);
           continue;

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.catalog.metadata.ResourceDefinitionGroupMeta;
 import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
@@ -31,6 +32,7 @@ import org.apache.hop.catalog.quality.CatalogQualitySubjectSupport;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.annotations.Action;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
@@ -45,6 +47,7 @@ import org.apache.hop.datavault.resourcedefinition.ValidationModels;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
 import org.apache.hop.quality.history.DataQualityHistoryPublisher;
+import org.apache.hop.quality.metadata.DataQualityRuleSetMeta;
 import org.apache.hop.quality.history.DataQualityHistoryPublisher.PublishContext;
 import org.apache.hop.quality.history.DataQualityHistoryPublisher.PublishResult;
 import org.apache.hop.quality.history.DataQualityHistoryPublisher.PublishStatus;
@@ -84,12 +87,23 @@ public class ActionMeasureDataQuality extends ActionBase implements Cloneable, I
 
   @GuiWidgetElement(
       order = "0100",
-      type = GuiElementType.TEXT,
+      type = GuiElementType.METADATA,
+      metadata = DataCatalogMeta.class,
       label = "i18n::ActionMeasureDataQuality.CatalogConnection.Label",
       toolTip = "i18n::ActionMeasureDataQuality.CatalogConnection.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String catalogConnection;
+
+  @GuiWidgetElement(
+      order = "0150",
+      type = GuiElementType.METADATA,
+      metadata = DataQualityRuleSetMeta.class,
+      label = "i18n::ActionMeasureDataQuality.RuleSet.Label",
+      toolTip = "i18n::ActionMeasureDataQuality.RuleSet.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String ruleSetName;
 
   @GuiWidgetElement(
       order = "0200",
@@ -157,8 +171,8 @@ public class ActionMeasureDataQuality extends ActionBase implements Cloneable, I
 
   @GuiWidgetElement(
       order = "0810",
-      type = GuiElementType.TEXT,
-      variables = true,
+      type = GuiElementType.METADATA,
+      metadata = DatabaseMeta.class,
       label = "i18n::ActionMeasureDataQuality.HistoryDatabase.Label",
       toolTip = "i18n::ActionMeasureDataQuality.HistoryDatabase.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
@@ -219,6 +233,7 @@ public class ActionMeasureDataQuality extends ActionBase implements Cloneable, I
   public ActionMeasureDataQuality(ActionMeasureDataQuality meta) {
     super(meta);
     this.catalogConnection = meta.catalogConnection;
+    this.ruleSetName = meta.ruleSetName;
     this.resourceDefinitionGroup = meta.resourceDefinitionGroup;
     this.recordDefinitionKeys = meta.recordDefinitionKeys;
     this.namespacePrefix = meta.namespacePrefix;
@@ -256,7 +271,14 @@ public class ActionMeasureDataQuality extends ActionBase implements Cloneable, I
 
     DataQualityReport report =
         DataQualityMeasureService.measureDefinitions(
-            subjects, mode, life, limit, getVariables(), getMetadataProvider(), getLogChannel());
+            subjects,
+            mode,
+            life,
+            limit,
+            getVariables(),
+            getMetadataProvider(),
+            getLogChannel(),
+            Const.NVL(ruleSetName, "").trim());
 
     String formatted = DataQualityReportFormatter.format(report);
     if (!Utils.isEmpty(formatted)) {

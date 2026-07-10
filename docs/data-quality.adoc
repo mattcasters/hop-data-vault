@@ -102,7 +102,7 @@ On a record definition JSON document:
 ]
 ----
 
-Or reference a rule set:
+Or reference a rule set (pick the rule set from the catalog **Quality** tab combo, or from Measure’s metadata field):
 
 [source,json]
 ----
@@ -116,6 +116,8 @@ Or reference a rule set:
 ]
 ----
 
+Leave `ruleId` empty to bind **every** enabled rule in that set. The catalog Quality tab edits library bindings (rule set + rule id + field/severity overrides) and preserves any existing inline rules.
+
 DV/BV/DM catalog publishers **preserve** existing `qualityRules` (and validation acknowledgements) on republish so target bindings survive routine model publish.
 
 == Workflow actions
@@ -123,6 +125,8 @@ DV/BV/DM catalog publishers **preserve** existing `qualityRules` (and validation
 === Measure data quality
 
 * Scope: resource definition group, and/or `namespace/name` keys, and/or namespace prefix
+* **Data quality rule set** (optional Hop **metadata** picker): applies every enabled rule in that library to each subject, **in addition to** catalog `qualityRules` (ids de-duplicated; catalog bindings win on conflict)
+* Catalog connection and history database use Hop **metadata** pickers (same pattern as other actions)
 * Evaluation mode: `AUTO` (SQL pushdown for databases)
 * Lifecycle: `PRE_UPDATE`, `POST_UPDATE`, `AD_HOC`
 * Logs a formatted report; stores it on the workflow for the next gate step
@@ -159,7 +163,7 @@ Catalog stubs for retail live under `retail-example/catalog-data/hop/retail-exam
 === Evaluate quality gate
 
 * Disposition: `FAIL_ON_BLOCKING`, `FAIL_ON_WARNINGS`, `ALERT_ONLY`
-* Uses the prior measure report when available; otherwise re-measures if configured
+* Uses the prior measure report when available; otherwise re-measures if configured (same **rule set** / catalog scope fields as Measure)
 * Prefer `remeasureIfNoPriorReport=N` when a Measure step immediately precedes the gate (remeasure is `AD_HOC` and would mislabel lifecycle)
 
 ==== Alert sinks

@@ -66,6 +66,7 @@ public class RecordDefinitionDdlDialog extends BaseTransformDialog {
   private Button wDropTableIfExists;
   private Button wSkipIfTableExists;
   private Button wAppendSemicolon;
+  private Button wFailIfNoFields;
   private TextVar wOutputDdlField;
   private TextVar wOutputStatusField;
 
@@ -310,6 +311,15 @@ public class RecordDefinitionDdlDialog extends BaseTransformDialog {
     wDropTableIfExists = addCheckbox(comp, "RecordDefinitionDdlDialog.DropTableIfExists.Label", middle, margin, wExecuteDdl);
     wSkipIfTableExists = addCheckbox(comp, "RecordDefinitionDdlDialog.SkipIfTableExists.Label", middle, margin, wDropTableIfExists);
     wAppendSemicolon = addCheckbox(comp, "RecordDefinitionDdlDialog.AppendSemicolon.Label", middle, margin, wSkipIfTableExists);
+    wFailIfNoFields =
+        addCheckbox(
+            comp,
+            "RecordDefinitionDdlDialog.FailIfNoFields.Label",
+            middle,
+            margin,
+            wAppendSemicolon);
+    wFailIfNoFields.setToolTipText(
+        BaseMessages.getString(PKG, "RecordDefinitionDdlDialog.FailIfNoFields.ToolTip"));
 
     Label wlOutputDdlField = new Label(comp, SWT.RIGHT);
     wlOutputDdlField.setText(BaseMessages.getString(PKG, "RecordDefinitionDdlDialog.OutputDdlField.Label"));
@@ -317,7 +327,7 @@ public class RecordDefinitionDdlDialog extends BaseTransformDialog {
     FormData fdlOutputDdlField = new FormData();
     fdlOutputDdlField.left = new FormAttachment(0, margin);
     fdlOutputDdlField.right = new FormAttachment(middle, -margin);
-    fdlOutputDdlField.top = new FormAttachment(wAppendSemicolon, margin);
+    fdlOutputDdlField.top = new FormAttachment(wFailIfNoFields, margin);
     wlOutputDdlField.setLayoutData(fdlOutputDdlField);
 
     wOutputDdlField = new TextVar(variables, comp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
@@ -325,7 +335,7 @@ public class RecordDefinitionDdlDialog extends BaseTransformDialog {
     FormData fdOutputDdlField = new FormData();
     fdOutputDdlField.left = new FormAttachment(middle, 0);
     fdOutputDdlField.right = new FormAttachment(100, -margin);
-    fdOutputDdlField.top = new FormAttachment(wAppendSemicolon, margin);
+    fdOutputDdlField.top = new FormAttachment(wFailIfNoFields, margin);
     wOutputDdlField.setLayoutData(fdOutputDdlField);
 
     Label wlOutputStatusField = new Label(comp, SWT.RIGHT);
@@ -432,6 +442,7 @@ public class RecordDefinitionDdlDialog extends BaseTransformDialog {
     wDropTableIfExists.setSelection(input.isDropTableIfExists());
     wSkipIfTableExists.setSelection(input.isSkipIfTableExists());
     wAppendSemicolon.setSelection(input.isAppendSemicolon());
+    wFailIfNoFields.setSelection(input.isFailIfNoFields());
     wOutputDdlField.setText(Const.NVL(input.getOutputDdlField(), "ddl"));
     wOutputStatusField.setText(Const.NVL(input.getOutputStatusField(), "ddl_status"));
   }
@@ -459,6 +470,7 @@ public class RecordDefinitionDdlDialog extends BaseTransformDialog {
     input.setDropTableIfExists(wDropTableIfExists.getSelection());
     input.setSkipIfTableExists(wSkipIfTableExists.getSelection());
     input.setAppendSemicolon(wAppendSemicolon.getSelection());
+    input.setFailIfNoFields(wFailIfNoFields.getSelection());
     input.setOutputDdlField(Const.NVL(wOutputDdlField.getText(), "ddl"));
     input.setOutputStatusField(Const.NVL(wOutputStatusField.getText(), "ddl_status"));
     input.setChanged();

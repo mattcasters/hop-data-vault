@@ -64,4 +64,17 @@ class RecordDefinitionDdlMetaTest {
     assertEquals("ddl", meta.resolveOutputDdlField(new Variables()));
     assertEquals("ddl_status", meta.resolveOutputStatusField(new Variables()));
   }
+
+  @Test
+  void failIfNoFieldsDefaultsToTrueAndClones() {
+    RecordDefinitionDdlMeta meta = new RecordDefinitionDdlMeta();
+    assertTrue(meta.isFailIfNoFields());
+
+    meta.setFailIfNoFields(false);
+    RecordDefinitionDdlMeta clone = meta.clone();
+    assertEquals(false, clone.isFailIfNoFields());
+
+    RecordDefinitionDdlMeta defaults = new RecordDefinitionDdlMeta();
+    assertTrue(defaults.clone().isFailIfNoFields());
+  }
 }

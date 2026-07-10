@@ -87,6 +87,13 @@ public class RecordDefinitionDdlMeta
   @HopMetadataProperty(key = "append_semicolon")
   private boolean appendSemicolon = true;
 
+  /**
+   * When true (default), fail the transform if the catalog record definition has no fields to put
+   * in CREATE TABLE. Prevents silent empty-table creation when field metadata was not loaded.
+   */
+  @HopMetadataProperty(key = "fail_if_no_fields")
+  private boolean failIfNoFields = true;
+
   @HopMetadataProperty(key = "output_ddl_field")
   private String outputDdlField = "ddl";
 
@@ -114,6 +121,7 @@ public class RecordDefinitionDdlMeta
     meta.dropTableIfExists = dropTableIfExists;
     meta.skipIfTableExists = skipIfTableExists;
     meta.appendSemicolon = appendSemicolon;
+    meta.failIfNoFields = failIfNoFields;
     meta.outputDdlField = outputDdlField;
     meta.outputStatusField = outputStatusField;
     return meta;

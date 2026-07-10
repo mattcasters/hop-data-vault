@@ -24,11 +24,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.catalog.metadata.ResourceDefinitionGroupMeta;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.quality.CatalogQualitySubjectSupport;
+import org.apache.hop.core.Const;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.annotations.Action;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
@@ -48,6 +51,7 @@ import org.apache.hop.quality.disposition.QualityDisposition;
 import org.apache.hop.quality.disposition.QualityDispositionMode;
 import org.apache.hop.quality.history.DataQualityHistoryPublisher;
 import org.apache.hop.quality.history.DataQualityHistoryPublisher.PublishContext;
+import org.apache.hop.quality.metadata.DataQualityRuleSetMeta;
 import org.apache.hop.quality.model.DataQualityReport;
 import org.apache.hop.quality.model.QualityEvaluationMode;
 import org.apache.hop.quality.model.QualityLifecycle;
@@ -99,12 +103,23 @@ public class ActionEvaluateQualityGate extends ActionBase implements Cloneable, 
 
   @GuiWidgetElement(
       order = "0300",
-      type = GuiElementType.TEXT,
+      type = GuiElementType.METADATA,
+      metadata = DataCatalogMeta.class,
       label = "i18n::ActionEvaluateQualityGate.CatalogConnection.Label",
       toolTip = "i18n::ActionEvaluateQualityGate.CatalogConnection.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
   @HopMetadataProperty
   private String catalogConnection;
+
+  @GuiWidgetElement(
+      order = "0350",
+      type = GuiElementType.METADATA,
+      metadata = DataQualityRuleSetMeta.class,
+      label = "i18n::ActionEvaluateQualityGate.RuleSet.Label",
+      toolTip = "i18n::ActionEvaluateQualityGate.RuleSet.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String ruleSetName;
 
   @GuiWidgetElement(
       order = "0400",
@@ -154,8 +169,8 @@ public class ActionEvaluateQualityGate extends ActionBase implements Cloneable, 
 
   @GuiWidgetElement(
       order = "0720",
-      type = GuiElementType.TEXT,
-      variables = true,
+      type = GuiElementType.METADATA,
+      metadata = DatabaseMeta.class,
       label = "i18n::ActionEvaluateQualityGate.HistoryDatabase.Label",
       toolTip = "i18n::ActionEvaluateQualityGate.HistoryDatabase.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
@@ -190,6 +205,7 @@ public class ActionEvaluateQualityGate extends ActionBase implements Cloneable, 
     this.dispositionMode = meta.dispositionMode;
     this.remeasureIfNoPriorReport = meta.remeasureIfNoPriorReport;
     this.catalogConnection = meta.catalogConnection;
+    this.ruleSetName = meta.ruleSetName;
     this.resourceDefinitionGroup = meta.resourceDefinitionGroup;
     this.recordDefinitionKeys = meta.recordDefinitionKeys;
     this.namespacePrefix = meta.namespacePrefix;
@@ -356,7 +372,8 @@ public class ActionEvaluateQualityGate extends ActionBase implements Cloneable, 
         1000,
         getVariables(),
         getMetadataProvider(),
-        getLogChannel());
+        getLogChannel(),
+        Const.NVL(ruleSetName, "").trim());
   }
 
   private List<RecordDefinition> resolveSubjects() throws HopException {

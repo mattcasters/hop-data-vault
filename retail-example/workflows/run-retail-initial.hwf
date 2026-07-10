@@ -184,6 +184,7 @@ limitations under the License.
     </action>
     <action>
       <catalogConnection>local-catalog</catalogConnection>
+      <ruleSetName/>
       <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
       <recordDefinitionKeys/>
       <namespacePrefix/>
@@ -194,6 +195,9 @@ limitations under the License.
       <historyDatabase>OPS</historyDatabase>
       <historySchema>dv_ops</historySchema>
       <loadId>${DV_WORKFLOW_EXECUTION_ID}</loadId>
+      <autoCreateTables>Y</autoCreateTables>
+      <publishCatalogDefinitions>Y</publishCatalogDefinitions>
+      <failOnPersistError>N</failOnPersistError>
       <name>Measure source data quality</name>
       <description>Profile CRM source extracts against retail-source-quality rules</description>
       <type>MEASURE_DATA_QUALITY</type>
@@ -207,9 +211,15 @@ limitations under the License.
       <dispositionMode>FAIL_ON_BLOCKING</dispositionMode>
       <remeasureIfNoPriorReport>Y</remeasureIfNoPriorReport>
       <catalogConnection>local-catalog</catalogConnection>
+      <ruleSetName/>
       <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
       <recordDefinitionKeys/>
       <namespacePrefix/>
+      <alertSinks>log</alertSinks>
+      <alertOnGateFailure>Y</alertOnGateFailure>
+      <historyDatabase>OPS</historyDatabase>
+      <historySchema>dv_ops</historySchema>
+      <autoCreateHistoryTables>Y</autoCreateHistoryTables>
       <name>Evaluate source quality gate</name>
       <description>Fail the workflow when source quality has blocking findings</description>
       <type>EVALUATE_QUALITY_GATE</type>
@@ -221,6 +231,7 @@ limitations under the License.
     </action>
     <action>
       <catalogConnection>local-catalog</catalogConnection>
+      <ruleSetName/>
       <resourceDefinitionGroup/>
       <recordDefinitionKeys>hop/retail-example/models/retail-360/hub_customer,hop/retail-example/models/retail-360/sat_customer_demo,hop/retail-example/models/retail-360/hub_order</recordDefinitionKeys>
       <namespacePrefix/>
@@ -231,6 +242,9 @@ limitations under the License.
       <historyDatabase>OPS</historyDatabase>
       <historySchema>dv_ops</historySchema>
       <loadId>${DV_WORKFLOW_EXECUTION_ID}</loadId>
+      <autoCreateTables>N</autoCreateTables>
+      <publishCatalogDefinitions>N</publishCatalogDefinitions>
+      <failOnPersistError>N</failOnPersistError>
       <name>Measure target data quality (post)</name>
       <description>Measure published vault targets after update (POST_UPDATE, persist to OPS)</description>
       <type>MEASURE_DATA_QUALITY</type>
@@ -244,12 +258,15 @@ limitations under the License.
       <dispositionMode>ALERT_ONLY</dispositionMode>
       <remeasureIfNoPriorReport>N</remeasureIfNoPriorReport>
       <catalogConnection>local-catalog</catalogConnection>
-      <resourceDefinitionGroup/>
+      <ruleSetName/>
+      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
       <recordDefinitionKeys>hop/retail-example/models/retail-360/hub_customer,hop/retail-example/models/retail-360/sat_customer_demo,hop/retail-example/models/retail-360/hub_order</recordDefinitionKeys>
       <namespacePrefix/>
       <alertSinks>log,ops_table</alertSinks>
+      <alertOnGateFailure>Y</alertOnGateFailure>
       <historyDatabase>OPS</historyDatabase>
       <historySchema>dv_ops</historySchema>
+      <autoCreateHistoryTables>N</autoCreateHistoryTables>
       <name>Alert on target quality (post)</name>
       <description>Alert on target quality findings after update without failing the workflow</description>
       <type>EVALUATE_QUALITY_GATE</type>

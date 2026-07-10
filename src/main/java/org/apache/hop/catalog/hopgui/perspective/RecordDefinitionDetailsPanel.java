@@ -156,6 +156,7 @@ public class RecordDefinitionDetailsPanel {
   private TableView wGlossaryTerms;
   private TableView wCustomProperties;
   private TableView wQualityRules;
+  private Button wUpdateQualityRules;
   private Button wTestQualityMeasure;
   private Button wQualityHistory;
 
@@ -746,6 +747,18 @@ public class RecordDefinitionDetailsPanel {
     wGlossaryTerms = createListTable(wGlossaryTabComp, messageKey("GlossaryTerms.Column"));
     wCustomProperties = createCustomPropertiesTable(wCustomPropertiesTabComp);
     wQualityRules = createQualityRulesTable(wQualityTabComp);
+    wUpdateQualityRules = new Button(wQualityTabComp, SWT.PUSH);
+    wUpdateQualityRules.setText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.UpdateButton.Label"));
+    wUpdateQualityRules.setToolTipText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.UpdateButton.ToolTip"));
+    PropsUi.setLook(wUpdateQualityRules);
+    FormData fdUpdateQuality = new FormData();
+    fdUpdateQuality.right = new FormAttachment(100, 0);
+    fdUpdateQuality.bottom = new FormAttachment(100, 0);
+    wUpdateQualityRules.setLayoutData(fdUpdateQuality);
+    wUpdateQualityRules.addListener(SWT.Selection, e -> updateQualityRules());
+
     wTestQualityMeasure = new Button(wQualityTabComp, SWT.PUSH);
     wTestQualityMeasure.setText(
         BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.TestButton.Label"));
@@ -753,7 +766,7 @@ public class RecordDefinitionDetailsPanel {
         BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.TestButton.ToolTip"));
     PropsUi.setLook(wTestQualityMeasure);
     FormData fdTestQuality = new FormData();
-    fdTestQuality.right = new FormAttachment(100, 0);
+    fdTestQuality.right = new FormAttachment(wUpdateQualityRules, -PropsUi.getMargin());
     fdTestQuality.bottom = new FormAttachment(100, 0);
     wTestQualityMeasure.setLayoutData(fdTestQuality);
     wTestQualityMeasure.addListener(SWT.Selection, e -> testQualityMeasure());
@@ -771,7 +784,7 @@ public class RecordDefinitionDetailsPanel {
     wQualityHistory.addListener(SWT.Selection, e -> openQualityHistory());
 
     FormData fdQualityRules = (FormData) wQualityRules.getLayoutData();
-    fdQualityRules.bottom = new FormAttachment(wTestQualityMeasure, -PropsUi.getMargin());
+    fdQualityRules.bottom = new FormAttachment(wUpdateQualityRules, -PropsUi.getMargin());
     wQualityRules.setLayoutData(fdQualityRules);
 
     wTabFolder.setSelection(0);
@@ -1214,9 +1227,11 @@ public class RecordDefinitionDetailsPanel {
     if (wPreviewRecords != null) {
       wPreviewRecords.setEnabled(RecordDefinitionPreviewSupport.supportsPreview(definition));
     }
+    if (wUpdateQualityRules != null) {
+      wUpdateQualityRules.setEnabled(true);
+    }
     if (wTestQualityMeasure != null) {
-      wTestQualityMeasure.setEnabled(
-          definition.getQualityRules() != null && !definition.getQualityRules().isEmpty());
+      wTestQualityMeasure.setEnabled(true);
     }
     if (wQualityHistory != null) {
       wQualityHistory.setEnabled(true);
@@ -1713,33 +1728,40 @@ public class RecordDefinitionDetailsPanel {
   }
 
   private TableView createQualityRulesTable(Composite tabComp) {
+    String[] severityValues =
+        new String[] {
+          "",
+          org.apache.hop.quality.model.QualitySeverity.BLOCKING.name(),
+          org.apache.hop.quality.model.QualitySeverity.WARNING.name(),
+          org.apache.hop.quality.model.QualitySeverity.INFO.name()
+        };
     ColumnInfo[] columns =
         new ColumnInfo[] {
           new ColumnInfo(
-              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Source.Column"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false,
-              true),
+              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.RuleSet.Column"),
+              ColumnInfo.COLUMN_TYPE_CCOMBO,
+              listDataQualityRuleSetNames(),
+              false),
           new ColumnInfo(
-              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Type.Column"),
+              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.RuleId.Column"),
               ColumnInfo.COLUMN_TYPE_TEXT,
               false,
-              true),
+              false),
           new ColumnInfo(
               BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Field.Column"),
               ColumnInfo.COLUMN_TYPE_TEXT,
               false,
-              true),
+              false),
           new ColumnInfo(
               BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Severity.Column"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false,
-              true),
+              ColumnInfo.COLUMN_TYPE_CCOMBO,
+              severityValues,
+              false),
           new ColumnInfo(
               BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Enabled.Column"),
-              ColumnInfo.COLUMN_TYPE_TEXT,
-              false,
-              true)
+              ColumnInfo.COLUMN_TYPE_CCOMBO,
+              new String[] {"Y", "N"},
+              false)
         };
     TableView table =
         new TableView(
@@ -1760,57 +1782,117 @@ public class RecordDefinitionDetailsPanel {
     return table;
   }
 
+  private static String[] listDataQualityRuleSetNames() {
+    try {
+      List<String> names =
+          HopGui.getInstance()
+              .getMetadataProvider()
+              .getSerializer(org.apache.hop.quality.metadata.DataQualityRuleSetMeta.class)
+              .listObjectNames();
+      if (names == null || names.isEmpty()) {
+        return new String[] {""};
+      }
+      List<String> withBlank = new ArrayList<>();
+      withBlank.add("");
+      withBlank.addAll(names);
+      return withBlank.toArray(new String[0]);
+    } catch (Exception e) {
+      return new String[] {""};
+    }
+  }
+
   private void populateQualityRulesTable(
       List<org.apache.hop.quality.model.RecordQualityRuleBinding> bindings) {
     if (wQualityRules == null) {
       return;
     }
+    // Refresh rule-set combo values when metadata changes.
+    if (wQualityRules.getColumns() != null && wQualityRules.getColumns().length > 0) {
+      wQualityRules.getColumns()[0].setComboValues(listDataQualityRuleSetNames());
+    }
     wQualityRules.clearAll(false);
     List<org.apache.hop.quality.model.RecordQualityRuleBinding> items =
         bindings != null ? bindings : List.of();
-    for (int i = 0; i < items.size(); i++) {
-      org.apache.hop.quality.model.RecordQualityRuleBinding binding = items.get(i);
+    int row = 0;
+    for (org.apache.hop.quality.model.RecordQualityRuleBinding binding : items) {
+      if (binding == null) {
+        continue;
+      }
+      // Library bindings only in the editable grid; inline rules are preserved on Update.
+      if (binding.getInlineRule() != null) {
+        continue;
+      }
       TableItem item;
-      if (i == 0) {
+      if (row == 0 && wQualityRules.getTable().getItemCount() > 0) {
         item = wQualityRules.getTable().getItem(0);
       } else {
         item = new TableItem(wQualityRules.getTable(), SWT.NONE);
       }
-      if (binding == null) {
-        continue;
-      }
-      String source;
-      String type = "";
-      String field = Const.NVL(binding.getFieldNameOverride(), "");
-      String severity =
-          binding.getSeverityOverride() != null ? binding.getSeverityOverride().name() : "";
-      if (binding.getInlineRule() != null) {
-        source = "inline:" + Const.NVL(binding.getInlineRule().getName(), binding.getInlineRule().getId());
-        type =
-            binding.getInlineRule().getType() != null
-                ? binding.getInlineRule().getType().name()
-                : "";
-        if (field.isEmpty()) {
-          field = Const.NVL(binding.getInlineRule().getFieldName(), "");
-        }
-        if (severity.isEmpty() && binding.getInlineRule().getSeverity() != null) {
-          severity = binding.getInlineRule().getSeverity().name();
-        }
-      } else {
-        source =
-            Const.NVL(binding.getRuleSetName(), "")
-                + "#"
-                + Const.NVL(binding.getRuleId(), "");
-      }
-      item.setText(1, source);
-      item.setText(2, type);
-      item.setText(3, field);
-      item.setText(4, severity);
+      item.setText(1, Const.NVL(binding.getRuleSetName(), ""));
+      item.setText(2, Const.NVL(binding.getRuleId(), ""));
+      item.setText(3, Const.NVL(binding.getFieldNameOverride(), ""));
+      item.setText(
+          4,
+          binding.getSeverityOverride() != null ? binding.getSeverityOverride().name() : "");
       item.setText(5, binding.isEnabled() ? "Y" : "N");
+      row++;
     }
     wQualityRules.removeEmptyRows();
     wQualityRules.setRowNums();
     wQualityRules.optWidth(true);
+  }
+
+  private void updateQualityRules() {
+    if (!confirmUpdate(messageKey("Quality.UpdateConfirm.Message"))) {
+      return;
+    }
+    try {
+      List<org.apache.hop.quality.model.RecordQualityRuleBinding> next = new ArrayList<>();
+      // Preserve existing inline rules (library grid does not author them yet).
+      if (definition.getQualityRules() != null) {
+        for (org.apache.hop.quality.model.RecordQualityRuleBinding existing :
+            definition.getQualityRules()) {
+          if (existing != null && existing.getInlineRule() != null) {
+            next.add(existing);
+          }
+        }
+      }
+      for (TableItem item : wQualityRules.getNonEmptyItems()) {
+        String ruleSet = item.getText(1).trim();
+        String ruleId = item.getText(2).trim();
+        String field = item.getText(3).trim();
+        String severityRaw = item.getText(4).trim();
+        String enabledRaw = item.getText(5).trim();
+        if (Utils.isEmpty(ruleSet) && Utils.isEmpty(ruleId) && Utils.isEmpty(field)) {
+          continue;
+        }
+        if (Utils.isEmpty(ruleSet)) {
+          throw new HopException(
+              BaseMessages.getString(
+                  PKG, "RecordDefinitionDetailsPanel.Quality.Error.RuleSetRequired"));
+        }
+        org.apache.hop.quality.model.RecordQualityRuleBinding binding =
+            new org.apache.hop.quality.model.RecordQualityRuleBinding();
+        binding.setRuleSetName(ruleSet);
+        binding.setRuleId(ruleId); // empty = apply entire rule set
+        binding.setFieldNameOverride(field);
+        if (!Utils.isEmpty(severityRaw)) {
+          binding.setSeverityOverride(
+              org.apache.hop.quality.model.QualitySeverity.valueOf(severityRaw));
+        }
+        binding.setEnabled(!"N".equalsIgnoreCase(enabledRaw));
+        next.add(binding);
+      }
+      definition.setQualityRules(next);
+      persistDefinition();
+      populateQualityRulesTable(definition.getQualityRules());
+      if (wTestQualityMeasure != null) {
+        wTestQualityMeasure.setEnabled(
+            definition.getQualityRules() != null && !definition.getQualityRules().isEmpty());
+      }
+    } catch (Exception e) {
+      showUpdateError(e);
+    }
   }
 
   private void testQualityMeasure() {

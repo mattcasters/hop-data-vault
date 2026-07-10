@@ -173,8 +173,7 @@ public class DataQualityRuleSetMetaEditor extends MetadataEditor<DataQualityRule
       item.setText(6, formatParameters(rule.getParameters()));
       item.setText(7, rule.isEnabled() ? "Y" : "N");
     }
-    wRules.setRowNums();
-    wRules.optWidth(true);
+    wRules.optimizeTableView();
   }
 
   @Override

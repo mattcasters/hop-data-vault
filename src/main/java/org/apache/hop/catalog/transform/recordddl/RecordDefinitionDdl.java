@@ -212,6 +212,20 @@ public class RecordDefinitionDdl
 
       List<SourceField> sourceFields =
           CatalogTableDdlSupport.sourceFieldsFromDefinition(definition, this);
+      if ((sourceFields == null || sourceFields.isEmpty()) && meta.isFailIfNoFields()) {
+        throw new HopException(
+            "No fields received for record definition "
+                + namespace
+                + "/"
+                + recordName
+                + " (table "
+                + target.tableName()
+                + "). Enable 'Output fields metadata' on Record Definition Input "
+                + "or ensure the catalog record has fields. "
+                + "Disable 'Fail if no fields received' on Record Definition DDL only if "
+                + "empty-field definitions are intentional.");
+      }
+
       DdlResult result =
           CatalogTableDdlSupport.applyTableDdl(
               databaseMeta,
@@ -233,6 +247,13 @@ public class RecordDefinitionDdl
                 + target.tableName()
                 + (result.message() != null ? ": " + result.message() : ""));
       }
+    } catch (HopException e) {
+      if (meta.isFailIfNoFields() && isNoFieldsError(e)) {
+        throw e;
+      }
+      outputRow[ddlIndex] = null;
+      outputRow[statusIndex] = CatalogTableDdlSupport.DdlStatus.ERROR.name();
+      logError("DDL failed for " + recordName, e);
     } catch (Exception e) {
       outputRow[ddlIndex] = null;
       outputRow[statusIndex] = CatalogTableDdlSupport.DdlStatus.ERROR.name();
@@ -240,6 +261,15 @@ public class RecordDefinitionDdl
     }
 
     putRow(data.outputRowMeta, outputRow);
+  }
+
+  private static boolean isNoFieldsError(HopException e) {
+    if (e == null || e.getMessage() == null) {
+      return false;
+    }
+    String message = e.getMessage();
+    return message.contains("No fields received for record definition")
+        || message.contains("At least one source field is required to generate DDL");
   }
 
   private Object[] buildOutputRow(Object[] inputRow) throws HopException {
