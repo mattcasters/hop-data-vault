@@ -40,18 +40,56 @@ final class EvaluatorSupport {
       Map<String, String> metrics) {
     QualitySeverity severity =
         rule.getSeverity() != null ? rule.getSeverity() : QualitySeverity.BLOCKING;
+    return findingWithSeverity(
+        rule, context, fieldName, message, actual, expected, metrics, severity);
+  }
+
+  /** Finding with a fixed severity (e.g. INFO for truncated / incomplete coverage). */
+  static DataQualityFinding findingWithSeverity(
+      DataQualityRule rule,
+      QualityEvaluationContext context,
+      String fieldName,
+      String message,
+      String actual,
+      String expected,
+      Map<String, String> metrics,
+      QualitySeverity severity) {
+    QualitySeverity effective =
+        severity != null
+            ? severity
+            : (rule.getSeverity() != null ? rule.getSeverity() : QualitySeverity.BLOCKING);
     return DataQualityFinding.builder()
         .subjectKey(context.getSubjectKey())
         .ruleId(rule.getId())
         .ruleName(rule.getName())
         .type(rule.getType())
-        .severity(severity)
+        .severity(effective)
         .fieldName(fieldName)
         .message(message)
         .actualSummary(actual)
         .expectedSummary(expected)
         .metrics(metrics != null ? metrics : Map.of())
         .build();
+  }
+
+  static Map<String, String> metrics(Map<String, String> base) {
+    return base != null ? new LinkedHashMap<>(base) : new LinkedHashMap<>();
+  }
+
+  static Map<String, String> metrics(String k1, String v1, String k2, String v2) {
+    Map<String, String> map = new LinkedHashMap<>();
+    map.put(k1, v1);
+    map.put(k2, v2);
+    return map;
+  }
+
+  static Map<String, String> metrics(
+      String k1, String v1, String k2, String v2, String k3, String v3) {
+    Map<String, String> map = new LinkedHashMap<>();
+    map.put(k1, v1);
+    map.put(k2, v2);
+    map.put(k3, v3);
+    return map;
   }
 
   static String resolveField(DataQualityRule rule) {

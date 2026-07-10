@@ -22,11 +22,17 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.hop.quality.engine.evaluators.AllowedValuesEvaluator;
+import org.apache.hop.quality.engine.evaluators.MaxDistinctEvaluator;
+import org.apache.hop.quality.engine.evaluators.MaxLengthEvaluator;
 import org.apache.hop.quality.engine.evaluators.MaxRowCountEvaluator;
+import org.apache.hop.quality.engine.evaluators.MinDistinctEvaluator;
+import org.apache.hop.quality.engine.evaluators.MinLengthEvaluator;
 import org.apache.hop.quality.engine.evaluators.MinRowCountEvaluator;
 import org.apache.hop.quality.engine.evaluators.NotEmptyStringEvaluator;
 import org.apache.hop.quality.engine.evaluators.NotNullEvaluator;
+import org.apache.hop.quality.engine.evaluators.NullRatioMaxEvaluator;
 import org.apache.hop.quality.engine.evaluators.RangeEvaluator;
+import org.apache.hop.quality.engine.evaluators.RegexEvaluator;
 import org.apache.hop.quality.model.DataQualityFinding;
 import org.apache.hop.quality.model.DataQualityRule;
 import org.apache.hop.quality.model.DataQualityRuleType;
@@ -47,6 +53,13 @@ public final class DataQualityRuleEvaluatorRegistry {
     register(new AllowedValuesEvaluator());
     register(new RangeEvaluator());
     register(new NotEmptyStringEvaluator());
+    // Phase 2 profile-based rules
+    register(new NullRatioMaxEvaluator());
+    register(new MinDistinctEvaluator());
+    register(new MaxDistinctEvaluator());
+    register(new RegexEvaluator());
+    register(new MinLengthEvaluator());
+    register(new MaxLengthEvaluator());
   }
 
   public static DataQualityRuleEvaluatorRegistry getInstance() {

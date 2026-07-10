@@ -23,6 +23,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import lombok.Getter;
+import lombok.Setter;
 
 /** Per-field metrics collected during a measure pass. */
 @Getter
@@ -38,6 +39,21 @@ public class FieldProfile {
   private final Map<String, Long> valueCounts = new LinkedHashMap<>();
   private boolean distinctTruncated;
 
+  /**
+   * Exact distinct count from SQL {@code COUNT(DISTINCT col)} (or complete full-scan observation).
+   * {@code null} means unknown — use {@link #distinctValues} + {@link #distinctTruncated} fallback.
+   */
+  @Setter private Long exactDistinctCount;
+
+  private Integer minStringLength;
+  private Integer maxStringLength;
+
+  /**
+   * Per-rule REGEX collector results keyed by rule id. Populated by SQL pushdown or bounded sample
+   * paths; evaluators fall back to client-side valueCounts when absent.
+   */
+  private final Map<String, RegexRuleProfile> regexByRuleId = new LinkedHashMap<>();
+
   public FieldProfile(String fieldName) {
     this.fieldName = fieldName;
   }
@@ -49,6 +65,7 @@ public class FieldProfile {
   public void observeEmptyString() {
     emptyStringCount++;
     nonNullCount++;
+    observeStringLength(0);
   }
 
   public void observeValue(Object raw, String display, int maxDistinct) {
@@ -75,6 +92,28 @@ public class FieldProfile {
     }
   }
 
+  public void observeStringLength(int length) {
+    if (minStringLength == null || length < minStringLength) {
+      minStringLength = length;
+    }
+    if (maxStringLength == null || length > maxStringLength) {
+      maxStringLength = length;
+    }
+  }
+
+  public void setStringLengthFromSql(Integer min, Integer max) {
+    if (min != null) {
+      if (minStringLength == null || min < minStringLength) {
+        minStringLength = min;
+      }
+    }
+    if (max != null) {
+      if (maxStringLength == null || max > maxStringLength) {
+        maxStringLength = max;
+      }
+    }
+  }
+
   public void setMinMaxFromSql(Comparable<?> min, Comparable<?> max) {
     if (min != null) {
       updateMinMax(min);
@@ -94,7 +133,17 @@ public class FieldProfile {
     if (count > 0) {
       emptyStringCount += count;
       nonNullCount += count;
+      // Empty strings have length 0; bulk path does not know exact min/max across empties only.
+      observeStringLength(0);
     }
+  }
+
+  public RegexRuleProfile regexProfile(String ruleId) {
+    return regexByRuleId.computeIfAbsent(ruleId, id -> new RegexRuleProfile());
+  }
+
+  public RegexRuleProfile findRegexProfile(String ruleId) {
+    return ruleId == null ? null : regexByRuleId.get(ruleId);
   }
 
   @SuppressWarnings({"rawtypes", "unchecked"})
@@ -109,5 +158,25 @@ public class FieldProfile {
 
   public long getObservedCount() {
     return nullCount + nonNullCount;
+  }
+
+  /** Collector/evaluator side-channel for a single REGEX rule on this field. */
+  @Getter
+  @Setter
+  public static class RegexRuleProfile {
+    /** Path used: pushdown | sample | none. */
+    private String path;
+    /** Mismatch row count from SQL pushdown; null if pushdown not used. */
+    private Long mismatchCount;
+    /** Sample path: number of distinct values inspected. */
+    private long sampleSize;
+    /** Sample path: count of sampled values that failed the pattern. */
+    private long sampleMismatchCount;
+    /** Sample path: limit applied (e.g. 500). */
+    private int sampleLimit;
+    /** True when sample limit was hit and all samples matched (coverage incomplete). */
+    private boolean coverageIncomplete;
+    /** True when neither pushdown nor sample could run. */
+    private boolean skipped;
   }
 }

@@ -97,6 +97,9 @@ public final class RowProfileCollector {
             continue;
           }
           field.observeValue(text, text, maxDistinct);
+          if (text != null) {
+            field.observeStringLength(text.length());
+          }
         } else {
           String display;
           try {
@@ -105,6 +108,18 @@ public final class RowProfileCollector {
             display = String.valueOf(value);
           }
           field.observeValue(value, display, maxDistinct);
+          if (display != null) {
+            field.observeStringLength(display.length());
+          }
+        }
+      }
+    }
+
+    // Full-scan (non-sample) without truncation: treat observed distinct size as exact.
+    if (mode == QualityEvaluationMode.FULL_SCAN || mode == QualityEvaluationMode.SQL_PUSHDOWN) {
+      for (FieldProfile field : snapshot.getFields().values()) {
+        if (!field.isDistinctTruncated()) {
+          field.setExactDistinctCount((long) field.getDistinctValues().size());
         }
       }
     }

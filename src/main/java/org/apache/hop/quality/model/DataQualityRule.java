@@ -37,6 +37,14 @@ public class DataQualityRule {
   public static final String PARAM_VALUES = "values";
   public static final String PARAM_NULL_ALLOWED = "nullAllowed";
   public static final String PARAM_TRIM = "trim";
+  /** Null ratio upper bound for {@link DataQualityRuleType#NULL_RATIO_MAX} (0.0–1.0). */
+  public static final String PARAM_MAX_RATIO = "maxRatio";
+  /** Regex pattern for {@link DataQualityRuleType#REGEX}. */
+  public static final String PARAM_PATTERN = "pattern";
+  /** Regex case sensitivity (default true). */
+  public static final String PARAM_CASE_SENSITIVE = "caseSensitive";
+  /** Regex match mode: FULL (default) or FIND/PARTIAL. */
+  public static final String PARAM_MATCH_MODE = "matchMode";
 
   @HopMetadataProperty private String id;
 

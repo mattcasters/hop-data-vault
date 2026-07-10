@@ -18,12 +18,24 @@
 
 package org.apache.hop.quality.model;
 
-/** Built-in data quality rule kinds (Phase 1 MVP + reserved extensibility). */
+/** Built-in data quality rule kinds (Phase 1 + Phase 2 profile-based types). */
 public enum DataQualityRuleType {
   MIN_ROW_COUNT,
   MAX_ROW_COUNT,
   NOT_NULL,
   ALLOWED_VALUES,
   RANGE,
-  NOT_EMPTY_STRING
+  NOT_EMPTY_STRING,
+  /** Fail when nullCount/rowCount exceeds maxRatio (0.0–1.0). */
+  NULL_RATIO_MAX,
+  /** Fail when observed distinct count is below min. */
+  MIN_DISTINCT,
+  /** Fail when observed distinct count exceeds max. */
+  MAX_DISTINCT,
+  /** Non-null values must match a regex (DB pushdown preferred). */
+  REGEX,
+  /** Fail when any non-null string length is below min. */
+  MIN_LENGTH,
+  /** Fail when any non-null string length exceeds max. */
+  MAX_LENGTH
 }
