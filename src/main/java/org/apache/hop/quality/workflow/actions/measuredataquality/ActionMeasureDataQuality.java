@@ -274,11 +274,9 @@ public class ActionMeasureDataQuality extends ActionBase implements Cloneable, I
       if (publishResult != null
           && publishResult.status() == PublishStatus.FAILED
           && failOnPersistError) {
+        // Error already logged in persistQualityHistory — do not log twice.
         result.setResult(false);
         result.setNrErrors(Math.max(1, result.getNrErrors()));
-        logError(
-            BaseMessages.getString(
-                PKG, "ActionMeasureDataQuality.Error.PersistFailed", publishResult.message()));
         return result;
       }
     }

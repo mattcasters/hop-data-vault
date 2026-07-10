@@ -182,7 +182,7 @@ public final class DataQualityHistoryDdlSupport {
           PRIMARY KEY (quality_run_id)
         )"""
             .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_ALERT));
-    statements.addAll(indexStatements(schema));
+    statements.addAll(postgresIndexStatements(schema));
     return statements;
   }
 
@@ -272,11 +272,14 @@ public final class DataQualityHistoryDdlSupport {
           PRIMARY KEY (quality_run_id)
         )"""
             .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_ALERT));
-    statements.addAll(indexStatements(schema));
+    // MySQL does not support CREATE INDEX IF NOT EXISTS. These run only on the first-create
+    // path (when not all five tables exist), so plain CREATE INDEX is safe.
+    statements.addAll(mysqlIndexStatements(schema));
     return statements;
   }
 
-  private static List<String> indexStatements(String schema) {
+  /** Postgres/H2: IF NOT EXISTS + DESC on time columns per design §2.3. */
+  private static List<String> postgresIndexStatements(String schema) {
     List<String> statements = new ArrayList<>();
     statements.add(
         "CREATE INDEX IF NOT EXISTS idx_quality_run_load_id ON "
@@ -289,15 +292,45 @@ public final class DataQualityHistoryDdlSupport {
             + schema
             + "."
             + DataQualityHistoryPublisher.TABLE_QUALITY_RUN
-            + " (measured_at)");
+            + " (measured_at DESC)");
     statements.add(
         "CREATE INDEX IF NOT EXISTS idx_quality_profile_subject_lookup ON "
             + schema
             + "."
             + DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT
-            + " (subject_key, lifecycle, captured_at)");
+            + " (subject_key, lifecycle, captured_at DESC)");
     statements.add(
         "CREATE INDEX IF NOT EXISTS idx_quality_finding_subject_rule ON "
+            + schema
+            + "."
+            + DataQualityHistoryPublisher.TABLE_QUALITY_FINDING
+            + " (subject_key, rule_id)");
+    return statements;
+  }
+
+  /** MySQL/SingleStore: plain CREATE INDEX (no IF NOT EXISTS — unsupported). */
+  private static List<String> mysqlIndexStatements(String schema) {
+    List<String> statements = new ArrayList<>();
+    statements.add(
+        "CREATE INDEX idx_quality_run_load_id ON "
+            + schema
+            + "."
+            + DataQualityHistoryPublisher.TABLE_QUALITY_RUN
+            + " (load_id)");
+    statements.add(
+        "CREATE INDEX idx_quality_run_measured_at ON "
+            + schema
+            + "."
+            + DataQualityHistoryPublisher.TABLE_QUALITY_RUN
+            + " (measured_at DESC)");
+    statements.add(
+        "CREATE INDEX idx_quality_profile_subject_lookup ON "
+            + schema
+            + "."
+            + DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT
+            + " (subject_key, lifecycle, captured_at DESC)");
+    statements.add(
+        "CREATE INDEX idx_quality_finding_subject_rule ON "
             + schema
             + "."
             + DataQualityHistoryPublisher.TABLE_QUALITY_FINDING

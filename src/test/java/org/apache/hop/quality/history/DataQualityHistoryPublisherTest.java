@@ -183,6 +183,50 @@ class DataQualityHistoryPublisherTest {
   }
 
   @Test
+  void partialFailureAfterQualityRunCleansUpAllRows() throws Exception {
+    DataQualityReport report = sampleReport();
+    PublishContext context =
+        new PublishContext(
+            OPS_NAME,
+            DataQualityHistoryPublisher.DEFAULT_SCHEMA_NAME,
+            null,
+            false,
+            true,
+            true);
+
+    DataQualityHistoryPublisher.afterQualityRunInsertedForTest =
+        () -> {
+          throw new RuntimeException("forced mid-publish failure");
+        };
+    try {
+      PublishResult result =
+          DataQualityHistoryPublisher.publish(
+              LogChannel.GENERAL,
+              report,
+              context,
+              "load-partial",
+              "wf",
+              "exec",
+              variables,
+              metadataProvider);
+      assertEquals(PublishStatus.FAILED, result.status(), result.message());
+      assertTrue(result.message().contains("forced mid-publish failure"));
+      assertEquals(
+          0L, countRows(DataQualityHistoryPublisher.TABLE_QUALITY_RUN, report.getRunId()));
+      assertEquals(
+          0L,
+          countRows(DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT, report.getRunId()));
+      assertEquals(
+          0L,
+          countRows(DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_FIELD, report.getRunId()));
+      assertEquals(
+          0L, countRows(DataQualityHistoryPublisher.TABLE_QUALITY_FINDING, report.getRunId()));
+    } finally {
+      DataQualityHistoryPublisher.afterQualityRunInsertedForTest = null;
+    }
+  }
+
+  @Test
   void publishPersistsEmptyFindingsBaseline() throws Exception {
     DataQualityReport report = new DataQualityReport(QualityLifecycle.POST_UPDATE);
     report.addSubjectKey("hop/retail-example/models/retail-360/hub_customer");

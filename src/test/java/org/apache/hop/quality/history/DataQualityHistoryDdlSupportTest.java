@@ -47,9 +47,25 @@ class DataQualityHistoryDdlSupportTest {
     assertContainsTable(statements, "quality_profile_field");
     assertContainsTable(statements, "quality_finding");
     assertContainsTable(statements, "quality_alert");
-    assertTrue(statements.stream().anyMatch(sql -> sql.contains("idx_quality_run_load_id")));
     assertTrue(
-        statements.stream().anyMatch(sql -> sql.contains("idx_quality_profile_subject_lookup")));
+        statements.stream()
+            .anyMatch(
+                sql ->
+                    sql.contains("CREATE INDEX IF NOT EXISTS idx_quality_run_load_id")
+                        && sql.contains("quality_run")
+                        && sql.contains("(load_id)")));
+    assertTrue(
+        statements.stream()
+            .anyMatch(
+                sql ->
+                    sql.contains("CREATE INDEX IF NOT EXISTS idx_quality_run_measured_at")
+                        && sql.contains("measured_at DESC")));
+    assertTrue(
+        statements.stream()
+            .anyMatch(
+                sql ->
+                    sql.contains("CREATE INDEX IF NOT EXISTS idx_quality_profile_subject_lookup")
+                        && sql.contains("captured_at DESC")));
     assertTrue(
         statements.stream()
             .anyMatch(
@@ -92,6 +108,54 @@ class DataQualityHistoryDdlSupportTest {
                 sql ->
                     sql.contains("CREATE TABLE IF NOT EXISTS dv_ops.quality_run")
                         && sql.contains("TINYINT(1)")));
+  }
+
+  @Test
+  void mysqlIndexesOmitIfNotExists() {
+    List<String> statements =
+        DataQualityHistoryDdlSupport.buildCreateStatements(databaseMetaWithPluginId("MYSQL"));
+
+    assertTrue(
+        statements.stream()
+            .anyMatch(
+                sql ->
+                    sql.contains("CREATE INDEX idx_quality_run_load_id")
+                        && !sql.contains("IF NOT EXISTS")));
+    assertTrue(
+        statements.stream()
+            .noneMatch(
+                sql ->
+                    sql.contains("CREATE INDEX IF NOT EXISTS")
+                        && sql.contains("idx_quality_run")));
+    assertTrue(
+        statements.stream()
+            .anyMatch(
+                sql ->
+                    sql.contains("CREATE INDEX idx_quality_run_measured_at")
+                        && sql.contains("measured_at DESC")));
+    assertTrue(
+        statements.stream()
+            .anyMatch(
+                sql ->
+                    sql.contains("CREATE INDEX idx_quality_profile_subject_lookup")
+                        && sql.contains("captured_at DESC")));
+    assertTrue(
+        statements.stream()
+            .anyMatch(sql -> sql.contains("CREATE INDEX idx_quality_finding_subject_rule")));
+  }
+
+  @Test
+  void singlestoreUsesMysqlIndexDialect() {
+    List<String> statements =
+        DataQualityHistoryDdlSupport.buildCreateStatements(
+            databaseMetaWithPluginId("SINGLESTORE"));
+    assertTrue(statements.stream().anyMatch(sql -> sql.contains("CREATE DATABASE IF NOT EXISTS")));
+    assertTrue(
+        statements.stream()
+            .noneMatch(sql -> sql.contains("CREATE INDEX IF NOT EXISTS idx_quality_run")));
+    assertTrue(
+        statements.stream()
+            .anyMatch(sql -> sql.startsWith("CREATE INDEX idx_quality_run_load_id")));
   }
 
   @Test

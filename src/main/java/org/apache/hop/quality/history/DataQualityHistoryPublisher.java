@@ -70,6 +70,12 @@ public final class DataQualityHistoryPublisher {
   private static final int TOP_VALUES_LIMIT = 10;
   private static final ObjectMapper JSON = new ObjectMapper();
 
+  /**
+   * Package-visible test seam: when set, invoked after {@code quality_run} insert (before child
+   * rows). Used to exercise partial-failure cleanup.
+   */
+  static Runnable afterQualityRunInsertedForTest;
+
   public enum PublishStatus {
     INSERTED,
     SKIPPED,
@@ -448,6 +454,9 @@ public final class DataQualityHistoryPublisher {
       insertQualityRun(
           db, operationsSchema, report, loadId, workflowName, workflowExecutionId);
       wroteAny = true;
+      if (afterQualityRunInsertedForTest != null) {
+        afterQualityRunInsertedForTest.run();
+      }
 
       for (Map.Entry<String, DataProfileSnapshot> entry :
           report.getProfilesBySubject().entrySet()) {
