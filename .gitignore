@@ -43,6 +43,10 @@ retail-example/files/order_line_*.csv
 retail-example/files/product_*.csv
 retail-example/files/warehouse_*.csv
 
+retail-example/catalog-data/hop/retail-example/models/retail-360/*.json
+retail-example/catalog-data/hop/retail-example/models/retail-360/*.json
+retail-example/execution-maps/*.hem
+
 docs/video-tutorials/**/output/
 scripts/video/.venv/
 

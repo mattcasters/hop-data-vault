@@ -233,6 +233,7 @@ limitations under the License.
     <drop_table_if_exists>Y</drop_table_if_exists>
     <skip_if_table_exists>N</skip_if_table_exists>
     <append_semicolon>Y</append_semicolon>
+    <fail_if_no_fields>Y</fail_if_no_fields>
     <output_ddl_field>ddl</output_ddl_field>
     <output_status_field>ddl_status</output_status_field>
     <distribute>Y</distribute>
