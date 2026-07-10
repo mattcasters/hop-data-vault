@@ -42,11 +42,18 @@ import org.apache.hop.quality.model.QualitySeverity;
  * SELECT/WITH-only SQL assertion runner for {@link DataQualityRuleType#SQL_ASSERTION}.
  *
  * <p>Not a sandbox — DB grants and trusted metadata authors are the real boundary. Security
- * controls are best-effort allowlist/denylist with residual risk for comment-wrapped keywords and
- * side-effecting functions.
+ * controls are best-effort allowlist/denylist. MySQL executable comments ({@code /}{@code *!}…{@code
+ * *}{@code /}) are rejected outright. Residual risk remains for non-executable comment-split
+ * keywords, string-literal edge cases, and side-effecting functions ({@code pg_sleep}, etc.).
+ *
+ * <p>All expect modes request at most one JDBC row ({@code setQueryLimit(1)}); authors should still
+ * include server-side {@code LIMIT} when practical — the limit only caps client/driver buffering.
  *
  * <p>Parse/security rejection, timeout, and SQL errors throw {@link HopException} (infra).
  * Expectation failures return findings.
+ *
+ * <p>Multi-statement rejection is a literal semicolon scan (a single trailing {@code ;} is allowed).
+ * Semicolons inside string or dollar-quoted literals are false-rejected under this hard policy.
  */
 public final class SqlAssertionRunner {
 
@@ -63,6 +70,9 @@ public final class SqlAssertionRunner {
   public static final int DEFAULT_QUERY_TIMEOUT_SECONDS =
       DatabaseProfileCollector.DEFAULT_QUERY_TIMEOUT_SECONDS;
 
+  /** JDBC max-rows cap for all expect modes (each only needs one row). */
+  public static final int QUERY_ROW_LIMIT = 1;
+
   private static final Pattern ALLOWLIST_START =
       Pattern.compile("(?is)^\\s*(with|select)\\b");
 
@@ -73,6 +83,12 @@ public final class SqlAssertionRunner {
               + "call|execute|exec|copy|do|replace|attach|detach|vacuum|analyze|"
               + "security|into|outfile|dumpfile"
               + ")\\b");
+
+  /**
+   * MySQL versioned/executable comments ({@code /}{@code *!}…{@code *}{@code /}) execute content
+   * and must never be stripped before denylist checks.
+   */
+  private static final Pattern MYSQL_EXECUTABLE_COMMENT_OPEN = Pattern.compile("/\\*!");
 
   private static final Pattern BLOCK_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
   private static final Pattern LINE_COMMENT = Pattern.compile("--[^\\n\\r]*");
@@ -139,6 +155,13 @@ public final class SqlAssertionRunner {
       } catch (Exception ignored) {
         // driver may not support statement timeouts
       }
+      // Cap client/driver buffering: all expect modes only need the first row.
+      // Server-side work may still run without an author LIMIT in the SQL.
+      try {
+        db.setQueryLimit(QUERY_ROW_LIMIT);
+      } catch (Exception ignored) {
+        // best-effort
+      }
 
       ResultSet rs = db.openQuery(prepared);
       if (rs == null) {
@@ -165,6 +188,9 @@ public final class SqlAssertionRunner {
   /**
    * Variable-resolve SQL, expand {@code ${schemaTable}}, trim, strip a single trailing terminator.
    * Does not apply security checks (call {@link #validateSelectOnly} after).
+   *
+   * <p>Multi-statement check is a literal {@code ;} scan (not string/literal-aware). Semicolons
+   * inside string literals are rejected as multi-statement under this hard policy.
    */
   public static String prepareSql(String rawSql, IVariables variables, String quotedSchemaTable)
       throws HopException {
@@ -179,13 +205,14 @@ public final class SqlAssertionRunner {
     if (trimmed.isEmpty()) {
       throw new HopException("SQL_ASSERTION sql is empty after resolve");
     }
-    // Reject multi-statement: only a single trailing terminator is allowed
+    // Reject multi-statement: only a single trailing terminator is allowed (literal scan)
     if (trimmed.endsWith(";")) {
       trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
     }
     if (trimmed.indexOf(';') >= 0) {
       throw new HopException(
-          "SQL_ASSERTION rejects multi-statement SQL (semicolon not solely trailing)");
+          "SQL_ASSERTION rejects multi-statement SQL (semicolon not solely trailing;"
+              + " semicolons inside string literals are also rejected)");
     }
     if (trimmed.isEmpty()) {
       throw new HopException("SQL_ASSERTION sql is empty after resolve");
@@ -196,14 +223,21 @@ public final class SqlAssertionRunner {
   /**
    * Best-effort SELECT/WITH allowlist and token denylist. Throws on rejection (infra).
    *
-   * <p>Comment stripping is best-effort only — residual risk of comment-wrapped keywords remains.
+   * <p>MySQL executable comments are rejected before any strip. Denylist is applied to both the
+   * raw SQL and the comment-stripped form so strip cannot hide tokens. Residual risk remains for
+   * non-executable comment-split keywords and side-effecting functions.
    */
   public static void validateSelectOnly(String preparedSql, DataQualityRule rule)
       throws HopException {
     if (Utils.isEmpty(preparedSql)) {
       throw new HopException("SQL_ASSERTION sql is empty");
     }
-    String forCheck = stripLeadingSqlComments(preparedSql);
+    rejectMysqlExecutableComments(preparedSql, rule);
+
+    // Denylist on raw form first (before any strip can hide tokens)
+    rejectDenylistedTokens(preparedSql, rule);
+
+    String forCheck = stripNonExecutableSqlComments(preparedSql);
     if (Utils.isEmpty(forCheck)) {
       throw new HopException("SQL_ASSERTION sql is empty after comment strip");
     }
@@ -213,7 +247,32 @@ public final class SqlAssertionRunner {
               + ruleLabel(rule)
               + "' must start with SELECT or WITH (got non-SELECT SQL)");
     }
-    Matcher deny = DENYLIST_TOKENS.matcher(forCheck);
+    // Denylist again on stripped form (comment-split keywords may rejoin after strip)
+    rejectDenylistedTokens(forCheck, rule);
+  }
+
+  /**
+   * Reject MySQL versioned/executable comments that the engine would execute while a naive
+   * stripper would hide denylisted tokens from validation.
+   */
+  public static void rejectMysqlExecutableComments(String sql, DataQualityRule rule)
+      throws HopException {
+    if (sql == null) {
+      return;
+    }
+    if (MYSQL_EXECUTABLE_COMMENT_OPEN.matcher(sql).find()) {
+      throw new HopException(
+          "SQL_ASSERTION rule '"
+              + ruleLabel(rule)
+              + "' rejects MySQL executable comments (/*!)");
+    }
+  }
+
+  private static void rejectDenylistedTokens(String sql, DataQualityRule rule) throws HopException {
+    if (sql == null) {
+      return;
+    }
+    Matcher deny = DENYLIST_TOKENS.matcher(sql);
     if (deny.find()) {
       throw new HopException(
           "SQL_ASSERTION rule '"
@@ -223,15 +282,28 @@ public final class SqlAssertionRunner {
     }
   }
 
-  /** Best-effort strip of {@code --} line and block comments before allow/deny checks. */
-  public static String stripLeadingSqlComments(String sql) {
+  /**
+   * Best-effort strip of ordinary {@code --} line and {@code /}{@code *}…{@code *}{@code /} block
+   * comments before allow/deny checks. Does not strip MySQL executable comments (those are rejected
+   * earlier).
+   */
+  public static String stripNonExecutableSqlComments(String sql) {
     if (sql == null) {
       return "";
     }
-    // Remove all block and line comments for allow/deny scanning (best-effort)
+    // Remove ordinary block and line comments for allow/deny scanning (best-effort).
+    // MySQL /*! … */ is rejected before this path is used.
     String withoutBlocks = BLOCK_COMMENT.matcher(sql).replaceAll(" ");
     String withoutLines = LINE_COMMENT.matcher(withoutBlocks).replaceAll(" ");
     return withoutLines.trim();
+  }
+
+  /**
+   * @deprecated use {@link #stripNonExecutableSqlComments(String)}; kept for test compatibility
+   */
+  @Deprecated
+  public static String stripLeadingSqlComments(String sql) {
+    return stripNonExecutableSqlComments(sql);
   }
 
   public static String normalizeExpect(String raw) {
@@ -366,6 +438,11 @@ public final class SqlAssertionRunner {
         || "1".equals(s);
   }
 
+  /**
+   * Strict string equality: {@code String.valueOf(actual)} vs {@code expectValue}. Numeric JDBC
+   * types are not normalized ({@code 42.0} / {@code BigDecimal("42.00")} do not match {@code "42"}).
+   * Authors should cast/format in SQL when needed.
+   */
   public static boolean scalarEquals(Object actual, String expectValue) {
     if (expectValue == null) {
       return actual == null;

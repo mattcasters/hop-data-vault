@@ -594,9 +594,7 @@ public final class DatabaseProfileCollector {
         case MIN_DISTINCT, MAX_DISTINCT -> needs.exactDistinct = true;
         case MIN_LENGTH, MAX_LENGTH -> needs.stringLength = true;
         case REGEX -> needs.regexRules.add(rule);
-        case SQL_ASSERTION -> {
-          // Messaging-only fieldName; never drives profile metrics
-        }
+        // SQL_ASSERTION is in DATASET_ONLY_TYPES (continue above); fieldName is messaging only
         default -> {
           // Unknown field-scoped types: collect basic nulls
         }

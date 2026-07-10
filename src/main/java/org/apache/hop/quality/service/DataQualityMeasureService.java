@@ -135,6 +135,13 @@ public final class DataQualityMeasureService {
     return report;
   }
 
+  /**
+   * Evaluate profile-based rules against an injected snapshot (unit tests / library use).
+   *
+   * <p>{@link DataQualityRuleType#SQL_ASSERTION} is not supported here — it requires a live DB via
+   * {@link #measureDefinitions}. Enabled SQL_ASSERTION rules are recorded as infra errors (fail
+   * closed) rather than silently passing with zero findings.
+   */
   public static DataQualityReport measureAgainstProfiles(
       String subjectKey,
       DataProfileSnapshot profile,
@@ -157,6 +164,18 @@ public final class DataQualityMeasureService {
             .lifecycle(lifecycle)
             .build();
     for (DataQualityRule rule : rules) {
+      if (rule != null
+          && rule.isEnabled()
+          && rule.getType() == DataQualityRuleType.SQL_ASSERTION) {
+        report.addInfraError(
+            "SQL_ASSERTION rule '"
+                + (rule.getName() != null && !rule.getName().isBlank()
+                    ? rule.getName()
+                    : rule.getId())
+                + "' requires database execution via measureDefinitions;"
+                + " measureAgainstProfiles does not support SQL_ASSERTION");
+        continue;
+      }
       for (DataQualityFinding finding :
           DataQualityRuleEvaluatorRegistry.getInstance().evaluate(rule, context)) {
         report.addFinding(finding);

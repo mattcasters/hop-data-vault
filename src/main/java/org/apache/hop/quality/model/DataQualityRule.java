@@ -45,14 +45,21 @@ public class DataQualityRule {
   public static final String PARAM_CASE_SENSITIVE = "caseSensitive";
   /** Regex match mode: FULL (default) or FIND/PARTIAL. */
   public static final String PARAM_MATCH_MODE = "matchMode";
-  /** SQL text for {@link DataQualityRuleType#SQL_ASSERTION}. */
+  /**
+   * SQL text for {@link DataQualityRuleType#SQL_ASSERTION}. Must be a single SELECT/WITH statement.
+   * Multi-statement is rejected via a literal semicolon scan (a single trailing {@code ;} is
+   * allowed); semicolons inside string literals are false-rejected under this hard policy.
+   */
   public static final String PARAM_SQL = "sql";
   /**
    * Expectation mode for {@link DataQualityRuleType#SQL_ASSERTION}: {@code ZERO_ROWS} (default),
    * {@code ONE_ROW_TRUE}, or {@code SCALAR_EQ}.
    */
   public static final String PARAM_EXPECT = "expect";
-  /** Expected scalar value when expect is {@code SCALAR_EQ}. */
+  /**
+   * Expected scalar value when expect is {@code SCALAR_EQ}. Compared via strict {@code
+   * String.valueOf(firstColumn)} equality (no numeric normalization).
+   */
   public static final String PARAM_EXPECT_VALUE = "expectValue";
   /** JDBC query timeout seconds for {@link DataQualityRuleType#SQL_ASSERTION} (default 60). */
   public static final String PARAM_QUERY_TIMEOUT = "queryTimeoutSeconds";

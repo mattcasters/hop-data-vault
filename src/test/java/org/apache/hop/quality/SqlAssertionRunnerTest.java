@@ -227,6 +227,91 @@ class SqlAssertionRunnerTest {
     assertTrue(found);
   }
 
+  @Test
+  void rejectsMysqlExecutableComments() {
+    DataQualityRule rule = assertionRule(Map.of());
+    assertThrows(
+        HopException.class,
+        () ->
+            SqlAssertionRunner.validateSelectOnly(
+                "/*!50000 INSERT INTO secrets SELECT * FROM t*/ SELECT 1", rule));
+    assertThrows(
+        HopException.class,
+        () ->
+            SqlAssertionRunner.validateSelectOnly(
+                "/*!50000 UPDATE t SET a=1 WHERE 0*/ SELECT 1", rule));
+    assertThrows(
+        HopException.class,
+        () ->
+            SqlAssertionRunner.validateSelectOnly(
+                "SELECT 1 /*!50000 INTO OUTFILE '/tmp/x'*/", rule));
+    // Open tag without close also rejected
+    assertThrows(
+        HopException.class,
+        () -> SqlAssertionRunner.validateSelectOnly("SELECT 1 /*!50000 DROP TABLE x", rule));
+  }
+
+  @Test
+  void denylistAppliesToRawBeforeStrip() {
+    DataQualityRule rule = assertionRule(Map.of());
+    // Token only inside ordinary block comment still visible on raw denylist pass
+    HopException ex =
+        assertThrows(
+            HopException.class,
+            () -> SqlAssertionRunner.validateSelectOnly("/* INSERT */ SELECT 1", rule));
+    assertTrue(ex.getMessage().toLowerCase().contains("denylist"));
+  }
+
+  @Test
+  void prepareThenValidateOrderingForMultiStatement() {
+    Variables vars = new Variables();
+    // prepareSql rejects multi-statement before validate ever runs in evaluate()
+    assertThrows(
+        HopException.class,
+        () ->
+            SqlAssertionRunner.prepareSql(
+                "SELECT 1 FROM t; DROP TABLE x", vars, "\"public\".\"t\""));
+  }
+
+  @Test
+  void registryDoesNotSilentlyEvaluateSqlAssertion() {
+    DataQualityRule rule = assertionRule(Map.of("sql", "SELECT 1", "expect", "ZERO_ROWS"));
+    List<DataQualityFinding> findings =
+        org.apache.hop.quality.engine.DataQualityRuleEvaluatorRegistry.getInstance()
+            .evaluate(
+                rule,
+                org.apache.hop.quality.engine.QualityEvaluationContext.builder()
+                    .subjectKey("s")
+                    .build());
+    // No registered evaluator → empty findings (must not pretend success in isolation;
+    // measureAgainstProfiles fails closed — see measureAgainstProfilesRejectsSqlAssertion)
+    assertTrue(findings.isEmpty());
+  }
+
+  @Test
+  void measureAgainstProfilesFailsClosedForSqlAssertion() {
+    DataQualityRule rule = assertionRule(Map.of("sql", "SELECT 1", "expect", "ZERO_ROWS"));
+    org.apache.hop.quality.profile.DataProfileSnapshot profile =
+        new org.apache.hop.quality.profile.DataProfileSnapshot();
+    profile.setSubjectKey("s");
+    profile.setRowCount(0);
+    org.apache.hop.quality.model.DataQualityReport report =
+        org.apache.hop.quality.service.DataQualityMeasureService.measureAgainstProfiles(
+            "s", profile, List.of(rule), org.apache.hop.quality.model.QualityLifecycle.AD_HOC);
+    assertTrue(report.hasInfraErrors());
+    assertEquals(0, report.getFindingCount());
+    assertTrue(
+        report.getInfraErrors().stream()
+            .anyMatch(m -> m.contains("SQL_ASSERTION") && m.contains("measureDefinitions")));
+  }
+
+  @Test
+  void scalarEqualsDocumentsStringSemantics() {
+    // No numeric normalization: 42.0 string form is "42.0", not "42"
+    assertFalse(SqlAssertionRunner.scalarEquals(42.0d, "42"));
+    assertTrue(SqlAssertionRunner.scalarEquals(42, "42"));
+  }
+
   private static DataQualityRule assertionRule(Map<String, String> params) {
     DataQualityRule rule = new DataQualityRule();
     rule.setType(DataQualityRuleType.SQL_ASSERTION);
