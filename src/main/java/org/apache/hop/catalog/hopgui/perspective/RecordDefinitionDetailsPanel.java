@@ -157,6 +157,7 @@ public class RecordDefinitionDetailsPanel {
   private TableView wCustomProperties;
   private TableView wQualityRules;
   private Button wTestQualityMeasure;
+  private Button wQualityHistory;
 
   private final List<Control> physicalTableSectionControls = new ArrayList<>();
   private final List<Control> physicalFileSectionControls = new ArrayList<>();
@@ -755,10 +756,23 @@ public class RecordDefinitionDetailsPanel {
     fdTestQuality.right = new FormAttachment(100, 0);
     fdTestQuality.bottom = new FormAttachment(100, 0);
     wTestQualityMeasure.setLayoutData(fdTestQuality);
+    wTestQualityMeasure.addListener(SWT.Selection, e -> testQualityMeasure());
+
+    wQualityHistory = new Button(wQualityTabComp, SWT.PUSH);
+    wQualityHistory.setText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.HistoryButton.Label"));
+    wQualityHistory.setToolTipText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.HistoryButton.ToolTip"));
+    PropsUi.setLook(wQualityHistory);
+    FormData fdQualityHistory = new FormData();
+    fdQualityHistory.right = new FormAttachment(wTestQualityMeasure, -PropsUi.getMargin());
+    fdQualityHistory.bottom = new FormAttachment(100, 0);
+    wQualityHistory.setLayoutData(fdQualityHistory);
+    wQualityHistory.addListener(SWT.Selection, e -> openQualityHistory());
+
     FormData fdQualityRules = (FormData) wQualityRules.getLayoutData();
     fdQualityRules.bottom = new FormAttachment(wTestQualityMeasure, -PropsUi.getMargin());
     wQualityRules.setLayoutData(fdQualityRules);
-    wTestQualityMeasure.addListener(SWT.Selection, e -> testQualityMeasure());
 
     wTabFolder.setSelection(0);
     wTabFolder.setVisible(false);
@@ -1203,6 +1217,9 @@ public class RecordDefinitionDetailsPanel {
     if (wTestQualityMeasure != null) {
       wTestQualityMeasure.setEnabled(
           definition.getQualityRules() != null && !definition.getQualityRules().isEmpty());
+    }
+    if (wQualityHistory != null) {
+      wQualityHistory.setEnabled(true);
     }
     if (wRefreshFromSource != null) {
       wRefreshFromSource.setEnabled(
@@ -1828,6 +1845,86 @@ public class RecordDefinitionDetailsPanel {
           parent.getShell(),
           BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Test.Error.Title"),
           BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Test.Error.Message"),
+          e);
+    }
+  }
+
+  private void openQualityHistory() {
+    if (definition == null) {
+      return;
+    }
+    try {
+      org.apache.hop.metadata.api.IHopMetadataProvider metadataProvider =
+          HopGui.getInstance().getMetadataProvider();
+      org.apache.hop.quality.history.DataQualityHistoryReader.HistoryConnection connection =
+          org.apache.hop.quality.history.DataQualityHistoryReader.resolveConnection(
+              catalogConnectionName, variables, metadataProvider);
+      if (connection == null) {
+        MessageBox box = new MessageBox(parent.getShell(), SWT.OK | SWT.ICON_INFORMATION);
+        box.setText(
+            BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.History.Error.Title"));
+        box.setMessage(
+            org.apache.hop.quality.history.DataQualityHistoryReader.MSG_NOT_CONFIGURED);
+        box.open();
+        return;
+      }
+
+      org.apache.hop.core.database.DatabaseMeta databaseMeta =
+          org.apache.hop.quality.history.DataQualityHistoryReader.loadDatabaseMeta(
+              connection.databaseMetaName(), metadataProvider);
+      if (databaseMeta == null) {
+        new ErrorDialog(
+            parent.getShell(),
+            BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.History.Error.Title"),
+            BaseMessages.getString(
+                PKG,
+                "RecordDefinitionDetailsPanel.Quality.History.Error.ConnectionMissing",
+                connection.databaseMetaName()),
+            new HopException(
+                "Quality history database connection not found: " + connection.databaseMetaName()));
+        return;
+      }
+
+      String subjectKey =
+          org.apache.hop.catalog.quality.CatalogQualitySubjectSupport.subjectKey(definition);
+      List<org.apache.hop.quality.history.DataQualityHistoryReader.SubjectHistoryEntry> entries =
+          org.apache.hop.quality.history.DataQualityHistoryReader.listSubjectHistory(
+              databaseMeta,
+              connection.schemaName(),
+              subjectKey,
+              variables,
+              org.apache.hop.quality.history.DataQualityHistoryReader.DEFAULT_HISTORY_LIMIT);
+      if (entries.isEmpty()) {
+        MessageBox box = new MessageBox(parent.getShell(), SWT.OK | SWT.ICON_INFORMATION);
+        box.setText(
+            BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.History.Title"));
+        box.setMessage(org.apache.hop.quality.history.DataQualityHistoryReader.MSG_NO_HISTORY);
+        box.open();
+        return;
+      }
+
+      new QualityHistoryBrowserDialog(
+              parent.getShell(),
+              variables,
+              databaseMeta,
+              connection.schemaName(),
+              subjectKey,
+              entries)
+          .open();
+    } catch (org.apache.hop.quality.history.DataQualityHistoryReader
+        .QualityHistoryTablesMissingException e) {
+      MessageBox box = new MessageBox(parent.getShell(), SWT.OK | SWT.ICON_WARNING);
+      box.setText(
+          BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.History.Error.Title"));
+      box.setMessage(
+          org.apache.hop.quality.history.DataQualityHistoryReader.MSG_TABLES_MISSING);
+      box.open();
+    } catch (Exception e) {
+      new ErrorDialog(
+          parent.getShell(),
+          BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.History.Error.Title"),
+          BaseMessages.getString(
+              PKG, "RecordDefinitionDetailsPanel.Quality.History.Error.Message"),
           e);
     }
   }
