@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import org.apache.hop.catalog.impl.file.FileDataCatalog;
@@ -32,6 +33,7 @@ import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
 import org.apache.hop.catalog.model.RecordDefinitionType;
+import org.apache.hop.catalog.model.RecordDefinitionValidationAcknowledgement;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
 import org.apache.hop.catalog.xp.RegisterDataCatalogMetadataExtensionPoint;
 import org.apache.hop.core.HopEnvironment;
@@ -49,6 +51,7 @@ import org.apache.hop.datavault.metadata.dimensional.IDmTable;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
+import org.apache.hop.quality.model.RecordQualityRuleBinding;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -191,6 +194,56 @@ class DmCatalogPublisherTest {
       assertNotNull(stored, "Missing published record definition for " + tableName);
       assertFalse(stored.getFields().isEmpty());
     }
+  }
+
+  @Test
+  void republishPreservesQualityRulesAndValidationAcknowledgements() throws Exception {
+    DimensionalModel model = loadDimensionalModel("integration-tests/tests/basic/basic-star.hdm");
+    String namespace = DmCatalogNamespaces.projectDimensionalModelsNamespace(variables, model);
+    RecordDefinitionKey key = new RecordDefinitionKey(namespace, "dim_customer");
+    RecordDefinitionRegistry registry = RecordDefinitionRegistry.getInstance();
+
+    DmCatalogPublisher.PublishResult first =
+        DmCatalogPublisher.publish(
+            CATALOG_CONNECTION, model, variables, metadataProvider, "publish-1");
+    assertTrue(first.isSuccess());
+
+    RecordDefinition stored = registry.read(CATALOG_CONNECTION, key, variables, metadataProvider);
+    assertNotNull(stored);
+
+    RecordQualityRuleBinding binding = new RecordQualityRuleBinding();
+    binding.setRuleSetName("retail-rules");
+    binding.setRuleId("null-ratio-max");
+    binding.setEnabled(true);
+    stored.setQualityRules(new ArrayList<>(List.of(binding)));
+
+    RecordDefinitionValidationAcknowledgement ack =
+        new RecordDefinitionValidationAcknowledgement();
+    ack.setIssueId("FIELD_ADDED|loyalty_tier|");
+    ack.setComment("known additive column");
+    ack.setAcknowledgedAt(new Date());
+    ack.setAcknowledgedBy("test");
+    stored.setValidationAcknowledgements(new ArrayList<>(List.of(ack)));
+
+    registry.upsert(CATALOG_CONNECTION, stored, variables, metadataProvider);
+
+    DmCatalogPublisher.PublishResult second =
+        DmCatalogPublisher.publish(
+            CATALOG_CONNECTION, model, variables, metadataProvider, "publish-2");
+    assertTrue(second.isSuccess());
+
+    RecordDefinition afterRepublish =
+        registry.read(CATALOG_CONNECTION, key, variables, metadataProvider);
+    assertNotNull(afterRepublish);
+    assertNotNull(afterRepublish.getQualityRules());
+    assertEquals(1, afterRepublish.getQualityRules().size());
+    assertEquals("retail-rules", afterRepublish.getQualityRules().get(0).getRuleSetName());
+    assertEquals("null-ratio-max", afterRepublish.getQualityRules().get(0).getRuleId());
+    assertNotNull(afterRepublish.getValidationAcknowledgements());
+    assertEquals(1, afterRepublish.getValidationAcknowledgements().size());
+    assertEquals(
+        "FIELD_ADDED|loyalty_tier|",
+        afterRepublish.getValidationAcknowledgements().get(0).getIssueId());
   }
 
   private static DataCatalogMeta buildCatalogMeta(Path catalogDir) {
