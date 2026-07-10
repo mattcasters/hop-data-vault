@@ -65,8 +65,8 @@ retail-example/
 ├── project-config.json
 ├── environments/local-docker-postgres.json
 ├── metadata/                  # CRM, Vault, local-catalog, rule sets, run configurations
-│   └── data-quality-rule-set/ # retail-source-quality library
-├── catalog-data/              # E2E-* DV source catalog entries (DATABASE → CRM)
+│   └── data-quality-rule-set/ # retail-source-quality + retail-target-quality libraries
+├── catalog-data/              # E2E-* sources, retail-360 target bindings, quality ops stubs
 ├── pipelines/                 # create-source-tables, load-e2e-sources-to-crm
 ├── files/                     # Generated CSV source files
 ├── models/
@@ -102,13 +102,15 @@ From the repository root:
 
 ## Data quality (measure + gate)
 
-Retail binds source content rules from Hop metadata **`retail-source-quality`** onto the `E2E-*` catalog sources (via `generate-catalog-sources.py`).
+Retail binds source content rules from Hop metadata **`retail-source-quality`** onto the `E2E-*` catalog sources (via `generate-catalog-sources.py`), and target rules from **`retail-target-quality`** onto published vault tables (`hub_customer`, `sat_customer_demo`, `hub_order`).
 
 Both **initial** and **update** workflows:
 
-1. **Measure source data quality** after CRM is loaded (and after schema validation on initial)
+1. **Measure source data quality** after CRM is loaded (and after schema validation on initial), with `persistHistory` to OPS/`dv_ops`
 2. **Evaluate source quality gate** with `FAIL_ON_BLOCKING` — blocks vault update on bad extracts
-3. After vault update completes: **Measure** again (`POST_UPDATE`) + **Alert on source quality (post)** with `ALERT_ONLY`
+3. After vault update completes: **Measure target data quality (post)** (`POST_UPDATE`, persist to OPS) on the three published tables + **Alert on target quality (post)** with `ALERT_ONLY` (`alertSinks=log,ops_table`, `remeasureIfNoPriorReport=N`)
+
+Operations catalog stubs for quality history tables live under `catalog-data/hop/retail-example/operations/`.
 
 See [docs/data-quality.adoc](../docs/data-quality.adoc) for rule types and action details.
 
