@@ -30,6 +30,25 @@
   ],
   "glossaryTerms": [],
   "customProperties": {},
+  "validationAcknowledgements": [],
+  "qualityRules": [
+    {
+      "ruleSetName": "retail-source-quality",
+      "ruleId": "table-not-empty",
+      "inlineRule": null,
+      "severityOverride": null,
+      "fieldNameOverride": null,
+      "enabled": true
+    },
+    {
+      "ruleSetName": "retail-source-quality",
+      "ruleId": "customer-id-not-null",
+      "inlineRule": null,
+      "severityOverride": null,
+      "fieldNameOverride": null,
+      "enabled": true
+    }
+  ],
   "dvSource": {
     "sourceType": "DATABASE",
     "sourceIndicator": "",

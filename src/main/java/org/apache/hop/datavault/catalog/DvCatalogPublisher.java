@@ -152,6 +152,7 @@ public final class DvCatalogPublisher {
     RecordDefinition existing =
         registry.read(catalogConnectionName, definition.getKey(), variables, metadataProvider);
     mergeOriginCreatedAt(definition, existing, updatedAt);
+    CatalogPublishMergeSupport.mergePreservedCatalogFields(definition, existing);
     registry.upsert(catalogConnectionName, definition, variables, metadataProvider);
   }
 

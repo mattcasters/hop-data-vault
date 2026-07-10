@@ -75,9 +75,11 @@ If a record appears in the tree but fails to open, the **`namespace`** in the JS
 
 == Validation
 
-Use **Validate** on catalog record groups to run feed-level checks. Issues can include remediation proposals and acknowledgements — see link:resource-definition-validation.adoc[Resource definition validation].
+Use **Validate** on catalog record groups to run feed-level **schema** checks. Issues can include remediation proposals and acknowledgements — see link:resource-definition-validation.adoc[Resource definition validation].
 
-Model-level **Check model** validates `.hdv` / `.hbv` / `.hdm` structure separately; both layers complement each other.
+For **content** rules (not empty, allowed values, ranges, nulls), bind quality rules on the record definition and use the **Measure data quality** / **Evaluate quality gate** workflow actions — see link:data-quality.adoc[Data quality].
+
+Model-level **Check model** validates `.hdv` / `.hbv` / `.hdm` structure separately; these layers complement each other.
 
 == Related documents
 

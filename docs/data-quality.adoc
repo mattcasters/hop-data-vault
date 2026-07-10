@@ -1,0 +1,235 @@
+= Data quality measure and quality gate
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+Protect loads and observe warehouses with a reusable **measure → disposition** stack. Schema contract validation (resource definition validation) remains separate; this layer checks **data content** (row counts, domains, ranges, nulls, patterns, and custom SQL asserts).
+
+== Measure vs disposition
+
+| Stage | Responsibility | Workflow fail on findings? |
+|-------|----------------|----------------------------|
+| **Measure Data Quality** action | Run rules against catalog subjects; produce a report; optionally persist history | No (only infrastructure errors) |
+| **Evaluate Quality Gate** action | Apply policy to a report; optional alert sinks | Yes for `FAIL_ON_BLOCKING` / `FAIL_ON_WARNINGS`; no for `ALERT_ONLY` |
+
+Pre-update (protect the EDW):
+
+----
+Measure Data Quality (sources)
+        |
+        v
+Evaluate Quality Gate (FAIL_ON_BLOCKING) --fail--> stop
+        |
+      success
+        v
+Data Vault Update / other load
+----
+
+Post-update (observe only; cannot un-load):
+
+----
+… load …
+        |
+        v
+Measure Data Quality (published target tables, lifecycle=POST_UPDATE)
+        |
+        v
+Evaluate Quality Gate (ALERT_ONLY) --> log / ops_table sinks, continue
+----
+
+The same engine measures **sources and published targets**. Pre-update gates typically bind CRM/source record definitions; post-update alerts bind model-published vault (or BV/DM) tables. Satellite measures use the **full physical table** (all historical versions), not a current-row filter.
+
+== Rules
+
+Central **Data quality rule set** Hop metadata holds reusable rules. Catalog **record definitions** bind rules (library reference or inline) via `qualityRules`.
+
+=== Phase 1 rule types
+
+* `MIN_ROW_COUNT` / `MAX_ROW_COUNT` — dataset (`min` / `max`)
+* `NOT_NULL` — field
+* `ALLOWED_VALUES` — field (`values=M,F,U`, `nullAllowed=true`)
+* `RANGE` — field (`min`, `max`)
+* `NOT_EMPTY_STRING` — field (`trim=true` optional)
+
+=== Phase 2 rule types
+
+| Type | Scope | Parameters | Notes |
+|------|-------|------------|-------|
+| `NULL_RATIO_MAX` | field | `maxRatio` (required, **0.0–1.0 only**) | Fail when `nullCount / rowCount > maxRatio`. Use `0.05` for 5%. Empty tables yield ratio 0. |
+| `MIN_DISTINCT` | field | `min` | Prefer exact `COUNT(DISTINCT col)` on databases; SAMPLE path uses value-distribution bounds. |
+| `MAX_DISTINCT` | field | `max` | Same; if SAMPLE distribution is truncated and size ≤ max, emits a fixed **INFO** finding (not fully verified). |
+| `REGEX` | field | `pattern` (required); `matchMode`=`FULL` (default) \| `FIND`; `caseSensitive` (default true); `nullAllowed` (default true) | Prefer SQL pushdown (database regex engine). High-cardinality free text: prefer `SQL_ASSERTION`. |
+| `MIN_LENGTH` / `MAX_LENGTH` | field | `min` / `max` | Character length on non-null strings (`CHAR_LENGTH` / `LENGTH` by dialect). |
+| `SQL_ASSERTION` | dataset | `sql` (required); `expect`=`ZERO_ROWS` (default) \| `ONE_ROW_TRUE` \| `SCALAR_EQ`; `expectValue`; `queryTimeoutSeconds` (default 60) | Trusted authors only; DB grants are the real boundary (see below). |
+
+Parameters use `key=value` pairs (semicolon-separated in the rule set editor).
+
+==== REGEX guidance
+
+* Pushdown uses the **database** regex engine (for example Postgres `~` / `~*`), not `java.util.regex` — dialects differ on POSIX vs Java and Unicode.
+* Patterns are SQL-literal escaped; blank / overlong patterns fall through to a bounded sample path.
+* Incomplete sample coverage can pass the rule and emit an **INFO** finding (`coverageIncomplete`).
+* For complex free-text predicates, use `SQL_ASSERTION` instead of forcing expensive full-table grouping.
+
+==== SQL_ASSERTION security
+
+`SQL_ASSERTION` is an escape hatch for trusted metadata authors — **not a sandbox**.
+
+* After variable resolution, `${schemaTable}` expands to the subject’s quoted schema.table.
+* Single `SELECT` / `WITH` only; multi-statement (embedded `;`) rejected; DML/DDL tokens denylisted.
+* Expectation failure → **finding**; parse/security rejection, timeout, or SQL error → **infrastructure error** (measure fails).
+* `ZERO_ROWS` stops after the first row (no unbounded fetch). Residual risk remains for comment-wrapped keywords and side-effecting functions; control with database grants.
+
+== Catalog bindings
+
+On a record definition JSON document:
+
+[source,json]
+----
+"qualityRules": [
+  {
+    "inlineRule": {
+      "id": "not-empty",
+      "name": "Table not empty",
+      "type": "MIN_ROW_COUNT",
+      "severity": "BLOCKING",
+      "enabled": true,
+      "parameters": { "min": "1" }
+    },
+    "enabled": true
+  }
+]
+----
+
+Or reference a rule set:
+
+[source,json]
+----
+"qualityRules": [
+  {
+    "ruleSetName": "retail-domains",
+    "ruleId": "gender-allowed",
+    "fieldNameOverride": "gender",
+    "enabled": true
+  }
+]
+----
+
+DV/BV/DM catalog publishers **preserve** existing `qualityRules` (and validation acknowledgements) on republish so target bindings survive routine model publish.
+
+== Workflow actions
+
+=== Measure data quality
+
+* Scope: resource definition group, and/or `namespace/name` keys, and/or namespace prefix
+* Evaluation mode: `AUTO` (SQL pushdown for databases)
+* Lifecycle: `PRE_UPDATE`, `POST_UPDATE`, `AD_HOC`
+* Logs a formatted report; stores it on the workflow for the next gate step
+* **Does not fail** the workflow for rule findings (only infrastructure errors)
+
+==== Persist history (opt-in)
+
+| Field | Default | Purpose |
+|-------|---------|---------|
+| `persistHistory` | `false` | Write run + profile + findings to ops tables after measure |
+| `historyDatabase` | empty → resolve | Target DB connection (retail: `OPS`) |
+| `historySchema` | `dv_ops` | Schema for quality_* tables |
+| `autoCreateHistoryTables` | `true` | `CREATE TABLE IF NOT EXISTS` for all five tables |
+| `loadId` | `${DV_WORKFLOW_EXECUTION_ID}` | Correlates PRE/POST under one load |
+
+Resolution when `historyDatabase` is empty: variable `QUALITY_HISTORY_DATABASE`, else the physical DB of the first successfully profiled subject. Schema falls back to `QUALITY_HISTORY_SCHEMA` then `dv_ops`.
+
+Persist failures are logged and **do not** fail measure by default. GUI **Test measure…** and gate remeasure do **not** persist. Runs are **immutable** by `quality_run_id` (duplicate PK → skip).
+
+==== Ops tables (`dv_ops`)
+
+Sibling tables to load-run metrics (same connection pattern: retail **OPS** / `dv_ops`):
+
+| Table | Role |
+|-------|------|
+| `quality_run` | Run header, aggregate finding counts, lifecycle, load/workflow ids |
+| `quality_profile_subject` | Per-subject row count + lifecycle (Phase 3 join grain) |
+| `quality_profile_field` | Field profiles (nulls, distinct, min/max, lengths, top values) |
+| `quality_finding` | Individual findings |
+| `quality_alert` | Alert header rows when the `ops_table` sink runs (DDL always created; may stay empty) |
+
+Catalog stubs for retail live under `retail-example/catalog-data/hop/retail-example/operations/`.
+
+=== Evaluate quality gate
+
+* Disposition: `FAIL_ON_BLOCKING`, `FAIL_ON_WARNINGS`, `ALERT_ONLY`
+* Uses the prior measure report when available; otherwise re-measures if configured
+* Prefer `remeasureIfNoPriorReport=N` when a Measure step immediately precedes the gate (remeasure is `AD_HOC` and would mislabel lifecycle)
+
+==== Alert sinks
+
+Comma-separated `alertSinks` (blank → `log`):
+
+| Sink id | Behavior |
+|---------|----------|
+| `log` | Structured `QUALITY_ALERT` lines (runId, lifecycle, counts) + findings |
+| `ops_table` | Insert `quality_alert` (and ensure history run exists first if needed) |
+
+Wiring matrix:
+
+| Mode | Findings | Sinks |
+|------|----------|-------|
+| `ALERT_ONLY` | 0 | None (no noise) |
+| `ALERT_ONLY` | > 0 | Every sink listed in `alertSinks` |
+| `FAIL_ON_*` | 0 | None |
+| `FAIL_ON_*` | > 0 | `log` if listed (blank → log); `ops_table` only if listed **and** `alertOnGateFailure=true` (default false) |
+
+Gate fields for ops_table: `historyDatabase`, `historySchema`, `autoCreateHistoryTables` (same defaults as measure).
+
+== Catalog Quality tab
+
+On a record definition:
+
+* Bindings table (library / inline rules)
+* **Test measure…** — SAMPLE/AUTO measure, results dialog; **does not persist**
+* **History…** — recent profile snapshots for this subject from ops tables (up to 50 rows); double-click a run for findings
+
+History connection resolution:
+
+1. Variables `QUALITY_HISTORY_DATABASE` / `QUALITY_HISTORY_SCHEMA` (schema defaults to `dv_ops`)
+2. Catalog `hop/{projectKey}/operations/quality_run` physical table
+3. Fallback `hop/{projectKey}/operations/load_run`
+4. Otherwise: configure a history database or publish operations catalog definitions
+
+Subject key is always `namespace/name` (same as measure/persist).
+
+== Limits and deferred work
+
+* Database physical tables via SQL pushdown are fully supported
+* File/Iceberg sample scanning is deferred
+* Phase 3 historical rules (`ROW_COUNT_DELTA`, `DISTINCT_DELTA`, …) need persisted profiles — schema is ready; evaluators are not Phase 2
+* Mail/Slack/webhook sinks beyond the SPI are deferred
+* Quality finding acknowledgements deferred
+
+== Retail example
+
+The `retail-example` project ships libraries and wiring for **both** pre-update source gates and post-update **target** alerts:
+
+| Asset | Location |
+|-------|----------|
+| Source rule set | `retail-example/metadata/data-quality-rule-set/retail-source-quality.json` |
+| Target rule set | `retail-example/metadata/data-quality-rule-set/retail-target-quality.json` |
+| Source bindings | `qualityRules` on each `E2E-*` catalog source (`scripts/generate-catalog-sources.py`) |
+| Target bindings | `hub_customer`, `sat_customer_demo`, `hub_order` under `catalog-data/hop/retail-example/models/retail-360/` |
+| Pre-load gate | `Measure source data quality` (`persistHistory` → OPS) → `Evaluate source quality gate` (`FAIL_ON_BLOCKING`) |
+| Post-load alert | `Measure target data quality (post)` (`POST_UPDATE`, persist OPS) → `Alert on target quality (post)` (`ALERT_ONLY`, `alertSinks=log,ops_table`, remeasure off) |
+| Ops catalog stubs | `catalog-data/hop/retail-example/operations/quality_*.json` |
+
+Workflows: `run-retail-initial.hwf`, `run-retail-update.hwf`.
+
+Target rules include table-not-empty, hub business-key not-null / min-distinct, segment and loyalty domains, and segment `NULL_RATIO_MAX` (maxRatio=0.01) over the full satellite table.
+
+== Related
+
+* link:resource-definition-validation.adoc[Resource definition validation] (schema contracts)
+* link:data-catalog.adoc[Data Catalog]
+* link:getting-started-retail.adoc[Getting started — retail]
+* link:plans/data-quality-architecture-plan.md[Architecture plan]
+* link:plans/data-quality-phase2-design.md[Phase 2 design]
+* Issue https://github.com/mattcasters/hop-data-vault/issues/66[#66]

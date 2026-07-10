@@ -1,0 +1,85 @@
+{
+  "name": "retail-target-quality",
+  "description": "Content rules for published retail vault target tables (post-update alert path)",
+  "virtualPath": "",
+  "rule": [
+    {
+      "id": "target-not-empty",
+      "name": "Target table not empty",
+      "description": "Published vault table must contain at least one row",
+      "type": "MIN_ROW_COUNT",
+      "severity": "BLOCKING",
+      "fieldName": "",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "min": "1"
+      }
+    },
+    {
+      "id": "hub-customer-bk-not-null",
+      "name": "customer_id never null",
+      "description": "Hub customer business key customer_id must be present",
+      "type": "NOT_NULL",
+      "severity": "BLOCKING",
+      "fieldName": "customer_id",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {}
+    },
+    {
+      "id": "sat-demo-segment-domain",
+      "name": "segment domain",
+      "description": "Customer segment must be ONLINE, RETAIL, or WHOLESALE",
+      "type": "ALLOWED_VALUES",
+      "severity": "WARNING",
+      "fieldName": "segment",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "values": "ONLINE,RETAIL,WHOLESALE",
+        "nullAllowed": "false"
+      }
+    },
+    {
+      "id": "sat-demo-loyalty-domain",
+      "name": "loyalty_tier domain",
+      "description": "Loyalty tier must be BRONZE, SILVER, GOLD, or PLATINUM",
+      "type": "ALLOWED_VALUES",
+      "severity": "WARNING",
+      "fieldName": "loyalty_tier",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "values": "BRONZE,SILVER,GOLD,PLATINUM",
+        "nullAllowed": "false"
+      }
+    },
+    {
+      "id": "sat-demo-null-ratio-segment",
+      "name": "segment null ratio",
+      "description": "Segment null ratio over full sat table should stay under 1%",
+      "type": "NULL_RATIO_MAX",
+      "severity": "WARNING",
+      "fieldName": "segment",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "maxRatio": "0.01"
+      }
+    },
+    {
+      "id": "hub-customer-min-distinct-bk",
+      "name": "customer_id min distinct",
+      "description": "At least one distinct customer_id (MIN_DISTINCT smoke rule)",
+      "type": "MIN_DISTINCT",
+      "severity": "WARNING",
+      "fieldName": "customer_id",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "min": "1"
+      }
+    }
+  ]
+}

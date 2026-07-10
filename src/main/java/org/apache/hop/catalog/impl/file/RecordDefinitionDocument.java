@@ -36,6 +36,7 @@ import org.apache.hop.catalog.model.RecordDefinitionType;
 import org.apache.hop.catalog.model.RecordDefinitionValidationAcknowledgement;
 import org.apache.hop.catalog.model.RecordOrigin;
 import org.apache.hop.catalog.util.RowMetaCatalogSupport;
+import org.apache.hop.quality.model.RecordQualityRuleBinding;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.row.IRowMeta;
@@ -61,6 +62,7 @@ class RecordDefinitionDocument {
   private Map<String, CatalogCustomProperty> customProperties = new HashMap<>();
   private List<RecordDefinitionValidationAcknowledgement> validationAcknowledgements =
       new ArrayList<>();
+  private List<RecordQualityRuleBinding> qualityRules = new ArrayList<>();
   private DvSourceRecord dvSource;
 
   static RecordDefinitionDocument from(RecordDefinition definition) throws HopException {
@@ -89,6 +91,9 @@ class RecordDefinitionDocument {
     if (definition.getValidationAcknowledgements() != null) {
       doc.validationAcknowledgements = new ArrayList<>(definition.getValidationAcknowledgements());
     }
+    if (definition.getQualityRules() != null) {
+      doc.qualityRules = new ArrayList<>(definition.getQualityRules());
+    }
     return doc;
   }
 
@@ -112,6 +117,8 @@ class RecordDefinitionDocument {
         validationAcknowledgements != null
             ? new ArrayList<>(validationAcknowledgements)
             : new ArrayList<>());
+    definition.setQualityRules(
+        qualityRules != null ? new ArrayList<>(qualityRules) : new ArrayList<>());
     return definition;
   }
 

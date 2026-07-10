@@ -27,6 +27,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.quality.model.RecordQualityRuleBinding;
 
 /** A named record layout and its catalog metadata (type, origin, tags, custom properties). */
 @Getter
@@ -57,6 +58,13 @@ public class RecordDefinition {
   @HopMetadataProperty(key = "validation_ack", groupKey = "validation_acks")
   private List<RecordDefinitionValidationAcknowledgement> validationAcknowledgements =
       new ArrayList<>();
+
+  /**
+   * Data quality rule bindings (library refs and/or inline rules) evaluated by the quality measure
+   * engine against this dataset (source or target).
+   */
+  @HopMetadataProperty(key = "quality_rule", groupKey = "quality_rules")
+  private List<RecordQualityRuleBinding> qualityRules = new ArrayList<>();
 
   /** Structured Data Vault source metadata when {@link #type} is {@code DV_SOURCE}. */
   @HopMetadataProperty private DvSourceRecord dvSource;

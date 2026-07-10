@@ -1,0 +1,154 @@
+{
+  "name": "retail-source-quality",
+  "description": "Content rules for retail CRM source extracts (pre-load gate / post-load alert)",
+  "virtualPath": "",
+  "rule": [
+    {
+      "id": "table-not-empty",
+      "name": "Table not empty",
+      "description": "Source extract must contain at least one row",
+      "type": "MIN_ROW_COUNT",
+      "severity": "BLOCKING",
+      "fieldName": "",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "min": "1"
+      }
+    },
+    {
+      "id": "customer-id-not-null",
+      "name": "customer_id never null",
+      "description": "Business key customer_id must be present",
+      "type": "NOT_NULL",
+      "severity": "BLOCKING",
+      "fieldName": "customer_id",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {}
+    },
+    {
+      "id": "segment-allowed",
+      "name": "segment domain",
+      "description": "Customer segment must be ONLINE, RETAIL, or WHOLESALE",
+      "type": "ALLOWED_VALUES",
+      "severity": "BLOCKING",
+      "fieldName": "segment",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "values": "ONLINE,RETAIL,WHOLESALE",
+        "nullAllowed": "false"
+      }
+    },
+    {
+      "id": "loyalty-tier-allowed",
+      "name": "loyalty_tier domain",
+      "description": "Loyalty tier must be BRONZE, SILVER, GOLD, or PLATINUM",
+      "type": "ALLOWED_VALUES",
+      "severity": "BLOCKING",
+      "fieldName": "loyalty_tier",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "values": "BRONZE,SILVER,GOLD,PLATINUM",
+        "nullAllowed": "false"
+      }
+    },
+    {
+      "id": "demo-score-range",
+      "name": "demo_score range",
+      "description": "Demo score expected between 0 and 100",
+      "type": "RANGE",
+      "severity": "WARNING",
+      "fieldName": "demo_score",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "min": "0",
+        "max": "100"
+      }
+    },
+    {
+      "id": "order-status-allowed",
+      "name": "order_status domain",
+      "description": "Order status domain",
+      "type": "ALLOWED_VALUES",
+      "severity": "BLOCKING",
+      "fieldName": "order_status",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "values": "NEW,SHIPPED,DELIVERED,CANCELLED",
+        "nullAllowed": "false"
+      }
+    },
+    {
+      "id": "quantity-range",
+      "name": "quantity range",
+      "description": "Order line quantity between 1 and 999",
+      "type": "RANGE",
+      "severity": "BLOCKING",
+      "fieldName": "quantity",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "min": "1",
+        "max": "999"
+      }
+    },
+    {
+      "id": "preferred-channel-allowed",
+      "name": "preferred_channel domain",
+      "description": "Preferred contact channel domain",
+      "type": "ALLOWED_VALUES",
+      "severity": "WARNING",
+      "fieldName": "preferred_channel",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "values": "EMAIL,SMS,PHONE",
+        "nullAllowed": "false"
+      }
+    },
+    {
+      "id": "language-code-allowed",
+      "name": "language_code domain",
+      "description": "Supported language codes",
+      "type": "ALLOWED_VALUES",
+      "severity": "WARNING",
+      "fieldName": "language_code",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "values": "en,fr,de,es",
+        "nullAllowed": "false"
+      }
+    },
+    {
+      "id": "newsletter-opt-in-allowed",
+      "name": "newsletter_opt_in domain",
+      "description": "Newsletter flag is Y or N",
+      "type": "ALLOWED_VALUES",
+      "severity": "BLOCKING",
+      "fieldName": "newsletter_opt_in",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {
+        "values": "Y,N",
+        "nullAllowed": "false"
+      }
+    },
+    {
+      "id": "product-name-not-null",
+      "name": "product_name never null",
+      "description": "Product name must be present",
+      "type": "NOT_NULL",
+      "severity": "BLOCKING",
+      "fieldName": "product_name",
+      "enabled": true,
+      "evaluationHint": "AUTO",
+      "parameters": {}
+    }
+  ]
+}

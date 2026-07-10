@@ -145,6 +145,7 @@ public final class BvCatalogPublisher {
     RecordDefinition existing =
         registry.read(catalogConnectionName, definition.getKey(), variables, metadataProvider);
     mergeOriginCreatedAt(definition, existing, updatedAt);
+    CatalogPublishMergeSupport.mergePreservedCatalogFields(definition, existing);
     registry.upsert(catalogConnectionName, definition, variables, metadataProvider);
   }
 
