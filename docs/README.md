@@ -43,6 +43,7 @@ Documentation for the **hop-datavault** plugin (version **0.0.16-SNAPSHOT**, las
 | [datavault-source.adoc](datavault-source.adoc) | `DV_SOURCE` record definitions |
 | [datavault-source-database.adoc](datavault-source-database.adoc) | Database-backed source fields |
 | [resource-definition-validation.adoc](resource-definition-validation.adoc) | Catalog validation, proposals, acknowledgements |
+| [data-quality.adoc](data-quality.adoc) | Content quality measure, gate, history, alert sinks (Phase 2) |
 | [record-definition-input.adoc](record-definition-input.adoc) | Pipeline transform: read catalog definitions as rows |
 
 ## Data Vault reference (AsciiDoc)

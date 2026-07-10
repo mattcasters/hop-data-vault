@@ -5,7 +5,7 @@
 | **Document** | Data Quality Phase 2 Design |
 | **Author** | _TBD_ |
 | **Date** | 2026-07-10 |
-| **Status** | Draft (rev 4 — projectKey resolution fix) |
+| **Status** | Delivered (Phase 2 implemented; user docs in `docs/data-quality.adoc`) |
 | **Related** | Issue #66; [data-quality-architecture-plan.md](docs/plans/data-quality-architecture-plan.md); Phase 1 under `org.apache.hop.quality` |
 | **Audience** | Senior engineers implementing hop-data-vault quality features |
 
@@ -26,7 +26,7 @@ Phase 2 extends that foundation in four complementary tracks:
 
 GUI history browse on the catalog Quality tab completes the ops loop for humans.
 
-> **Doc/example drift (Phase 1):** `docs/data-quality.adoc` already diagrams post-update measure on **target** tables, but retail workflows still re-measure **sources** post-update (`Measure source data quality (post)` in `run-retail-*.hwf`). Until PR 6/7 land, the target post path is **aspirational** in docs only.
+> **Status:** Phase 2 code, retail target post-update path, persist, alert sinks, and Quality tab History browser are delivered. User-facing reference: [data-quality.adoc](../data-quality.adoc).
 
 ---
 

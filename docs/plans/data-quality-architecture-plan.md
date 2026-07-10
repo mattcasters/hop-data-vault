@@ -97,37 +97,37 @@ This is intentionally similar to “ephemeral evaluation + quality gate,” with
 ```mermaid
 flowchart TB
   subgraph surfaces [Surfaces]
-    GUI["Catalog GUI: Quality rules tab"]
+    GUI["Catalog GUI: Quality tab + History"]
     ActMeasure["Action: Measure Data Quality"]
-    ActGate["Action: Evaluate Quality Gate"]
-    ActAlert["Future: Alert on Data Quality"]
+    ActGate["Action: Evaluate Quality Gate + alert sinks"]
     Xform["Future: measure transform"]
   end
 
-  subgraph measure [Measure - ephemeral]
+  subgraph measure [Measure]
     Svc["DataQualityMeasureService"]
     Prof["DataProfileCollector"]
-    Engine["Rule evaluators"]
+    Engine["Rule evaluators Phase1+2"]
     Report["DataQualityReport"]
-    Snap["Optional profile snapshot persist"]
+    Snap["Optional persistHistory → dv_ops"]
   end
 
   subgraph disposition [Disposition - policy]
-    Gate["QualityGatePolicy FAIL / WARN / ALERT_ONLY"]
-    Alert["QualityAlertPolicy log notify metrics"]
+    Gate["QualityDisposition FAIL / WARN / ALERT_ONLY"]
+    Alert["IQualityAlertSink log + ops_table"]
   end
 
   subgraph meta [Metadata]
     Lib["DataQualityRuleSetMeta"]
     RD["RecordDefinition quality bindings"]
-    Hist["Profile history store"]
+    Hist["quality_* ops tables"]
   end
 
   GUI --> RD
   GUI --> Lib
+  GUI --> Hist
   ActMeasure --> Svc
   ActGate --> Gate
-  ActAlert --> Alert
+  ActGate --> Alert
   Svc --> Prof --> Engine --> Report
   Report --> Gate
   Report --> Alert
@@ -339,12 +339,15 @@ Ticket’s “separate action” vs schema validation remains: these are content
 
 Measure against catalog-bound datasets; disposition `GATE_FAIL` for pre-source use.
 
-### Phase 2 — richer measure + persist
+### Phase 2 — richer measure + persist — **DELIVERED**
 
-- `NULL_RATIO_MAX`, distinct bounds, `REGEX`, `SQL_ASSERTION`, value length
-- Persist profile snapshots; GUI history browse
-- First-class **post-update ALERT_ONLY** examples on published targets
-- Optional alert sink SPI (log + ops table minimum)
+Shipped (see [data-quality.adoc](../data-quality.adoc) and [data-quality-phase2-design.md](data-quality-phase2-design.md)):
+
+- `NULL_RATIO_MAX`, `MIN_DISTINCT` / `MAX_DISTINCT`, `REGEX`, `MIN_LENGTH` / `MAX_LENGTH`, `SQL_ASSERTION`
+- Opt-in `persistHistory` on **Measure Data Quality** → `dv_ops` tables (`quality_run`, `quality_profile_subject`, `quality_profile_field`, `quality_finding`, `quality_alert`) on OPS-style connections
+- `IQualityAlertSink` on **Evaluate Quality Gate**: `log` + `ops_table` with ALERT_ONLY / fail-mode matrix
+- Catalog Quality tab **History…** browser (`DataQualityHistoryReader`)
+- Retail: source pre-gate + **published target** post-update `POST_UPDATE` + `ALERT_ONLY` (`hub_customer`, `sat_customer_demo`, `hub_order`); catalog publishers preserve `qualityRules` on republish
 
 ### Phase 3 — historical protection / detection
 
@@ -399,6 +402,7 @@ Measure never throws “business failure” for rule violations — only infra e
 - Applied rules table; add from library / inline
 - Type-specific parameters
 - **Test measure…** (SAMPLE) → results dialog (no disposition / or soft warning display)
+- **History…** → recent profile snapshots / findings for the subject (ops connection)
 - Rules apply whether the record is a source feed or a published target layout
 
 ### Metadata editor
@@ -418,7 +422,7 @@ Post-alert / history view emphasizes “notify” and trends.
 1. **Rule sets** — Hop metadata JSON  
 2. **Bindings** — catalog `RecordDefinitionDocument`  
 3. **Acknowledgements** — on record (justified exceptions)  
-4. **Reports / profiles** — ephemeral Phase 1; Phase 2+ ops tables (align with `LoadRunMetricsCatalogPublisher`) with `lifecycle` PRE|POST and optional `loadId` / workflow execution id  
+4. **Reports / profiles** — Phase 1 ephemeral; Phase 2 **delivered**: ops tables via `DataQualityHistoryPublisher` (`lifecycle` PRE|POST|AD_HOC, optional `loadId` / workflow execution id)  
 
 ---
 
@@ -481,12 +485,12 @@ Post-alert / history view emphasizes “notify” and trends.
 
 **Exit criteria:** Bind gender + not-empty rules to a source; **Measure** then **Evaluate Quality Gate** fails the workflow on bad data; measure alone always succeeds when data is readable.
 
-### Phase 2 — Target post-update + persist
+### Phase 2 — Target post-update + persist — **DELIVERED**
 
-- Examples/bindings on published target record definitions  
-- Profile/report persistence with PRE|POST lifecycle  
-- Ops-friendly alert output (structured log + optional table)  
-- Richer rule types  
+- Examples/bindings on published target record definitions (retail vault hubs/sats)  
+- Profile/report persistence with PRE|POST lifecycle (`persistHistory`, OPS/`dv_ops`)  
+- Ops-friendly alert output (structured log + `ops_table` / `quality_alert`)  
+- Richer rule types + Quality tab **History…**  
 
 ### Phase 3 — Historical deltas
 
