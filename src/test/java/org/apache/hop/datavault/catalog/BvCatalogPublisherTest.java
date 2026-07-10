@@ -102,6 +102,9 @@ class BvCatalogPublisherTest {
 
     RecordDefinition stored = registry.read(CATALOG_CONNECTION, key, variables, metadataProvider);
     assertNotNull(stored);
+    assertNotNull(stored.getOrigin());
+    Date createdAt = stored.getOrigin().getCreatedAt();
+    assertNotNull(createdAt);
 
     RecordQualityRuleBinding binding = new RecordQualityRuleBinding();
     binding.setRuleSetName("bv-rules");
@@ -127,15 +130,23 @@ class BvCatalogPublisherTest {
     RecordDefinition afterRepublish =
         registry.read(CATALOG_CONNECTION, key, variables, metadataProvider);
     assertNotNull(afterRepublish);
+    assertNotNull(afterRepublish.getOrigin());
+    // Proves the document was rewritten by the second publish (not stale manual upsert).
+    assertEquals("publish-2", afterRepublish.getOrigin().getLastWorkflow());
+    assertEquals(createdAt, afterRepublish.getOrigin().getCreatedAt());
     assertNotNull(afterRepublish.getQualityRules());
     assertEquals(1, afterRepublish.getQualityRules().size());
     assertEquals("bv-rules", afterRepublish.getQualityRules().get(0).getRuleSetName());
     assertEquals("null-ratio-max", afterRepublish.getQualityRules().get(0).getRuleId());
+    assertTrue(afterRepublish.getQualityRules().get(0).isEnabled());
     assertNotNull(afterRepublish.getValidationAcknowledgements());
     assertEquals(1, afterRepublish.getValidationAcknowledgements().size());
     assertEquals(
         "FIELD_ADDED|snapshot_date|",
         afterRepublish.getValidationAcknowledgements().get(0).getIssueId());
+    assertEquals(
+        "known pit column", afterRepublish.getValidationAcknowledgements().get(0).getComment());
+    assertEquals("test", afterRepublish.getValidationAcknowledgements().get(0).getAcknowledgedBy());
   }
 
   private static DataCatalogMeta buildCatalogMeta(Path catalogDir) {

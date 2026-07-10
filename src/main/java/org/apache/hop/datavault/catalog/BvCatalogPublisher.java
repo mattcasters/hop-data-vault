@@ -18,7 +18,6 @@
 
 package org.apache.hop.datavault.catalog;
 
-import java.util.ArrayList;
 import java.util.Date;
 import lombok.Getter;
 import org.apache.hop.catalog.model.PhysicalTableRef;
@@ -146,7 +145,7 @@ public final class BvCatalogPublisher {
     RecordDefinition existing =
         registry.read(catalogConnectionName, definition.getKey(), variables, metadataProvider);
     mergeOriginCreatedAt(definition, existing, updatedAt);
-    mergePreservedCatalogFields(definition, existing);
+    CatalogPublishMergeSupport.mergePreservedCatalogFields(definition, existing);
     registry.upsert(catalogConnectionName, definition, variables, metadataProvider);
   }
 
@@ -161,26 +160,6 @@ public final class BvCatalogPublisher {
       definition.getOrigin().setCreatedAt(existing.getOrigin().getCreatedAt());
     } else {
       definition.getOrigin().setCreatedAt(updatedAt);
-    }
-  }
-
-  /**
-   * Copies catalog fields that model publish does not reconstruct (K12 / Phase 2 target bindings).
-   * Without this, a routine republish full-replaces the document and wipes qualityRules and
-   * validationAcknowledgements.
-   */
-  private static void mergePreservedCatalogFields(
-      RecordDefinition definition, RecordDefinition existing) {
-    if (existing == null) {
-      return;
-    }
-    if (existing.getQualityRules() != null && !existing.getQualityRules().isEmpty()) {
-      definition.setQualityRules(new ArrayList<>(existing.getQualityRules()));
-    }
-    if (existing.getValidationAcknowledgements() != null
-        && !existing.getValidationAcknowledgements().isEmpty()) {
-      definition.setValidationAcknowledgements(
-          new ArrayList<>(existing.getValidationAcknowledgements()));
     }
   }
 
