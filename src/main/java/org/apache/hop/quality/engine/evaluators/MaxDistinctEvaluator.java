@@ -52,7 +52,7 @@ public final class MaxDistinctEvaluator implements IDataQualityRuleEvaluator {
     String fieldName = EvaluatorSupport.resolveField(rule);
     FieldProfile field = context.getProfile().findField(fieldName);
     if (field == null) {
-      return List.of();
+      return EvaluatorSupport.fieldNotInProfile(rule, context, fieldName);
     }
 
     Long exact = field.getExactDistinctCount();
@@ -61,6 +61,21 @@ public final class MaxDistinctEvaluator implements IDataQualityRuleEvaluator {
         return List.of();
       }
       return fail(rule, context, fieldName, exact, max, "exact");
+    }
+
+    // Collector failed to obtain any distinct signal — do not treat empty as exact zero.
+    if (field.isDistinctUnknown() && field.getDistinctValues().isEmpty()) {
+      return List.of(
+          EvaluatorSupport.findingWithSeverity(
+              rule,
+              context,
+              fieldName,
+              "MAX_DISTINCT could not be evaluated: distinct count unavailable",
+              "distinctUnknown=true",
+              "max=" + max,
+              EvaluatorSupport.metrics(
+                  "distinctUnknown", "true", "max", String.valueOf(max)),
+              QualitySeverity.WARNING));
     }
 
     long size = field.getDistinctValues().size();

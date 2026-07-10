@@ -97,6 +97,20 @@ class DataQualityPhase2RulesTest {
   }
 
   @Test
+  void nullRatioMaxRejectsNaN() {
+    DataProfileSnapshot profile = new DataProfileSnapshot();
+    profile.setSubjectKey("s");
+    profile.setRowCount(10);
+    profile.field("x").addNullCount(1);
+    DataQualityRule rule =
+        rule(DataQualityRuleType.NULL_RATIO_MAX, "x", Map.of("maxRatio", "NaN"));
+    DataQualityReport report = measure(profile, rule);
+    assertEquals(1, report.getFindingCount());
+    assertEquals(QualitySeverity.WARNING, report.getFindings().get(0).getSeverity());
+    assertFalse(report.hasBlockingFindings());
+  }
+
+  @Test
   void minDistinctUsesExactCount() {
     DataProfileSnapshot profile = new DataProfileSnapshot();
     profile.setSubjectKey("s");
@@ -168,6 +182,85 @@ class DataQualityPhase2RulesTest {
     field.observeValue("only", "only", 200);
     DataQualityRule rule = rule(DataQualityRuleType.MIN_DISTINCT, "code", Map.of("min", "5"));
     assertTrue(measure(profile, rule).hasBlockingFindings());
+  }
+
+  @Test
+  void minDistinctTruncatedWithSizeAtLeastMinPasses() {
+    DataProfileSnapshot profile = new DataProfileSnapshot();
+    profile.setSubjectKey("s");
+    FieldProfile field = profile.field("code");
+    for (int i = 0; i < 5; i++) {
+      field.observeValue("v" + i, "v" + i, 5);
+    }
+    field.observeValueCount("extra", "extra", 1L, 5); // truncate, size stays 5
+    assertTrue(field.isDistinctTruncated());
+    assertEquals(5, field.getDistinctValues().size());
+
+    DataQualityRule rule = rule(DataQualityRuleType.MIN_DISTINCT, "code", Map.of("min", "5"));
+    assertEquals(0, measure(profile, rule).getFindingCount());
+  }
+
+  @Test
+  void maxDistinctExactCountAtOrBelowMaxPasses() {
+    DataProfileSnapshot profile = new DataProfileSnapshot();
+    profile.setSubjectKey("s");
+    FieldProfile field = profile.field("code");
+    field.setExactDistinctCount(5L);
+    DataQualityRule rule = rule(DataQualityRuleType.MAX_DISTINCT, "code", Map.of("max", "5"));
+    assertEquals(0, measure(profile, rule).getFindingCount());
+  }
+
+  @Test
+  void minDistinctUnknownEmitsWarningNotFalseFail() {
+    DataProfileSnapshot profile = new DataProfileSnapshot();
+    profile.setSubjectKey("s");
+    FieldProfile field = profile.field("code");
+    field.setDistinctUnknown(true);
+    DataQualityRule rule = rule(DataQualityRuleType.MIN_DISTINCT, "code", Map.of("min", "1"));
+    DataQualityReport report = measure(profile, rule);
+    assertEquals(1, report.getFindingCount());
+    assertEquals(QualitySeverity.WARNING, report.getFindings().get(0).getSeverity());
+    assertEquals("true", report.getFindings().get(0).getMetrics().get("distinctUnknown"));
+    assertFalse(report.hasBlockingFindings());
+  }
+
+  @Test
+  void emptyStringInRowProfileCountsForDistinctAndRegex() {
+    // Direct FieldProfile path (Hop ValueMeta may treat "" as null in row meta)
+    DataProfileSnapshot profile = new DataProfileSnapshot();
+    profile.setSubjectKey("s");
+    profile.setRowCount(3);
+    profile.setEvaluationMode(QualityEvaluationMode.FULL_SCAN);
+    FieldProfile field = profile.field("code");
+    field.observeValue("ABC", "ABC", 200);
+    field.observeEmptyString(200);
+    field.observeValue("XYZ", "XYZ", 200);
+    field.setExactDistinctCount((long) field.getDistinctValues().size());
+
+    assertTrue(field.getDistinctValues().contains(""));
+    assertTrue(field.getValueCounts().containsKey(""));
+    assertEquals(3L, field.getExactDistinctCount());
+
+    // REGEX .+ should fail empty string
+    DataQualityRule regex =
+        rule(DataQualityRuleType.REGEX, "code", Map.of("pattern", ".+", "matchMode", "FULL"));
+    assertTrue(measure(profile, regex).hasBlockingFindings());
+
+    // MIN_DISTINCT with exact including empty
+    DataQualityRule minDistinct =
+        rule(DataQualityRuleType.MIN_DISTINCT, "code", Map.of("min", "3"));
+    assertEquals(0, measure(profile, minDistinct).getFindingCount());
+  }
+
+  @Test
+  void missingFieldEmitsFinding() {
+    DataProfileSnapshot profile = new DataProfileSnapshot();
+    profile.setSubjectKey("s");
+    profile.setRowCount(1);
+    DataQualityRule rule = rule(DataQualityRuleType.MIN_DISTINCT, "missing_col", Map.of("min", "1"));
+    DataQualityReport report = measure(profile, rule);
+    assertEquals(1, report.getFindingCount());
+    assertTrue(report.getFindings().get(0).getMessage().contains("not found"));
   }
 
   @Test
@@ -295,6 +388,64 @@ class DataQualityPhase2RulesTest {
     assertEquals("'abc'", DatabaseProfileCollector.escapeSqlStringLiteral("abc"));
     assertEquals("'a''b'", DatabaseProfileCollector.escapeSqlStringLiteral("a'b"));
     assertEquals("''''", DatabaseProfileCollector.escapeSqlStringLiteral("'"));
+    assertEquals("''", DatabaseProfileCollector.escapeSqlStringLiteral(null));
+    assertEquals("'a''''b'", DatabaseProfileCollector.escapeSqlStringLiteral("a''b"));
+  }
+
+  @Test
+  void distinctSampleSqlIsDialectAware() {
+    String pg =
+        DatabaseProfileCollector.distinctSampleSql("POSTGRESQL", "t", "c", 500);
+    assertTrue(pg.contains("LIMIT 500"));
+    assertFalse(pg.contains("TOP"));
+
+    String mssql = DatabaseProfileCollector.distinctSampleSql("MSSQL", "t", "c", 100);
+    assertTrue(mssql.contains("TOP 100"));
+
+    String oracle = DatabaseProfileCollector.distinctSampleSql("ORACLE", "t", "c", 50);
+    assertTrue(oracle.contains("FETCH FIRST 50 ROWS ONLY"));
+  }
+
+  @Test
+  void regexMissingPatternEmitsWarning() {
+    DataProfileSnapshot profile = new DataProfileSnapshot();
+    profile.setSubjectKey("s");
+    profile.field("code").observeValue("ABC", "ABC", 10);
+    DataQualityRule rule = rule(DataQualityRuleType.REGEX, "code", Map.of());
+    DataQualityReport report = measure(profile, rule);
+    assertEquals(1, report.getFindingCount());
+    assertEquals(QualitySeverity.WARNING, report.getFindings().get(0).getSeverity());
+    assertEquals("true", report.getFindings().get(0).getMetrics().get("regexSkipped"));
+  }
+
+  @Test
+  void regexSkippedWhenNoDistribution() {
+    DataProfileSnapshot profile = new DataProfileSnapshot();
+    profile.setSubjectKey("s");
+    profile.field("code"); // no values
+    DataQualityRule rule =
+        rule(DataQualityRuleType.REGEX, "code", Map.of("pattern", "[A-Z]+"));
+    DataQualityReport report = measure(profile, rule);
+    assertEquals(1, report.getFindingCount());
+    assertEquals(QualitySeverity.WARNING, report.getFindings().get(0).getSeverity());
+    assertEquals("true", report.getFindings().get(0).getMetrics().get("regexSkipped"));
+  }
+
+  @Test
+  void regexSkippedWhenCollectorMarksSkipped() {
+    DataProfileSnapshot profile = new DataProfileSnapshot();
+    profile.setSubjectKey("s");
+    FieldProfile field = profile.field("code");
+    DataQualityRule rule =
+        rule(DataQualityRuleType.REGEX, "code", Map.of("pattern", "[A-Z]+"));
+    FieldProfile.RegexRuleProfile stats = field.regexProfile(RegexSupport.ruleKey(rule));
+    stats.setSkipped(true);
+    stats.setPath(RegexSupport.PATH_NONE);
+
+    DataQualityReport report = measure(profile, rule);
+    assertEquals(1, report.getFindingCount());
+    assertEquals(QualitySeverity.WARNING, report.getFindings().get(0).getSeverity());
+    assertEquals("true", report.getFindings().get(0).getMetrics().get("regexSkipped"));
   }
 
   @Test

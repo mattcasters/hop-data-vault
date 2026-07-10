@@ -36,7 +36,7 @@ import org.apache.hop.core.logging.LoggingObject;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
-import org.apache.hop.quality.engine.evaluators.RegexEvaluator;
+import org.apache.hop.quality.RegexSupport;
 import org.apache.hop.quality.model.DataQualityRule;
 import org.apache.hop.quality.model.DataQualityRuleType;
 import org.apache.hop.quality.model.QualityEvaluationMode;
@@ -51,8 +51,17 @@ public final class DatabaseProfileCollector {
   /** Bounded sample size for REGEX fall-through (no unbounded GROUP BY for REGEX alone). */
   public static final int REGEX_SAMPLE_LIMIT = 500;
 
+  /** Bounded sample when COUNT(DISTINCT) fails. */
+  public static final int DISTINCT_SAMPLE_LIMIT = 500;
+
   /** Max accepted author regex pattern length for SQL pushdown. */
   public static final int REGEX_PATTERN_MAX_LENGTH = 512;
+
+  /**
+   * Default JDBC statement timeout (seconds) for REGEX pushdown / sample queries. Aligns with
+   * future SQL_ASSERTION default.
+   */
+  public static final int DEFAULT_QUERY_TIMEOUT_SECONDS = 60;
 
   private static final Set<DataQualityRuleType> DATASET_ONLY_TYPES =
       EnumSet.of(DataQualityRuleType.MIN_ROW_COUNT, DataQualityRuleType.MAX_ROW_COUNT);
@@ -96,6 +105,7 @@ public final class DatabaseProfileCollector {
 
     try (Database db = new Database(LOGGING_OBJECT, variables, databaseMeta)) {
       db.connect();
+      applyQueryTimeout(db);
       snapshot.setRowCount(queryLong(db, "SELECT COUNT(*) FROM " + quotedTable));
 
       for (Map.Entry<String, FieldNeeds> entry : needsByField.entrySet()) {
@@ -152,6 +162,7 @@ public final class DatabaseProfileCollector {
         }
 
         if (needs.exactDistinct) {
+          boolean gotExact = false;
           try {
             long distinct =
                 queryLong(
@@ -164,8 +175,17 @@ public final class DatabaseProfileCollector {
                         + quotedField
                         + " IS NOT NULL");
             field.setExactDistinctCount(distinct);
+            gotExact = true;
           } catch (Exception ignored) {
-            // fall back to distribution sample if collected
+            // fall through to bounded sample
+          }
+          if (!gotExact) {
+            try {
+              collectBoundedDistinctSample(db, pluginId, quotedTable, quotedField, field);
+            } catch (Exception e) {
+              // No exact and no sample: mark unknown so MIN_DISTINCT does not false-fail at size=0
+              field.setDistinctUnknown(true);
+            }
           }
         }
 
@@ -241,6 +261,58 @@ public final class DatabaseProfileCollector {
     return snapshot;
   }
 
+  private static void applyQueryTimeout(Database db) {
+    try {
+      db.setStatementQueryTimeoutSeconds(DEFAULT_QUERY_TIMEOUT_SECONDS);
+    } catch (Exception ignored) {
+      // driver may not support statement timeouts
+    }
+  }
+
+  /**
+   * When COUNT(DISTINCT) fails, collect a bounded set of distinct values so evaluators have a real
+   * lower bound (and can set distinctTruncated when the limit is hit).
+   */
+  private static void collectBoundedDistinctSample(
+      Database db, String pluginId, String quotedTable, String quotedField, FieldProfile field)
+      throws Exception {
+    String sql =
+        distinctSampleSql(pluginId, quotedTable, quotedField, DISTINCT_SAMPLE_LIMIT);
+    ResultSet rs = db.openQuery(sql);
+    if (rs == null) {
+      field.setDistinctUnknown(true);
+      return;
+    }
+    long seen = 0;
+    try {
+      while (rs.next()) {
+        Object raw = rs.getObject(1);
+        if (raw == null) {
+          continue;
+        }
+        String display = String.valueOf(raw);
+        seen++;
+        field.observeValueCount(
+            raw, display, 1L, Math.max(RowProfileCollector.DEFAULT_MAX_DISTINCT, DISTINCT_SAMPLE_LIMIT));
+      }
+    } finally {
+      db.closeQuery(rs);
+    }
+    if (seen == 0 && field.getDistinctValues().isEmpty()) {
+      // Empty table non-nulls — exact zero is fine
+      field.setExactDistinctCount(0L);
+      return;
+    }
+    if (seen >= DISTINCT_SAMPLE_LIMIT) {
+      // Partial set only — lower bound for MIN_DISTINCT; INFO path for MAX_DISTINCT
+      field.setExactDistinctCount(null);
+      field.markDistinctTruncated();
+    } else {
+      // Complete distinct set within limit — treat as exact
+      field.setExactDistinctCount((long) field.getDistinctValues().size());
+    }
+  }
+
   private static void collectRegex(
       Database db,
       String pluginId,
@@ -248,25 +320,24 @@ public final class DatabaseProfileCollector {
       String quotedField,
       FieldProfile field,
       DataQualityRule rule) {
-    String ruleKey = RegexEvaluator.ruleKey(rule);
+    String ruleKey = RegexSupport.ruleKey(rule);
     FieldProfile.RegexRuleProfile stats = field.regexProfile(ruleKey);
     String patternText = rule.parameter(DataQualityRule.PARAM_PATTERN);
 
     if (!isPushdownSafePattern(patternText)) {
-      // Fall through to bounded sample
-      collectRegexSample(db, quotedTable, quotedField, field, rule, stats);
+      collectRegexSample(db, pluginId, quotedTable, quotedField, field, rule, stats);
       return;
     }
 
     if (supportsPostgresRegex(pluginId)) {
       try {
+        applyQueryTimeout(db);
         String sqlLiteral = escapeSqlStringLiteral(patternText);
-        boolean full = RegexEvaluator.isFullMatch(rule);
+        boolean full = RegexSupport.isFullMatch(rule);
         boolean caseSensitive = rule.parameterBoolean(DataQualityRule.PARAM_CASE_SENSITIVE, true);
         String operator = caseSensitive ? "~" : "~*";
         String patternExpr;
         if (full) {
-          // FULL: match entire value. Pattern is a SQL string literal constant.
           patternExpr = "'^(?:' || " + sqlLiteral + " || ')$'";
         } else {
           patternExpr = sqlLiteral;
@@ -284,7 +355,7 @@ public final class DatabaseProfileCollector {
                 + patternExpr
                 + ")";
         long mismatch = queryLong(db, sql);
-        stats.setPath(RegexEvaluator.PATH_PUSHDOWN);
+        stats.setPath(RegexSupport.PATH_PUSHDOWN);
         stats.setMismatchCount(mismatch);
         return;
       } catch (Exception e) {
@@ -292,17 +363,17 @@ public final class DatabaseProfileCollector {
       }
     }
 
-    // Optional: if value distribution already present, client path in evaluator covers it
     if (!field.getValueCounts().isEmpty()) {
       evaluateRegexOnValueCounts(field, rule, stats);
       return;
     }
 
-    collectRegexSample(db, quotedTable, quotedField, field, rule, stats);
+    collectRegexSample(db, pluginId, quotedTable, quotedField, field, rule, stats);
   }
 
   private static void collectRegexSample(
       Database db,
+      String pluginId,
       String quotedTable,
       String quotedField,
       FieldProfile field,
@@ -311,31 +382,23 @@ public final class DatabaseProfileCollector {
     String patternText = rule.parameter(DataQualityRule.PARAM_PATTERN);
     if (Utils.isEmpty(patternText)) {
       stats.setSkipped(true);
-      stats.setPath("none");
+      stats.setPath(RegexSupport.PATH_NONE);
       return;
     }
     Pattern pattern;
     try {
-      pattern = RegexEvaluator.compile(rule, patternText);
+      pattern = RegexSupport.compile(rule, patternText);
     } catch (PatternSyntaxException e) {
       stats.setSkipped(true);
-      stats.setPath("none");
+      stats.setPath(RegexSupport.PATH_NONE);
       return;
     }
-    boolean full = RegexEvaluator.isFullMatch(rule);
+    boolean full = RegexSupport.isFullMatch(rule);
     long sampleSize = 0;
-    long mismatch = 0;
+    long mismatchDistinct = 0;
     try {
-      // Prefer dialect LIMIT; PostgreSQL/MySQL accept LIMIT N.
-      String sql =
-          "SELECT DISTINCT "
-              + quotedField
-              + " FROM "
-              + quotedTable
-              + " WHERE "
-              + quotedField
-              + " IS NOT NULL LIMIT "
-              + REGEX_SAMPLE_LIMIT;
+      applyQueryTimeout(db);
+      String sql = distinctSampleSql(pluginId, quotedTable, quotedField, REGEX_SAMPLE_LIMIT);
       ResultSet rs = db.openQuery(sql);
       if (rs != null) {
         try {
@@ -346,25 +409,29 @@ public final class DatabaseProfileCollector {
             }
             String display = String.valueOf(raw);
             sampleSize++;
-            if (!RegexEvaluator.matches(pattern, display, full)) {
-              mismatch++;
+            if (!RegexSupport.matches(pattern, display, full)) {
+              mismatchDistinct++;
             }
-            // Seed value distribution for other consumers (bounded).
             field.observeValueCount(
-                raw, display, 1L, Math.max(RowProfileCollector.DEFAULT_MAX_DISTINCT, REGEX_SAMPLE_LIMIT));
+                raw,
+                display,
+                1L,
+                Math.max(RowProfileCollector.DEFAULT_MAX_DISTINCT, REGEX_SAMPLE_LIMIT));
           }
         } finally {
           db.closeQuery(rs);
         }
       }
-      stats.setPath(RegexEvaluator.PATH_SAMPLE);
+      stats.setPath(RegexSupport.PATH_SAMPLE);
       stats.setSampleSize(sampleSize);
-      stats.setSampleMismatchCount(mismatch);
+      // Distinct-sample: count of failing distinct values (not row-weighted)
+      stats.setSampleMismatchCount(mismatchDistinct);
+      stats.setSampleMismatchRows(0);
       stats.setSampleLimit(REGEX_SAMPLE_LIMIT);
-      stats.setCoverageIncomplete(mismatch == 0 && sampleSize >= REGEX_SAMPLE_LIMIT);
+      stats.setCoverageIncomplete(mismatchDistinct == 0 && sampleSize >= REGEX_SAMPLE_LIMIT);
     } catch (Exception e) {
       stats.setSkipped(true);
-      stats.setPath("none");
+      stats.setPath(RegexSupport.PATH_NONE);
     }
   }
 
@@ -373,31 +440,79 @@ public final class DatabaseProfileCollector {
     String patternText = rule.parameter(DataQualityRule.PARAM_PATTERN);
     if (Utils.isEmpty(patternText)) {
       stats.setSkipped(true);
-      stats.setPath("none");
+      stats.setPath(RegexSupport.PATH_NONE);
       return;
     }
     Pattern pattern;
     try {
-      pattern = RegexEvaluator.compile(rule, patternText);
+      pattern = RegexSupport.compile(rule, patternText);
     } catch (PatternSyntaxException e) {
       stats.setSkipped(true);
-      stats.setPath("none");
+      stats.setPath(RegexSupport.PATH_NONE);
       return;
     }
-    boolean full = RegexEvaluator.isFullMatch(rule);
+    boolean full = RegexSupport.isFullMatch(rule);
     long sampleSize = 0;
+    long mismatchDistinct = 0;
     long mismatchRows = 0;
     for (Map.Entry<String, Long> entry : field.getValueCounts().entrySet()) {
       sampleSize++;
-      if (!RegexEvaluator.matches(pattern, entry.getKey(), full)) {
+      if (!RegexSupport.matches(pattern, entry.getKey(), full)) {
+        mismatchDistinct++;
         mismatchRows += entry.getValue() != null ? entry.getValue() : 1L;
       }
     }
-    stats.setPath(RegexEvaluator.PATH_SAMPLE);
+    stats.setPath(RegexSupport.PATH_SAMPLE);
     stats.setSampleSize(sampleSize);
-    stats.setSampleMismatchCount(mismatchRows);
+    stats.setSampleMismatchCount(mismatchDistinct);
+    stats.setSampleMismatchRows(mismatchRows);
     stats.setSampleLimit(RowProfileCollector.DEFAULT_MAX_DISTINCT);
-    stats.setCoverageIncomplete(mismatchRows == 0 && field.isDistinctTruncated());
+    stats.setCoverageIncomplete(mismatchDistinct == 0 && field.isDistinctTruncated());
+  }
+
+  /**
+   * Dialect-aware bounded DISTINCT sample SQL.
+   *
+   * <ul>
+   *   <li>MSSQL / MSSQLNATIVE: {@code SELECT DISTINCT TOP n col ...}
+   *   <li>Oracle: {@code SELECT DISTINCT col ... FETCH FIRST n ROWS ONLY}
+   *   <li>Default (Postgres, MySQL, …): {@code SELECT DISTINCT col ... LIMIT n}
+   * </ul>
+   */
+  public static String distinctSampleSql(
+      String pluginId, String quotedTable, String quotedField, int limit) {
+    String id = pluginId != null ? pluginId.trim() : "";
+    if ("MSSQL".equalsIgnoreCase(id) || "MSSQLNATIVE".equalsIgnoreCase(id)) {
+      return "SELECT DISTINCT TOP "
+          + limit
+          + " "
+          + quotedField
+          + " FROM "
+          + quotedTable
+          + " WHERE "
+          + quotedField
+          + " IS NOT NULL";
+    }
+    if ("ORACLE".equalsIgnoreCase(id)) {
+      return "SELECT DISTINCT "
+          + quotedField
+          + " FROM "
+          + quotedTable
+          + " WHERE "
+          + quotedField
+          + " IS NOT NULL FETCH FIRST "
+          + limit
+          + " ROWS ONLY";
+    }
+    // Postgres, MySQL, SingleStore, default
+    return "SELECT DISTINCT "
+        + quotedField
+        + " FROM "
+        + quotedTable
+        + " WHERE "
+        + quotedField
+        + " IS NOT NULL LIMIT "
+        + limit;
   }
 
   static boolean isPushdownSafePattern(String pattern) {

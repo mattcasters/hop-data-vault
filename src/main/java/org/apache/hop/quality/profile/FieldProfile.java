@@ -45,6 +45,12 @@ public class FieldProfile {
    */
   @Setter private Long exactDistinctCount;
 
+  /**
+   * True when the collector attempted exact distinct but both COUNT(DISTINCT) and sample fallback
+   * failed — evaluators must not treat empty distinctValues as proof of zero cardinality.
+   */
+  @Setter private boolean distinctUnknown;
+
   private Integer minStringLength;
   private Integer maxStringLength;
 
@@ -62,10 +68,25 @@ public class FieldProfile {
     nullCount++;
   }
 
+  /**
+   * Observe an empty string value. Records length 0 and includes {@code ""} in valueCounts /
+   * distinctValues so REGEX and distinct rules align with SQL {@code COUNT(DISTINCT)} (which
+   * counts empty strings).
+   */
   public void observeEmptyString() {
+    observeEmptyString(Integer.MAX_VALUE);
+  }
+
+  /**
+   * Observe an empty string with a distinct-set cap (row-profile path).
+   *
+   * @param maxDistinct max distinct values to retain in the sample set
+   */
+  public void observeEmptyString(int maxDistinct) {
     emptyStringCount++;
     nonNullCount++;
     observeStringLength(0);
+    recordEmptyInDistribution(1L, maxDistinct);
   }
 
   public void observeValue(Object raw, String display, int maxDistinct) {
@@ -90,6 +111,11 @@ public class FieldProfile {
     } else if (!distinctValues.contains(display)) {
       distinctTruncated = true;
     }
+  }
+
+  /** Marks the distinct sample as incomplete (collector hit a row limit). */
+  public void markDistinctTruncated() {
+    distinctTruncated = true;
   }
 
   public void observeStringLength(int length) {
@@ -135,6 +161,20 @@ public class FieldProfile {
       nonNullCount += count;
       // Empty strings have length 0; bulk path does not know exact min/max across empties only.
       observeStringLength(0);
+      // Align with SQL COUNT(DISTINCT): empty is a real distinct value.
+      recordEmptyInDistribution(count, Integer.MAX_VALUE);
+    }
+  }
+
+  private void recordEmptyInDistribution(long count, int maxDistinct) {
+    valueCounts.merge("", count, Long::sum);
+    if (distinctValues.contains("")) {
+      return;
+    }
+    if (distinctValues.size() < maxDistinct) {
+      distinctValues.add("");
+    } else {
+      distinctTruncated = true;
     }
   }
 
@@ -166,12 +206,23 @@ public class FieldProfile {
   public static class RegexRuleProfile {
     /** Path used: pushdown | sample | none. */
     private String path;
-    /** Mismatch row count from SQL pushdown; null if pushdown not used. */
+    /**
+     * Mismatch row count from SQL pushdown (rows that failed the pattern); null if pushdown not
+     * used.
+     */
     private Long mismatchCount;
     /** Sample path: number of distinct values inspected. */
     private long sampleSize;
-    /** Sample path: count of sampled values that failed the pattern. */
+    /**
+     * Sample path: number of failing distinct values (not weighted by row frequency). For
+     * valueCounts-weighted row mismatches use {@link #sampleMismatchRows}.
+     */
     private long sampleMismatchCount;
+    /**
+     * When sample was evaluated against valueCounts: total row weight of mismatched values. 0 when
+     * only distinct sampling was used.
+     */
+    private long sampleMismatchRows;
     /** Sample path: limit applied (e.g. 500). */
     private int sampleLimit;
     /** True when sample limit was hit and all samples matched (coverage incomplete). */

@@ -19,6 +19,7 @@
 package org.apache.hop.quality.engine.evaluators;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.hop.quality.engine.IDataQualityRuleEvaluator;
 import org.apache.hop.quality.engine.QualityEvaluationContext;
@@ -43,7 +44,10 @@ public final class NullRatioMaxEvaluator implements IDataQualityRuleEvaluator {
       return List.of();
     }
     Double maxRatio = EvaluatorSupport.parseDouble(rule.parameter(DataQualityRule.PARAM_MAX_RATIO));
-    if (maxRatio == null || maxRatio < 0.0 || maxRatio > 1.0) {
+    if (maxRatio == null
+        || !Double.isFinite(maxRatio)
+        || maxRatio < 0.0
+        || maxRatio > 1.0) {
       return List.of(
           EvaluatorSupport.findingWithSeverity(
               rule,
@@ -63,15 +67,7 @@ public final class NullRatioMaxEvaluator implements IDataQualityRuleEvaluator {
     DataProfileSnapshot profile = context.getProfile();
     FieldProfile field = profile.findField(fieldName);
     if (field == null) {
-      return List.of(
-          EvaluatorSupport.finding(
-              rule,
-              context,
-              fieldName,
-              "Field '" + fieldName + "' not found in profile",
-              "missing",
-              "present",
-              null));
+      return EvaluatorSupport.fieldNotInProfile(rule, context, fieldName);
     }
 
     long rowCount = profile.getRowCount();
@@ -113,9 +109,9 @@ public final class NullRatioMaxEvaluator implements IDataQualityRuleEvaluator {
 
   private static String formatRatio(double value) {
     if (value == (long) value) {
-      return String.format("%.1f", value);
+      return String.format(Locale.ROOT, "%.1f", value);
     }
-    String s = String.format("%.6f", value);
+    String s = String.format(Locale.ROOT, "%.6f", value);
     // trim trailing zeros after decimal
     if (s.indexOf('.') >= 0) {
       s = s.replaceAll("0+$", "").replaceAll("\\.$", ".0");

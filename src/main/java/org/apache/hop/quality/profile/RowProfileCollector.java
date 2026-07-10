@@ -93,7 +93,8 @@ public final class RowProfileCollector {
             text = String.valueOf(value);
           }
           if (text != null && text.isEmpty()) {
-            field.observeEmptyString();
+            // Include "" in valueCounts/distinct so REGEX and exactDistinctCount match SQL
+            field.observeEmptyString(maxDistinct);
             continue;
           }
           field.observeValue(text, text, maxDistinct);

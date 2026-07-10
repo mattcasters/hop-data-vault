@@ -47,7 +47,10 @@ public final class MinLengthEvaluator implements IDataQualityRuleEvaluator {
 
     String fieldName = EvaluatorSupport.resolveField(rule);
     FieldProfile field = context.getProfile().findField(fieldName);
-    if (field == null || field.getMinStringLength() == null) {
+    if (field == null) {
+      return EvaluatorSupport.fieldNotInProfile(rule, context, fieldName);
+    }
+    if (field.getMinStringLength() == null) {
       return List.of();
     }
 

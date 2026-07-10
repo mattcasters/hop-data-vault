@@ -25,6 +25,7 @@ import org.apache.hop.quality.engine.QualityEvaluationContext;
 import org.apache.hop.quality.model.DataQualityFinding;
 import org.apache.hop.quality.model.DataQualityRule;
 import org.apache.hop.quality.model.DataQualityRuleType;
+import org.apache.hop.quality.model.QualitySeverity;
 import org.apache.hop.quality.profile.FieldProfile;
 
 /** Fails when exact or observed distinct count is below {@code min}. */
@@ -48,7 +49,7 @@ public final class MinDistinctEvaluator implements IDataQualityRuleEvaluator {
     String fieldName = EvaluatorSupport.resolveField(rule);
     FieldProfile field = context.getProfile().findField(fieldName);
     if (field == null) {
-      return List.of();
+      return EvaluatorSupport.fieldNotInProfile(rule, context, fieldName);
     }
 
     Long exact = field.getExactDistinctCount();
@@ -57,6 +58,21 @@ public final class MinDistinctEvaluator implements IDataQualityRuleEvaluator {
         return List.of();
       }
       return fail(rule, context, fieldName, exact, min, "exact");
+    }
+
+    // Collector failed to obtain any distinct signal — do not false-fail as size=0.
+    if (field.isDistinctUnknown() && field.getDistinctValues().isEmpty()) {
+      return List.of(
+          EvaluatorSupport.findingWithSeverity(
+              rule,
+              context,
+              fieldName,
+              "MIN_DISTINCT could not be evaluated: distinct count unavailable",
+              "distinctUnknown=true",
+              "min=" + min,
+              EvaluatorSupport.metrics(
+                  "distinctUnknown", "true", "min", String.valueOf(min)),
+              QualitySeverity.WARNING));
     }
 
     long size = field.getDistinctValues().size();

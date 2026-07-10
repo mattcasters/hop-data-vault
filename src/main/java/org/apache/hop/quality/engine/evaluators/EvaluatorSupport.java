@@ -19,6 +19,7 @@
 package org.apache.hop.quality.engine.evaluators;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.quality.engine.QualityEvaluationContext;
@@ -98,6 +99,20 @@ final class EvaluatorSupport {
 
   static boolean missingField(DataQualityRule rule) {
     return Utils.isEmpty(resolveField(rule));
+  }
+
+  /** Finding when a field-scoped rule's column is absent from the profile. */
+  static List<DataQualityFinding> fieldNotInProfile(
+      DataQualityRule rule, QualityEvaluationContext context, String fieldName) {
+    return java.util.List.of(
+        finding(
+            rule,
+            context,
+            fieldName,
+            "Field '" + fieldName + "' not found in profile",
+            "missing",
+            "present",
+            metric("fieldMissing", "true")));
   }
 
   static Map<String, String> metric(String key, String value) {

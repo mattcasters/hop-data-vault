@@ -47,7 +47,10 @@ public final class MaxLengthEvaluator implements IDataQualityRuleEvaluator {
 
     String fieldName = EvaluatorSupport.resolveField(rule);
     FieldProfile field = context.getProfile().findField(fieldName);
-    if (field == null || field.getMaxStringLength() == null) {
+    if (field == null) {
+      return EvaluatorSupport.fieldNotInProfile(rule, context, fieldName);
+    }
+    if (field.getMaxStringLength() == null) {
       return List.of();
     }
 
