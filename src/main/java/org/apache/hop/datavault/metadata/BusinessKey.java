@@ -99,16 +99,6 @@ public class BusinessKey {
   @HopMetadataProperty
   private String recordSourceName;
 
-  @GuiWidgetElement(
-      order = "0650",
-      type = GuiElementType.TEXT,
-      variables = true,
-      label = "i18n::BusinessKey.OrderByCollation.Label",
-      toolTip = "i18n::BusinessKey.OrderByCollation.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private String orderByCollation;
-
   public BusinessKey() {}
 
   public BusinessKey(String name) {

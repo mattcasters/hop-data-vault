@@ -72,9 +72,6 @@ import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.filterrows.FilterRowsMeta;
 import org.apache.hop.datavault.transform.mergerowsplus.MergeRowsPlusMeta;
-import org.apache.hop.pipeline.transforms.mergerows.PassThroughField;
-import org.apache.hop.pipeline.transforms.sort.SortRowsField;
-import org.apache.hop.pipeline.transforms.sort.SortRowsMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.jspecify.annotations.NonNull;
 
@@ -443,72 +440,21 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         GeneratedPipelineMetadataSupport.stampDvHubPipeline(
             pipelineMeta, model, this, ctx.targetTableName, src.getName());
 
-        boolean mergeOnHashKey = ctx.config != null && ctx.config.isHubMergeOnHashKey();
-
-        // Source TableInput (from record source)
+        // Source TableInput (from record source) — SQL ORDER BY business keys (auto COLLATE on
+        // SQL Server when source/target collations or Unicode/ANSI types differ).
         TransformMeta sourceInputTransform = addSourceTableInput(ctx, src, pipelineMeta);
         GeneratedPipelineMetadataSupport.stampSourceRead(sourceInputTransform, ctx.targetDbName);
 
-        TransformMeta sourceCompareTransform = sourceInputTransform;
-        if (mergeOnHashKey) {
-          TransformMeta sourceHashTransform =
-              addDvHashKey(ctx, pipelineMeta, sourceInputTransform, LOCATION_START_LINE_2);
-          if (sourceHashTransform != null) {
-            GeneratedPipelineMetadataSupport.stampHashKey(
-                sourceHashTransform, "hub", getName(), ctx.targetTableName);
-            TransformMeta sourceSortTransform =
-                addSortRows(
-                    ctx,
-                    pipelineMeta,
-                    sourceHashTransform,
-                    ctx.hashKeyFieldName,
-                    false,
-                    LOCATION_START_LINE_2.x + 2 * SPACING_WIDTH,
-                    LOCATION_START_LINE_2.y);
-            if (sourceSortTransform != null) {
-              GeneratedPipelineMetadataSupport.stampSort(
-                  sourceSortTransform, "hub", getName(), ctx.targetTableName);
-              sourceCompareTransform = sourceSortTransform;
-            }
-          }
-        }
-
-        // Target TableInput (from target DB, for diff).
-        TransformMeta targetInputTransform =
-            mergeOnHashKey
-                ? addTargetTableInputForHashMerge(ctx, pipelineMeta)
-                : addTargetTableInput(ctx, pipelineMeta);
+        // Target TableInput (from target DB, for diff) — same ORDER BY keys + bridge COLLATE.
+        TransformMeta targetInputTransform = addTargetTableInput(ctx, pipelineMeta);
         if (targetInputTransform != null) {
           GeneratedPipelineMetadataSupport.stampTargetRead(
               targetInputTransform, "hub", getName(), ctx.targetTableName, ctx.targetDbName);
         }
 
-        TransformMeta targetReferenceTransform = targetInputTransform;
-        if (mergeOnHashKey && targetInputTransform != null) {
-          TransformMeta targetSortTransform =
-              addSortRows(
-                  ctx,
-                  pipelineMeta,
-                  targetInputTransform,
-                  ctx.hashKeyFieldName,
-                  true,
-                  LOCATION_START_LINE_3.x + SPACING_WIDTH,
-                  LOCATION_START_LINE_3.y);
-          if (targetSortTransform != null) {
-            GeneratedPipelineMetadataSupport.stampSort(
-                targetSortTransform, "hub", getName(), ctx.targetTableName);
-            targetReferenceTransform = targetSortTransform;
-          }
-        }
-
-        // MergeRowsPlus (diff) if we have a target side. The source leg is the compare stream.
+        // MergeRowsPlus (diff) on business keys. No SortRows: both legs are DB-sorted.
         TransformMeta mergeTransform =
-            addMergeRows(
-                ctx,
-                pipelineMeta,
-                sourceCompareTransform,
-                targetReferenceTransform,
-                mergeOnHashKey);
+            addMergeRows(ctx, pipelineMeta, sourceInputTransform, targetInputTransform);
         if (mergeTransform != null) {
           GeneratedPipelineMetadataSupport.stampTransform(
               mergeTransform,
@@ -537,23 +483,22 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
                   null));
         }
 
-        TransformMeta checkSumTransform = filterTransform;
-        if (!mergeOnHashKey) {
-          // DvHashKey after the filter (only for new rows). The result type (STRING/HEX/BINARY) and
-          // length in the final layout still reflect the HashKeyDataType choice from configuration.
-          checkSumTransform = addDvHashKey(ctx, pipelineMeta, filterTransform, LOCATION_START_LINE_3);
-          if (checkSumTransform != null) {
-            GeneratedPipelineMetadataSupport.stampTransform(
-                checkSumTransform,
-                new GeneratedPipelineMetadataSupport.TransformContext(
-                    GeneratedPipelineMetadataConstants.ROLE_HASH_KEY,
-                    "hub",
-                    getName(),
-                    null,
-                    ctx.targetTableName,
-                    null,
-                    null));
-          }
+        // DvHashKey after the filter (only for new rows).
+        TransformMeta checkSumTransform =
+            addDvHashKey(ctx, pipelineMeta, filterTransform, LOCATION_START_LINE_3);
+        if (checkSumTransform != null) {
+          GeneratedPipelineMetadataSupport.stampTransform(
+              checkSumTransform,
+              new GeneratedPipelineMetadataSupport.TransformContext(
+                  GeneratedPipelineMetadataConstants.ROLE_HASH_KEY,
+                  "hub",
+                  getName(),
+                  null,
+                  ctx.targetTableName,
+                  null,
+                  null));
+        } else {
+          checkSumTransform = filterTransform;
         }
 
         // Add Constant transform for the static load date (provided to the method)
@@ -669,7 +614,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
         bkQuotedBkFields,
         ctx.targetDatabaseMeta,
         ctx.config,
-        ctx.variables);
+        ctx.variables,
+        loadHubOrderByCollationSession(ctx));
 
     DvSqlSupport.assignDisplaySql(targetTableInputMeta, sql.toString());
 
@@ -692,39 +638,39 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     return rsFieldName;
   }
 
-  private TransformMeta addTargetTableInputForHashMerge(
-      HubUpdateContext ctx, PipelineMeta pipelineMeta) throws HopException {
-    if (ctx.targetDatabaseMeta == null) {
-      return null;
+  private DvSqlOrderByCollationSupport.Session loadHubOrderByCollationSession(HubUpdateContext ctx) {
+    try {
+      DatabaseMeta sourceDatabaseMeta = null;
+      String sourceSchema = null;
+      String sourceTable = null;
+      if (ctx.dvSource instanceof org.apache.hop.datavault.metadata.database.DvDatabaseSource dbSource) {
+        sourceSchema = dbSource.getSchemaName();
+        sourceTable = dbSource.getTableName();
+        if (!Utils.isEmpty(dbSource.getDatabaseName())) {
+          sourceDatabaseMeta =
+              ctx.metadataProvider
+                  .getSerializer(DatabaseMeta.class)
+                  .load(ctx.variables.resolve(dbSource.getDatabaseName()));
+        }
+      }
+      return DvSqlOrderByCollationSupport.loadSession(
+          sourceDatabaseMeta,
+          sourceSchema,
+          sourceTable,
+          ctx.targetDatabaseMeta,
+          null,
+          ctx.targetTableName,
+          ctx.variables);
+    } catch (Exception e) {
+      return DvSqlOrderByCollationSupport.Session.empty();
     }
-
-    TableInputMeta targetTableInputMeta = new TableInputMeta();
-    targetTableInputMeta.setConnection(ctx.targetDbName);
-
-    String quotedHash =
-        ctx.targetDatabaseMeta.quoteField(ctx.variables.resolve(ctx.hashKeyFieldName));
-    StringBuilder sql = new StringBuilder("SELECT DISTINCT ");
-    sql.append(quotedHash);
-    sql.append(" FROM ");
-    sql.append(
-        ctx.targetDatabaseMeta.getQuotedSchemaTableCombination(
-            ctx.variables, null, ctx.targetTableName));
-
-    DvSqlSupport.assignDisplaySql(targetTableInputMeta, sql.toString());
-
-    TransformMeta tm =
-        new TransformMeta("TableInput", ctx.targetTransformName, targetTableInputMeta);
-    tm.setLocation(LOCATION_START_LINE_3);
-    pipelineMeta.addTransform(tm);
-    return tm;
   }
 
   private TransformMeta addMergeRows(
       HubUpdateContext ctx,
       PipelineMeta pipelineMeta,
       TransformMeta compareTransform,
-      TransformMeta referenceTransform,
-      boolean mergeOnHashKey)
+      TransformMeta referenceTransform)
       throws HopException {
     if (referenceTransform == null || compareTransform == null) {
       return null;
@@ -736,20 +682,8 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     mergeRowsMeta.setFlagField("flag");
 
     List<String> keyFields = new ArrayList<>();
-    if (mergeOnHashKey) {
-      keyFields.add(ctx.hashKeyFieldName);
-      for (BusinessKey bk : getDistinctBusinessKeys()) {
-        mergeRowsMeta.getPassThroughFields().add(new PassThroughField(bk.getName(), null, false));
-      }
-      String rsFieldName = calculateRecordSourceFieldName(ctx);
-      mergeRowsMeta.getPassThroughFields().add(new PassThroughField(rsFieldName, null, false));
-      mergeRowsMeta
-          .getPassThroughFields()
-          .add(new PassThroughField(ctx.hashKeyFieldName, null, false));
-    } else {
-      for (BusinessKey bk : getDistinctBusinessKeys()) {
-        keyFields.add(bk.getName());
-      }
+    for (BusinessKey bk : getDistinctBusinessKeys()) {
+      keyFields.add(bk.getName());
     }
     mergeRowsMeta.setKeyFields(keyFields);
 
@@ -760,34 +694,6 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     pipelineMeta.addPipelineHop(new PipelineHopMeta(referenceTransform, tm));
     pipelineMeta.addPipelineHop(new PipelineHopMeta(compareTransform, tm));
 
-    return tm;
-  }
-
-  private TransformMeta addSortRows(
-      HubUpdateContext ctx,
-      PipelineMeta pipelineMeta,
-      TransformMeta predecessor,
-      String sortFieldName,
-      boolean targetLeg,
-      int x,
-      int y) {
-    if (predecessor == null || Utils.isEmpty(sortFieldName)) {
-      return null;
-    }
-
-    SortRowsMeta sortRowsMeta = new SortRowsMeta();
-    SortRowsField sortField = new SortRowsField();
-    sortField.setFieldName(sortFieldName);
-    sortField.setAscending(true);
-    sortField.setCaseSensitive(true);
-    sortRowsMeta.getSortFields().add(sortField);
-    DvSortRowsSupport.applyConfiguration(sortRowsMeta, ctx.config, ctx.variables);
-
-    String transformName = targetLeg ? "sort_target_" + sortFieldName : "sort_" + sortFieldName;
-    TransformMeta tm = new TransformMeta("SortRows", transformName, sortRowsMeta);
-    tm.setLocation(new Point(x, y));
-    pipelineMeta.addTransform(tm);
-    pipelineMeta.addPipelineHop(new PipelineHopMeta(predecessor, tm));
     return tm;
   }
 

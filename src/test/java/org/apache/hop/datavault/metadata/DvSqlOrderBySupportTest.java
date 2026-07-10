@@ -13,7 +13,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
 package org.apache.hop.datavault.metadata;
@@ -23,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
@@ -38,55 +38,40 @@ class DvSqlOrderBySupportTest {
   }
 
   @Test
-  void appendsCollationForStringBusinessKeyOnSqlServer() {
+  void noCollationWithoutSessionEvenOnSqlServer() {
     DatabaseMeta databaseMeta = mssqlDatabaseMeta();
-    DataVaultConfiguration config = new DataVaultConfiguration();
-    config.setHubOrderByCollation("SQL_Latin1_General_CP1_CI_AS");
-
     BusinessKey businessKey = new BusinessKey("ITMREF_0");
     businessKey.setDataType("String");
-
-    StringBuilder sql = new StringBuilder("SELECT 1 FROM t");
-    DvSqlOrderBySupport.appendOrderBy(
-        sql,
-        List.of(businessKey),
-        List.of("[ITMREF_0]"),
-        databaseMeta,
-        config,
-        new Variables());
-
-    assertTrue(sql.toString().contains("ORDER BY [ITMREF_0] COLLATE SQL_Latin1_General_CP1_CI_AS"));
-  }
-
-  @Test
-  void perBusinessKeyCollationOverridesModelDefault() {
-    DatabaseMeta databaseMeta = mssqlDatabaseMeta();
-    DataVaultConfiguration config = new DataVaultConfiguration();
-    config.setHubOrderByCollation("SQL_Latin1_General_CP1_CI_AS");
-
-    BusinessKey businessKey = new BusinessKey("ITMREF_0");
-    businessKey.setDataType("String");
-    businessKey.setOrderByCollation("French_CI_AS");
 
     String expression =
         DvSqlOrderBySupport.orderExpression(
-            "[ITMREF_0]", businessKey, databaseMeta, config, new Variables());
+            "[ITMREF_0]", businessKey, databaseMeta, new DataVaultConfiguration(), new Variables());
 
-    assertEquals("[ITMREF_0] COLLATE French_CI_AS", expression);
+    assertEquals("[ITMREF_0]", expression);
   }
 
   @Test
   void skipsCollationForIntegerBusinessKey() {
     DatabaseMeta databaseMeta = mssqlDatabaseMeta();
-    DataVaultConfiguration config = new DataVaultConfiguration();
-    config.setHubOrderByCollation("SQL_Latin1_General_CP1_CI_AS");
-
     BusinessKey businessKey = new BusinessKey("customer_id");
     businessKey.setDataType("Integer");
 
+    var source =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta("customer_id", "int", null);
+    var target =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta("customer_id", "int", null);
+    DvSqlOrderByCollationSupport.Session session =
+        new DvSqlOrderByCollationSupport.Session(
+            Map.of("customer_id", source), Map.of("customer_id", target), null, null);
+
     String expression =
         DvSqlOrderBySupport.orderExpression(
-            "[customer_id]", businessKey, databaseMeta, config, new Variables());
+            "[customer_id]",
+            businessKey,
+            databaseMeta,
+            new DataVaultConfiguration(),
+            new Variables(),
+            session);
 
     assertEquals("[customer_id]", expression);
     assertFalse(expression.contains("COLLATE"));
@@ -96,17 +81,117 @@ class DvSqlOrderBySupportTest {
   void skipsCollationForNonSqlServerDatabase() {
     DatabaseMeta databaseMeta = new DatabaseMeta();
     databaseMeta.setName("CRM");
-    DataVaultConfiguration config = new DataVaultConfiguration();
-    config.setHubOrderByCollation("SQL_Latin1_General_CP1_CI_AS");
-
     BusinessKey businessKey = new BusinessKey("ITMREF_0");
     businessKey.setDataType("String");
 
+    var source =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta("ITMREF_0", "nvarchar", "French_CI_AS");
+    var target =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta(
+            "ITMREF_0", "varchar", "SQL_Latin1_General_CP1_CI_AS");
+    DvSqlOrderByCollationSupport.Session session =
+        new DvSqlOrderByCollationSupport.Session(
+            Map.of("ITMREF_0", source), Map.of("ITMREF_0", target), null, null);
+
     String expression =
         DvSqlOrderBySupport.orderExpression(
-            "[ITMREF_0]", businessKey, databaseMeta, config, new Variables());
+            "[ITMREF_0]",
+            businessKey,
+            databaseMeta,
+            new DataVaultConfiguration(),
+            new Variables(),
+            session);
 
     assertEquals("[ITMREF_0]", expression);
+  }
+
+  @Test
+  void autoAppliesBridgeCollationWhenSessionShowsRisk() {
+    DatabaseMeta databaseMeta = mssqlDatabaseMeta();
+    BusinessKey businessKey = new BusinessKey("ITMREF_0");
+    businessKey.setSourceFieldName("ITMREF_0");
+    businessKey.setDataType("String");
+
+    var source =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta("ITMREF_0", "nvarchar", "French_CI_AS");
+    var target =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta(
+            "ITMREF_0", "varchar", "SQL_Latin1_General_CP1_CI_AS");
+    DvSqlOrderByCollationSupport.Session session =
+        new DvSqlOrderByCollationSupport.Session(
+            Map.of("ITMREF_0", source), Map.of("ITMREF_0", target), null, null);
+
+    String expression =
+        DvSqlOrderBySupport.orderExpression(
+            "[ITMREF_0]",
+            businessKey,
+            databaseMeta,
+            new DataVaultConfiguration(),
+            new Variables(),
+            session);
+
+    assertEquals("[ITMREF_0] COLLATE French_CI_AS", expression);
+  }
+
+  @Test
+  void noAutoCollationWhenSessionAligned() {
+    DatabaseMeta databaseMeta = mssqlDatabaseMeta();
+    BusinessKey businessKey = new BusinessKey("ITMREF_0");
+    businessKey.setSourceFieldName("ITMREF_0");
+    businessKey.setDataType("String");
+
+    var source =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta(
+            "ITMREF_0", "varchar", "SQL_Latin1_General_CP1_CI_AS");
+    var target =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta(
+            "ITMREF_0", "varchar", "SQL_Latin1_General_CP1_CI_AS");
+    DvSqlOrderByCollationSupport.Session session =
+        new DvSqlOrderByCollationSupport.Session(
+            Map.of("ITMREF_0", source), Map.of("ITMREF_0", target), null, null);
+
+    String expression =
+        DvSqlOrderBySupport.orderExpression(
+            "[ITMREF_0]",
+            businessKey,
+            databaseMeta,
+            new DataVaultConfiguration(),
+            new Variables(),
+            session);
+
+    assertEquals("[ITMREF_0]", expression);
+  }
+
+  @Test
+  void satelliteOrderByCollatesStringDrivingKeyNotLoadDate() {
+    DatabaseMeta databaseMeta = mssqlDatabaseMeta();
+
+    var source =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta("phone_type", "nvarchar", "French_CI_AS");
+    var target =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta(
+            "phone_type", "varchar", "SQL_Latin1_General_CP1_CI_AS");
+    DvSqlOrderByCollationSupport.Session session =
+        new DvSqlOrderByCollationSupport.Session(
+            Map.of("phone_type", source), Map.of("phone_type", target), null, null);
+
+    List<DvSqlOrderBySupport.OrderByField> fields =
+        List.of(
+            new DvSqlOrderBySupport.OrderByField("[hk]", null, "hk", true),
+            new DvSqlOrderBySupport.OrderByField("[phone_type]", "phone_type", "phone_type", true),
+            new DvSqlOrderBySupport.OrderByField("[load_date]", null, null, false));
+
+    StringBuilder sql = new StringBuilder("SELECT 1 FROM sat");
+    DvSqlOrderBySupport.appendOrderByFields(
+        sql, fields, databaseMeta, new DataVaultConfiguration(), new Variables(), session);
+
+    String out = sql.toString();
+    assertTrue(out.contains("[phone_type] COLLATE French_CI_AS"));
+    assertTrue(out.contains("[load_date]"));
+    assertFalse(out.contains("[load_date] COLLATE"));
+    // hash with no session risk stays bare
+    assertTrue(out.contains("[hk]"));
+    assertFalse(out.contains("[hk] COLLATE"));
   }
 
   private static DatabaseMeta mssqlDatabaseMeta() {

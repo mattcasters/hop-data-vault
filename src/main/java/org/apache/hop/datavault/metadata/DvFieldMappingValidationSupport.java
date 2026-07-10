@@ -207,7 +207,8 @@ public final class DvFieldMappingValidationSupport {
               targetDatabaseMeta,
               config,
               checkSource,
-              remarks);
+              remarks,
+              DvSqlPhysicalTypeValidationSupport.RemediationKind.SATELLITE_ORDER_KEY);
           if (resolved.usedLive && stored != null) {
             addStoredDriftWarnings(
                 resolved.storedFields,
@@ -229,7 +230,16 @@ public final class DvFieldMappingValidationSupport {
     List<SatelliteAttribute> attributes = satellite.getAttributes();
     if (attributes == null || attributes.isEmpty()) {
       validateSatelliteAutoAttributes(
-          satellite, model, resolved, recordSource, variables, checkSource, remarks);
+          satellite,
+          model,
+          resolved,
+          recordSource,
+          options,
+          targetDatabaseMeta,
+          config,
+          variables,
+          checkSource,
+          remarks);
       return;
     }
 
@@ -273,7 +283,8 @@ public final class DvFieldMappingValidationSupport {
             targetDatabaseMeta,
             config,
             checkSource,
-            remarks);
+            remarks,
+            DvSqlPhysicalTypeValidationSupport.RemediationKind.SATELLITE_ATTRIBUTE);
         if (resolved.usedLive && storedField != null) {
           addStoredDriftWarnings(
               resolved.storedFields,
@@ -687,6 +698,9 @@ public final class DvFieldMappingValidationSupport {
       DataVaultModel model,
       ResolvedSourceFields resolved,
       DataVaultSource recordSource,
+      DvModelCheckOptions options,
+      DatabaseMeta targetDatabaseMeta,
+      DataVaultConfiguration config,
       IVariables variables,
       ICheckResultSource checkSource,
       List<ICheckResult> remarks) {
@@ -734,16 +748,24 @@ public final class DvFieldMappingValidationSupport {
       }
       try {
         IValueMeta targetMeta = valueMetaFromSourceField(sf, variables);
-        validateMapping(
-            sourceMeta,
-            targetMeta,
+        String mappingContext =
             BaseMessages.getString(
                 PKG,
                 "DvFieldMappingValidation.Context.SatelliteAutoAttribute",
                 fieldName,
-                recordSource.getName()),
+                recordSource.getName());
+        validateMapping(sourceMeta, targetMeta, mappingContext, checkSource, remarks);
+        validatePhysicalSqlTypeIfDetailed(
+            options,
+            resolved.usedLive,
+            sourceMeta,
+            targetMeta,
+            mappingContext,
+            targetDatabaseMeta,
+            config,
             checkSource,
-            remarks);
+            remarks,
+            DvSqlPhysicalTypeValidationSupport.RemediationKind.SATELLITE_ATTRIBUTE);
         if (resolved.usedLive) {
           addStoredDriftWarnings(
               resolved.storedFields,
@@ -1096,6 +1118,30 @@ public final class DvFieldMappingValidationSupport {
       DataVaultConfiguration config,
       ICheckResultSource checkSource,
       List<ICheckResult> remarks) {
+    validatePhysicalSqlTypeIfDetailed(
+        options,
+        usedLive,
+        sourceMeta,
+        targetMeta,
+        mappingContext,
+        targetDatabaseMeta,
+        config,
+        checkSource,
+        remarks,
+        DvSqlPhysicalTypeValidationSupport.RemediationKind.HUB_BUSINESS_KEY);
+  }
+
+  private static void validatePhysicalSqlTypeIfDetailed(
+      DvModelCheckOptions options,
+      boolean usedLive,
+      IValueMeta sourceMeta,
+      IValueMeta targetMeta,
+      String mappingContext,
+      DatabaseMeta targetDatabaseMeta,
+      DataVaultConfiguration config,
+      ICheckResultSource checkSource,
+      List<ICheckResult> remarks,
+      DvSqlPhysicalTypeValidationSupport.RemediationKind kind) {
     if (options == null
         || !options.isDetailedDataTypeChecking()
         || !usedLive
@@ -1109,7 +1155,8 @@ public final class DvFieldMappingValidationSupport {
         targetDatabaseMeta,
         config,
         checkSource,
-        remarks);
+        remarks,
+        kind);
   }
 
   private static DatabaseMeta resolveTargetDatabaseMeta(

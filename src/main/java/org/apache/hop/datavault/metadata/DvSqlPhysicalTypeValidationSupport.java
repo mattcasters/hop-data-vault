@@ -13,7 +13,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
 package org.apache.hop.datavault.metadata;
@@ -25,13 +24,19 @@ import org.apache.hop.core.ICheckResultSource;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.util.Utils;
-import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
 
 /** Validates SQL-native source/target type compatibility for sort-sensitive merge pipelines. */
 public final class DvSqlPhysicalTypeValidationSupport {
 
   private static final Class<?> PKG = DvSqlPhysicalTypeValidationSupport.class;
+
+  /** Which kind of field the mismatch applies to — drives remediation text. */
+  public enum RemediationKind {
+    HUB_BUSINESS_KEY,
+    SATELLITE_ORDER_KEY,
+    SATELLITE_ATTRIBUTE
+  }
 
   private DvSqlPhysicalTypeValidationSupport() {}
 
@@ -43,6 +48,26 @@ public final class DvSqlPhysicalTypeValidationSupport {
       DataVaultConfiguration config,
       ICheckResultSource checkSource,
       java.util.List<ICheckResult> remarks) {
+    validatePhysicalSqlTypeMapping(
+        sourceMeta,
+        targetMeta,
+        context,
+        targetDatabaseMeta,
+        config,
+        checkSource,
+        remarks,
+        RemediationKind.HUB_BUSINESS_KEY);
+  }
+
+  public static void validatePhysicalSqlTypeMapping(
+      IValueMeta sourceMeta,
+      IValueMeta targetMeta,
+      String context,
+      DatabaseMeta targetDatabaseMeta,
+      DataVaultConfiguration config,
+      ICheckResultSource checkSource,
+      java.util.List<ICheckResult> remarks,
+      RemediationKind kind) {
     if (sourceMeta == null || targetMeta == null || targetDatabaseMeta == null) {
       return;
     }
@@ -66,34 +91,31 @@ public final class DvSqlPhysicalTypeValidationSupport {
                   context,
                   sourceSqlType,
                   targetSqlType,
-                  remediationHint(config)),
+                  remediationHint(kind != null ? kind : RemediationKind.HUB_BUSINESS_KEY)),
               checkSource));
     }
   }
 
   static String remediationHint(DataVaultConfiguration config) {
-    if (config != null && config.isHubMergeOnHashKey()) {
-      return BaseMessages.getString(PKG, "DvSqlPhysicalTypeValidation.Remediation.HashKeyMergeEnabled");
+    return remediationHint(RemediationKind.HUB_BUSINESS_KEY);
+  }
+
+  static String remediationHint(DataVaultConfiguration config, RemediationKind kind) {
+    return remediationHint(kind != null ? kind : RemediationKind.HUB_BUSINESS_KEY);
+  }
+
+  static String remediationHint(RemediationKind kind) {
+    if (kind == RemediationKind.SATELLITE_ATTRIBUTE) {
+      return BaseMessages.getString(
+          PKG, "DvSqlPhysicalTypeValidation.Remediation.SatelliteAttribute");
     }
-    StringBuilder hint = new StringBuilder();
-    if (config == null || Utils.isEmpty(config.getHubOrderByCollation())) {
-      hint.append(
-          BaseMessages.getString(PKG, "DvSqlPhysicalTypeValidation.Remediation.EnableHashKeyMerge"));
-      hint.append(" ");
-      hint.append(
-          BaseMessages.getString(
-              PKG, "DvSqlPhysicalTypeValidation.Remediation.SetHubOrderByCollation"));
-    } else {
-      hint.append(
-          BaseMessages.getString(
-              PKG,
-              "DvSqlPhysicalTypeValidation.Remediation.HubOrderByCollationConfigured",
-              config.getHubOrderByCollation()));
+    if (kind == RemediationKind.SATELLITE_ORDER_KEY) {
+      return BaseMessages.getString(
+          PKG, "DvSqlPhysicalTypeValidation.Remediation.AutoOrderByCollation");
     }
-    hint.append(" ");
-    hint.append(
-        BaseMessages.getString(PKG, "DvSqlPhysicalTypeValidation.Remediation.AlignTargetDdl"));
-    return hint.toString().trim();
+    // Hub business key / general order key
+    return BaseMessages.getString(
+        PKG, "DvSqlPhysicalTypeValidation.Remediation.AutoOrderByCollation");
   }
 
   static String resolveTargetSqlType(IValueMeta targetMeta, DatabaseMeta targetDatabaseMeta) {

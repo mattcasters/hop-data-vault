@@ -139,15 +139,12 @@ image::images/data-vault-model-dialog-target-loading-tab.png[Target loading tab,
 |Target table batch size
 |Commit size for Table Output transforms in generated pipelines (default 1000). Supports variables.
 
-|Hub merge on hash key
-|When enabled, hub update pipelines compute the hub hash key before merge, sort source and target on the hash key, and compare on the hash key instead of business keys. Use when SQL Server source and target business-key types or collations sort differently (for example `NVARCHAR` vs `VARCHAR`).
-
-|Hub ORDER BY collation
-|Optional SQL Server collation name applied to string business-key `ORDER BY` clauses in generated hub source and target SQL (for example `SQL_Latin1_General_CP1_CI_AS`). Use the same collation on both databases when hub merge on hash key is disabled. Supports variables. Hub business keys can override this per field with **ORDER BY collation**.
-
 |Sort rows in memory
-|Number of rows Sort Rows keeps in memory before spilling to disk in generated update pipelines (default 1000000). Supports variables.
+|Number of rows Sort Rows keeps in memory before spilling to disk in generated update pipelines (default 1000000). Used where a merge key is computed in Hop (for example satellite/link hash sort). Hub updates rely on SQL `ORDER BY` only (no Sort Rows). Supports variables.
 |===
+
+On **SQL Server**, generated hub (and satellite target) SQL automatically inspects live source/target column collations and types. When a sort risk is detected (for example `NVARCHAR` vs `VARCHAR`, or different collations), the same bridge `COLLATE` is applied on both source and target `ORDER BY` expressions so Merge Rows streams stay aligned without manual configuration.
+
 
 === Generated pipelines tab
 

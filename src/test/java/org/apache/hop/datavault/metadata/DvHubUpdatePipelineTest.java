@@ -94,12 +94,11 @@ class DvHubUpdatePipelineTest {
   }
 
   @Test
-  void hubSourceSqlAppendsOrderByCollationForSqlServerStringKey() throws Exception {
+  void hubSourceSqlOrdersByBusinessKey() throws Exception {
     DvHub hub = stringItemHub();
     DataVaultSource itemSource = itemSource();
 
     DataVaultModel model = new DataVaultModel();
-    model.getConfigurationOrDefault().setHubOrderByCollation("SQL_Latin1_General_CP1_CI_AS");
 
     PipelineMeta pipelineMeta = new PipelineMeta();
     DvDatabaseHubSourcePipelineBuilder builder =
@@ -125,15 +124,13 @@ class DvHubUpdatePipelineTest {
     String sql = sourceMeta.getSql().replace('\n', ' ');
     assertTrue(sql.contains("ORDER BY"));
     assertTrue(sql.contains("ITMREF_0"));
-    assertTrue(sql.contains("COLLATE SQL_Latin1_General_CP1_CI_AS"));
   }
 
   @Test
-  void hashKeyMergePipelineSortsAndMergesOnHashKey() throws Exception {
+  void hubPipelineMergesOnBusinessKeysWithoutSortRows() throws Exception {
     Variables variables = catalogVariables();
     MemoryMetadataProvider metadataProvider = mssqlMetadataProvider();
     DataVaultModel model = registerItemHubModel(metadataProvider, variables);
-    model.getConfigurationOrDefault().setHubMergeOnHashKey(true);
 
     DvHub hub = model.findHub("hub_item");
     List<PipelineMeta> pipelines =
@@ -141,40 +138,17 @@ class DvHubUpdatePipelineTest {
 
     assertEquals(1, pipelines.size());
     PipelineMeta pipeline = pipelines.get(0);
-
-    assertEquals(
-        1,
-        pipeline.getTransforms().stream().filter(t -> "calc_item_hk".equals(t.getName())).count());
-    assertNotNull(pipeline.findTransform("sort_item_hk"));
-    assertNotNull(pipeline.findTransform("sort_target_item_hk"));
-
-    MergeRowsPlusMeta mergeRowsMeta =
-        (MergeRowsPlusMeta) pipeline.findTransform("merge_diff").getTransform();
-    assertEquals(List.of("item_hk"), mergeRowsMeta.getKeyFields());
-
-    TableInputMeta targetMeta =
-        (TableInputMeta) pipeline.findTransform("target_hub_item").getTransform();
-    assertTrue(targetMeta.getSql().contains("item_hk"));
-    assertFalse(targetMeta.getSql().contains("ORDER BY"));
-  }
-
-  @Test
-  void legacyPipelineMergesOnBusinessKeysAndHashesAfterFilter() throws Exception {
-    Variables variables = catalogVariables();
-    MemoryMetadataProvider metadataProvider = mssqlMetadataProvider();
-    DataVaultModel model = registerItemHubModel(metadataProvider, variables);
-
-    DvHub hub = model.findHub("hub_item");
-    List<PipelineMeta> pipelines =
-        hub.generateUpdatePipelines(metadataProvider, variables, model, new Date(), null);
-
-    PipelineMeta pipeline = pipelines.get(0);
     MergeRowsPlusMeta mergeRowsMeta =
         (MergeRowsPlusMeta) pipeline.findTransform("merge_diff").getTransform();
     assertEquals(List.of("ITMREF_0"), mergeRowsMeta.getKeyFields());
     assertNotNull(pipeline.findTransform("calc_item_hk"));
     assertTrue(
         pipeline.getTransforms().stream().noneMatch(t -> t.getTransform() instanceof SortRowsMeta));
+
+    TableInputMeta targetMeta =
+        (TableInputMeta) pipeline.findTransform("target_hub_item").getTransform();
+    assertTrue(targetMeta.getSql().contains("ORDER BY"));
+    assertTrue(targetMeta.getSql().contains("ITMREF_0"));
   }
 
   @Test

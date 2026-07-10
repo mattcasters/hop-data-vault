@@ -578,12 +578,9 @@ public class DvSatellite extends DvTableBase
             sortHkTransform, "satellite", getName(), ctx.targetTableName);
       }
 
-      // Target TableInput (hash + attributes from sat table, for diff + value comparison)
+      // Target TableInput (hash + attributes from sat table, for diff + value comparison).
+      // Returns GroupBy of latest rows; SQL ORDER BY keeps the stream merge-ordered.
       TransformMeta targetInputTransform = addTargetTableInput(ctx, pipelineMeta);
-      if (targetInputTransform != null) {
-        GeneratedPipelineMetadataSupport.stampTargetRead(
-            targetInputTransform, "satellite", getName(), ctx.targetTableName, ctx.targetDbName);
-      }
 
       // Compare leg: with end-dating the load date is added before the diff; otherwise after filter.
       TransformMeta compareTransform =
@@ -1395,14 +1392,7 @@ public class DvSatellite extends DvTableBase
       sql.append(ctx.targetDatabaseMeta.quoteField(loadEndDateField));
       sql.append(" IS NULL");
     }
-    sql.append(" ORDER BY ");
-    sql.append(quotedHash);
-    if (ctx.hasDrivingKey()) {
-      sql.append(", ");
-      sql.append(ctx.targetDatabaseMeta.quoteField(ctx.drivingKeyFieldName));
-    }
-    sql.append(", ");
-    sql.append(quotedLoadDate);
+    appendSatelliteTargetOrderBy(sql, ctx, quotedHash, quotedLoadDate);
 
     DvSqlSupport.assignDisplaySql(targetTableInputMeta, sql.toString());
 
@@ -1410,6 +1400,8 @@ public class DvSatellite extends DvTableBase
         new TransformMeta("TableInput", ctx.targetTransformName, targetTableInputMeta);
     tm.setLocation(LOCATION_START_LINE_3);
     pipelineMeta.addTransform(tm);
+    GeneratedPipelineMetadataSupport.stampTargetRead(
+        tm, "satellite", getName(), ctx.targetTableName, ctx.targetDbName);
 
     // After the target table input, insert a Group By that groups on the hash key and takes
     // LAST_INCL_NULL for all other fields. This ensures we feed only the latest satellite
@@ -1457,7 +1449,61 @@ public class DvSatellite extends DvTableBase
     pipelineMeta.addTransform(groupTm);
     pipelineMeta.addPipelineHop(new PipelineHopMeta(tm, groupTm));
 
+    // Target stream is ordered by SQL ORDER BY (hash + optional driving key with auto COLLATE).
+    // No Hop SortRows on the target leg — the database sort is enough and avoids double cost.
     return groupTm;
+  }
+
+  private void appendSatelliteTargetOrderBy(
+      StringBuilder sql,
+      SatelliteUpdateContext ctx,
+      String quotedHash,
+      String quotedLoadDate) {
+    List<DvSqlOrderBySupport.OrderByField> fields = new ArrayList<>();
+    boolean hashIsString = isHashKeyStringTyped(ctx);
+    fields.add(
+        new DvSqlOrderBySupport.OrderByField(
+            quotedHash, null, ctx.hashKeyFieldName, hashIsString));
+    if (ctx.hasDrivingKey()) {
+      fields.add(
+          new DvSqlOrderBySupport.OrderByField(
+              ctx.targetDatabaseMeta.quoteField(ctx.drivingKeyFieldName),
+              ctx.drivingKeySourceFieldName,
+              ctx.drivingKeyFieldName,
+              true));
+    }
+    fields.add(
+        new DvSqlOrderBySupport.OrderByField(quotedLoadDate, null, null, false));
+    DvSqlOrderBySupport.appendOrderByFields(
+        sql,
+        fields,
+        ctx.targetDatabaseMeta,
+        ctx.config,
+        ctx.variables,
+        loadSatelliteOrderByCollationSession(ctx));
+  }
+
+  private static boolean isHashKeyStringTyped(SatelliteUpdateContext ctx) {
+    if (ctx.config == null) {
+      return true;
+    }
+    return ctx.config.resolveHashKeyDataType() != HashKeyDataType.BINARY;
+  }
+
+  private DvSqlOrderByCollationSupport.Session loadSatelliteOrderByCollationSession(
+      SatelliteUpdateContext ctx) {
+    try {
+      return DvSqlOrderByCollationSupport.loadSession(
+          ctx.sourceDatabaseMeta,
+          ctx.sourceSchema,
+          ctx.sourceTable,
+          ctx.targetDatabaseMeta,
+          null,
+          ctx.targetTableName,
+          ctx.variables);
+    } catch (Exception e) {
+      return DvSqlOrderByCollationSupport.Session.empty();
+    }
   }
 
   private static String determineTargetLoadDateField(SatelliteUpdateContext ctx) {
@@ -1785,10 +1831,9 @@ public class DvSatellite extends DvTableBase
     }
     TransformMeta deletedStatusTransform = null;
     if (stsTargetInput != null) {
-      TransformMeta sortedStsKeys =
-          addSortRows(ctx, pipelineMeta, stsTargetInput, "sts_sort_target_" + ctx.hashKeyFieldName);
+      // Target is ordered by SQL ORDER BY (auto COLLATE on string keys); no Hop SortRows.
       TransformMeta mergeTransform =
-          addStsDeletionMerge(ctx, pipelineMeta, sortedSourceKeys, sortedStsKeys);
+          addStsDeletionMerge(ctx, pipelineMeta, sortedSourceKeys, stsTargetInput);
       deletedStatusTransform =
           addStsSelectOutputFields(
               ctx,
@@ -1970,14 +2015,7 @@ public class DvSatellite extends DvTableBase
     sql.append(
         ctx.targetDatabaseMeta.getQuotedSchemaTableCombination(
             ctx.variables, null, stsTableName));
-    sql.append(" ORDER BY ");
-    sql.append(quotedHash);
-    if (ctx.hasDrivingKey()) {
-      sql.append(", ");
-      sql.append(ctx.targetDatabaseMeta.quoteField(ctx.drivingKeyFieldName));
-    }
-    sql.append(", ");
-    sql.append(quotedLoadDate);
+    appendSatelliteTargetOrderBy(sql, ctx, quotedHash, quotedLoadDate);
 
     TableInputMeta targetTableInputMeta = new TableInputMeta();
     targetTableInputMeta.setConnection(ctx.targetDbName);

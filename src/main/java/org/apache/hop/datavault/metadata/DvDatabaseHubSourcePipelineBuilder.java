@@ -21,8 +21,10 @@ package org.apache.hop.datavault.metadata;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.Point;
+import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSource;
 import org.apache.hop.datavault.metadata.database.DvDatabaseSourcePipelineBuilder;
@@ -54,9 +56,39 @@ public class DvDatabaseHubSourcePipelineBuilder extends DvDatabaseSourcePipeline
     // FROM
     appendFrom(sourceDbMeta, source, sql);
 
-    // ORDER BY
-    appendOrderByPk(sql, businessKeys, pkQuotedFields, sourceDbMeta);
+    // ORDER BY (auto COLLATE on SQL Server when source/target collations or types differ)
+    appendOrderByPk(
+        sql, businessKeys, pkQuotedFields, sourceDbMeta, loadHubOrderByCollationSession(hub, source));
 
     return sql.toString();
+  }
+
+  private DvSqlOrderByCollationSupport.Session loadHubOrderByCollationSession(
+      DvHub hub, DvDatabaseSource source) {
+    try {
+      DatabaseMeta targetDatabaseMeta = null;
+      String targetTable = null;
+      if (configuration != null && !Utils.isEmpty(configuration.getTargetDatabase())) {
+        targetDatabaseMeta =
+            metadataProvider
+                .getSerializer(org.apache.hop.core.database.DatabaseMeta.class)
+                .load(configuration.getTargetDatabase());
+        targetTable =
+            !Utils.isEmpty(hub.getTableName()) ? hub.getTableName() : hub.getName();
+        if (variables != null && targetTable != null) {
+          targetTable = variables.resolve(targetTable);
+        }
+      }
+      return DvSqlOrderByCollationSupport.loadSession(
+          sourceDbMeta,
+          source != null ? source.getSchemaName() : null,
+          source != null ? source.getTableName() : null,
+          targetDatabaseMeta,
+          null,
+          targetTable,
+          variables);
+    } catch (Exception e) {
+      return DvSqlOrderByCollationSupport.Session.empty();
+    }
   }
 }

@@ -170,8 +170,23 @@ public abstract class DvDatabaseSourcePipelineBuilder extends DvSourcePipelineBu
       List<BusinessKey> businessKeys,
       List<String> pkQuotedFields,
       DatabaseMeta databaseMeta) {
+    appendOrderByPk(sql, businessKeys, pkQuotedFields, databaseMeta, null);
+  }
+
+  protected void appendOrderByPk(
+      StringBuilder sql,
+      List<BusinessKey> businessKeys,
+      List<String> pkQuotedFields,
+      DatabaseMeta databaseMeta,
+      org.apache.hop.datavault.metadata.DvSqlOrderByCollationSupport.Session collationSession) {
     DvSqlOrderBySupport.appendOrderBy(
-        sql, businessKeys, pkQuotedFields, databaseMeta, configuration, variables);
+        sql,
+        businessKeys,
+        pkQuotedFields,
+        databaseMeta,
+        configuration,
+        variables,
+        collationSession);
   }
 
   protected void appendFrom(DatabaseMeta sourceDbMeta, DvDatabaseSource source, StringBuilder sql) {

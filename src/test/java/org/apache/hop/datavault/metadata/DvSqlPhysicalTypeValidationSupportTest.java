@@ -13,7 +13,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
 package org.apache.hop.datavault.metadata;
@@ -52,19 +51,23 @@ class DvSqlPhysicalTypeValidationSupportTest {
   }
 
   @Test
-  void remediationMentionsHashKeyMergeWhenNotConfigured() {
-    DataVaultConfiguration config = new DataVaultConfiguration();
-    String hint = DvSqlPhysicalTypeValidationSupport.remediationHint(config);
-    assertTrue(hint.contains("Hub merge on hash key"));
-    assertTrue(hint.contains("Hub ORDER BY collation"));
+  void hubRemediationMentionsAutoCollate() {
+    String hint =
+        DvSqlPhysicalTypeValidationSupport.remediationHint(
+            DvSqlPhysicalTypeValidationSupport.RemediationKind.HUB_BUSINESS_KEY);
+    assertTrue(hint.toLowerCase().contains("collate") || hint.toLowerCase().contains("auto"));
+    assertFalse(hint.toLowerCase().contains("hub merge on hash key"));
   }
 
   @Test
-  void remediationNotesWhenHashKeyMergeEnabled() {
-    DataVaultConfiguration config = new DataVaultConfiguration();
-    config.setHubMergeOnHashKey(true);
-    String hint = DvSqlPhysicalTypeValidationSupport.remediationHint(config);
-    assertTrue(hint.contains("Hub merge on hash key is enabled"));
+  void satelliteAttributeRemediationDoesNotClaimHubMergeFixesCdc() {
+    String hint =
+        DvSqlPhysicalTypeValidationSupport.remediationHint(
+            DvSqlPhysicalTypeValidationSupport.RemediationKind.SATELLITE_ATTRIBUTE);
+    assertTrue(hint.toLowerCase().contains("align target") || hint.contains("NVARCHAR"));
+    assertTrue(
+        hint.toLowerCase().contains("does not fix")
+            || hint.toLowerCase().contains("attribute value comparison"));
   }
 
   @Test
@@ -76,5 +79,4 @@ class DvSqlPhysicalTypeValidationSupportTest {
         "NVARCHAR",
         DvSqlPhysicalTypeValidationSupport.extractSqlTypeName("NVARCHAR (20)"));
   }
-
 }
