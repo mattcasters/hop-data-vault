@@ -45,6 +45,8 @@ import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.quality.disposition.DispositionResult;
+import org.apache.hop.quality.disposition.QualityDispositionMode;
 import org.apache.hop.quality.model.DataQualityFinding;
 import org.apache.hop.quality.model.DataQualityReport;
 import org.apache.hop.quality.model.QualitySeverity;
@@ -512,6 +514,124 @@ public final class DataQualityHistoryPublisher {
             + sqlLiteral(runId);
     RowMetaAndData row = db.getOneRow(sql);
     return row != null && row.getData() != null && row.getData().length > 0;
+  }
+
+  /**
+   * Insert a {@code quality_alert} disposition header for a quality run. Skips when an alert row
+   * already exists for the run (immutable). Ensures tables when {@code autoCreateTables} is true.
+   */
+  public static PublishResult insertQualityAlert(
+      ILogChannel log,
+      DataQualityReport report,
+      DispositionResult disposition,
+      QualityDispositionMode mode,
+      PublishContext context,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider)
+      throws HopException {
+    if (report == null) {
+      return new PublishResult(PublishStatus.FAILED, "Data quality report is null");
+    }
+    if (context == null) {
+      return new PublishResult(PublishStatus.FAILED, "Publish context is null");
+    }
+    if (Utils.isEmpty(context.targetDatabaseName())) {
+      return new PublishResult(
+          PublishStatus.FAILED, "Target database connection is required for quality_alert");
+    }
+    if (Utils.isEmpty(report.getRunId())) {
+      return new PublishResult(PublishStatus.FAILED, "Report runId is required");
+    }
+
+    DatabaseMeta databaseMeta =
+        metadataProvider.getSerializer(DatabaseMeta.class).load(context.targetDatabaseName());
+    if (databaseMeta == null) {
+      return new PublishResult(
+          PublishStatus.FAILED,
+          "Target database connection not found: " + context.targetDatabaseName());
+    }
+
+    String operationsSchema = resolveOperationsSchema(context);
+    LoggingObject loggingObject = new LoggingObject(DataQualityHistoryPublisher.class);
+    Database db = new Database(loggingObject, variables, databaseMeta);
+    String runId = report.getRunId();
+    try {
+      db.connect();
+      if (context.autoCreateTables()) {
+        DataQualityHistoryDdlSupport.ensureTables(db, databaseMeta, operationsSchema, log);
+      }
+
+      if (qualityAlertExists(db, operationsSchema, runId)) {
+        String msg = "Quality alert already exists (immutable skip): " + runId;
+        if (log != null) {
+          log.logBasic(msg);
+        }
+        return new PublishResult(PublishStatus.SKIPPED, msg);
+      }
+
+      insertQualityAlertRow(db, operationsSchema, report, disposition, mode);
+
+      String msg =
+          "Inserted quality_alert for run "
+              + runId
+              + " mode="
+              + (mode != null ? mode.name() : "")
+              + " failed="
+              + (disposition != null && disposition.isFailed());
+      if (log != null) {
+        log.logBasic(msg);
+      }
+      return new PublishResult(PublishStatus.INSERTED, msg);
+    } catch (Exception e) {
+      String msg = "Unable to insert quality_alert: " + e.getMessage();
+      if (log != null) {
+        log.logError(msg, e);
+      }
+      return new PublishResult(PublishStatus.FAILED, msg);
+    } finally {
+      db.disconnect();
+    }
+  }
+
+  static boolean qualityAlertExists(Database db, String operationsSchema, String runId)
+      throws HopException {
+    String qualified =
+        db.getDatabaseMeta()
+            .getQuotedSchemaTableCombination(db, operationsSchema, TABLE_QUALITY_ALERT);
+    String sql =
+        "SELECT 1 FROM "
+            + qualified
+            + " WHERE quality_run_id = "
+            + sqlLiteral(runId);
+    RowMetaAndData row = db.getOneRow(sql);
+    return row != null && row.getData() != null && row.getData().length > 0;
+  }
+
+  private static void insertQualityAlertRow(
+      Database db,
+      String operationsSchema,
+      DataQualityReport report,
+      DispositionResult disposition,
+      QualityDispositionMode mode)
+      throws HopException {
+    IRowMeta layout = new RowMeta();
+    layout.addValueMeta(stringMeta("quality_run_id", 64));
+    layout.addValueMeta(new ValueMetaDate("alerted_at"));
+    layout.addValueMeta(stringMeta("disposition_mode", 32));
+    layout.addValueMeta(new ValueMetaBoolean("disposition_failed"));
+    layout.addValueMeta(stringMeta("summary", 2000));
+
+    String summary =
+        disposition != null && disposition.getSummary() != null ? disposition.getSummary() : "";
+    Object[] row =
+        new Object[] {
+          report.getRunId(),
+          new Date(),
+          mode != null ? mode.name() : null,
+          disposition != null && disposition.isFailed(),
+          truncate(summary, 2000)
+        };
+    db.insertRow(operationsSchema, TABLE_QUALITY_ALERT, layout, row);
   }
 
   private static void bestEffortDeleteRun(

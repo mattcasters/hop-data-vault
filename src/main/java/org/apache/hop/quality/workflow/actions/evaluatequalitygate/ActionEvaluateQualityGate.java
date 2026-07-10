@@ -34,15 +34,20 @@ import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.metrics.VaultUpdateExecutionSupport;
 import org.apache.hop.datavault.resourcedefinition.ResourceDefinitionGroupResolver;
 import org.apache.hop.datavault.resourcedefinition.SourceUsage;
 import org.apache.hop.datavault.resourcedefinition.SourceUsageIndexBuilder;
 import org.apache.hop.datavault.resourcedefinition.ValidationModels;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.quality.alert.QualityAlertContext;
+import org.apache.hop.quality.alert.QualityAlertSupport;
 import org.apache.hop.quality.disposition.DispositionResult;
 import org.apache.hop.quality.disposition.QualityDisposition;
 import org.apache.hop.quality.disposition.QualityDispositionMode;
+import org.apache.hop.quality.history.DataQualityHistoryPublisher;
+import org.apache.hop.quality.history.DataQualityHistoryPublisher.PublishContext;
 import org.apache.hop.quality.model.DataQualityReport;
 import org.apache.hop.quality.model.QualityEvaluationMode;
 import org.apache.hop.quality.model.QualityLifecycle;
@@ -54,7 +59,8 @@ import org.apache.hop.workflow.action.IAction;
 
 /**
  * Applies a disposition policy to a data quality report. Prefer placing after Measure Data Quality;
- * when no prior report is available, re-measures using the same scope fields.
+ * when no prior report is available, re-measures using the same scope fields. After disposition,
+ * optionally publishes alerts (log / ops table) per the Phase 2 sink matrix.
  */
 @Action(
     id = "EVALUATE_QUALITY_GATE",
@@ -128,6 +134,53 @@ public class ActionEvaluateQualityGate extends ActionBase implements Cloneable, 
   @HopMetadataProperty
   private String namespacePrefix;
 
+  @GuiWidgetElement(
+      order = "0700",
+      type = GuiElementType.TEXT,
+      label = "i18n::ActionEvaluateQualityGate.AlertSinks.Label",
+      toolTip = "i18n::ActionEvaluateQualityGate.AlertSinks.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String alertSinks = QualityAlertSupport.DEFAULT_SINK_ID;
+
+  @GuiWidgetElement(
+      order = "0710",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionEvaluateQualityGate.AlertOnGateFailure.Label",
+      toolTip = "i18n::ActionEvaluateQualityGate.AlertOnGateFailure.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean alertOnGateFailure;
+
+  @GuiWidgetElement(
+      order = "0720",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::ActionEvaluateQualityGate.HistoryDatabase.Label",
+      toolTip = "i18n::ActionEvaluateQualityGate.HistoryDatabase.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String historyDatabase;
+
+  @GuiWidgetElement(
+      order = "0730",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::ActionEvaluateQualityGate.HistorySchema.Label",
+      toolTip = "i18n::ActionEvaluateQualityGate.HistorySchema.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String historySchema = DataQualityHistoryPublisher.DEFAULT_SCHEMA_NAME;
+
+  @GuiWidgetElement(
+      order = "0740",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionEvaluateQualityGate.AutoCreateHistoryTables.Label",
+      toolTip = "i18n::ActionEvaluateQualityGate.AutoCreateHistoryTables.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean autoCreateHistoryTables = true;
+
   public ActionEvaluateQualityGate() {
     super();
   }
@@ -140,6 +193,11 @@ public class ActionEvaluateQualityGate extends ActionBase implements Cloneable, 
     this.resourceDefinitionGroup = meta.resourceDefinitionGroup;
     this.recordDefinitionKeys = meta.recordDefinitionKeys;
     this.namespacePrefix = meta.namespacePrefix;
+    this.alertSinks = meta.alertSinks;
+    this.alertOnGateFailure = meta.alertOnGateFailure;
+    this.historyDatabase = meta.historyDatabase;
+    this.historySchema = meta.historySchema;
+    this.autoCreateHistoryTables = meta.autoCreateHistoryTables;
   }
 
   @Override
@@ -170,6 +228,8 @@ public class ActionEvaluateQualityGate extends ActionBase implements Cloneable, 
     DispositionResult disposition = QualityDisposition.apply(report, mode);
     logBasic(disposition.getSummary());
 
+    publishAlerts(report, disposition, mode);
+
     result.setResult(!disposition.isFailed());
     result.setNrErrors(disposition.isFailed() ? disposition.getNrErrors() : 0);
     if (disposition.isFailed()) {
@@ -177,6 +237,93 @@ public class ActionEvaluateQualityGate extends ActionBase implements Cloneable, 
       logError(disposition.getSummary());
     }
     return result;
+  }
+
+  private void publishAlerts(
+      DataQualityReport report, DispositionResult disposition, QualityDispositionMode mode)
+      throws HopException {
+    PublishContext publishContext = null;
+    String targetDb = resolveHistoryDatabase();
+    if (!Utils.isEmpty(targetDb)) {
+      publishContext =
+          new PublishContext(
+              targetDb,
+              resolveHistorySchema(),
+              catalogConnection,
+              false,
+              true,
+              autoCreateHistoryTables);
+    }
+
+    String workflowExecutionId = resolveWorkflowExecutionId();
+    QualityAlertContext context =
+        QualityAlertContext.builder()
+            .report(report)
+            .disposition(disposition)
+            .mode(mode)
+            .log(getLogChannel())
+            .variables(getVariables())
+            .metadataProvider(getMetadataProvider())
+            .publishContext(publishContext)
+            .loadId(workflowExecutionId)
+            .workflowName(resolveWorkflowName())
+            .workflowExecutionId(workflowExecutionId)
+            .build();
+
+    QualityAlertSupport.publish(context, alertSinks, alertOnGateFailure);
+  }
+
+  String resolveHistoryDatabase() {
+    String fromField = resolveOptional(historyDatabase);
+    if (!Utils.isEmpty(fromField)) {
+      return fromField;
+    }
+    return resolveOptional(
+        getVariables() != null
+            ? getVariables().getVariable(DataQualityHistoryPublisher.VAR_QUALITY_HISTORY_DATABASE)
+            : null);
+  }
+
+  String resolveHistorySchema() {
+    String fromField = resolveOptional(historySchema);
+    if (!Utils.isEmpty(fromField)) {
+      return fromField;
+    }
+    String fromVar =
+        resolveOptional(
+            getVariables() != null
+                ? getVariables().getVariable(DataQualityHistoryPublisher.VAR_QUALITY_HISTORY_SCHEMA)
+                : null);
+    if (!Utils.isEmpty(fromVar)) {
+      return fromVar;
+    }
+    return DataQualityHistoryPublisher.DEFAULT_SCHEMA_NAME;
+  }
+
+  private String resolveOptional(String raw) {
+    if (Utils.isEmpty(raw)) {
+      return null;
+    }
+    String resolved = getVariables() != null ? resolve(raw.trim()) : raw.trim();
+    if (Utils.isEmpty(resolved) || resolved.contains("${")) {
+      return null;
+    }
+    return resolved;
+  }
+
+  private String resolveWorkflowExecutionId() {
+    return VaultUpdateExecutionSupport.resolveExecutionId(
+        getVariables(),
+        VaultUpdateExecutionSupport.defaultExecutionIdVariableName(),
+        true,
+        VaultUpdateExecutionSupport.resolveWorkflowLogChannelId(getParentWorkflow()));
+  }
+
+  private String resolveWorkflowName() {
+    if (getParentWorkflow() != null && getParentWorkflow().getWorkflowMeta() != null) {
+      return getParentWorkflow().getWorkflowMeta().getName();
+    }
+    return null;
   }
 
   private DataQualityReport findPriorReport() {
