@@ -34,11 +34,13 @@ import org.apache.hop.quality.engine.QualityEvaluationContext;
 import org.apache.hop.quality.model.DataQualityFinding;
 import org.apache.hop.quality.model.DataQualityReport;
 import org.apache.hop.quality.model.DataQualityRule;
+import org.apache.hop.quality.model.DataQualityRuleType;
 import org.apache.hop.quality.model.QualityEvaluationMode;
 import org.apache.hop.quality.model.QualityLifecycle;
 import org.apache.hop.quality.model.RecordQualityRuleBinding;
 import org.apache.hop.quality.profile.DataProfileSnapshot;
 import org.apache.hop.quality.profile.DatabaseProfileCollector;
+import org.apache.hop.quality.profile.SqlAssertionRunner;
 import org.apache.hop.quality.resolve.QualityRuleResolver;
 
 /**
@@ -100,9 +102,22 @@ public final class DataQualityMeasureService {
                 .metadataProvider(metadataProvider)
                 .log(logger)
                 .build();
+        PhysicalTableRef table = definition.getPhysicalTable();
         for (DataQualityRule rule : rules) {
-          List<DataQualityFinding> findings =
-              DataQualityRuleEvaluatorRegistry.getInstance().evaluate(rule, context);
+          List<DataQualityFinding> findings;
+          if (rule != null && rule.getType() == DataQualityRuleType.SQL_ASSERTION) {
+            findings =
+                SqlAssertionRunner.evaluate(
+                    rule,
+                    subjectKey,
+                    table != null ? table.getDatabaseMetaName() : null,
+                    table != null ? table.getSchemaName() : null,
+                    table != null ? table.getTableName() : null,
+                    variables,
+                    metadataProvider);
+          } else {
+            findings = DataQualityRuleEvaluatorRegistry.getInstance().evaluate(rule, context);
+          }
           for (DataQualityFinding finding : findings) {
             report.addFinding(finding);
           }

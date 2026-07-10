@@ -64,7 +64,11 @@ public final class DatabaseProfileCollector {
   public static final int DEFAULT_QUERY_TIMEOUT_SECONDS = 60;
 
   private static final Set<DataQualityRuleType> DATASET_ONLY_TYPES =
-      EnumSet.of(DataQualityRuleType.MIN_ROW_COUNT, DataQualityRuleType.MAX_ROW_COUNT);
+      EnumSet.of(
+          DataQualityRuleType.MIN_ROW_COUNT,
+          DataQualityRuleType.MAX_ROW_COUNT,
+          // fieldName on SQL_ASSERTION is messaging only — not a profile field
+          DataQualityRuleType.SQL_ASSERTION);
 
   private DatabaseProfileCollector() {}
 
@@ -590,6 +594,9 @@ public final class DatabaseProfileCollector {
         case MIN_DISTINCT, MAX_DISTINCT -> needs.exactDistinct = true;
         case MIN_LENGTH, MAX_LENGTH -> needs.stringLength = true;
         case REGEX -> needs.regexRules.add(rule);
+        case SQL_ASSERTION -> {
+          // Messaging-only fieldName; never drives profile metrics
+        }
         default -> {
           // Unknown field-scoped types: collect basic nulls
         }

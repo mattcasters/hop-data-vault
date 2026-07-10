@@ -45,6 +45,17 @@ public class DataQualityRule {
   public static final String PARAM_CASE_SENSITIVE = "caseSensitive";
   /** Regex match mode: FULL (default) or FIND/PARTIAL. */
   public static final String PARAM_MATCH_MODE = "matchMode";
+  /** SQL text for {@link DataQualityRuleType#SQL_ASSERTION}. */
+  public static final String PARAM_SQL = "sql";
+  /**
+   * Expectation mode for {@link DataQualityRuleType#SQL_ASSERTION}: {@code ZERO_ROWS} (default),
+   * {@code ONE_ROW_TRUE}, or {@code SCALAR_EQ}.
+   */
+  public static final String PARAM_EXPECT = "expect";
+  /** Expected scalar value when expect is {@code SCALAR_EQ}. */
+  public static final String PARAM_EXPECT_VALUE = "expectValue";
+  /** JDBC query timeout seconds for {@link DataQualityRuleType#SQL_ASSERTION} (default 60). */
+  public static final String PARAM_QUERY_TIMEOUT = "queryTimeoutSeconds";
 
   @HopMetadataProperty private String id;
 

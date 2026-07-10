@@ -18,7 +18,7 @@
 
 package org.apache.hop.quality.model;
 
-/** Built-in data quality rule kinds (Phase 1 + Phase 2 profile-based types). */
+/** Built-in data quality rule kinds (Phase 1 + Phase 2 types). */
 public enum DataQualityRuleType {
   MIN_ROW_COUNT,
   MAX_ROW_COUNT,
@@ -37,5 +37,10 @@ public enum DataQualityRuleType {
   /** Fail when any non-null string length is below min. */
   MIN_LENGTH,
   /** Fail when any non-null string length exceeds max. */
-  MAX_LENGTH
+  MAX_LENGTH,
+  /**
+   * Author-supplied SELECT/WITH assertion (escape hatch). Evaluated by {@code SqlAssertionRunner},
+   * not the profile evaluator registry.
+   */
+  SQL_ASSERTION
 }

@@ -449,8 +449,7 @@ class DataQualityPhase2RulesTest {
   }
 
   @Test
-  void phase2EnumsRegisteredNoSqlAssertion() {
-    // Ensure Phase 2 types exist and SQL_ASSERTION is not in this PR
+  void phase2EnumsIncludeSqlAssertion() {
     List<String> names = new ArrayList<>();
     for (DataQualityRuleType t : DataQualityRuleType.values()) {
       names.add(t.name());
@@ -461,7 +460,7 @@ class DataQualityPhase2RulesTest {
     assertTrue(names.contains("REGEX"));
     assertTrue(names.contains("MIN_LENGTH"));
     assertTrue(names.contains("MAX_LENGTH"));
-    assertFalse(names.contains("SQL_ASSERTION"));
+    assertTrue(names.contains("SQL_ASSERTION"));
   }
 
   private static DataProfileSnapshot fullScan(IRowMeta meta, List<Object[]> rows) {
