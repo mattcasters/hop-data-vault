@@ -25,8 +25,10 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.catalog.metadata.ResourceDefinitionGroupMeta;
+import org.apache.hop.catalog.model.PhysicalTableRef;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.quality.CatalogQualitySubjectSupport;
+import org.apache.hop.core.Const;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.annotations.Action;
 import org.apache.hop.core.exception.HopException;
@@ -34,12 +36,18 @@ import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.datavault.metrics.DvUpdateMetricsConstants;
+import org.apache.hop.datavault.metrics.VaultUpdateExecutionSupport;
 import org.apache.hop.datavault.resourcedefinition.ResourceDefinitionGroupResolver;
 import org.apache.hop.datavault.resourcedefinition.SourceUsage;
 import org.apache.hop.datavault.resourcedefinition.SourceUsageIndexBuilder;
 import org.apache.hop.datavault.resourcedefinition.ValidationModels;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.quality.history.DataQualityHistoryPublisher;
+import org.apache.hop.quality.history.DataQualityHistoryPublisher.PublishContext;
+import org.apache.hop.quality.history.DataQualityHistoryPublisher.PublishResult;
+import org.apache.hop.quality.history.DataQualityHistoryPublisher.PublishStatus;
 import org.apache.hop.quality.model.DataQualityReport;
 import org.apache.hop.quality.model.QualityEvaluationMode;
 import org.apache.hop.quality.model.QualityLifecycle;
@@ -69,6 +77,10 @@ public class ActionMeasureDataQuality extends ActionBase implements Cloneable, I
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "MEASURE_DATA_QUALITY_ACTION";
   public static final String RESULT_ATTR_REPORT = "dataQualityReportText";
+
+  /** Default load id variable expression (matches Begin Vault Update / metrics constants). */
+  public static final String DEFAULT_LOAD_ID =
+      "${" + DvUpdateMetricsConstants.VAR_WORKFLOW_EXECUTION_ID + "}";
 
   @GuiWidgetElement(
       order = "0100",
@@ -134,6 +146,72 @@ public class ActionMeasureDataQuality extends ActionBase implements Cloneable, I
   @HopMetadataProperty
   private String sampleLimit = "1000";
 
+  @GuiWidgetElement(
+      order = "0800",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionMeasureDataQuality.PersistHistory.Label",
+      toolTip = "i18n::ActionMeasureDataQuality.PersistHistory.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean persistHistory;
+
+  @GuiWidgetElement(
+      order = "0810",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::ActionMeasureDataQuality.HistoryDatabase.Label",
+      toolTip = "i18n::ActionMeasureDataQuality.HistoryDatabase.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String historyDatabase;
+
+  @GuiWidgetElement(
+      order = "0820",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::ActionMeasureDataQuality.HistorySchema.Label",
+      toolTip = "i18n::ActionMeasureDataQuality.HistorySchema.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String historySchema = DataQualityHistoryPublisher.DEFAULT_SCHEMA_NAME;
+
+  @GuiWidgetElement(
+      order = "0830",
+      type = GuiElementType.TEXT,
+      variables = true,
+      label = "i18n::ActionMeasureDataQuality.LoadId.Label",
+      toolTip = "i18n::ActionMeasureDataQuality.LoadId.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private String loadId = DEFAULT_LOAD_ID;
+
+  @GuiWidgetElement(
+      order = "0840",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionMeasureDataQuality.AutoCreateTables.Label",
+      toolTip = "i18n::ActionMeasureDataQuality.AutoCreateTables.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean autoCreateTables = true;
+
+  @GuiWidgetElement(
+      order = "0850",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionMeasureDataQuality.PublishCatalogDefinitions.Label",
+      toolTip = "i18n::ActionMeasureDataQuality.PublishCatalogDefinitions.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean publishCatalogDefinitions = true;
+
+  @GuiWidgetElement(
+      order = "0860",
+      type = GuiElementType.CHECKBOX,
+      label = "i18n::ActionMeasureDataQuality.FailOnPersistError.Label",
+      toolTip = "i18n::ActionMeasureDataQuality.FailOnPersistError.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
+  @HopMetadataProperty
+  private boolean failOnPersistError;
+
   public ActionMeasureDataQuality() {
     super();
   }
@@ -147,6 +225,13 @@ public class ActionMeasureDataQuality extends ActionBase implements Cloneable, I
     this.evaluationMode = meta.evaluationMode;
     this.lifecycle = meta.lifecycle;
     this.sampleLimit = meta.sampleLimit;
+    this.persistHistory = meta.persistHistory;
+    this.historyDatabase = meta.historyDatabase;
+    this.historySchema = meta.historySchema;
+    this.loadId = meta.loadId;
+    this.autoCreateTables = meta.autoCreateTables;
+    this.publishCatalogDefinitions = meta.publishCatalogDefinitions;
+    this.failOnPersistError = meta.failOnPersistError;
   }
 
   @Override
@@ -184,6 +269,20 @@ public class ActionMeasureDataQuality extends ActionBase implements Cloneable, I
       getParentWorkflow().getExtensionDataMap().put(RESULT_ATTR_REPORT, report);
     }
 
+    if (persistHistory) {
+      PublishResult publishResult = persistQualityHistory(report, subjects);
+      if (publishResult != null
+          && publishResult.status() == PublishStatus.FAILED
+          && failOnPersistError) {
+        result.setResult(false);
+        result.setNrErrors(Math.max(1, result.getNrErrors()));
+        logError(
+            BaseMessages.getString(
+                PKG, "ActionMeasureDataQuality.Error.PersistFailed", publishResult.message()));
+        return result;
+      }
+    }
+
     if (report.hasInfraErrors()) {
       result.setResult(false);
       result.setNrErrors(Math.max(1, report.getInfraErrors().size()));
@@ -204,6 +303,175 @@ public class ActionMeasureDataQuality extends ActionBase implements Cloneable, I
             String.valueOf(report.getFindingCount()),
             String.valueOf(subjects.size())));
     return result;
+  }
+
+  private PublishResult persistQualityHistory(
+      DataQualityReport report, List<RecordDefinition> subjects) {
+    try {
+      String targetDatabase = resolveHistoryDatabase(subjects, report);
+      if (Utils.isEmpty(targetDatabase)) {
+        String msg =
+            BaseMessages.getString(PKG, "ActionMeasureDataQuality.Error.NoHistoryDatabase");
+        logError(msg);
+        return new PublishResult(PublishStatus.FAILED, msg);
+      }
+      logBasic(
+          BaseMessages.getString(
+              PKG, "ActionMeasureDataQuality.Info.HistoryDatabaseResolved", targetDatabase));
+
+      String schema = resolveHistorySchema();
+      String resolvedLoadId = resolveLoadId();
+      String workflowName = resolveWorkflowName();
+      String workflowExecutionId = resolveWorkflowExecutionId();
+
+      boolean publishCatalog =
+          publishCatalogDefinitions && !Utils.isEmpty(Const.NVL(catalogConnection, "").trim());
+
+      PublishContext context =
+          new PublishContext(
+              targetDatabase,
+              schema,
+              catalogConnection,
+              publishCatalog,
+              true,
+              autoCreateTables);
+
+      PublishResult publishResult =
+          DataQualityHistoryPublisher.publish(
+              getLogChannel(),
+              report,
+              context,
+              resolvedLoadId,
+              workflowName,
+              workflowExecutionId,
+              getVariables(),
+              getMetadataProvider());
+      if (publishResult.status() == PublishStatus.FAILED) {
+        logError(
+            BaseMessages.getString(
+                PKG, "ActionMeasureDataQuality.Error.PersistFailed", publishResult.message()));
+      } else {
+        logBasic(
+            BaseMessages.getString(
+                PKG,
+                "ActionMeasureDataQuality.Info.PersistResult",
+                publishResult.status().name(),
+                publishResult.message()));
+      }
+      return publishResult;
+    } catch (Exception e) {
+      String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+      logError(
+          BaseMessages.getString(PKG, "ActionMeasureDataQuality.Error.PersistFailed", msg), e);
+      return new PublishResult(PublishStatus.FAILED, msg);
+    }
+  }
+
+  String resolveHistoryDatabase(List<RecordDefinition> subjects, DataQualityReport report) {
+    String fromField = resolveOptional(historyDatabase);
+    if (!Utils.isEmpty(fromField)) {
+      return fromField;
+    }
+    String fromVar =
+        resolveOptional(
+            getVariables() != null
+                ? getVariables().getVariable(DataQualityHistoryPublisher.VAR_QUALITY_HISTORY_DATABASE)
+                : null);
+    if (!Utils.isEmpty(fromVar)) {
+      return fromVar;
+    }
+    // First successfully profiled subject physical DB (measure order).
+    if (subjects != null && report != null) {
+      for (RecordDefinition def : subjects) {
+        if (def == null) {
+          continue;
+        }
+        String key = CatalogQualitySubjectSupport.subjectKey(def);
+        if (!report.getProfilesBySubject().containsKey(key)) {
+          continue;
+        }
+        String db = physicalDatabaseName(def);
+        if (!Utils.isEmpty(db)) {
+          return db;
+        }
+      }
+    }
+    // Fallback: first subject with a physical table.
+    if (subjects != null) {
+      for (RecordDefinition def : subjects) {
+        String db = physicalDatabaseName(def);
+        if (!Utils.isEmpty(db)) {
+          return db;
+        }
+      }
+    }
+    return null;
+  }
+
+  String resolveHistorySchema() {
+    String fromField = resolveOptional(historySchema);
+    if (!Utils.isEmpty(fromField)) {
+      return fromField;
+    }
+    String fromVar =
+        resolveOptional(
+            getVariables() != null
+                ? getVariables().getVariable(DataQualityHistoryPublisher.VAR_QUALITY_HISTORY_SCHEMA)
+                : null);
+    if (!Utils.isEmpty(fromVar)) {
+      return fromVar;
+    }
+    return DataQualityHistoryPublisher.DEFAULT_SCHEMA_NAME;
+  }
+
+  String resolveLoadId() {
+    String expression = Utils.isEmpty(loadId) ? DEFAULT_LOAD_ID : loadId;
+    String resolved = resolveOptional(expression);
+    if (!Utils.isEmpty(resolved)) {
+      return resolved;
+    }
+    return VaultUpdateExecutionSupport.resolveExecutionId(
+        getVariables(),
+        VaultUpdateExecutionSupport.defaultExecutionIdVariableName(),
+        true,
+        VaultUpdateExecutionSupport.resolveWorkflowLogChannelId(getParentWorkflow()));
+  }
+
+  private String resolveWorkflowExecutionId() {
+    return VaultUpdateExecutionSupport.resolveExecutionId(
+        getVariables(),
+        VaultUpdateExecutionSupport.defaultExecutionIdVariableName(),
+        true,
+        VaultUpdateExecutionSupport.resolveWorkflowLogChannelId(getParentWorkflow()));
+  }
+
+  private String resolveWorkflowName() {
+    if (getParentWorkflow() != null && getParentWorkflow().getWorkflowMeta() != null) {
+      return getParentWorkflow().getWorkflowMeta().getName();
+    }
+    return null;
+  }
+
+  private String resolveOptional(String raw) {
+    if (Utils.isEmpty(raw)) {
+      return null;
+    }
+    String resolved = getVariables() != null ? getVariables().resolve(raw.trim()) : raw.trim();
+    if (Utils.isEmpty(resolved) || resolved.contains("${")) {
+      return null;
+    }
+    return resolved;
+  }
+
+  private static String physicalDatabaseName(RecordDefinition def) {
+    if (def == null) {
+      return null;
+    }
+    PhysicalTableRef table = def.getPhysicalTable();
+    if (table == null || Utils.isEmpty(table.getDatabaseMetaName())) {
+      return null;
+    }
+    return table.getDatabaseMetaName().trim();
   }
 
   private List<RecordDefinition> resolveSubjects() throws HopException {
