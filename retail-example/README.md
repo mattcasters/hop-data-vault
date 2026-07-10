@@ -64,7 +64,8 @@ DV record sources are **database-backed** catalog entries (`physicalTable` on CR
 retail-example/
 ├── project-config.json
 ├── environments/local-docker-postgres.json
-├── metadata/                  # CRM, Vault, local-catalog, run configurations
+├── metadata/                  # CRM, Vault, local-catalog, rule sets, run configurations
+│   └── data-quality-rule-set/ # retail-source-quality library
 ├── catalog-data/              # E2E-* DV source catalog entries (DATABASE → CRM)
 ├── pipelines/                 # create-source-tables, load-e2e-sources-to-crm
 ├── files/                     # Generated CSV source files
@@ -98,6 +99,18 @@ From the repository root:
 # Incremental load: read control, generate update wave, load CRM, DV + BV + DM, advance control
 ./scripts/run-hop.sh retail-example workflows/run-retail-update.hwf
 ```
+
+## Data quality (measure + gate)
+
+Retail binds source content rules from Hop metadata **`retail-source-quality`** onto the `E2E-*` catalog sources (via `generate-catalog-sources.py`).
+
+Both **initial** and **update** workflows:
+
+1. **Measure source data quality** after CRM is loaded (and after schema validation on initial)
+2. **Evaluate source quality gate** with `FAIL_ON_BLOCKING` — blocks vault update on bad extracts
+3. After vault update completes: **Measure** again (`POST_UPDATE`) + **Alert on source quality (post)** with `ALERT_ONLY`
+
+See [docs/data-quality.adoc](../docs/data-quality.adoc) for rule types and action details.
 
 ## Data generation
 

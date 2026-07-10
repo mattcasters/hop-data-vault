@@ -16,32 +16,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
 
 from __future__ import annotations
 
@@ -61,6 +35,68 @@ HOP_TYPE_NAMES = {
 
 def primary_key_positions(primary_keys: list[str]) -> dict[str, int]:
     return {name: index + 1 for index, name in enumerate(primary_keys)}
+
+
+def library_binding(rule_id: str) -> dict:
+    """Reference a rule in metadata/data-quality-rule-set/retail-source-quality.json."""
+    return {
+        "ruleSetName": "retail-source-quality",
+        "ruleId": rule_id,
+        "inlineRule": None,
+        "severityOverride": None,
+        "fieldNameOverride": None,
+        "enabled": True,
+    }
+
+
+# Per-source quality rule bindings (survive regenerate of catalog source JSON).
+QUALITY_BINDINGS: dict[str, list[dict]] = {
+    "E2E-customer-hub": [
+        library_binding("table-not-empty"),
+        library_binding("customer-id-not-null"),
+    ],
+    "E2E-customer-demo": [
+        library_binding("table-not-empty"),
+        library_binding("customer-id-not-null"),
+        library_binding("segment-allowed"),
+        library_binding("loyalty-tier-allowed"),
+        library_binding("demo-score-range"),
+    ],
+    "E2E-customer-contact": [
+        library_binding("table-not-empty"),
+        library_binding("customer-id-not-null"),
+    ],
+    "E2E-customer-address": [
+        library_binding("table-not-empty"),
+        library_binding("customer-id-not-null"),
+    ],
+    "E2E-customer-prefs": [
+        library_binding("table-not-empty"),
+        library_binding("customer-id-not-null"),
+        library_binding("newsletter-opt-in-allowed"),
+        library_binding("preferred-channel-allowed"),
+        library_binding("language-code-allowed"),
+    ],
+    "E2E-product": [
+        library_binding("table-not-empty"),
+        library_binding("product-name-not-null"),
+    ],
+    "E2E-order-header": [
+        library_binding("table-not-empty"),
+        library_binding("customer-id-not-null"),
+        library_binding("order-status-allowed"),
+    ],
+    "E2E-order-line": [
+        library_binding("table-not-empty"),
+        library_binding("quantity-range"),
+    ],
+    "E2E-warehouse": [
+        library_binding("table-not-empty"),
+    ],
+    "E2E-warehouse-product": [
+        library_binding("table-not-empty"),
+    ],
+}
 
 
 SOURCE_DEFINITIONS = {
@@ -278,7 +314,9 @@ def field_entry(
 
 
 def project_sources_namespace(project_home: Path) -> str:
-    return f"hop/{project_home.name}/sources"
+    # Resolve so `--project-home .` uses the real directory name, not Path('.').name == ''.
+    name = project_home.expanduser().resolve().name
+    return f"hop/{name}/sources"
 
 
 def build_source(name: str, definition: dict, namespace: str) -> dict:
@@ -311,6 +349,8 @@ def build_source(name: str, definition: dict, namespace: str) -> dict:
         "tags": ["DV Source", "FULL_SNAPSHOT", "DATABASE", "RETAIL_E2E"],
         "glossaryTerms": [],
         "customProperties": {},
+        "validationAcknowledgements": [],
+        "qualityRules": QUALITY_BINDINGS.get(name, []),
         "dvSource": {
             "sourceType": "DATABASE",
             "sourceIndicator": "",

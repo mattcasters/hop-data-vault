@@ -1,4 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 <workflow>
   <name>run-retail-initial</name>
   <name_sync_with_filename>Y</name_sync_with_filename>
@@ -52,135 +69,6 @@
       <attributes_hac/>
     </action>
     <action>
-      <sql/>
-      <connection>CRM</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>Y</sqlfromfile>
-      <sqlfilename>${PROJECT_HOME}/sql/drop-source-tables.sql</sqlfilename>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>Drop source tables</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>256</xloc>
-      <yloc>32</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <sql/>
-      <connection>Vault</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>Y</sqlfromfile>
-      <sqlfilename>${PROJECT_HOME}/sql/drop-target-tables.sql</sqlfilename>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>drop-target-tables.sql</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>432</xloc>
-      <yloc>32</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <sql/>
-      <connection>Vault</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>Y</sqlfromfile>
-      <sqlfilename>${PROJECT_HOME}/sql/create-staging-views.sql</sqlfilename>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>create-staging-views.sql</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>608</xloc>
-      <yloc>32</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <filename/>
-      <work_directory>${PROJECT_HOME}</work_directory>
-      <arguments/>
-      <arg_from_previous>N</arg_from_previous>
-      <set_logfile>N</set_logfile>
-      <logfile/>
-      <logext/>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <loglevel>Basic</loglevel>
-      <exec_per_row>N</exec_per_row>
-      <set_append_logfile>N</set_append_logfile>
-      <insertScript>Y</insertScript>
-      <script>#!/bin/sh
-exec python3 "${PROJECT_HOME}/scripts/generate-catalog-sources.py" --project-home "${PROJECT_HOME}"</script>
-      <name>generate-catalog-sources.py</name>
-      <description/>
-      <type>SHELL</type>
-      <attributes/>
-      <xloc>96</xloc>
-      <yloc>128</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <filename/>
-      <work_directory>${PROJECT_HOME}</work_directory>
-      <arguments/>
-      <arg_from_previous>N</arg_from_previous>
-      <set_logfile>N</set_logfile>
-      <logfile/>
-      <logext/>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <loglevel>Basic</loglevel>
-      <exec_per_row>N</exec_per_row>
-      <set_append_logfile>N</set_append_logfile>
-      <insertScript>Y</insertScript>
-      <script>#!/bin/sh
-exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --project-home "${PROJECT_HOME}"</script>
-      <name>generate-retail-data.py</name>
-      <description/>
-      <type>SHELL</type>
-      <attributes/>
-      <xloc>272</xloc>
-      <yloc>128</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <filename>${PROJECT_HOME}/pipelines/load-e2e-sources-to-crm.hpl</filename>
-      <params_from_previous>N</params_from_previous>
-      <exec_per_row>N</exec_per_row>
-      <clear_rows>N</clear_rows>
-      <clear_files>N</clear_files>
-      <create_parent_folder>N</create_parent_folder>
-      <set_logfile>N</set_logfile>
-      <set_append_logfile>N</set_append_logfile>
-      <logfile/>
-      <logext/>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <loglevel>Basic</loglevel>
-      <wait_until_finished>Y</wait_until_finished>
-      <parameters>
-        <pass_all_parameters>Y</pass_all_parameters>
-      </parameters>
-      <run_configuration>local</run_configuration>
-      <name>Load CSV to CRM</name>
-      <description/>
-      <type>PIPELINE</type>
-      <attributes/>
-      <xloc>736</xloc>
-      <yloc>128</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
       <filename>${PROJECT_HOME}/workflows/update-retail-dv-bv-dm.hwf</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
@@ -206,8 +94,8 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>512</xloc>
-      <yloc>240</yloc>
+      <xloc>304</xloc>
+      <yloc>256</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -223,8 +111,8 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>688</xloc>
-      <yloc>240</yloc>
+      <xloc>304</xloc>
+      <yloc>384</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -234,70 +122,8 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <name>Validate resource definitions</name>
       <type>VALIDATE_RESOURCE_DEFINITIONS</type>
       <attributes/>
-      <xloc>96</xloc>
-      <yloc>240</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <filename>${PROJECT_HOME}/pipelines/create-source-tables-from-data-catalog.hpl</filename>
-      <params_from_previous>N</params_from_previous>
-      <exec_per_row>N</exec_per_row>
-      <clear_rows>N</clear_rows>
-      <clear_files>N</clear_files>
-      <create_parent_folder>N</create_parent_folder>
-      <set_logfile>N</set_logfile>
-      <set_append_logfile>N</set_append_logfile>
-      <logfile/>
-      <logext/>
-      <add_date>N</add_date>
-      <add_time>N</add_time>
-      <loglevel>Basic</loglevel>
-      <wait_until_finished>Y</wait_until_finished>
-      <parameters>
-        <pass_all_parameters>Y</pass_all_parameters>
-      </parameters>
-      <run_configuration>local</run_configuration>
-      <name>Create source tables</name>
-      <description/>
-      <type>PIPELINE</type>
-      <attributes/>
-      <xloc>432</xloc>
-      <yloc>128</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <sql/>
-      <connection>Vault</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>Y</sqlfromfile>
-      <sqlfilename>${PROJECT_HOME}/sql/seed-load-control.sql</sqlfilename>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>seed-load-control.sql</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>592</xloc>
-      <yloc>128</yloc>
-      <parallel>N</parallel>
-      <attributes_hac/>
-    </action>
-    <action>
-      <sql/>
-      <connection>OPS</connection>
-      <useVariableSubstitution>N</useVariableSubstitution>
-      <sqlfromfile>Y</sqlfromfile>
-      <sqlfilename>${PROJECT_HOME}/sql/create-load-metrics-tables.sql</sqlfilename>
-      <sqlfilename_encoding/>
-      <sendOneStatement>N</sendOneStatement>
-      <name>create-load-metrics-tables.sql</name>
-      <description/>
-      <type>SQL</type>
-      <attributes/>
-      <xloc>800</xloc>
-      <yloc>32</yloc>
+      <xloc>112</xloc>
+      <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -319,8 +145,8 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <name>End Vault Update</name>
       <type>END_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>688</xloc>
-      <yloc>352</yloc>
+      <xloc>464</xloc>
+      <yloc>256</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -332,8 +158,8 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <name>Begin Vault Update</name>
       <type>BEGIN_VAULT_UPDATE</type>
       <attributes/>
-      <xloc>304</xloc>
-      <yloc>240</yloc>
+      <xloc>112</xloc>
+      <yloc>256</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -351,86 +177,146 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <name>Generate execution map</name>
       <type>GENERATE_EXECUTION_MAP</type>
       <attributes/>
-      <xloc>848</xloc>
-      <yloc>352</yloc>
+      <xloc>464</xloc>
+      <yloc>384</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <catalogConnection>local-catalog</catalogConnection>
+      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
+      <recordDefinitionKeys/>
+      <namespacePrefix/>
+      <evaluationMode>AUTO</evaluationMode>
+      <lifecycle>PRE_UPDATE</lifecycle>
+      <sampleLimit>1000</sampleLimit>
+      <name>Measure source data quality</name>
+      <description>Profile CRM source extracts against retail-source-quality rules</description>
+      <type>MEASURE_DATA_QUALITY</type>
+      <attributes/>
+      <xloc>352</xloc>
+      <yloc>144</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <dispositionMode>FAIL_ON_BLOCKING</dispositionMode>
+      <remeasureIfNoPriorReport>Y</remeasureIfNoPriorReport>
+      <catalogConnection>local-catalog</catalogConnection>
+      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
+      <recordDefinitionKeys/>
+      <namespacePrefix/>
+      <name>Evaluate source quality gate</name>
+      <description>Fail the workflow when source quality has blocking findings</description>
+      <type>EVALUATE_QUALITY_GATE</type>
+      <attributes/>
+      <xloc>528</xloc>
+      <yloc>144</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <catalogConnection>local-catalog</catalogConnection>
+      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
+      <recordDefinitionKeys/>
+      <namespacePrefix/>
+      <evaluationMode>AUTO</evaluationMode>
+      <lifecycle>POST_UPDATE</lifecycle>
+      <sampleLimit>1000</sampleLimit>
+      <name>Measure source data quality (post)</name>
+      <description>Re-measure CRM sources after vault update (alert path)</description>
+      <type>MEASURE_DATA_QUALITY</type>
+      <attributes/>
+      <xloc>672</xloc>
+      <yloc>256</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <dispositionMode>ALERT_ONLY</dispositionMode>
+      <remeasureIfNoPriorReport>Y</remeasureIfNoPriorReport>
+      <catalogConnection>local-catalog</catalogConnection>
+      <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
+      <recordDefinitionKeys/>
+      <namespacePrefix/>
+      <name>Alert on source quality (post)</name>
+      <description>Log quality findings after update without failing the workflow</description>
+      <type>EVALUATE_QUALITY_GATE</type>
+      <attributes/>
+      <xloc>896</xloc>
+      <yloc>256</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <hostname>${DB_HOST}</hostname>
+      <timeout>3000</timeout>
+      <nbrPackets>2</nbrPackets>
+      <pingtype>classicPing</pingtype>
+      <name>ping db</name>
+      <description/>
+      <type>PING</type>
+      <attributes/>
+      <xloc>224</xloc>
+      <yloc>32</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <connections>
+        <connection>
+          <name>OPS</name>
+          <waitfor>0</waitfor>
+          <waittime>millisecond</waittime>
+        </connection>
+        <connection>
+          <name>Vault</name>
+          <waitfor>0</waitfor>
+          <waittime>millisecond</waittime>
+        </connection>
+        <connection>
+          <name>CRM</name>
+          <waitfor>0</waitfor>
+          <waittime>millisecond</waittime>
+        </connection>
+      </connections>
+      <name>Check DB connections</name>
+      <description/>
+      <type>CHECK_DB_CONNECTIONS</type>
+      <attributes/>
+      <xloc>368</xloc>
+      <yloc>32</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <filename>${PROJECT_HOME}/workflows/run-retail-initial-setup-db.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>run-retail-initial-setup-db</name>
+      <description/>
+      <type>WORKFLOW</type>
+      <attributes/>
+      <xloc>544</xloc>
+      <yloc>32</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
   </actions>
   <hops>
     <hop>
-      <from>Start</from>
-      <to>Drop source tables</to>
-      <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Drop source tables</from>
-      <to>drop-target-tables.sql</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>generate-catalog-sources.py</from>
-      <to>generate-retail-data.py</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>update-retail-dv-bv-dm</from>
       <to>advance-load-control.sql</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Load CSV to CRM</from>
-      <to>Validate resource definitions</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>drop-target-tables.sql</from>
-      <to>create-staging-views.sql</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Create source tables</from>
-      <to>seed-load-control.sql</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>generate-retail-data.py</from>
-      <to>Create source tables</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>seed-load-control.sql</from>
-      <to>Load CSV to CRM</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>create-staging-views.sql</from>
-      <to>create-load-metrics-tables.sql</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>create-load-metrics-tables.sql</from>
-      <to>generate-catalog-sources.py</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
@@ -444,7 +330,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
     </hop>
     <hop>
       <from>Validate resource definitions</from>
-      <to>Begin Vault Update</to>
+      <to>Measure source data quality</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
@@ -458,7 +344,63 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
     </hop>
     <hop>
       <from>End Vault Update</from>
+      <to>Measure source data quality (post)</to>
+      <evaluation>N</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Measure source data quality</from>
+      <to>Evaluate source quality gate</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Evaluate source quality gate</from>
+      <to>Begin Vault Update</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Measure source data quality (post)</from>
+      <to>Alert on source quality (post)</to>
+      <evaluation>N</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>End Vault Update</from>
       <to>Generate execution map</to>
+      <evaluation>N</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Start</from>
+      <to>ping db</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>ping db</from>
+      <to>Check DB connections</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Check DB connections</from>
+      <to>run-retail-initial-setup-db</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>run-retail-initial-setup-db</from>
+      <to>Validate resource definitions</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>

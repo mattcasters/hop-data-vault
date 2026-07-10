@@ -30,6 +30,49 @@
   ],
   "glossaryTerms": [],
   "customProperties": {},
+  "validationAcknowledgements": [],
+  "qualityRules": [
+    {
+      "ruleSetName": "retail-source-quality",
+      "ruleId": "table-not-empty",
+      "inlineRule": null,
+      "severityOverride": null,
+      "fieldNameOverride": null,
+      "enabled": true
+    },
+    {
+      "ruleSetName": "retail-source-quality",
+      "ruleId": "customer-id-not-null",
+      "inlineRule": null,
+      "severityOverride": null,
+      "fieldNameOverride": null,
+      "enabled": true
+    },
+    {
+      "ruleSetName": "retail-source-quality",
+      "ruleId": "segment-allowed",
+      "inlineRule": null,
+      "severityOverride": null,
+      "fieldNameOverride": null,
+      "enabled": true
+    },
+    {
+      "ruleSetName": "retail-source-quality",
+      "ruleId": "loyalty-tier-allowed",
+      "inlineRule": null,
+      "severityOverride": null,
+      "fieldNameOverride": null,
+      "enabled": true
+    },
+    {
+      "ruleSetName": "retail-source-quality",
+      "ruleId": "demo-score-range",
+      "inlineRule": null,
+      "severityOverride": null,
+      "fieldNameOverride": null,
+      "enabled": true
+    }
+  ],
   "dvSource": {
     "sourceType": "DATABASE",
     "sourceIndicator": "",

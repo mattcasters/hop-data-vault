@@ -155,6 +155,8 @@ public class RecordDefinitionDetailsPanel {
   private TableView wTags;
   private TableView wGlossaryTerms;
   private TableView wCustomProperties;
+  private TableView wQualityRules;
+  private Button wTestQualityMeasure;
 
   private final List<Control> physicalTableSectionControls = new ArrayList<>();
   private final List<Control> physicalFileSectionControls = new ArrayList<>();
@@ -211,6 +213,8 @@ public class RecordDefinitionDetailsPanel {
             wTabFolder,
             messageKey("Tab.CustomProperties.Label"),
             messageKey("Tab.CustomProperties.ToolTip"));
+    Composite wQualityTabComp =
+        addTab(wTabFolder, messageKey("Tab.Quality.Label"), messageKey("Tab.Quality.ToolTip"));
 
     wScroll = new ScrolledComposite(wPropertiesTabComp, SWT.V_SCROLL | SWT.H_SCROLL);
     PropsUi.setLook(wScroll);
@@ -740,6 +744,21 @@ public class RecordDefinitionDetailsPanel {
     wTags = createListTable(wTagsTabComp, messageKey("Tags.Column"));
     wGlossaryTerms = createListTable(wGlossaryTabComp, messageKey("GlossaryTerms.Column"));
     wCustomProperties = createCustomPropertiesTable(wCustomPropertiesTabComp);
+    wQualityRules = createQualityRulesTable(wQualityTabComp);
+    wTestQualityMeasure = new Button(wQualityTabComp, SWT.PUSH);
+    wTestQualityMeasure.setText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.TestButton.Label"));
+    wTestQualityMeasure.setToolTipText(
+        BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.TestButton.ToolTip"));
+    PropsUi.setLook(wTestQualityMeasure);
+    FormData fdTestQuality = new FormData();
+    fdTestQuality.right = new FormAttachment(100, 0);
+    fdTestQuality.bottom = new FormAttachment(100, 0);
+    wTestQualityMeasure.setLayoutData(fdTestQuality);
+    FormData fdQualityRules = (FormData) wQualityRules.getLayoutData();
+    fdQualityRules.bottom = new FormAttachment(wTestQualityMeasure, -PropsUi.getMargin());
+    wQualityRules.setLayoutData(fdQualityRules);
+    wTestQualityMeasure.addListener(SWT.Selection, e -> testQualityMeasure());
 
     wTabFolder.setSelection(0);
     wTabFolder.setVisible(false);
@@ -1176,9 +1195,14 @@ public class RecordDefinitionDetailsPanel {
     populateListTable(wTags, definition.getTags());
     populateListTable(wGlossaryTerms, definition.getGlossaryTerms());
     populateCustomPropertiesTable(definition.getCustomProperties());
+    populateQualityRulesTable(definition.getQualityRules());
 
     if (wPreviewRecords != null) {
       wPreviewRecords.setEnabled(RecordDefinitionPreviewSupport.supportsPreview(definition));
+    }
+    if (wTestQualityMeasure != null) {
+      wTestQualityMeasure.setEnabled(
+          definition.getQualityRules() != null && !definition.getQualityRules().isEmpty());
     }
     if (wRefreshFromSource != null) {
       wRefreshFromSource.setEnabled(
@@ -1669,5 +1693,142 @@ public class RecordDefinitionDetailsPanel {
     wCustomProperties.removeEmptyRows();
     wCustomProperties.setRowNums();
     wCustomProperties.optWidth(true);
+  }
+
+  private TableView createQualityRulesTable(Composite tabComp) {
+    ColumnInfo[] columns =
+        new ColumnInfo[] {
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Source.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false,
+              true),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Type.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false,
+              true),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Field.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false,
+              true),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Severity.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false,
+              true),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Enabled.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false,
+              true)
+        };
+    TableView table =
+        new TableView(
+            variables,
+            tabComp,
+            SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI | SWT.V_SCROLL | SWT.H_SCROLL,
+            columns,
+            1,
+            true,
+            null,
+            PropsUi.getInstance());
+    FormData fd = new FormData();
+    fd.left = new FormAttachment(0, 0);
+    fd.top = new FormAttachment(0, 0);
+    fd.right = new FormAttachment(100, 0);
+    fd.bottom = new FormAttachment(100, 0);
+    table.setLayoutData(fd);
+    return table;
+  }
+
+  private void populateQualityRulesTable(
+      List<org.apache.hop.quality.model.RecordQualityRuleBinding> bindings) {
+    if (wQualityRules == null) {
+      return;
+    }
+    wQualityRules.clearAll(false);
+    List<org.apache.hop.quality.model.RecordQualityRuleBinding> items =
+        bindings != null ? bindings : List.of();
+    for (int i = 0; i < items.size(); i++) {
+      org.apache.hop.quality.model.RecordQualityRuleBinding binding = items.get(i);
+      TableItem item;
+      if (i == 0) {
+        item = wQualityRules.getTable().getItem(0);
+      } else {
+        item = new TableItem(wQualityRules.getTable(), SWT.NONE);
+      }
+      if (binding == null) {
+        continue;
+      }
+      String source;
+      String type = "";
+      String field = Const.NVL(binding.getFieldNameOverride(), "");
+      String severity =
+          binding.getSeverityOverride() != null ? binding.getSeverityOverride().name() : "";
+      if (binding.getInlineRule() != null) {
+        source = "inline:" + Const.NVL(binding.getInlineRule().getName(), binding.getInlineRule().getId());
+        type =
+            binding.getInlineRule().getType() != null
+                ? binding.getInlineRule().getType().name()
+                : "";
+        if (field.isEmpty()) {
+          field = Const.NVL(binding.getInlineRule().getFieldName(), "");
+        }
+        if (severity.isEmpty() && binding.getInlineRule().getSeverity() != null) {
+          severity = binding.getInlineRule().getSeverity().name();
+        }
+      } else {
+        source =
+            Const.NVL(binding.getRuleSetName(), "")
+                + "#"
+                + Const.NVL(binding.getRuleId(), "");
+      }
+      item.setText(1, source);
+      item.setText(2, type);
+      item.setText(3, field);
+      item.setText(4, severity);
+      item.setText(5, binding.isEnabled() ? "Y" : "N");
+    }
+    wQualityRules.removeEmptyRows();
+    wQualityRules.setRowNums();
+    wQualityRules.optWidth(true);
+  }
+
+  private void testQualityMeasure() {
+    if (definition == null) {
+      return;
+    }
+    try {
+      org.apache.hop.metadata.api.IHopMetadataProvider metadataProvider =
+          org.apache.hop.ui.hopgui.HopGui.getInstance().getMetadataProvider();
+      org.apache.hop.quality.model.DataQualityReport report =
+          org.apache.hop.quality.service.DataQualityMeasureService.measureDefinitions(
+              List.of(definition),
+              org.apache.hop.quality.model.QualityEvaluationMode.AUTO,
+              org.apache.hop.quality.model.QualityLifecycle.AD_HOC,
+              1000,
+              variables,
+              metadataProvider,
+              org.apache.hop.core.logging.LogChannel.GENERAL);
+      String text =
+          org.apache.hop.quality.service.DataQualityReportFormatter.format(report);
+      org.apache.hop.ui.core.dialog.EnterTextDialog dialog =
+          new org.apache.hop.ui.core.dialog.EnterTextDialog(
+              parent.getShell(),
+              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Test.Title"),
+              BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Test.Message"),
+              text,
+              true);
+      dialog.setReadOnly();
+      dialog.open();
+    } catch (Exception e) {
+      new org.apache.hop.ui.core.dialog.ErrorDialog(
+          parent.getShell(),
+          BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Test.Error.Title"),
+          BaseMessages.getString(PKG, "RecordDefinitionDetailsPanel.Quality.Test.Error.Message"),
+          e);
+    }
   }
 }
