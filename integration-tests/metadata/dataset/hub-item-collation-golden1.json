@@ -1,0 +1,41 @@
+{
+  "base_filename": "sqlserver-collation/hub-item-collation-golden1.csv",
+  "virtualPath": "/sqlserver-collation",
+  "name": "hub-item-collation-golden1",
+  "description": "Hub golden after initial load for SQL Server collation suite",
+  "dataset_fields": [
+    {
+      "field_comment": "item_hk",
+      "field_length": 63,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "item_hk",
+      "field_format": ""
+    },
+    {
+      "field_comment": "item_code",
+      "field_length": 50,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "item_code",
+      "field_format": ""
+    },
+    {
+      "field_comment": "x_record_source",
+      "field_length": 100,
+      "field_type": 2,
+      "field_precision": -1,
+      "field_name": "x_record_source",
+      "field_format": ""
+    },
+    {
+      "field_comment": "x_load_ts",
+      "field_length": 6,
+      "field_type": 9,
+      "field_precision": -1,
+      "field_name": "x_load_ts",
+      "field_format": "yyyy/MM/dd HH:mm:ss.SSSSSSSSS"
+    }
+  ],
+  "folder_name": ""
+}

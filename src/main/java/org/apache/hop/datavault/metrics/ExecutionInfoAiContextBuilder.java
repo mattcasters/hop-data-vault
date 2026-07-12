@@ -105,7 +105,9 @@ public final class ExecutionInfoAiContextBuilder {
     if (databaseMeta == null) {
       return null;
     }
-    String schema = resolveSchema(operationsSchema);
+    String schema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(
+            operationsSchema, databaseMeta);
     LoggingObject loggingObject = new LoggingObject(ExecutionInfoAiContextBuilder.class);
     Database db = new Database(loggingObject, variables, databaseMeta);
     try {
@@ -335,13 +337,6 @@ public final class ExecutionInfoAiContextBuilder {
 
   private static String escapeJsonField(String value) {
     return value.replace("\\", "\\\\").replace("\"", "\\\"");
-  }
-
-  private static String resolveSchema(String operationsSchema) {
-    if (Utils.isEmpty(operationsSchema)) {
-      return LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME;
-    }
-    return operationsSchema.trim();
   }
 
   private static String sqlLiteral(IVariables variables, String value) {

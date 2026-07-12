@@ -27,8 +27,9 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 
 /**
- * Builds ORDER BY clauses with automatic SQL Server COLLATE when live source/target metadata shows
- * a sort risk. The same bridge collation is applied on both merge legs for a given key.
+ * Builds ORDER BY clauses with automatic {@code COLLATE} when live source/target metadata shows a
+ * sort risk (SQL Server and PostgreSQL). The same bridge collation is applied on both merge legs
+ * for a given key.
  */
 public final class DvSqlOrderBySupport {
 
@@ -148,14 +149,14 @@ public final class DvSqlOrderBySupport {
     if (field == null || Utils.isEmpty(field.quotedExpression())) {
       return field != null ? field.quotedExpression() : null;
     }
-    if (!isSqlServer(databaseMeta) || !field.stringTyped()) {
+    if (!isCollationOrderBySupported(databaseMeta) || !field.stringTyped()) {
       return field.quotedExpression();
     }
     String collation = resolveCollation(field, session);
     if (Utils.isEmpty(collation)) {
       return field.quotedExpression();
     }
-    return field.quotedExpression() + " COLLATE " + collation;
+    return field.quotedExpression() + " COLLATE " + formatCollationIdentifier(databaseMeta, collation);
   }
 
   /**
@@ -184,13 +185,47 @@ public final class DvSqlOrderBySupport {
         sourceMeta, targetMeta, sourceDefault, targetDefault);
   }
 
+  /**
+   * Engines where we load live column collations and may inject {@code ORDER BY … COLLATE}.
+   * SQL Server and PostgreSQL.
+   */
+  public static boolean isCollationOrderBySupported(DatabaseMeta databaseMeta) {
+    return isSqlServer(databaseMeta) || isPostgreSql(databaseMeta);
+  }
+
   public static boolean isSqlServer(DatabaseMeta databaseMeta) {
-    if (databaseMeta == null) {
+    if (databaseMeta == null || Utils.isEmpty(databaseMeta.getPluginId())) {
       return false;
     }
     String pluginId = databaseMeta.getPluginId();
     return DvBulkLoadPluginSupport.MSSQL_DB_PLUGIN_ID.equalsIgnoreCase(pluginId)
         || DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID.equalsIgnoreCase(pluginId);
+  }
+
+  public static boolean isPostgreSql(DatabaseMeta databaseMeta) {
+    if (databaseMeta == null || Utils.isEmpty(databaseMeta.getPluginId())) {
+      return false;
+    }
+    return DvBulkLoadPluginSupport.POSTGRESQL_DB_PLUGIN_ID.equalsIgnoreCase(
+        databaseMeta.getPluginId());
+  }
+
+  /**
+   * SQL Server uses unquoted collation names ({@code French_CI_AS}); PostgreSQL requires a quoted
+   * identifier ({@code "fr-FR-x-icu"}).
+   */
+  public static String formatCollationIdentifier(DatabaseMeta databaseMeta, String collation) {
+    if (Utils.isEmpty(collation)) {
+      return collation;
+    }
+    String trimmed = collation.trim();
+    if (isPostgreSql(databaseMeta)) {
+      if (trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length() >= 2) {
+        return trimmed;
+      }
+      return "\"" + trimmed.replace("\"", "\"\"") + "\"";
+    }
+    return trimmed;
   }
 
   static boolean isStringBusinessKey(BusinessKey businessKey, IVariables variables) {

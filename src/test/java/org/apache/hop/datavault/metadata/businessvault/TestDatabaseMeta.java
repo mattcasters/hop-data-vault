@@ -24,9 +24,21 @@ import org.apache.hop.core.variables.IVariables;
 /** Minimal DatabaseMeta stub for pipeline generation unit tests. */
 final class TestDatabaseMeta extends DatabaseMeta {
 
+  private final String pluginId;
+
   TestDatabaseMeta(String name) {
+    this(name, null);
+  }
+
+  TestDatabaseMeta(String name, String pluginId) {
     super();
     setName(name);
+    this.pluginId = pluginId;
+  }
+
+  @Override
+  public String getPluginId() {
+    return pluginId != null ? pluginId : super.getPluginId();
   }
 
   @Override

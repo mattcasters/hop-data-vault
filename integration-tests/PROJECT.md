@@ -6,7 +6,7 @@
 > - Configure the two database connections **`CRM`** and **`Vault`** in project metadata (`metadata/rdbms/CRM.json` and `metadata/rdbms/Vault.json`).
 > - **Docker** with Compose v2 — used by `run-tests.sh` and `run-tests-all-databases.sh` to run workflows in a short-lived Hop container (`docker-hop:latest`). No local Hop installation is required for command-line testing.
 > - **Python 3** — used by the test scripts to print the metrics overview table at the end of a run (stdlib only; no extra packages).
-> - Testing has been done with **PostgreSQL**, **MySQL**, and **SingleStore** (see [Docker multi-database tests](#docker-multi-database-tests) below).
+> - Testing has been done with **PostgreSQL**, **MySQL**, **SingleStore**, and **Microsoft SQL Server** (see [Docker multi-database tests](#docker-multi-database-tests) below).
 > - For Hop GUI use, install the **hop-datavault** plugin (**0.0.16-SNAPSHOT**) in your Hop 2.18.1 environment.
 
 **CI and regression reference** — not the primary tutorial. For learning, use [retail-example](../retail-example/) and [docs/getting-started-retail.adoc](../docs/getting-started-retail.adoc). Documentation index: [docs/README.md](../docs/README.md).
@@ -22,7 +22,7 @@ integration-tests/
 ├── project-config.json          # Hop project settings (metadata, datasets, unit tests)
 ├── run-postgres.sh              # Wrapper → ../scripts/run-postgres.sh
 ├── run-tests.sh                 # Wrapper → ../scripts/run-hop.sh integration-tests …
-├── run-tests-all-databases.sh   # Full suite against Docker PostgreSQL, MySQL, SingleStore
+├── run-tests-all-databases.sh   # Full suite against Docker PostgreSQL, MySQL, SingleStore, SQL Server
 ├── run-svg.sh                   # Export DV/BV/pipeline SVGs via hop svg in Docker
 ├── SCRIPTS.md                   # How the shell scripts work together
 ../scripts/docker/               # Docker image, compose files (shared with retail-example)
@@ -101,17 +101,29 @@ COLLECT_METRICS=N ./run-tests.sh
 
 See [`SCRIPTS.md`](SCRIPTS.md) for full script reference.
 
-**`run-tests-all-databases.sh`** — run the full suite against containerised PostgreSQL, MySQL, and SingleStore (no host database required).
+**`run-tests-all-databases.sh`** — run the full suite against containerised PostgreSQL, MySQL, SingleStore, and Microsoft SQL Server (no host database required).
 
 ```bash
-# All three engines (postgres → mysql → singlestore)
+# All engines (postgres → mysql → singlestore → sqlserver)
 ./run-tests-all-databases.sh
 
 # One engine
 ./run-tests-all-databases.sh postgres
+./run-tests-all-databases.sh sqlserver
 ```
 
-Each engine uses `project/docker/compose.<engine>.yml`: a database service (`db`) and a short-lived `hop` service that runs `run-tests.hwf` with the matching environment file under `project/environments/`. Connection metadata is swapped in at container start from `project/metadata/rdbms/profiles/<engine>/`.
+Each engine uses `scripts/docker/compose.<engine>.yml`: a database service (`db`) and a short-lived `hop` service that runs the suite with the matching environment file under `integration-tests/environments/`. Connection metadata is swapped in at container start from `integration-tests/metadata/rdbms/profiles/<engine>/`.
+
+**String collation suite** (`tests/sqlserver-collation/`, also on the main `run-tests.hwf` path): source business keys use a **French collation** while vault hubs/sats use the database default collation, exercising automatic `ORDER BY … COLLATE` remediation (Issue #63).
+
+| Engine | Source DDL | Collation bridge |
+|--------|------------|------------------|
+| **PostgreSQL** | `VARCHAR … COLLATE "fr-FR-x-icu"` | `ORDER BY col COLLATE "fr-FR-x-icu"` |
+| **SQL Server** | `NVARCHAR … COLLATE French_CI_AS` | `ORDER BY col COLLATE French_CI_AS` |
+
+SQL Server compose (`compose.sqlserver.yml`) still runs `tests/run-tests-sqlserver.hwf` (shared suites + collation). Profile name for Postgres is **`postgres`** (not `postgresql`).
+
+Multi-satellite Business Vault suites (`multi-satellite-bv*`) run only when `DB_TYPE` is unset or `postgres`. MySQL, SingleStore, and SQL Server skip them in `tests/run-tests.hwf` because the current-state golden still reflects Postgres multi-open sparse SCD2 rows (≈453) while those engines currently yield one open row per customer (≈300).
 
 `run-tests-all-databases.sh` backs up your local `metadata/rdbms/CRM.json` and `Vault.json` before the run and restores them when finished (including on failure or interrupt), so GUI and `run-tests.sh` keep using your configured connections.
 

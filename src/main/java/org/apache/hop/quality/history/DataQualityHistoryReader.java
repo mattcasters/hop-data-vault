@@ -185,7 +185,8 @@ public final class DataQualityHistoryReader {
     if (Utils.isEmpty(subjectKey)) {
       return Collections.emptyList();
     }
-    String schema = resolveSchema(operationsSchema);
+    String schema =
+        DataQualityHistoryDdlSupport.resolvePhysicalSchema(operationsSchema, databaseMeta);
     int rowLimit = limit > 0 ? limit : DEFAULT_HISTORY_LIMIT;
 
     LoggingObject loggingObject = new LoggingObject(DataQualityHistoryReader.class);
@@ -256,7 +257,8 @@ public final class DataQualityHistoryReader {
     if (Utils.isEmpty(qualityRunId)) {
       return Collections.emptyList();
     }
-    String schema = resolveSchema(operationsSchema);
+    String schema =
+        DataQualityHistoryDdlSupport.resolvePhysicalSchema(operationsSchema, databaseMeta);
 
     LoggingObject loggingObject = new LoggingObject(DataQualityHistoryReader.class);
     Database db = new Database(loggingObject, variables, databaseMeta);
@@ -316,7 +318,9 @@ public final class DataQualityHistoryReader {
     if (db == null) {
       return false;
     }
-    String schema = resolveSchema(operationsSchema);
+    String schema =
+        DataQualityHistoryDdlSupport.resolvePhysicalSchema(
+            operationsSchema, db.getDatabaseMeta());
     return db.checkTableExists(schema, DataQualityHistoryPublisher.TABLE_QUALITY_RUN)
         && db.checkTableExists(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT);
   }
@@ -327,13 +331,6 @@ public final class DataQualityHistoryReader {
       return null;
     }
     return metadataProvider.getSerializer(DatabaseMeta.class).load(databaseMetaName.trim());
-  }
-
-  static String resolveSchema(String operationsSchema) {
-    if (Utils.isEmpty(operationsSchema)) {
-      return DataQualityHistoryPublisher.DEFAULT_SCHEMA_NAME;
-    }
-    return operationsSchema.trim();
   }
 
   private static HistoryConnection connectionFromCatalogDefinition(

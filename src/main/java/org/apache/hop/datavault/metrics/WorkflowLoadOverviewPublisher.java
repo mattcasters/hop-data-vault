@@ -40,6 +40,7 @@ import org.apache.hop.core.row.value.ValueMetaInteger;
 import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DvBulkLoadPluginSupport;
 import org.apache.hop.datavault.catalog.DvCatalogNamespaces;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
@@ -65,7 +66,9 @@ public final class WorkflowLoadOverviewPublisher {
     if (databaseMeta == null) {
       throw new HopException("Target database connection not found: " + settings.targetDatabaseName());
     }
-    String operationsSchema = settings.operationsSchema();
+    String operationsSchema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(
+            settings.operationsSchema(), databaseMeta);
     String namespace = operationsNamespace(variables);
     Date finishedAt = report.getFinishedAt() != null ? report.getFinishedAt() : new Date();
 
@@ -270,9 +273,9 @@ public final class WorkflowLoadOverviewPublisher {
             + ", "
             + sqlLiteral(report.getMetricsWorkflowName())
             + ", "
-            + sqlTimestampLiteral(report.getStartedAt())
+            + sqlTimestampLiteral(db, report.getStartedAt())
             + ", "
-            + sqlTimestampLiteral(report.getFinishedAt())
+            + sqlTimestampLiteral(db, report.getFinishedAt())
             + ", "
             + report.getDurationMs()
             + ", "
@@ -288,7 +291,7 @@ public final class WorkflowLoadOverviewPublisher {
             + ", "
             + report.getTotalErrors()
             + ", "
-            + (report.isSuccess() ? "TRUE" : "FALSE")
+            + sqlBooleanLiteral(db.getDatabaseMeta(), report.isSuccess())
             + ")";
     db.execStatement(sql);
   }
@@ -332,7 +335,7 @@ public final class WorkflowLoadOverviewPublisher {
               + ", "
               + model.getInsightCount()
               + ", "
-              + (model.isSuccess() ? "TRUE" : "FALSE")
+              + sqlBooleanLiteral(db.getDatabaseMeta(), model.isSuccess())
               + ")";
       db.execStatement(sql);
     }
@@ -360,11 +363,34 @@ public final class WorkflowLoadOverviewPublisher {
     return "'" + value.replace("'", "''") + "'";
   }
 
-  private static String sqlTimestampLiteral(Date value) {
+  private static String sqlTimestampLiteral(Database db, Date value) {
     if (value == null) {
       return "NULL";
     }
     String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(value);
+    DatabaseMeta meta = db != null ? db.getDatabaseMeta() : null;
+    if (isSqlServer(meta)) {
+      return "CAST('" + formatted + "' AS datetime2)";
+    }
+    if (LoadRunMetricsCatalogPublisher.isMysqlFamily(meta)) {
+      return "'" + formatted + "'";
+    }
     return "TIMESTAMP '" + formatted + "'";
+  }
+
+  private static String sqlBooleanLiteral(DatabaseMeta databaseMeta, boolean value) {
+    if (isSqlServer(databaseMeta) || LoadRunMetricsCatalogPublisher.isMysqlFamily(databaseMeta)) {
+      return value ? "1" : "0";
+    }
+    return value ? "TRUE" : "FALSE";
+  }
+
+  private static boolean isSqlServer(DatabaseMeta databaseMeta) {
+    if (databaseMeta == null || Utils.isEmpty(databaseMeta.getPluginId())) {
+      return false;
+    }
+    String pluginId = databaseMeta.getPluginId();
+    return DvBulkLoadPluginSupport.MSSQL_DB_PLUGIN_ID.equalsIgnoreCase(pluginId)
+        || DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID.equalsIgnoreCase(pluginId);
   }
 }

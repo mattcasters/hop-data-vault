@@ -27,8 +27,11 @@ import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.util.Utils;
 
 /**
- * Creates the five {@code dv_ops} quality history tables when missing. Does not depend on {@code
+ * Creates the five quality history tables when missing. Does not depend on {@code
  * datavault.metrics}; MySQL/Postgres dialect switch is local to this class.
+ *
+ * <p>Empty operations schema means connection default database (unqualified tables). Explicit
+ * schema names are honored for users who opt into isolation.
  */
 public final class DataQualityHistoryDdlSupport {
 
@@ -48,7 +51,7 @@ public final class DataQualityHistoryDdlSupport {
     if (db == null || databaseMeta == null) {
       return;
     }
-    String schema = resolveSchema(operationsSchema);
+    String schema = resolvePhysicalSchema(operationsSchema, databaseMeta);
     if (allQualityTablesExist(db, schema)) {
       return;
     }
@@ -56,7 +59,10 @@ public final class DataQualityHistoryDdlSupport {
     String ddl = String.join(";\n", buildCreateStatements(databaseMeta, schema)) + ";";
     if (log != null) {
       log.logBasic(
-          "Creating quality history tables in " + schema + " on " + databaseMeta.getName());
+          "Creating quality history tables in "
+              + describeLocation(schema)
+              + " on "
+              + databaseMeta.getName());
     }
     db.execStatements(ddl);
   }
@@ -66,7 +72,7 @@ public final class DataQualityHistoryDdlSupport {
   }
 
   static List<String> buildCreateStatements(DatabaseMeta databaseMeta, String operationsSchema) {
-    String schema = resolveSchema(operationsSchema);
+    String schema = resolvePhysicalSchema(operationsSchema, databaseMeta);
     String pluginId =
         databaseMeta != null && !Utils.isEmpty(databaseMeta.getPluginId())
             ? databaseMeta.getPluginId().toUpperCase()
@@ -85,23 +91,53 @@ public final class DataQualityHistoryDdlSupport {
         && db.checkTableExists(schema, DataQualityHistoryPublisher.TABLE_QUALITY_ALERT);
   }
 
+  /** Blank → connection default; explicit names kept (opt-in isolation). */
   static String resolveSchema(String operationsSchema) {
     if (operationsSchema == null) {
       return DataQualityHistoryPublisher.DEFAULT_SCHEMA_NAME;
     }
-    String trimmed = operationsSchema.trim();
-    if (Utils.isEmpty(trimmed)) {
-      return DataQualityHistoryPublisher.DEFAULT_SCHEMA_NAME;
+    return operationsSchema.trim();
+  }
+
+  /**
+   * Physical schema/database qualifier for SQL. Empty means the connection default; no dialect
+   * remapping of legacy names.
+   */
+  static String resolvePhysicalSchema(String operationsSchema, DatabaseMeta databaseMeta) {
+    return resolveSchema(operationsSchema);
+  }
+
+  private static boolean isMysqlFamily(DatabaseMeta databaseMeta) {
+    if (databaseMeta == null || Utils.isEmpty(databaseMeta.getPluginId())) {
+      return false;
     }
-    return trimmed;
+    String pluginId = databaseMeta.getPluginId();
+    return MYSQL_PLUGIN_ID.equalsIgnoreCase(pluginId)
+        || SINGLESTORE_PLUGIN_ID.equalsIgnoreCase(pluginId);
+  }
+
+  private static String qualify(String schema, String table) {
+    if (Utils.isEmpty(schema)) {
+      return table;
+    }
+    return schema + "." + table;
+  }
+
+  private static String describeLocation(String schema) {
+    if (Utils.isEmpty(schema)) {
+      return "connection default database";
+    }
+    return schema;
   }
 
   private static List<String> postgresStatements(String schema) {
     List<String> statements = new ArrayList<>();
-    statements.add("CREATE SCHEMA IF NOT EXISTS " + schema);
+    if (!Utils.isEmpty(schema)) {
+      statements.add("CREATE SCHEMA IF NOT EXISTS " + schema);
+    }
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           quality_run_id        VARCHAR(64)   NOT NULL,
           measured_at           TIMESTAMP     NULL,
           lifecycle             VARCHAR(16)   NULL,
@@ -120,10 +156,10 @@ public final class DataQualityHistoryDdlSupport {
           infra_errors_json     VARCHAR(4000) NULL,
           PRIMARY KEY (quality_run_id)
         )"""
-            .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_RUN));
+            .formatted(qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_RUN)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           quality_run_id  VARCHAR(64)  NOT NULL,
           subject_key     VARCHAR(512) NOT NULL,
           row_count       BIGINT       NULL,
@@ -133,10 +169,10 @@ public final class DataQualityHistoryDdlSupport {
           captured_at     TIMESTAMP    NULL,
           PRIMARY KEY (quality_run_id, subject_key)
         )"""
-            .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT));
+            .formatted(qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           quality_run_id       VARCHAR(64)   NOT NULL,
           subject_key          VARCHAR(512)  NOT NULL,
           field_name           VARCHAR(255)  NOT NULL,
@@ -152,10 +188,10 @@ public final class DataQualityHistoryDdlSupport {
           top_values_json      VARCHAR(4000) NULL,
           PRIMARY KEY (quality_run_id, subject_key, field_name)
         )"""
-            .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_FIELD));
+            .formatted(qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_FIELD)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           quality_run_id   VARCHAR(64)   NOT NULL,
           finding_seq      BIGINT        NOT NULL,
           subject_key      VARCHAR(512)  NULL,
@@ -170,10 +206,10 @@ public final class DataQualityHistoryDdlSupport {
           metrics_json     VARCHAR(4000) NULL,
           PRIMARY KEY (quality_run_id, finding_seq)
         )"""
-            .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_FINDING));
+            .formatted(qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_FINDING)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           quality_run_id     VARCHAR(64)   NOT NULL,
           alerted_at         TIMESTAMP     NULL,
           disposition_mode   VARCHAR(32)   NULL,
@@ -181,17 +217,16 @@ public final class DataQualityHistoryDdlSupport {
           summary            VARCHAR(2000) NULL,
           PRIMARY KEY (quality_run_id)
         )"""
-            .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_ALERT));
+            .formatted(qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_ALERT)));
     statements.addAll(postgresIndexStatements(schema));
     return statements;
   }
 
   private static List<String> mysqlStatements(String schema) {
     List<String> statements = new ArrayList<>();
-    statements.add("CREATE DATABASE IF NOT EXISTS " + schema);
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           quality_run_id        VARCHAR(64)   NOT NULL,
           measured_at           TIMESTAMP     NULL,
           lifecycle             VARCHAR(16)   NULL,
@@ -210,10 +245,10 @@ public final class DataQualityHistoryDdlSupport {
           infra_errors_json     VARCHAR(4000) NULL,
           PRIMARY KEY (quality_run_id)
         )"""
-            .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_RUN));
+            .formatted(qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_RUN)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           quality_run_id  VARCHAR(64)  NOT NULL,
           subject_key     VARCHAR(512) NOT NULL,
           row_count       BIGINT       NULL,
@@ -223,10 +258,10 @@ public final class DataQualityHistoryDdlSupport {
           captured_at     TIMESTAMP    NULL,
           PRIMARY KEY (quality_run_id, subject_key)
         )"""
-            .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT));
+            .formatted(qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           quality_run_id       VARCHAR(64)   NOT NULL,
           subject_key          VARCHAR(512)  NOT NULL,
           field_name           VARCHAR(255)  NOT NULL,
@@ -242,10 +277,10 @@ public final class DataQualityHistoryDdlSupport {
           top_values_json      VARCHAR(4000) NULL,
           PRIMARY KEY (quality_run_id, subject_key, field_name)
         )"""
-            .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_FIELD));
+            .formatted(qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_FIELD)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           quality_run_id   VARCHAR(64)   NOT NULL,
           finding_seq      BIGINT        NOT NULL,
           subject_key      VARCHAR(512)  NULL,
@@ -260,10 +295,10 @@ public final class DataQualityHistoryDdlSupport {
           metrics_json     VARCHAR(4000) NULL,
           PRIMARY KEY (quality_run_id, finding_seq)
         )"""
-            .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_FINDING));
+            .formatted(qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_FINDING)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           quality_run_id     VARCHAR(64)   NOT NULL,
           alerted_at         TIMESTAMP     NULL,
           disposition_mode   VARCHAR(32)   NULL,
@@ -271,7 +306,7 @@ public final class DataQualityHistoryDdlSupport {
           summary            VARCHAR(2000) NULL,
           PRIMARY KEY (quality_run_id)
         )"""
-            .formatted(schema, DataQualityHistoryPublisher.TABLE_QUALITY_ALERT));
+            .formatted(qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_ALERT)));
     // MySQL does not support CREATE INDEX IF NOT EXISTS. These run only on the first-create
     // path (when not all five tables exist), so plain CREATE INDEX is safe.
     statements.addAll(mysqlIndexStatements(schema));
@@ -283,27 +318,19 @@ public final class DataQualityHistoryDdlSupport {
     List<String> statements = new ArrayList<>();
     statements.add(
         "CREATE INDEX IF NOT EXISTS idx_quality_run_load_id ON "
-            + schema
-            + "."
-            + DataQualityHistoryPublisher.TABLE_QUALITY_RUN
+            + qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_RUN)
             + " (load_id)");
     statements.add(
         "CREATE INDEX IF NOT EXISTS idx_quality_run_measured_at ON "
-            + schema
-            + "."
-            + DataQualityHistoryPublisher.TABLE_QUALITY_RUN
+            + qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_RUN)
             + " (measured_at DESC)");
     statements.add(
         "CREATE INDEX IF NOT EXISTS idx_quality_profile_subject_lookup ON "
-            + schema
-            + "."
-            + DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT
+            + qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT)
             + " (subject_key, lifecycle, captured_at DESC)");
     statements.add(
         "CREATE INDEX IF NOT EXISTS idx_quality_finding_subject_rule ON "
-            + schema
-            + "."
-            + DataQualityHistoryPublisher.TABLE_QUALITY_FINDING
+            + qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_FINDING)
             + " (subject_key, rule_id)");
     return statements;
   }
@@ -313,27 +340,19 @@ public final class DataQualityHistoryDdlSupport {
     List<String> statements = new ArrayList<>();
     statements.add(
         "CREATE INDEX idx_quality_run_load_id ON "
-            + schema
-            + "."
-            + DataQualityHistoryPublisher.TABLE_QUALITY_RUN
+            + qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_RUN)
             + " (load_id)");
     statements.add(
         "CREATE INDEX idx_quality_run_measured_at ON "
-            + schema
-            + "."
-            + DataQualityHistoryPublisher.TABLE_QUALITY_RUN
+            + qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_RUN)
             + " (measured_at DESC)");
     statements.add(
         "CREATE INDEX idx_quality_profile_subject_lookup ON "
-            + schema
-            + "."
-            + DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT
+            + qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_PROFILE_SUBJECT)
             + " (subject_key, lifecycle, captured_at DESC)");
     statements.add(
         "CREATE INDEX idx_quality_finding_subject_rule ON "
-            + schema
-            + "."
-            + DataQualityHistoryPublisher.TABLE_QUALITY_FINDING
+            + qualify(schema, DataQualityHistoryPublisher.TABLE_QUALITY_FINDING)
             + " (subject_key, rule_id)");
     return statements;
   }

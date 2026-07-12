@@ -74,6 +74,43 @@ class BvPitPipelineSupportTest {
   }
 
   @Test
+  void buildPitTableInputSqlForMysqlUsesRecursiveSpineNotPostgres() throws Exception {
+    BvPitPipelineSupport.PitBuildContext ctx = pitContext("MYSQL");
+
+    String sql = BvPitPipelineSupport.buildPitTableInputSql(ctx);
+
+    assertTrue(sql.contains("WITH RECURSIVE days AS ("));
+    assertTrue(sql.contains("DATE_ADD(d.spine_day, INTERVAL 1 DAY)"));
+    assertTrue(sql.contains("DATE_SUB(CURRENT_DATE, INTERVAL 1 DAY)"));
+    assertTrue(sql.contains("CAST('1900-01-01 00:00:00' AS DATETIME)"));
+    assertFalse(sql.contains("generate_series"));
+    assertFalse(sql.contains("::timestamp"));
+    assertFalse(sql.contains("::date"));
+    assertFalse(sql.contains("TIMESTAMP '"));
+  }
+
+  @Test
+  void buildPitTableInputSqlForSingleStoreUsesNonRecursiveNumberSpine() throws Exception {
+    BvPitPipelineSupport.PitBuildContext ctx = pitContext("SINGLESTORE");
+
+    String sql = BvPitPipelineSupport.buildPitTableInputSql(ctx);
+
+    assertFalse(sql.contains("WITH RECURSIVE"));
+    assertTrue(sql.contains("day_offsets AS ("));
+    assertTrue(sql.contains("DATE_ADD(b.start_date, INTERVAL o.n DAY)"));
+    assertTrue(sql.contains("DATE_SUB(CURRENT_DATE, INTERVAL 1 DAY)"));
+    assertTrue(sql.contains("CAST('1900-01-01 00:00:00' AS DATETIME)"));
+    assertTrue(sql.contains("CROSS JOIN snapshot_spine spine"));
+    assertTrue(sql.contains("LEFT JOIN sat_customer sat ON"));
+    assertTrue(sql.contains("GROUP BY hk.customer_hk, spine.snapshot_date"));
+    assertFalse(
+        sql.contains("SELECT MAX(sat.x_load_ts) FROM sat_customer sat WHERE"),
+        "SingleStore cannot use correlated scalar subselects over CTE outers");
+    assertFalse(sql.contains("generate_series"));
+    assertFalse(sql.contains("::date"));
+  }
+
+  @Test
   void generatedPipelineUsesTableInputAndAppendTableOutput() throws Exception {
     BvPitPipelineSupport.PitBuildContext ctx = pitContext();
 
@@ -126,10 +163,14 @@ class BvPitPipelineSupportTest {
   }
 
   private static BvPitPipelineSupport.PitBuildContext pitContext() throws Exception {
+    return pitContext(null);
+  }
+
+  private static BvPitPipelineSupport.PitBuildContext pitContext(String pluginId) throws Exception {
     DataVaultModel dvModel = loadVault1Model();
     BusinessVaultModel bvModel = new BusinessVaultModel();
     bvModel.getConfigurationOrDefault().setTargetDatabase("Vault");
-    DatabaseMeta databaseMeta = new TestDatabaseMeta("Vault");
+    DatabaseMeta databaseMeta = new TestDatabaseMeta("Vault", pluginId);
 
     BvPitTable pitTable = validPitTable();
     return new BvPitPipelineSupport.PitBuildContext(

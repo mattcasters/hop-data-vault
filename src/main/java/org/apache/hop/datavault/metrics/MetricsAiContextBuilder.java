@@ -135,7 +135,9 @@ public final class MetricsAiContextBuilder {
       if (databaseMeta == null) {
         return "";
       }
-      String schema = resolveSchema(operationsSchema);
+      String schema =
+          LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(
+              operationsSchema, databaseMeta);
       return queryMetricsJson(databaseMeta, schema, modelName, modelType, variables);
     } catch (Exception ignored) {
       return "";
@@ -452,13 +454,6 @@ public final class MetricsAiContextBuilder {
       json.append('}');
     }
     json.append(']');
-  }
-
-  private static String resolveSchema(String operationsSchema) {
-    if (Utils.isEmpty(operationsSchema)) {
-      return LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME;
-    }
-    return operationsSchema.trim();
   }
 
   private static String resolveValue(String value, IVariables variables) {

@@ -36,12 +36,11 @@ class DataQualityHistoryDdlSupportTest {
   }
 
   @Test
-  void postgresDdlCreatesAllFiveTablesAndIndexes() {
+  void defaultPostgresDdlCreatesTablesWithoutSchema() {
     List<String> statements =
         DataQualityHistoryDdlSupport.buildCreateStatements(databaseMetaWithPluginId("POSTGRESQL"));
 
-    assertTrue(
-        statements.stream().anyMatch(sql -> sql.contains("CREATE SCHEMA IF NOT EXISTS dv_ops")));
+    assertTrue(statements.stream().noneMatch(sql -> sql.contains("CREATE SCHEMA")));
     assertContainsTable(statements, "quality_run");
     assertContainsTable(statements, "quality_profile_subject");
     assertContainsTable(statements, "quality_profile_field");
@@ -58,19 +57,7 @@ class DataQualityHistoryDdlSupportTest {
         statements.stream()
             .anyMatch(
                 sql ->
-                    sql.contains("CREATE INDEX IF NOT EXISTS idx_quality_run_measured_at")
-                        && sql.contains("measured_at DESC")));
-    assertTrue(
-        statements.stream()
-            .anyMatch(
-                sql ->
-                    sql.contains("CREATE INDEX IF NOT EXISTS idx_quality_profile_subject_lookup")
-                        && sql.contains("captured_at DESC")));
-    assertTrue(
-        statements.stream()
-            .anyMatch(
-                sql ->
-                    sql.contains("CREATE TABLE IF NOT EXISTS dv_ops.quality_run")
+                    sql.contains("CREATE TABLE IF NOT EXISTS quality_run")
                         && sql.contains("subjects_json")
                         && sql.contains("infra_errors_json")));
   }
@@ -90,23 +77,22 @@ class DataQualityHistoryDdlSupportTest {
   }
 
   @Test
-  void mysqlDdlCreatesDatabaseAndQualityAlert() {
+  void mysqlDdlUsesConnectionDefaultWithoutCreateDatabase() {
     List<String> statements =
         DataQualityHistoryDdlSupport.buildCreateStatements(databaseMetaWithPluginId("MYSQL"));
 
-    assertTrue(
-        statements.stream().anyMatch(sql -> sql.contains("CREATE DATABASE IF NOT EXISTS dv_ops")));
+    assertTrue(statements.stream().noneMatch(sql -> sql.contains("CREATE DATABASE")));
     assertTrue(
         statements.stream()
             .anyMatch(
                 sql ->
-                    sql.contains("CREATE TABLE IF NOT EXISTS dv_ops.quality_alert")
+                    sql.contains("CREATE TABLE IF NOT EXISTS quality_alert")
                         && sql.contains("disposition_failed")));
     assertTrue(
         statements.stream()
             .anyMatch(
                 sql ->
-                    sql.contains("CREATE TABLE IF NOT EXISTS dv_ops.quality_run")
+                    sql.contains("CREATE TABLE IF NOT EXISTS quality_run")
                         && sql.contains("TINYINT(1)")));
   }
 
@@ -145,11 +131,14 @@ class DataQualityHistoryDdlSupportTest {
   }
 
   @Test
-  void singlestoreUsesMysqlIndexDialect() {
+  void singlestoreUsesMysqlIndexDialectAndConnectionDefault() {
     List<String> statements =
         DataQualityHistoryDdlSupport.buildCreateStatements(
             databaseMetaWithPluginId("SINGLESTORE"));
-    assertTrue(statements.stream().anyMatch(sql -> sql.contains("CREATE DATABASE IF NOT EXISTS")));
+    assertTrue(statements.stream().noneMatch(sql -> sql.contains("CREATE DATABASE")));
+    assertTrue(
+        statements.stream()
+            .anyMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS quality_run")));
     assertTrue(
         statements.stream()
             .noneMatch(sql -> sql.contains("CREATE INDEX IF NOT EXISTS idx_quality_run")));
@@ -159,16 +148,32 @@ class DataQualityHistoryDdlSupportTest {
   }
 
   @Test
-  void resolveSchemaDefaultsToDvOps() {
-    assertEquals("dv_ops", DataQualityHistoryDdlSupport.resolveSchema(null));
-    assertEquals("dv_ops", DataQualityHistoryDdlSupport.resolveSchema("  "));
+  void resolveSchemaDefaultsToEmpty() {
+    assertEquals("", DataQualityHistoryDdlSupport.resolveSchema(null));
+    assertEquals("", DataQualityHistoryDdlSupport.resolveSchema("  "));
     assertEquals("custom", DataQualityHistoryDdlSupport.resolveSchema(" custom "));
+  }
+
+  @Test
+  void resolvePhysicalSchemaKeepsExplicitNames() {
+    assertEquals(
+        "",
+        DataQualityHistoryDdlSupport.resolvePhysicalSchema(
+            null, databaseMetaWithPluginId("MYSQL")));
+    assertEquals(
+        "dv_ops",
+        DataQualityHistoryDdlSupport.resolvePhysicalSchema(
+            "dv_ops", databaseMetaWithPluginId("POSTGRESQL")));
+    assertEquals(
+        "custom",
+        DataQualityHistoryDdlSupport.resolvePhysicalSchema(
+            "custom", databaseMetaWithPluginId("MYSQL")));
   }
 
   private static void assertContainsTable(List<String> statements, String table) {
     assertTrue(
         statements.stream()
-            .anyMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS dv_ops." + table)),
+            .anyMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS " + table)),
         "expected table " + table);
   }
 

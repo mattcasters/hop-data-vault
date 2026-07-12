@@ -1,0 +1,42 @@
+{
+  "database_replacements": [],
+  "autoOpening": true,
+  "description": "",
+  "persist_filename": "",
+  "test_type": "UNIT_TEST",
+  "variableValues": [],
+  "basePath": "${HOP_UNIT_TESTS_FOLDER}",
+  "golden_data_sets": [
+    {
+      "field_mappings": [
+        {
+          "transform_field": "item_hk",
+          "data_set_field": "item_hk"
+        },
+        {
+          "transform_field": "description",
+          "data_set_field": "description"
+        },
+        {
+          "transform_field": "x_record_source",
+          "data_set_field": "x_record_source"
+        },
+        {
+          "transform_field": "x_load_ts",
+          "data_set_field": "x_load_ts"
+        }
+      ],
+      "field_order": [
+        "item_hk",
+        "x_load_ts",
+        "description"
+      ],
+      "data_set_name": "sat-item-collation-golden2",
+      "transform_name": "Validate"
+    }
+  ],
+  "input_data_sets": [],
+  "name": "validate-sat-item-collation2 UNIT",
+  "trans_test_tweaks": [],
+  "pipeline_filename": "./tests/sqlserver-collation/validate-sat-item-collation.hpl"
+}

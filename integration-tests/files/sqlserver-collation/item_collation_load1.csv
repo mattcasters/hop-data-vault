@@ -1,0 +1,9 @@
+ITEM_CODE,DESCRIPTION,RECORD_SOURCE
+cote,Plain cote,ERP
+côte,Cote with circumflex,ERP
+coté,Cote with acute,ERP
+coter,Coter verb,ERP
+cola,Cola drink,ERP
+café,Cafe with acute,ERP
+cafe,Plain cafe,ERP
+czar,Czar title,ERP

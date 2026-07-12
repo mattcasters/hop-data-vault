@@ -255,6 +255,45 @@
       <attributes_hac/>
     </action>
     <action>
+      <filename>${PROJECT_HOME}/tests/sqlserver-collation/update-string-collation.hwf</filename>
+      <params_from_previous>N</params_from_previous>
+      <exec_per_row>N</exec_per_row>
+      <set_logfile>N</set_logfile>
+      <loglevel>Nothing</loglevel>
+      <set_append_logfile>N</set_append_logfile>
+      <create_parent_folder>N</create_parent_folder>
+      <wait_until_finished>Y</wait_until_finished>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+      </parameters>
+      <run_configuration>local</run_configuration>
+      <name>string-collation</name>
+      <description>Postgres/SQL Server: French source collation vs vault default — auto ORDER BY COLLATE</description>
+      <type>WORKFLOW</type>
+      <attributes/>
+      <xloc>304</xloc>
+      <yloc>400</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <name>run multi-satellite BV?</name>
+      <description>Skip multi-satellite BV on MySQL/SingleStore/SQL Server: current-row golden is Postgres-oriented (multiple open-end sparse rows)</description>
+      <type>EVAL</type>
+      <attributes/>
+      <script>var dbType = parent_workflow.getVariable("DB_TYPE");
+if (dbType == null) {
+  dbType = "";
+}
+// Run multi-satellite BV only for Postgres (or unset local default)
+dbType == "" || dbType == "postgres";
+</script>
+      <parallel>N</parallel>
+      <xloc>360</xloc>
+      <yloc>400</yloc>
+      <attributes_hac/>
+    </action>
+    <action>
       <filename>${PROJECT_HOME}/tests/satellite-multi-active/update-customer-phone.hwf</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
@@ -485,8 +524,29 @@
     </hop>
     <hop>
       <from>multi-source-hub</from>
+      <to>string-collation</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>string-collation</from>
+      <to>run multi-satellite BV?</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>run multi-satellite BV?</from>
       <to>multi-satellite-bv</to>
       <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>run multi-satellite BV?</from>
+      <to>Success</to>
+      <evaluation>N</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>

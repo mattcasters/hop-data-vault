@@ -32,8 +32,8 @@ import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 
 /**
- * Detects SQL Server collation / Unicode-vs-ANSI differences on ORDER BY columns and resolves a
- * bridge collation for generated {@code COLLATE} clauses.
+ * Detects collation / Unicode-vs-ANSI differences on ORDER BY columns (SQL Server and PostgreSQL)
+ * and resolves a bridge collation for generated {@code COLLATE} clauses.
  */
 public final class DvSqlOrderByCollationSupport {
 
@@ -182,8 +182,9 @@ public final class DvSqlOrderByCollationSupport {
   }
 
   /**
-   * Loads column type/collation maps for source and target tables when the connections are SQL
-   * Server. Failures return an empty session (never throws for connectivity issues).
+   * Loads column type/collation maps for source and target tables when the connections support
+   * ORDER BY COLLATE remediation (SQL Server, PostgreSQL). Failures return an empty session (never
+   * throws for connectivity issues).
    */
   public static Session loadSession(
       DatabaseMeta sourceDatabaseMeta,
@@ -198,12 +199,14 @@ public final class DvSqlOrderByCollationSupport {
     String sourceDefault = null;
     String targetDefault = null;
 
-    if (DvSqlOrderBySupport.isSqlServer(sourceDatabaseMeta) && !Utils.isEmpty(sourceTable)) {
+    if (DvSqlOrderBySupport.isCollationOrderBySupported(sourceDatabaseMeta)
+        && !Utils.isEmpty(sourceTable)) {
       sourceColumns =
           loadColumnMetaMap(sourceDatabaseMeta, variables, sourceSchema, sourceTable);
       sourceDefault = loadDatabaseDefaultCollation(sourceDatabaseMeta, variables);
     }
-    if (DvSqlOrderBySupport.isSqlServer(targetDatabaseMeta) && !Utils.isEmpty(targetTable)) {
+    if (DvSqlOrderBySupport.isCollationOrderBySupported(targetDatabaseMeta)
+        && !Utils.isEmpty(targetTable)) {
       targetColumns =
           loadColumnMetaMap(targetDatabaseMeta, variables, targetSchema, targetTable);
       targetDefault = loadDatabaseDefaultCollation(targetDatabaseMeta, variables);
@@ -211,10 +214,13 @@ public final class DvSqlOrderByCollationSupport {
     return new Session(sourceColumns, targetColumns, sourceDefault, targetDefault);
   }
 
-  /** Loads column metadata for a SQL Server table. Returns empty map on failure or non-MSSQL. */
+  /**
+   * Loads column metadata for a collation-aware table. Returns empty map on failure or unsupported
+   * engine.
+   */
   public static Map<String, ColumnSqlMeta> loadColumnMetaMap(
       DatabaseMeta databaseMeta, IVariables variables, String schema, String table) {
-    if (!DvSqlOrderBySupport.isSqlServer(databaseMeta) || Utils.isEmpty(table)) {
+    if (!DvSqlOrderBySupport.isCollationOrderBySupported(databaseMeta) || Utils.isEmpty(table)) {
       return Map.of();
     }
     String resolvedSchema = resolve(variables, schema);
@@ -234,14 +240,16 @@ public final class DvSqlOrderByCollationSupport {
 
   public static String loadDatabaseDefaultCollation(
       DatabaseMeta databaseMeta, IVariables variables) {
-    if (!DvSqlOrderBySupport.isSqlServer(databaseMeta)) {
+    if (!DvSqlOrderBySupport.isCollationOrderBySupported(databaseMeta)) {
       return null;
     }
     try (Database db = new Database(LOGGING_OBJECT, variables, databaseMeta)) {
       db.connect();
-      List<Object[]> rows =
-          db.getRows(
-              "SELECT CONVERT(varchar(128), DATABASEPROPERTYEX(DB_NAME(), 'Collation'))", 1);
+      String sql = buildDatabaseDefaultCollationQuery(databaseMeta);
+      if (Utils.isEmpty(sql)) {
+        return null;
+      }
+      List<Object[]> rows = db.getRows(sql, 1);
       if (rows == null || rows.isEmpty() || rows.get(0) == null || rows.get(0).length == 0) {
         return null;
       }
@@ -250,6 +258,16 @@ public final class DvSqlOrderByCollationSupport {
     } catch (Exception e) {
       return null;
     }
+  }
+
+  static String buildDatabaseDefaultCollationQuery(DatabaseMeta databaseMeta) {
+    if (DvSqlOrderBySupport.isSqlServer(databaseMeta)) {
+      return "SELECT CONVERT(varchar(128), DATABASEPROPERTYEX(DB_NAME(), 'Collation'))";
+    }
+    if (DvSqlOrderBySupport.isPostgreSql(databaseMeta)) {
+      return "SELECT datcollate FROM pg_database WHERE datname = current_database()";
+    }
+    return null;
   }
 
   static String buildColumnMetaQuery(String schema, String table) {

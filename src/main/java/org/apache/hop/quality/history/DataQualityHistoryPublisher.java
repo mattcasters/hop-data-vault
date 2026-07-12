@@ -59,7 +59,14 @@ import org.apache.hop.quality.profile.FieldProfile;
  */
 public final class DataQualityHistoryPublisher {
 
-  public static final String DEFAULT_SCHEMA_NAME = "dv_ops";
+  /**
+   * Default history schema: empty = connection default database/schema. Set explicitly only when
+   * isolation is desired.
+   */
+  public static final String DEFAULT_SCHEMA_NAME = "";
+
+  /** Historical name; not applied implicitly. */
+  public static final String LEGACY_OPS_SCHEMA_NAME = "dv_ops";
   public static final String TABLE_QUALITY_RUN = "quality_run";
   public static final String TABLE_QUALITY_FINDING = "quality_finding";
   public static final String TABLE_QUALITY_PROFILE_SUBJECT = "quality_profile_subject";
@@ -128,7 +135,9 @@ public final class DataQualityHistoryPublisher {
           "Target database connection not found: " + context.targetDatabaseName());
     }
 
-    String operationsSchema = resolveOperationsSchema(context);
+    String operationsSchema =
+        DataQualityHistoryDdlSupport.resolvePhysicalSchema(
+            resolveOperationsSchema(context), databaseMeta);
     String namespace = operationsNamespace(variables);
     Date updatedAt = new Date();
 
@@ -165,6 +174,14 @@ public final class DataQualityHistoryPublisher {
       return DEFAULT_SCHEMA_NAME;
     }
     return context.operationsSchema().trim();
+  }
+
+  /** Blank → connection default; explicit values kept as-is. */
+  public static String resolvePhysicalOperationsSchema(String operationsSchema) {
+    if (Utils.isEmpty(operationsSchema)) {
+      return DEFAULT_SCHEMA_NAME;
+    }
+    return operationsSchema.trim();
   }
 
   /**
@@ -476,7 +493,7 @@ public final class DataQualityHistoryPublisher {
 
       String msg =
           "Published quality history to "
-              + operationsSchema
+              + (Utils.isEmpty(operationsSchema) ? "connection default database" : operationsSchema)
               + " for run "
               + runId
               + " ("
@@ -551,7 +568,9 @@ public final class DataQualityHistoryPublisher {
           "Target database connection not found: " + context.targetDatabaseName());
     }
 
-    String operationsSchema = resolveOperationsSchema(context);
+    String operationsSchema =
+        DataQualityHistoryDdlSupport.resolvePhysicalSchema(
+            resolveOperationsSchema(context), databaseMeta);
     LoggingObject loggingObject = new LoggingObject(DataQualityHistoryPublisher.class);
     Database db = new Database(loggingObject, variables, databaseMeta);
     String runId = report.getRunId();

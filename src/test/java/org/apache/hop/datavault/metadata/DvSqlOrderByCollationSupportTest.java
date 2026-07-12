@@ -124,4 +124,28 @@ class DvSqlOrderByCollationSupportTest {
     String injected = DvSqlOrderByCollationSupport.buildColumnMetaQuery("dbo", "t' OR 1=1");
     assertTrue(injected.contains("TABLE_NAME = 't'' OR 1=1'"));
   }
+
+  @Test
+  void buildsDatabaseDefaultCollationQueryPerDialect() {
+    org.apache.hop.core.database.DatabaseMeta mssql =
+        new org.apache.hop.core.database.DatabaseMeta() {
+          @Override
+          public String getPluginId() {
+            return "MSSQLNATIVE";
+          }
+        };
+    org.apache.hop.core.database.DatabaseMeta postgres =
+        new org.apache.hop.core.database.DatabaseMeta() {
+          @Override
+          public String getPluginId() {
+            return "POSTGRESQL";
+          }
+        };
+    assertTrue(
+        DvSqlOrderByCollationSupport.buildDatabaseDefaultCollationQuery(mssql)
+            .contains("DATABASEPROPERTYEX"));
+    assertTrue(
+        DvSqlOrderByCollationSupport.buildDatabaseDefaultCollationQuery(postgres)
+            .contains("pg_database"));
+  }
 }

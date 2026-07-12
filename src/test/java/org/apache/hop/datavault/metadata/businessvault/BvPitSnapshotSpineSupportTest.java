@@ -181,6 +181,78 @@ class BvPitSnapshotSpineSupportTest {
   }
 
   @Test
+  void buildDynamicSnapshotSpineCteRoutesMysqlAwayFromPostgresGenerateSeries() {
+    DatabaseMeta mysql = new TestDatabaseMeta("Vault", "MYSQL");
+
+    String sql =
+        BvPitSnapshotSpineSupport.buildDynamicSnapshotSpineCte(
+            mysql,
+            "snapshot_spine",
+            "snapshot_date",
+            "bounds",
+            BvPitSnapshotAnchor.END_OF_PERIOD);
+
+    assertTrue(sql.contains("WITH RECURSIVE days AS ("));
+    assertTrue(sql.contains("DATE_ADD(d.spine_day, INTERVAL 1 DAY)"));
+    assertTrue(sql.contains("INTERVAL 23 HOUR"));
+    assertFalse(sql.contains("generate_series"));
+    assertFalse(sql.contains("::timestamp"));
+  }
+
+  @Test
+  void mysqlLiteralsAvoidPostgresAndSqlServerSyntax() {
+    DatabaseMeta mysql = new TestDatabaseMeta("Vault", "MYSQL");
+
+    assertEquals(
+        "CAST('1900-01-01 00:00:00' AS DATETIME)",
+        BvPitSnapshotSpineSupport.timestampLiteral(mysql, "1900-01-01 00:00:00"));
+    assertEquals("CAST(NULL AS DATETIME)", BvPitSnapshotSpineSupport.nullTimestampLiteral(mysql));
+    assertEquals("DATE(earliest_load)", BvPitSnapshotSpineSupport.castToDateExpression(mysql, "earliest_load"));
+    assertEquals(
+        "DATE_SUB(CURRENT_DATE, INTERVAL 1 DAY)",
+        BvPitSnapshotSpineSupport.currentDateMinusDaysExpression(mysql, 1));
+    assertFalse(BvPitSnapshotSpineSupport.timestampLiteral(mysql, "x").contains("TIMESTAMP '"));
+  }
+
+  @Test
+  void buildDynamicSnapshotSpineCteUsesNonRecursiveNumberSpineForSingleStore() {
+    DatabaseMeta singlestore = new TestDatabaseMeta("Vault", "SINGLESTORE");
+
+    String sql =
+        BvPitSnapshotSpineSupport.buildDynamicSnapshotSpineCte(
+            singlestore,
+            "snapshot_spine",
+            "snapshot_date",
+            "bounds",
+            BvPitSnapshotAnchor.START_OF_PERIOD);
+
+    assertFalse(sql.contains("WITH RECURSIVE"), "SingleStore recursive CTEs cannot base on CTE bounds");
+    assertTrue(sql.contains("day_offsets AS ("));
+    assertTrue(sql.contains("digits AS ("));
+    assertTrue(sql.contains("DATEDIFF(b.end_date, b.start_date)"));
+    assertTrue(sql.contains("DATE_ADD(b.start_date, INTERVAL o.n DAY)"));
+    assertTrue(sql.contains("TIMESTAMP(spine_day)"));
+    assertFalse(sql.contains("generate_series"));
+    assertFalse(sql.contains("DATEADD"));
+    assertEquals(
+        BvPitSnapshotSpineSupport.PitSqlDialect.SINGLESTORE,
+        BvPitSnapshotSpineSupport.resolveDialect(singlestore));
+  }
+
+  @Test
+  void singleStoreLiteralsMatchMysqlFamily() {
+    DatabaseMeta singlestore = new TestDatabaseMeta("Vault", "SINGLESTORE");
+
+    assertEquals(
+        "CAST('1900-01-01 00:00:00' AS DATETIME)",
+        BvPitSnapshotSpineSupport.timestampLiteral(singlestore, "1900-01-01 00:00:00"));
+    assertEquals(
+        "DATE_SUB(CURRENT_DATE, INTERVAL 1 DAY)",
+        BvPitSnapshotSpineSupport.currentDateMinusDaysExpression(singlestore, 1));
+    assertTrue(BvPitSnapshotSpineSupport.isMysqlFamily(singlestore));
+  }
+
+  @Test
   void buildEarliestParticipatingSatelliteLoadSqlUnionsSatellites() throws Exception {
     DataVaultModel dvModel = loadVault1Model();
     DvSatellite satCustomer = (DvSatellite) dvModel.findTable("sat_customer");

@@ -58,7 +58,9 @@ public final class LoadRunMetricsDatabaseAssertionSupport {
     if (databaseMeta == null || Utils.isEmpty(runId)) {
       return new LoadRunDatabaseCounts(0L, 0L, 0L);
     }
-    String schema = resolveSchema(operationsSchema);
+    String schema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(
+            operationsSchema, databaseMeta);
     LoggingObject loggingObject = new LoggingObject(LoadRunMetricsDatabaseAssertionSupport.class);
     Database db = new Database(loggingObject, variables, databaseMeta);
     try {
@@ -121,13 +123,6 @@ public final class LoadRunMetricsDatabaseAssertionSupport {
     } catch (NumberFormatException e) {
       return 0L;
     }
-  }
-
-  private static String resolveSchema(String operationsSchema) {
-    if (Utils.isEmpty(operationsSchema)) {
-      return LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME;
-    }
-    return operationsSchema.trim();
   }
 
   private static String sqlLiteral(IVariables variables, String value) {

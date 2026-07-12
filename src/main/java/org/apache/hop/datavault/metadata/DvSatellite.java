@@ -2444,15 +2444,18 @@ public class DvSatellite extends DvTableBase
             DvSourceFieldMappingSupport.resolveRecordSourceFieldNameForSatellite(
                 config, model, sat, variables);
         hashKeyFieldName = linkedHub.getHashKeyFieldName();
+        // Use distinct hub BKs so multi-source hubs with per-source BusinessKey rows
+        // (same name, different recordSourceName) do not double-hash the key.
+        List<BusinessKey> hubKeys = linkedHub.getDistinctBusinessKeys();
         if (Utils.isEmpty(hashKeyFieldName)) {
-          if (!Utils.isEmpty(linkedHub.getBusinessKeys())) {
-            for (BusinessKey bk : linkedHub.getBusinessKeys()) {
+          if (!Utils.isEmpty(hubKeys)) {
+            for (BusinessKey bk : hubKeys) {
               hubBkNames.add(bk.getName());
             }
-            hashKeyFieldName = linkedHub.getBusinessKeys().get(0).getName() + "_hk";
+            hashKeyFieldName = hubKeys.get(0).getName() + "_hk";
           }
         } else {
-          for (BusinessKey bk : linkedHub.getBusinessKeys()) {
+          for (BusinessKey bk : hubKeys) {
             hubBkNames.add(bk.getName());
           }
         }
