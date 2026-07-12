@@ -17,7 +17,7 @@ under the License.
 
 # Hop Data Vault 2.0 Plugin
 
-Apache Hop plugin for **Data Vault 2.0**, **Business Vault**, and **dimensional** modeling, validation, and model-driven loading. Version **0.0.16-SNAPSHOT** (last 0.0.x release) targets **Apache Hop 2.18.1** and **Java 21**.
+Apache Hop plugin for **Data Vault 2.0**, **Business Vault**, and **dimensional** modeling, validation, and model-driven loading. Version **0.2.0-SNAPSHOT** targets **Apache Hop 2.18.1** and **Java 21**.
 
 **Model once. Generate loads and consumption layers.** Sources live in the Hop **Data Catalog**; visual **`.hdv`**, **`.hbv`**, and **`.hdm`** models drive workflow actions and optional **execution maps** (`.hem`).
 
@@ -119,14 +119,14 @@ mvn clean package
 
 Artifacts:
 
-- `target/hop-datavault-0.0.16-SNAPSHOT.jar`
-- `target/hop-datavault-0.0.16-SNAPSHOT.zip` (ready-to-unzip plugin layout)
+- `target/hop-datavault-0.2.0-SNAPSHOT.jar`
+- `target/hop-datavault-0.2.0-SNAPSHOT.zip` (ready-to-unzip plugin layout)
 
 ## Installation (external plugin)
 
 1. Unzip the assembly zip into your Hop installation, or manually copy the jar to:
    ```
-   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.0.16-SNAPSHOT.jar
+   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.2.0-SNAPSHOT.jar
    ```
 2. Restart Hop GUI.
 3. New metadata types appear under **Metadata → Data Vault**. **Data Vault Update** and **Business Vault Update** actions are available in workflows. `.hdv` and `.hbv` files open in the visual modelers.
@@ -160,10 +160,10 @@ SELECT * FROM sat_customer WHERE x_load_end_ts IS NULL
 - Multi-active satellites via driving keys
 - Record source groups for partial model updates
 
-## Roadmap / 0.1.x focus
+## Roadmap / 0.2.x focus
 
-**Shipped:** dimensional modeler, execution maps, catalog-first sources, resource definition validation.
+**Shipped:** dimensional modeler, execution maps, catalog-first sources, resource definition validation, data quality rules and gates, multi-DB integration hardening.
 
-**0.1.x hardening:** documentation completeness, retail tutorial polish, validation UX, operational guides.
+**0.2.x:** data-quality Phase 2 (profile rules, SQL assertions, ops persistence, alerts), incremental Business Vault SCD2, primary-key import/detection, SQL Server collation remediation.
 
 **Planned:** BV naming rules engine, Marquez / OpenLineage export, hash-key ModPartitioner parallelism, additional source types.

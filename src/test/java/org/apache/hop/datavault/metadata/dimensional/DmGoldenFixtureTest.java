@@ -59,7 +59,7 @@ class DmGoldenFixtureTest {
   @Test
   void extendedCatalogFixtureChecksClean() throws Exception {
     DimensionalModel model = loadFixture("integration-tests/tests/basic/extended-catalog.hdm");
-    assertEquals(9, model.getTables().size());
+    assertEquals(10, model.getTables().size());
     assertEquals("Customer", model.getConformedDimensionsOrEmpty().get(0).getLogicalName());
     assertModelChecksWithoutErrors(model);
   }

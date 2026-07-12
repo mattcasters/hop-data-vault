@@ -17,7 +17,7 @@ limitations under the License.
 
 # Hop Data Vault documentation index
 
-Documentation for the **hop-datavault** plugin (version **0.0.16-SNAPSHOT**, last 0.0.x release). The **0.1.x** line focuses on hardening, documentation completeness, validation UX, and the retail tutorial — not large new feature drops.
+Documentation for the **hop-datavault** plugin (version **0.2.0-SNAPSHOT**). The **0.2.x** line adds data-quality rules and gates, multi-DB hardening, and Business Vault incremental loading, on top of the 0.1.x documentation and retail tutorial work.
 
 **New here?** Read [feature-overview.md](feature-overview.md), then follow [getting-started-retail.adoc](getting-started-retail.adoc).
 

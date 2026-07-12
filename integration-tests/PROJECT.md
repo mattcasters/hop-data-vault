@@ -7,7 +7,7 @@
 > - **Docker** with Compose v2 — used by `run-tests.sh` and `run-tests-all-databases.sh` to run workflows in a short-lived Hop container (`docker-hop:latest`). No local Hop installation is required for command-line testing.
 > - **Python 3** — used by the test scripts to print the metrics overview table at the end of a run (stdlib only; no extra packages).
 > - Testing has been done with **PostgreSQL**, **MySQL**, **SingleStore**, and **Microsoft SQL Server** (see [Docker multi-database tests](#docker-multi-database-tests) below).
-> - For Hop GUI use, install the **hop-datavault** plugin (**0.0.16-SNAPSHOT**) in your Hop 2.18.1 environment.
+> - For Hop GUI use, install the **hop-datavault** plugin (**0.2.0-SNAPSHOT**) in your Hop 2.18.1 environment.
 
 **CI and regression reference** — not the primary tutorial. For learning, use [retail-example](../retail-example/) and [docs/getting-started-retail.adoc](../docs/getting-started-retail.adoc). Documentation index: [docs/README.md](../docs/README.md).
 
