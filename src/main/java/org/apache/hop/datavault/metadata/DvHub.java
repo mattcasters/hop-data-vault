@@ -608,16 +608,27 @@ public class DvHub extends DvTableBase implements IDvTable, IGuiPosition, IBaseM
     sql.append(
         ctx.targetDatabaseMeta.getQuotedSchemaTableCombination(
             ctx.variables, null, ctx.targetTableName));
+    // SQL Server: ORDER BY col COLLATE x with SELECT DISTINCT is invalid unless the COLLATE
+    // expression appears in the select list — order in an outer query instead.
+    StringBuilder orderBy = new StringBuilder();
     DvSqlOrderBySupport.appendOrderBy(
-        sql,
+        orderBy,
         getDistinctBusinessKeys(),
         bkQuotedBkFields,
         ctx.targetDatabaseMeta,
         ctx.config,
         ctx.variables,
         loadHubOrderByCollationSession(ctx));
+    String finalSql;
+    if (DvSqlOrderBySupport.isCollationOrderBySupported(ctx.targetDatabaseMeta)
+        && orderBy.indexOf("COLLATE") >= 0) {
+      finalSql = "SELECT * FROM (" + sql + ") collate_sort_tgt" + orderBy;
+    } else {
+      sql.append(orderBy);
+      finalSql = sql.toString();
+    }
 
-    DvSqlSupport.assignDisplaySql(targetTableInputMeta, sql.toString());
+    DvSqlSupport.assignDisplaySql(targetTableInputMeta, finalSql);
 
     TransformMeta tm =
         new TransformMeta("TableInput", ctx.targetTransformName, targetTableInputMeta);

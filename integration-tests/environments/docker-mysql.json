@@ -9,6 +9,11 @@
       "name": "DB_PORT",
       "value": "3306",
       "description": "MySQL port"
+    },
+    {
+      "name": "DB_TYPE",
+      "value": "mysql",
+      "description": "Engine profile name used by suite gating"
     }
   ]
 }

@@ -50,11 +50,16 @@ HOP_ENVIRONMENT_CONFIG_FILE_NAME_PATHS=/project/environments/local-postgres.json
 Runs the full test suite against containerised databases — no host database required. Each engine gets its own isolated compose stack (database + Hop on a Docker network).
 
 ```bash
-./run-tests-all-databases.sh                  # postgres, mysql, singlestore
-./run-tests-all-databases.sh postgres         # one engine
+./run-tests-all-databases.sh                  # all: postgres mysql singlestore sqlserver
+./run-tests-all-databases.sh postgres         # one engine (PostgreSQL + French ICU collation suite)
+./run-tests-all-databases.sh postgres mysql   # several engines
+./run-tests-all-databases.sh sqlserver        # SQL Server + NVARCHAR/collation suite
+# Invalid names (e.g. postgresql) exit immediately with usage help.
 ```
 
 - PostgreSQL uses port **54321** and hostname `db` ([`environments/docker-postgres.json`](environments/docker-postgres.json))
+- SQL Server uses port **1433**, SA password from the environment file, and `tests/run-tests-sqlserver.hwf` (shared suite + NVARCHAR/collation scenario)
+- PostgreSQL collation uses ICU name `fr-FR-x-icu` on CRM source columns; vault targets keep the database default collation
 - Swaps RDBMS profiles from `metadata/rdbms/profiles/<engine>/` at container start, then restores your local CRM/Vault metadata afterward
 - Metrics: `metrics/<engine>/`
 

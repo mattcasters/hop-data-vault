@@ -56,10 +56,18 @@ public class DvDatabaseHubSourcePipelineBuilder extends DvDatabaseSourcePipeline
     // FROM
     appendFrom(sourceDbMeta, source, sql);
 
-    // ORDER BY (auto COLLATE on SQL Server when source/target collations or types differ)
-    appendOrderByPk(
-        sql, businessKeys, pkQuotedFields, sourceDbMeta, loadHubOrderByCollationSession(hub, source));
-
+    // ORDER BY (auto COLLATE on SQL Server when source/target collations or types differ).
+    // SQL Server forbids ORDER BY expressions that are not in the SELECT list when DISTINCT is
+    // used; "col COLLATE x" is a different expression than "col", so wrap DISTINCT in a subquery
+    // and order in the outer query when a bridge COLLATE is present.
+    DvSqlOrderByCollationSupport.Session session = loadHubOrderByCollationSession(hub, source);
+    StringBuilder orderBy = new StringBuilder();
+    appendOrderByPk(orderBy, businessKeys, pkQuotedFields, sourceDbMeta, session);
+    if (DvSqlOrderBySupport.isCollationOrderBySupported(sourceDbMeta)
+        && orderBy.indexOf("COLLATE") >= 0) {
+      return "SELECT * FROM (" + sql + ") collate_sort_src" + orderBy;
+    }
+    sql.append(orderBy);
     return sql.toString();
   }
 

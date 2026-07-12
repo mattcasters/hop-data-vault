@@ -36,7 +36,7 @@ class WorkflowLoadOverviewDdlSupportTest {
   }
 
   @Test
-  void postgresDdlCreatesWorkflowOverviewTables() {
+  void defaultDdlCreatesUnqualifiedWorkflowOverviewTables() {
     List<String> statements =
         WorkflowLoadOverviewDdlSupport.buildCreateStatements(
             databaseMetaWithPluginId(DvBulkLoadPluginSupport.POSTGRESQL_DB_PLUGIN_ID),
@@ -44,11 +44,37 @@ class WorkflowLoadOverviewDdlSupportTest {
 
     assertTrue(
         statements.stream()
-            .anyMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS dv_ops.workflow_load_overview")));
+            .anyMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS workflow_load_overview")));
     assertTrue(
         statements.stream()
             .anyMatch(
-                sql -> sql.contains("CREATE TABLE IF NOT EXISTS dv_ops.workflow_load_overview_model")));
+                sql ->
+                    sql.contains("CREATE TABLE IF NOT EXISTS workflow_load_overview_model")));
+    assertTrue(statements.stream().noneMatch(sql -> sql.contains("CREATE SCHEMA")));
+  }
+
+  @Test
+  void mysqlDdlCreatesUnqualifiedOverviewTables() {
+    List<String> statements =
+        WorkflowLoadOverviewDdlSupport.buildCreateStatements(
+            databaseMetaWithPluginId(DvBulkLoadPluginSupport.MYSQL_DB_PLUGIN_ID),
+            LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME);
+
+    assertTrue(
+        statements.stream()
+            .anyMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS workflow_load_overview")));
+    assertTrue(statements.stream().anyMatch(sql -> sql.contains("TINYINT(1)")));
+  }
+
+  @Test
+  void customSchemaQualifiesOverviewTables() {
+    List<String> statements =
+        WorkflowLoadOverviewDdlSupport.buildCreateStatements(
+            databaseMetaWithPluginId(DvBulkLoadPluginSupport.POSTGRESQL_DB_PLUGIN_ID), "ops");
+
+    assertTrue(
+        statements.stream()
+            .anyMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS ops.workflow_load_overview")));
   }
 
   private static DatabaseMeta databaseMetaWithPluginId(String pluginId) {

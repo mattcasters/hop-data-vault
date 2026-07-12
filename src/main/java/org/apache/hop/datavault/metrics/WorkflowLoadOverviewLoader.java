@@ -52,7 +52,9 @@ public final class WorkflowLoadOverviewLoader {
     if (databaseMeta == null || Utils.isEmpty(workflowExecutionId)) {
       return null;
     }
-    String schema = resolveSchema(operationsSchema);
+    String schema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(
+            operationsSchema, databaseMeta);
     LoggingObject loggingObject = new LoggingObject(WorkflowLoadOverviewLoader.class);
     Database db = new Database(loggingObject, variables, databaseMeta);
     try {
@@ -508,12 +510,7 @@ public final class WorkflowLoadOverviewLoader {
     };
   }
 
-  private static String resolveSchema(String operationsSchema) {
-    if (Utils.isEmpty(operationsSchema)) {
-      return LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME;
-    }
-    return operationsSchema.trim();
-  }
+
 
   private static String sqlLiteral(IVariables variables, String value) {
     String resolved = variables != null ? variables.resolve(value) : value;

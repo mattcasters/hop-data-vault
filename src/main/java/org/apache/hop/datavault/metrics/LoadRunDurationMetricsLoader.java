@@ -82,7 +82,10 @@ public final class LoadRunDurationMetricsLoader {
             .tableNames(orderedTables)
             .build();
       }
-      String schema = resolveSchema(MetricsAiContextBuilder.resolveOperationsSchema(metadataProvider, variables));
+      String schema =
+          LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(
+              MetricsAiContextBuilder.resolveOperationsSchema(metadataProvider, variables),
+              databaseMeta);
       return querySnapshot(
           databaseMeta, schema, modelName, modelType, orderedTables, variables, maxRuns);
     } catch (Exception e) {
@@ -306,13 +309,6 @@ public final class LoadRunDurationMetricsLoader {
       }
     }
     return normalized;
-  }
-
-  private static String resolveSchema(String operationsSchema) {
-    if (Utils.isEmpty(operationsSchema)) {
-      return LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME;
-    }
-    return operationsSchema.trim();
   }
 
   private static String resolveValue(String value, IVariables variables) {

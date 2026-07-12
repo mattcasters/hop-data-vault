@@ -19,7 +19,7 @@
     <name>sat_customer_hb</name>
     <sql>SELECT
   customer_hk
-, "name"
+, name
 , email
 , address
 , city

@@ -17,7 +17,7 @@
   <transform>
     <type>TableInput</type>
     <name>read_sat_customer</name>
-    <sql>SELECT customer_hk, "name", email, address, city, x_record_source, x_load_ts FROM sat_customer ORDER BY customer_hk, x_load_ts</sql>
+    <sql>SELECT customer_hk, name, email, address, city, x_record_source, x_load_ts FROM sat_customer ORDER BY customer_hk, x_load_ts</sql>
     <limit/>
     <execute_each_row>N</execute_each_row>
     <variables_active>N</variables_active>

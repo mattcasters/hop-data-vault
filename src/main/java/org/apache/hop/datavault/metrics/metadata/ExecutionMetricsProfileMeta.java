@@ -55,7 +55,8 @@ public class ExecutionMetricsProfileMeta extends HopMetadataBase implements IHop
   /** Optional override; empty inherits the model target database connection. */
   @HopMetadataProperty private String targetDatabaseConnection;
 
-  @HopMetadataProperty private String operationsSchema = LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME;
+  /** Empty = connection default schema/database; set only when isolation is desired. */
+  @HopMetadataProperty private String operationsSchema = "";
 
   @HopMetadataProperty private boolean autoCreateTables = true;
 
@@ -85,7 +86,7 @@ public class ExecutionMetricsProfileMeta extends HopMetadataBase implements IHop
 
   public String getOperationsSchemaOrDefault() {
     if (operationsSchema == null || operationsSchema.isBlank()) {
-      return LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME;
+      return "";
     }
     return operationsSchema.trim();
   }

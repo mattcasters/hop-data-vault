@@ -1,0 +1,34 @@
+{
+  "variables": [
+    {
+      "name": "DB_HOST",
+      "value": "db",
+      "description": "Docker compose database service hostname"
+    },
+    {
+      "name": "DB_PORT",
+      "value": "1433",
+      "description": "Microsoft SQL Server port"
+    },
+    {
+      "name": "DB_USER",
+      "value": "sa",
+      "description": "SQL Server username"
+    },
+    {
+      "name": "DB_PASSWORD",
+      "value": "Test_Password123",
+      "description": "SQL Server password (must meet complexity rules)"
+    },
+    {
+      "name": "DB_NAME",
+      "value": "test",
+      "description": "SQL Server database name"
+    },
+    {
+      "name": "DB_TYPE",
+      "value": "sqlserver",
+      "description": "Engine profile name used by entrypoint-prepare and optional suite gating"
+    }
+  ]
+}

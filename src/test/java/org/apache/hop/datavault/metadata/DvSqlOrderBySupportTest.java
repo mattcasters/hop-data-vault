@@ -78,9 +78,9 @@ class DvSqlOrderBySupportTest {
   }
 
   @Test
-  void skipsCollationForNonSqlServerDatabase() {
-    DatabaseMeta databaseMeta = new DatabaseMeta();
-    databaseMeta.setName("CRM");
+  void skipsCollationForUnsupportedDatabase() {
+    DatabaseMeta databaseMeta =
+        databaseMetaWithPluginId(DvBulkLoadPluginSupport.MYSQL_DB_PLUGIN_ID);
     BusinessKey businessKey = new BusinessKey("ITMREF_0");
     businessKey.setDataType("String");
 
@@ -95,14 +95,44 @@ class DvSqlOrderBySupportTest {
 
     String expression =
         DvSqlOrderBySupport.orderExpression(
-            "[ITMREF_0]",
+            "\"ITMREF_0\"",
             businessKey,
             databaseMeta,
             new DataVaultConfiguration(),
             new Variables(),
             session);
 
-    assertEquals("[ITMREF_0]", expression);
+    assertEquals("\"ITMREF_0\"", expression);
+  }
+
+  @Test
+  void autoAppliesQuotedBridgeCollationOnPostgreSql() {
+    DatabaseMeta databaseMeta =
+        databaseMetaWithPluginId(DvBulkLoadPluginSupport.POSTGRESQL_DB_PLUGIN_ID);
+    BusinessKey businessKey = new BusinessKey("item_code");
+    businessKey.setSourceFieldName("item_code");
+    businessKey.setDataType("String");
+
+    var source =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta("item_code", "character varying", "fr-FR-x-icu");
+    var target =
+        new DvSqlOrderByCollationSupport.ColumnSqlMeta("item_code", "character varying", "en_US.utf8");
+    DvSqlOrderByCollationSupport.Session session =
+        new DvSqlOrderByCollationSupport.Session(
+            Map.of("item_code", source), Map.of("item_code", target), null, null);
+
+    String expression =
+        DvSqlOrderBySupport.orderExpression(
+            "\"item_code\"",
+            businessKey,
+            databaseMeta,
+            new DataVaultConfiguration(),
+            new Variables(),
+            session);
+
+    assertEquals("\"item_code\" COLLATE \"fr-FR-x-icu\"", expression);
+    assertTrue(DvSqlOrderBySupport.isCollationOrderBySupported(databaseMeta));
+    assertTrue(DvSqlOrderBySupport.isPostgreSql(databaseMeta));
   }
 
   @Test

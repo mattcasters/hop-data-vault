@@ -24,6 +24,11 @@
       "name": "DB_NAME",
       "value": "test",
       "description": "PostgreSQL database name"
+    },
+    {
+      "name": "DB_TYPE",
+      "value": "postgres",
+      "description": "Engine profile name used by suite gating"
     }
   ]
 }

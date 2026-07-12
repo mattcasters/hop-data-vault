@@ -27,7 +27,7 @@ import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.datavault.metadata.DvBulkLoadPluginSupport;
 
-/** Creates {@code dv_ops} load-metrics tables on first publish when they are missing. */
+/** Creates load-metrics tables on first publish when they are missing. */
 public final class LoadRunMetricsDdlSupport {
 
   private LoadRunMetricsDdlSupport() {}
@@ -44,7 +44,9 @@ public final class LoadRunMetricsDdlSupport {
     if (db == null || databaseMeta == null) {
       return;
     }
-    String schema = resolveSchema(operationsSchema);
+    String schema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(
+            operationsSchema, databaseMeta);
     if (allMetricsTablesExist(db, schema)) {
       ensureLoadRunPipelineRunConfigurationColumn(db, schema, databaseMeta, log);
       ensureLoadRunWorkflowExecutionIdColumn(db, schema, databaseMeta, log);
@@ -55,7 +57,10 @@ public final class LoadRunMetricsDdlSupport {
     String ddl = String.join(";\n", buildCreateStatements(databaseMeta, schema)) + ";";
     if (log != null) {
       log.logBasic(
-          "Creating load-run metrics tables in " + schema + " on " + databaseMeta.getName());
+          "Creating load-run metrics tables in "
+              + LoadRunMetricsCatalogPublisher.describeOperationsLocation(schema)
+              + " on "
+              + databaseMeta.getName());
     }
     db.execStatements(ddl);
     WorkflowLoadOverviewDdlSupport.ensureOverviewTables(db, databaseMeta, schema, log);
@@ -66,7 +71,9 @@ public final class LoadRunMetricsDdlSupport {
   }
 
   static List<String> buildCreateStatements(DatabaseMeta databaseMeta, String operationsSchema) {
-    String schema = resolveSchema(operationsSchema);
+    String schema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(
+            operationsSchema, databaseMeta);
     String pluginId =
         databaseMeta != null && !Utils.isEmpty(databaseMeta.getPluginId())
             ? databaseMeta.getPluginId().toUpperCase()
@@ -74,6 +81,8 @@ public final class LoadRunMetricsDdlSupport {
     return switch (pluginId) {
       case DvBulkLoadPluginSupport.MYSQL_DB_PLUGIN_ID,
           DvBulkLoadPluginSupport.SINGLESTORE_DB_PLUGIN_ID -> mysqlStatements(schema);
+      case DvBulkLoadPluginSupport.MSSQL_DB_PLUGIN_ID,
+          DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID -> mssqlStatements(schema);
       default -> postgresStatements(schema);
     };
   }
@@ -85,19 +94,14 @@ public final class LoadRunMetricsDdlSupport {
         && db.checkTableExists(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_INSIGHT);
   }
 
-  private static String resolveSchema(String operationsSchema) {
-    if (Utils.isEmpty(operationsSchema)) {
-      return LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME;
-    }
-    return operationsSchema.trim();
-  }
-
   private static List<String> postgresStatements(String schema) {
     List<String> statements = new ArrayList<>();
-    statements.add("CREATE SCHEMA IF NOT EXISTS " + schema);
+    if (!Utils.isEmpty(schema)) {
+      statements.add("CREATE SCHEMA IF NOT EXISTS " + schema);
+    }
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           run_id           VARCHAR(64)  NOT NULL,
           started_at       TIMESTAMP    NULL,
           finished_at      TIMESTAMP    NULL,
@@ -111,10 +115,10 @@ public final class LoadRunMetricsDdlSupport {
           error_count                 BIGINT       NULL,
           PRIMARY KEY (run_id)
         )"""
-            .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN));
+            .formatted(qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           run_id                 VARCHAR(64)  NOT NULL,
           pipeline_name          VARCHAR(255) NOT NULL,
           element_type           VARCHAR(64)  NULL,
@@ -126,10 +130,11 @@ public final class LoadRunMetricsDdlSupport {
           errors                 BIGINT       NULL,
           PRIMARY KEY (run_id, pipeline_name)
         )"""
-            .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC));
+            .formatted(
+                qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           run_id                VARCHAR(64)  NOT NULL,
           pipeline_name         VARCHAR(255) NOT NULL,
           transform_name        VARCHAR(255) NOT NULL,
@@ -145,10 +150,11 @@ public final class LoadRunMetricsDdlSupport {
           duration_ms           BIGINT       NULL,
           PRIMARY KEY (run_id, pipeline_name, transform_name)
         )"""
-            .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_TRANSFORM_METRIC));
+            .formatted(
+                qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_TRANSFORM_METRIC)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           run_id               VARCHAR(64)  NOT NULL,
           insight_seq          BIGINT       NOT NULL,
           severity             VARCHAR(16)  NULL,
@@ -159,16 +165,104 @@ public final class LoadRunMetricsDdlSupport {
           metric_json          VARCHAR(4000) NULL,
           PRIMARY KEY (run_id, insight_seq)
         )"""
-            .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_INSIGHT));
+            .formatted(qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_INSIGHT)));
     return statements;
   }
 
-  private static List<String> mysqlStatements(String schema) {
+  /**
+   * SQL Server lacks {@code CREATE TABLE IF NOT EXISTS}. Callers only invoke DDL when tables are
+   * missing, so plain {@code CREATE TABLE} is safe. Schema creation is guarded with {@code
+   * sys.schemas}.
+   */
+  private static List<String> mssqlStatements(String schema) {
     List<String> statements = new ArrayList<>();
-    statements.add("CREATE DATABASE IF NOT EXISTS " + schema);
+    if (!Utils.isEmpty(schema)) {
+      statements.add(
+          "IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'"
+              + schema.replace("'", "''")
+              + "') EXEC(N'CREATE SCHEMA ["
+              + schema.replace("]", "]]")
+              + "]')");
+    }
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE %s (
+          run_id           VARCHAR(64)  NOT NULL,
+          started_at       DATETIME2    NULL,
+          finished_at      DATETIME2    NULL,
+          model_type       VARCHAR(16)  NULL,
+          model_name       VARCHAR(255) NULL,
+          workflow_name    VARCHAR(255) NULL,
+          workflow_execution_id     VARCHAR(64)  NULL,
+          log_channel_id              VARCHAR(64)  NULL,
+          pipeline_run_configuration  VARCHAR(255) NULL,
+          success                     BIT          NULL,
+          error_count                 BIGINT       NULL,
+          PRIMARY KEY (run_id)
+        )"""
+            .formatted(qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN)));
+    statements.add(
+        """
+        CREATE TABLE %s (
+          run_id                 VARCHAR(64)  NOT NULL,
+          pipeline_name          VARCHAR(255) NOT NULL,
+          element_type           VARCHAR(64)  NULL,
+          element_name           VARCHAR(255) NULL,
+          source_name            VARCHAR(255) NULL,
+          source_rows_read       BIGINT       NULL,
+          target_rows_read       BIGINT       NULL,
+          target_rows_inserted   BIGINT       NULL,
+          errors                 BIGINT       NULL,
+          PRIMARY KEY (run_id, pipeline_name)
+        )"""
+            .formatted(
+                qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC)));
+    statements.add(
+        """
+        CREATE TABLE %s (
+          run_id                VARCHAR(64)  NOT NULL,
+          pipeline_name         VARCHAR(255) NOT NULL,
+          transform_name        VARCHAR(255) NOT NULL,
+          logical_role          VARCHAR(64)  NULL,
+          element_type          VARCHAR(64)  NULL,
+          element_name          VARCHAR(255) NULL,
+          parent_element_name   VARCHAR(255) NULL,
+          rows_read             BIGINT       NULL,
+          rows_written          BIGINT       NULL,
+          rows_updated          BIGINT       NULL,
+          rows_rejected         BIGINT       NULL,
+          errors                BIGINT       NULL,
+          duration_ms           BIGINT       NULL,
+          PRIMARY KEY (run_id, pipeline_name, transform_name)
+        )"""
+            .formatted(
+                qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_TRANSFORM_METRIC)));
+    statements.add(
+        """
+        CREATE TABLE %s (
+          run_id               VARCHAR(64)  NOT NULL,
+          insight_seq          BIGINT       NOT NULL,
+          severity             VARCHAR(16)  NULL,
+          code                 VARCHAR(64)  NULL,
+          message              VARCHAR(2000) NULL,
+          element_name         VARCHAR(255) NULL,
+          related_element_name VARCHAR(255) NULL,
+          metric_json          VARCHAR(4000) NULL,
+          PRIMARY KEY (run_id, insight_seq)
+        )"""
+            .formatted(qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_INSIGHT)));
+    return statements;
+  }
+
+  /**
+   * MySQL/SingleStore: no separate ops database for the default schema name. Tables are created
+   * in the connection default database (unqualified) when {@code schema} is blank.
+   */
+  private static List<String> mysqlStatements(String schema) {
+    List<String> statements = new ArrayList<>();
+    statements.add(
+        """
+        CREATE TABLE IF NOT EXISTS %s (
           run_id           VARCHAR(64)  NOT NULL,
           started_at       TIMESTAMP    NULL,
           finished_at      TIMESTAMP    NULL,
@@ -182,10 +276,10 @@ public final class LoadRunMetricsDdlSupport {
           error_count                 BIGINT       NULL,
           PRIMARY KEY (run_id)
         )"""
-            .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN));
+            .formatted(qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           run_id                 VARCHAR(64)  NOT NULL,
           pipeline_name          VARCHAR(255) NOT NULL,
           element_type           VARCHAR(64)  NULL,
@@ -197,10 +291,11 @@ public final class LoadRunMetricsDdlSupport {
           errors                 BIGINT       NULL,
           PRIMARY KEY (run_id, pipeline_name)
         )"""
-            .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC));
+            .formatted(
+                qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           run_id                VARCHAR(64)  NOT NULL,
           pipeline_name         VARCHAR(255) NOT NULL,
           transform_name        VARCHAR(255) NOT NULL,
@@ -216,10 +311,11 @@ public final class LoadRunMetricsDdlSupport {
           duration_ms           BIGINT       NULL,
           PRIMARY KEY (run_id, pipeline_name, transform_name)
         )"""
-            .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_TRANSFORM_METRIC));
+            .formatted(
+                qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_TRANSFORM_METRIC)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           run_id               VARCHAR(64)  NOT NULL,
           insight_seq          BIGINT       NOT NULL,
           severity             VARCHAR(16)  NULL,
@@ -230,8 +326,12 @@ public final class LoadRunMetricsDdlSupport {
           metric_json          VARCHAR(4000) NULL,
           PRIMARY KEY (run_id, insight_seq)
         )"""
-            .formatted(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_INSIGHT));
+            .formatted(qualify(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_INSIGHT)));
     return statements;
+  }
+
+  private static String qualify(String schema, String table) {
+    return LoadRunMetricsCatalogPublisher.qualifyOperationsTable(schema, table);
   }
 
   static void ensureLoadRunPipelineRunConfigurationColumn(
@@ -239,7 +339,8 @@ public final class LoadRunMetricsDdlSupport {
     if (db == null || databaseMeta == null) {
       return;
     }
-    String resolvedSchema = resolveSchema(schema);
+    String resolvedSchema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(schema, databaseMeta);
     if (!db.checkTableExists(resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN)) {
       return;
     }
@@ -256,9 +357,7 @@ public final class LoadRunMetricsDdlSupport {
     if (log != null) {
       log.logBasic(
           "Adding pipeline_run_configuration column to "
-              + resolvedSchema
-              + "."
-              + LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN);
+              + qualify(resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN));
     }
     db.execStatement(alterSql);
   }
@@ -268,7 +367,8 @@ public final class LoadRunMetricsDdlSupport {
     if (db == null || databaseMeta == null) {
       return;
     }
-    String resolvedSchema = resolveSchema(schema);
+    String resolvedSchema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(schema, databaseMeta);
     if (!db.checkTableExists(resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN)) {
       return;
     }
@@ -285,9 +385,7 @@ public final class LoadRunMetricsDdlSupport {
     if (log != null) {
       log.logBasic(
           "Adding workflow_execution_id column to "
-              + resolvedSchema
-              + "."
-              + LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN);
+              + qualify(resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN));
     }
     db.execStatement(alterSql);
   }

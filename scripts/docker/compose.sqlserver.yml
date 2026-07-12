@@ -1,0 +1,99 @@
+#  Licensed to the Apache Software Foundation (ASF) under one or more
+#  contributor license agreements.  See the NOTICE file distributed with
+#  this work for additional information regarding copyright ownership.
+#  The ASF licenses this file to You under the Apache License, Version 2.0
+#  (the "License"); you may not use this file except in compliance with
+#  the License.  You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${DB_PASSWORD:-Test_Password123}"
+      MSSQL_PID: Developer
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" >/dev/null 2>&1 || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    networks:
+      - hop-test
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: "${DB_PASSWORD:-Test_Password123}"
+    volumes:
+      - ./sqlserver-init.sql:/sqlserver-init.sql:ro
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        SQLCMD=""
+        if [ -x /opt/mssql-tools18/bin/sqlcmd ]; then
+          SQLCMD=/opt/mssql-tools18/bin/sqlcmd
+        elif [ -x /opt/mssql-tools/bin/sqlcmd ]; then
+          SQLCMD=/opt/mssql-tools/bin/sqlcmd
+        else
+          echo "sqlcmd not found in image" >&2
+          exit 1
+        fi
+        "$${SQLCMD}" -S db -U sa -P "$${MSSQL_SA_PASSWORD}" -C -i /sqlserver-init.sql
+    networks:
+      - hop-test
+    restart: "no"
+
+  hop:
+    build:
+      context: ../..
+      dockerfile: scripts/docker/Dockerfile
+    image: docker-hop:latest
+    user: root
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      HOP_LOG_LEVEL: Basic
+      HOP_PROJECT_NAME: hop-data-vault
+      HOP_PROJECT_FOLDER: /workspace/integration-tests
+      HOP_FILE_PATH: /workspace/integration-tests/tests/run-tests-sqlserver.hwf
+      HOP_RUN_CONFIG: local
+      HOP_RUN_PARAMETERS: METRICS_FOLDER=${METRICS_FOLDER:-/workspace/integration-tests/metrics/${DB_TYPE}}
+      HOP_ENVIRONMENT_NAME: test-db
+      HOP_ENVIRONMENT_CONFIG_FILE_NAME_PATHS: /workspace/integration-tests/environments/docker-sqlserver.json
+      HOP_CUSTOM_ENTRYPOINT_EXTENSION_SHELL_FILE_PATH: /opt/hop-datavault/entrypoint-prepare.sh
+      DB_TYPE: sqlserver
+      HOST_UID: ${HOST_UID:-0}
+      HOST_GID: ${HOST_GID:-0}
+    volumes:
+      - ../../:/workspace
+    networks:
+      - hop-test
+
+networks:
+  hop-test:

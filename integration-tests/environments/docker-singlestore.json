@@ -9,6 +9,11 @@
       "name": "DB_PORT",
       "value": "3306",
       "description": "SingleStore port"
+    },
+    {
+      "name": "DB_TYPE",
+      "value": "singlestore",
+      "description": "Engine profile name used by suite gating"
     }
   ]
 }

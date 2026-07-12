@@ -64,6 +64,14 @@ limitations under the License.
         <sourceFieldName>customer_id</sourceFieldName>
         <recordSourceName>CRM-customer-legacy</recordSourceName>
       </businessKeys>
+      <businessKeys>
+        <name>customer_id</name>
+        <description>Customer business key</description>
+        <dataType>Integer</dataType>
+        <length>9</length>
+        <sourceFieldName>customer_id</sourceFieldName>
+        <recordSourceName>CRM-customer-online</recordSourceName>
+      </businessKeys>
       <hashKeyFieldName>customer_hk</hashKeyFieldName>
       <recordSourceFieldName/>
       <recordSources>

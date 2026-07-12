@@ -31,7 +31,45 @@ INTEGRATION_TESTS_HOST="${SCRIPTS_DIR}/../integration-tests"
 RDBMS_METADATA_DIR="${INTEGRATION_TESTS_HOST}/metadata/rdbms"
 BACKUP_DIR=""
 
-DATABASES="${1:-postgres mysql singlestore}"
+# Allowed engines (must match scripts/docker/compose.<name>.yml).
+ALL_DATABASES="postgres mysql singlestore sqlserver"
+
+is_allowed_database() {
+  candidate="$1"
+  for allowed in ${ALL_DATABASES}; do
+    if [ "${candidate}" = "${allowed}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+usage() {
+  echo "Usage: $(basename "$0") [engine]..." >&2
+  echo "  Allowed engines: ${ALL_DATABASES}" >&2
+  echo "  No arguments: run the suite against all engines." >&2
+  echo "  One or more arguments: each must be a known engine name." >&2
+  echo "  Example: $(basename "$0") postgres" >&2
+  echo "  Example: $(basename "$0") postgres mysql" >&2
+}
+
+if [ "$#" -eq 0 ]; then
+  DATABASES="${ALL_DATABASES}"
+else
+  DATABASES=""
+  for arg in "$@"; do
+    if ! is_allowed_database "${arg}"; then
+      echo "Unknown database profile '${arg}'." >&2
+      echo "Allowed: ${ALL_DATABASES}" >&2
+      usage
+      exit 1
+    fi
+    DATABASES="${DATABASES} ${arg}"
+  done
+  # trim leading space
+  DATABASES="${DATABASES# }"
+fi
+
 FAIL=0
 ACTIVE_COMPOSE=""
 
@@ -81,7 +119,7 @@ backup_rdbms_connections
 for db in ${DATABASES}; do
   COMPOSE_FILE="${DOCKER_DIR}/compose.${db}.yml"
   if [ ! -f "${COMPOSE_FILE}" ]; then
-    echo "Unknown database profile '${db}' (missing ${COMPOSE_FILE})" >&2
+    echo "Missing compose file for allowed profile '${db}': ${COMPOSE_FILE}" >&2
     FAIL=1
     continue
   fi

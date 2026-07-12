@@ -40,13 +40,24 @@ import org.apache.hop.core.row.value.ValueMetaInteger;
 import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.metadata.DvBulkLoadPluginSupport;
 import org.apache.hop.datavault.catalog.DvCatalogNamespaces;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 
 /** Publishes load-run metrics record definitions and persists run rows to the target database. */
 public final class LoadRunMetricsCatalogPublisher {
 
-  public static final String DEFAULT_SCHEMA_NAME = "dv_ops";
+  /**
+   * Default operations schema: empty = connection default database/schema. Users may set an
+   * explicit schema (e.g. {@code ops}) on the execution metrics profile when they want isolation.
+   */
+  public static final String DEFAULT_SCHEMA_NAME = "";
+
+  /**
+   * Historical product default schema name. Not applied implicitly; only used when a user
+   * explicitly configures it.
+   */
+  public static final String LEGACY_OPS_SCHEMA_NAME = "dv_ops";
 
   /** @deprecated use {@link #DEFAULT_SCHEMA_NAME} */
   @Deprecated public static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
@@ -192,11 +203,53 @@ public final class LoadRunMetricsCatalogPublisher {
     return total;
   }
 
+  /**
+   * Resolves the configured operations schema. Blank means connection default (no schema
+   * qualifier). Explicit values such as {@code ops} or legacy {@code dv_ops} are kept as-is.
+   */
   static String resolveOperationsSchema(DvUpdateMetricsCollector.LoadRunPublishContext context) {
     if (context == null || Utils.isEmpty(context.operationsSchema())) {
       return DEFAULT_SCHEMA_NAME;
     }
     return context.operationsSchema().trim();
+  }
+
+  /**
+   * Physical schema/database qualifier for SQL. Blank remains blank (connection default). Explicit
+   * names are unchanged so opt-in isolation keeps working.
+   */
+  public static String resolvePhysicalOperationsSchema(
+      String operationsSchema, DatabaseMeta databaseMeta) {
+    if (Utils.isEmpty(operationsSchema)) {
+      return DEFAULT_SCHEMA_NAME;
+    }
+    return operationsSchema.trim();
+  }
+
+  /** True for MySQL and SingleStore (MemSQL) database plugin ids. */
+  public static boolean isMysqlFamily(DatabaseMeta databaseMeta) {
+    if (databaseMeta == null || Utils.isEmpty(databaseMeta.getPluginId())) {
+      return false;
+    }
+    String pluginId = databaseMeta.getPluginId();
+    return DvBulkLoadPluginSupport.MYSQL_DB_PLUGIN_ID.equalsIgnoreCase(pluginId)
+        || DvBulkLoadPluginSupport.SINGLESTORE_DB_PLUGIN_ID.equalsIgnoreCase(pluginId);
+  }
+
+  /** Qualifies {@code schema.table}, or returns {@code table} when schema is blank. */
+  public static String qualifyOperationsTable(String schema, String table) {
+    if (Utils.isEmpty(schema)) {
+      return table;
+    }
+    return schema + "." + table;
+  }
+
+  /** Human-readable location for logs when the physical schema may be the connection default. */
+  public static String describeOperationsLocation(String physicalSchema) {
+    if (Utils.isEmpty(physicalSchema)) {
+      return "connection default database";
+    }
+    return physicalSchema;
   }
 
   public static String operationsNamespace(IVariables variables) {
@@ -463,7 +516,7 @@ public final class LoadRunMetricsCatalogPublisher {
         int insightCount = insights != null ? insights.size() : 0;
         log.logBasic(
             "Published load-run metrics to "
-                + operationsSchema
+                + describeOperationsLocation(operationsSchema)
                 + " for run "
                 + runId
                 + " ("
@@ -502,9 +555,9 @@ public final class LoadRunMetricsCatalogPublisher {
             + " (run_id, started_at, finished_at, model_type, model_name, workflow_name, workflow_execution_id, log_channel_id, pipeline_run_configuration, success, error_count) VALUES ("
             + sqlLiteral(runId)
             + ", "
-            + sqlTimestampLiteral(startedAt)
+            + sqlTimestampLiteral(db, startedAt)
             + ", "
-            + sqlTimestampLiteral(finishedAt)
+            + sqlTimestampLiteral(db, finishedAt)
             + ", "
             + sqlLiteral(modelType)
             + ", "
@@ -518,14 +571,17 @@ public final class LoadRunMetricsCatalogPublisher {
             + ", "
             + sqlLiteral(pipelineRunConfiguration)
             + ", "
-            + (success ? "TRUE" : "FALSE")
+            + sqlBooleanLiteral(db.getDatabaseMeta(), success)
             + ", "
             + errorCount
             + ")";
     try {
       db.execStatement(sql);
     } catch (Exception e) {
-      throw new HopException("Unable to insert load run row into " + operationsSchema + ".load_run", e);
+      throw new HopException(
+          "Unable to insert load run row into "
+              + qualifyOperationsTable(operationsSchema, TABLE_LOAD_RUN),
+          e);
     }
   }
 
@@ -537,11 +593,39 @@ public final class LoadRunMetricsCatalogPublisher {
   }
 
   private static String sqlTimestampLiteral(Date value) {
+    return sqlTimestampLiteral(null, value);
+  }
+
+  private static String sqlTimestampLiteral(Database db, Date value) {
     if (value == null) {
       return "NULL";
     }
     String formatted = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(value);
+    DatabaseMeta meta = db != null ? db.getDatabaseMeta() : null;
+    if (isSqlServer(meta)) {
+      return "CAST('" + formatted + "' AS datetime2)";
+    }
+    // MySQL / SingleStore reject Postgres-style TIMESTAMP '…' literals.
+    if (isMysqlFamily(meta)) {
+      return "'" + formatted + "'";
+    }
     return "TIMESTAMP '" + formatted + "'";
+  }
+
+  private static String sqlBooleanLiteral(DatabaseMeta databaseMeta, boolean value) {
+    if (isSqlServer(databaseMeta) || isMysqlFamily(databaseMeta)) {
+      return value ? "1" : "0";
+    }
+    return value ? "TRUE" : "FALSE";
+  }
+
+  private static boolean isSqlServer(DatabaseMeta databaseMeta) {
+    if (databaseMeta == null || Utils.isEmpty(databaseMeta.getPluginId())) {
+      return false;
+    }
+    String pluginId = databaseMeta.getPluginId();
+    return DvBulkLoadPluginSupport.MSSQL_DB_PLUGIN_ID.equalsIgnoreCase(pluginId)
+        || DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID.equalsIgnoreCase(pluginId);
   }
 
   private static void insertPipelineMetric(

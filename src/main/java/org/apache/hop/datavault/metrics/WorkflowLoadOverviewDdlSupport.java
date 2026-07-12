@@ -41,20 +41,28 @@ public final class WorkflowLoadOverviewDdlSupport {
     if (db == null || databaseMeta == null) {
       return;
     }
-    String schema = resolveSchema(operationsSchema);
+    String schema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(
+            operationsSchema, databaseMeta);
     if (db.checkTableExists(schema, TABLE_WORKFLOW_LOAD_OVERVIEW)
         && db.checkTableExists(schema, TABLE_WORKFLOW_LOAD_OVERVIEW_MODEL)) {
       return;
     }
     String ddl = String.join(";\n", buildCreateStatements(databaseMeta, schema)) + ";";
     if (log != null) {
-      log.logBasic("Creating workflow load overview tables in " + schema + " on " + databaseMeta.getName());
+      log.logBasic(
+          "Creating workflow load overview tables in "
+              + LoadRunMetricsCatalogPublisher.describeOperationsLocation(schema)
+              + " on "
+              + databaseMeta.getName());
     }
     db.execStatements(ddl);
   }
 
   static List<String> buildCreateStatements(DatabaseMeta databaseMeta, String operationsSchema) {
-    String schema = resolveSchema(operationsSchema);
+    String schema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(
+            operationsSchema, databaseMeta);
     String pluginId =
         databaseMeta != null && !Utils.isEmpty(databaseMeta.getPluginId())
             ? databaseMeta.getPluginId().toUpperCase()
@@ -62,22 +70,17 @@ public final class WorkflowLoadOverviewDdlSupport {
     return switch (pluginId) {
       case DvBulkLoadPluginSupport.MYSQL_DB_PLUGIN_ID,
           DvBulkLoadPluginSupport.SINGLESTORE_DB_PLUGIN_ID -> mysqlStatements(schema);
+      case DvBulkLoadPluginSupport.MSSQL_DB_PLUGIN_ID,
+          DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID -> mssqlStatements(schema);
       default -> postgresStatements(schema);
     };
-  }
-
-  private static String resolveSchema(String operationsSchema) {
-    if (Utils.isEmpty(operationsSchema)) {
-      return LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME;
-    }
-    return operationsSchema.trim();
   }
 
   private static List<String> postgresStatements(String schema) {
     List<String> statements = new ArrayList<>();
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           overview_id              VARCHAR(64)   NOT NULL,
           workflow_execution_id    VARCHAR(64)   NULL,
           root_workflow_name       VARCHAR(255)  NULL,
@@ -94,10 +97,10 @@ public final class WorkflowLoadOverviewDdlSupport {
           success                  BOOLEAN       NULL,
           PRIMARY KEY (overview_id)
         )"""
-            .formatted(schema, TABLE_WORKFLOW_LOAD_OVERVIEW));
+            .formatted(qualify(schema, TABLE_WORKFLOW_LOAD_OVERVIEW)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           overview_id              VARCHAR(64)   NOT NULL,
           sequence_no              BIGINT        NOT NULL,
           load_run_id              VARCHAR(64)   NULL,
@@ -113,7 +116,51 @@ public final class WorkflowLoadOverviewDdlSupport {
           success                  BOOLEAN       NULL,
           PRIMARY KEY (overview_id, sequence_no)
         )"""
-            .formatted(schema, TABLE_WORKFLOW_LOAD_OVERVIEW_MODEL));
+            .formatted(qualify(schema, TABLE_WORKFLOW_LOAD_OVERVIEW_MODEL)));
+    return statements;
+  }
+
+  private static List<String> mssqlStatements(String schema) {
+    List<String> statements = new ArrayList<>();
+    statements.add(
+        """
+        CREATE TABLE %s (
+          overview_id              VARCHAR(64)   NOT NULL,
+          workflow_execution_id    VARCHAR(64)   NULL,
+          root_workflow_name       VARCHAR(255)  NULL,
+          metrics_workflow_name    VARCHAR(255)  NULL,
+          started_at               DATETIME2     NULL,
+          finished_at              DATETIME2     NULL,
+          duration_ms              BIGINT        NULL,
+          model_count              BIGINT        NULL,
+          pipeline_count           BIGINT        NULL,
+          insight_count            BIGINT        NULL,
+          total_source_rows_read   BIGINT        NULL,
+          total_target_rows_inserted BIGINT      NULL,
+          total_errors             BIGINT        NULL,
+          success                  BIT           NULL,
+          PRIMARY KEY (overview_id)
+        )"""
+            .formatted(qualify(schema, TABLE_WORKFLOW_LOAD_OVERVIEW)));
+    statements.add(
+        """
+        CREATE TABLE %s (
+          overview_id              VARCHAR(64)   NOT NULL,
+          sequence_no              BIGINT        NOT NULL,
+          load_run_id              VARCHAR(64)   NULL,
+          model_type               VARCHAR(16)   NULL,
+          model_name               VARCHAR(255)  NULL,
+          pipeline_count           BIGINT        NULL,
+          source_rows_read         BIGINT        NULL,
+          target_rows_read         BIGINT        NULL,
+          target_rows_inserted     BIGINT        NULL,
+          errors                   BIGINT        NULL,
+          duration_ms              BIGINT        NULL,
+          insight_count            BIGINT        NULL,
+          success                  BIT           NULL,
+          PRIMARY KEY (overview_id, sequence_no)
+        )"""
+            .formatted(qualify(schema, TABLE_WORKFLOW_LOAD_OVERVIEW_MODEL)));
     return statements;
   }
 
@@ -121,7 +168,7 @@ public final class WorkflowLoadOverviewDdlSupport {
     List<String> statements = new ArrayList<>();
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           overview_id              VARCHAR(64)   NOT NULL,
           workflow_execution_id    VARCHAR(64)   NULL,
           root_workflow_name       VARCHAR(255)  NULL,
@@ -138,10 +185,10 @@ public final class WorkflowLoadOverviewDdlSupport {
           success                  TINYINT(1)    NULL,
           PRIMARY KEY (overview_id)
         )"""
-            .formatted(schema, TABLE_WORKFLOW_LOAD_OVERVIEW));
+            .formatted(qualify(schema, TABLE_WORKFLOW_LOAD_OVERVIEW)));
     statements.add(
         """
-        CREATE TABLE IF NOT EXISTS %s.%s (
+        CREATE TABLE IF NOT EXISTS %s (
           overview_id              VARCHAR(64)   NOT NULL,
           sequence_no              BIGINT        NOT NULL,
           load_run_id              VARCHAR(64)   NULL,
@@ -157,7 +204,11 @@ public final class WorkflowLoadOverviewDdlSupport {
           success                  TINYINT(1)    NULL,
           PRIMARY KEY (overview_id, sequence_no)
         )"""
-            .formatted(schema, TABLE_WORKFLOW_LOAD_OVERVIEW_MODEL));
+            .formatted(qualify(schema, TABLE_WORKFLOW_LOAD_OVERVIEW_MODEL)));
     return statements;
+  }
+
+  private static String qualify(String schema, String table) {
+    return LoadRunMetricsCatalogPublisher.qualifyOperationsTable(schema, table);
   }
 }

@@ -187,8 +187,8 @@ public final class BvPitPipelineSupport {
     sql.append(" AS end_date), ");
 
     sql.append(
-        BvPitSnapshotSpineSupport.buildPostgresDynamicSnapshotSpineCte(
-            "snapshot_spine", "snapshot_date", "bounds", anchor));
+        BvPitSnapshotSpineSupport.buildDynamicSnapshotSpineCte(
+            ctx.sourceDatabaseMeta(), "snapshot_spine", "snapshot_date", "bounds", anchor));
     sql.append(", hub_keys AS (SELECT DISTINCT ");
     sql.append(ctx.sourceDatabaseMeta().quoteField(ctx.hashKeyFieldName()));
     sql.append(" AS ");
@@ -197,28 +197,85 @@ public final class BvPitPipelineSupport {
     sql.append(
         ctx.sourceDatabaseMeta()
             .getQuotedSchemaTableCombination(ctx.variables(), null, ctx.hubTableName()));
-    sql.append(") SELECT hk.");
-    sql.append(ctx.sourceDatabaseMeta().quoteField(ctx.hashKeyFieldName()));
-    sql.append(" AS ");
-    sql.append(ctx.sourceDatabaseMeta().quoteField(ctx.hashKeyFieldName()));
-    sql.append(", spine.");
-    sql.append("snapshot_date");
-    sql.append(" AS ");
-    sql.append(ctx.sourceDatabaseMeta().quoteField(ctx.snapshotDateField()));
-    sql.append(", ");
-    sql.append(buildSatellitePointerSubquery(ctx));
-    sql.append(" AS ");
-    sql.append(ctx.sourceDatabaseMeta().quoteField(ctx.satellitePointerColumnName()));
-    sql.append(" FROM hub_keys hk CROSS JOIN snapshot_spine spine WHERE ");
-    sql.append(
+    sql.append(") ");
+
+    if (BvPitSnapshotSpineSupport.resolveDialect(ctx.sourceDatabaseMeta())
+        == BvPitSnapshotSpineSupport.PitSqlDialect.SINGLESTORE) {
+      // SingleStore rejects correlated scalar subselects when the outer FROM is only CTEs
+      // ("Scalar subselect where outer table is not a sharded table"). Use LEFT JOIN + GROUP BY.
+      sql.append(buildSinglestorePitSelect(ctx));
+    } else {
+      sql.append("SELECT hk.");
+      sql.append(ctx.sourceDatabaseMeta().quoteField(ctx.hashKeyFieldName()));
+      sql.append(" AS ");
+      sql.append(ctx.sourceDatabaseMeta().quoteField(ctx.hashKeyFieldName()));
+      sql.append(", spine.");
+      sql.append("snapshot_date");
+      sql.append(" AS ");
+      sql.append(ctx.sourceDatabaseMeta().quoteField(ctx.snapshotDateField()));
+      sql.append(", ");
+      sql.append(buildSatellitePointerSubquery(ctx));
+      sql.append(" AS ");
+      sql.append(ctx.sourceDatabaseMeta().quoteField(ctx.satellitePointerColumnName()));
+      sql.append(" FROM hub_keys hk CROSS JOIN snapshot_spine spine WHERE ");
+      sql.append(
+          BvPitSnapshotSpineSupport.buildIncrementalSnapshotFilterSql(
+              ctx.targetDatabaseMeta(),
+              ctx.variables(),
+              ctx.bvTargetTableName(),
+              ctx.snapshotDateField(),
+              "spine.snapshot_date"));
+    }
+
+    return sql.toString();
+  }
+
+  /**
+   * SingleStore-safe final SELECT: join hub keys × spine to the satellite table and aggregate the
+   * pointer load date instead of using a correlated scalar subselect.
+   */
+  private static String buildSinglestorePitSelect(PitBuildContext ctx) {
+    String quotedHashKey = ctx.sourceDatabaseMeta().quoteField(ctx.hashKeyFieldName());
+    String quotedLoadDate = ctx.sourceDatabaseMeta().quoteField(ctx.loadDateField());
+    String quotedSnapshotField = ctx.sourceDatabaseMeta().quoteField(ctx.snapshotDateField());
+    String quotedPointer = ctx.sourceDatabaseMeta().quoteField(ctx.satellitePointerColumnName());
+    String quotedSatelliteTable =
+        ctx.sourceDatabaseMeta()
+            .getQuotedSchemaTableCombination(ctx.variables(), null, ctx.satelliteTableName());
+    String incremental =
         BvPitSnapshotSpineSupport.buildIncrementalSnapshotFilterSql(
             ctx.targetDatabaseMeta(),
             ctx.variables(),
             ctx.bvTargetTableName(),
             ctx.snapshotDateField(),
-            "spine.snapshot_date"));
+            "spine.snapshot_date");
 
-    return sql.toString();
+    return "SELECT hk."
+        + quotedHashKey
+        + " AS "
+        + quotedHashKey
+        + ", spine.snapshot_date AS "
+        + quotedSnapshotField
+        + ", MAX(sat."
+        + quotedLoadDate
+        + ") AS "
+        + quotedPointer
+        + " FROM hub_keys hk "
+        + "CROSS JOIN snapshot_spine spine "
+        + "LEFT JOIN "
+        + quotedSatelliteTable
+        + " sat ON sat."
+        + quotedHashKey
+        + " = hk."
+        + quotedHashKey
+        + " AND sat."
+        + quotedLoadDate
+        + " <= spine.snapshot_date "
+        + "WHERE "
+        + incremental
+        + " GROUP BY hk."
+        + quotedHashKey
+        + ", spine.snapshot_date";
   }
 
   public static PipelineMeta generatePipeline(PitBuildContext ctx) throws HopException {
@@ -353,41 +410,44 @@ public final class BvPitPipelineSupport {
 
   private static String buildStartDateExpression(
       PitBuildContext ctx, boolean needsSatelliteLoadCte, boolean needsHubLoadCte) {
+    DatabaseMeta db = ctx.sourceDatabaseMeta();
     BvPitRangeStart rangeStart =
         ctx.schedule().getRangeStart() != null
             ? ctx.schedule().getRangeStart()
             : BvPitRangeStart.EARLIEST_PARTICIPATING_SATELLITE_LOAD;
     return switch (rangeStart) {
       case FIXED_DATE ->
-          "DATE '"
-              + resolveFixedDateLiteral(ctx.schedule().getRangeStartFixed(), ctx.variables())
-              + "'";
+          BvPitSnapshotSpineSupport.dateLiteral(
+              db, resolveFixedDateLiteral(ctx.schedule().getRangeStartFixed(), ctx.variables()));
       case EARLIEST_PARTICIPATING_SATELLITE_LOAD ->
           needsSatelliteLoadCte
-              ? "(SELECT earliest_load::date FROM earliest_satellite_load)"
-              : "CURRENT_DATE";
+              ? "(SELECT "
+                  + BvPitSnapshotSpineSupport.castToDateExpression(db, "earliest_load")
+                  + " FROM earliest_satellite_load)"
+              : BvPitSnapshotSpineSupport.currentDateExpression(db);
       case EARLIEST_HUB_LOAD ->
           needsHubLoadCte
-              ? "(SELECT earliest_load::date FROM earliest_hub_load)"
-              : "CURRENT_DATE";
+              ? "(SELECT "
+                  + BvPitSnapshotSpineSupport.castToDateExpression(db, "earliest_load")
+                  + " FROM earliest_hub_load)"
+              : BvPitSnapshotSpineSupport.currentDateExpression(db);
     };
   }
 
   private static String buildEndDateExpression(PitBuildContext ctx) {
+    DatabaseMeta db = ctx.sourceDatabaseMeta();
     BvPitRangeEnd rangeEnd =
         ctx.schedule().getRangeEnd() != null
             ? ctx.schedule().getRangeEnd()
             : BvPitRangeEnd.NOW_MINUS_HORIZON;
     return switch (rangeEnd) {
-      case NOW -> "CURRENT_DATE";
+      case NOW -> BvPitSnapshotSpineSupport.currentDateExpression(db);
       case NOW_MINUS_HORIZON ->
-          "(CURRENT_DATE - INTERVAL '"
-              + Math.max(0, ctx.schedule().getHorizonDays())
-              + " day')::date";
+          BvPitSnapshotSpineSupport.currentDateMinusDaysExpression(
+              db, ctx.schedule().getHorizonDays());
       case FIXED_DATE ->
-          "DATE '"
-              + resolveFixedDateLiteral(ctx.schedule().getRangeEndFixed(), ctx.variables())
-              + "'";
+          BvPitSnapshotSpineSupport.dateLiteral(
+              db, resolveFixedDateLiteral(ctx.schedule().getRangeEndFixed(), ctx.variables()));
     };
   }
 
