@@ -53,8 +53,8 @@ From a Business Vault table you can jump to the linked Data Vault model and sele
 |PIT (`BvPitTable`)
 |Point-in-time helper for technical as-of queries: hub grain × snapshot dates with satellite load-timestamp pointers. See link:business-vault-pit.adoc[Business Vault PIT].
 
-|Business table (future)
-|Placeholder type for non-SCD2 consumption tables.
+|Business / SQL table (`BvBusinessTable`)
+|SQL-sourced object materialised as a **view** or **table** (`CREATE OR REPLACE VIEW|TABLE … AS …`) with dbt-style `{{ ref() }}` / `{{ source() }}` dependencies. See link:business-vault-sql-view.adoc[Business Vault SQL views and tables].
 |===
 
 == Workflow integration

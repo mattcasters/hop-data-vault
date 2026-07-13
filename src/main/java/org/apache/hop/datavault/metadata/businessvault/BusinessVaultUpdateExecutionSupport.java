@@ -18,8 +18,8 @@
 
 package org.apache.hop.datavault.metadata.businessvault;
 
-import java.util.ArrayList;
 import java.util.List;
+import org.apache.hop.datavault.metadata.DataVaultModel;
 
 /** Execution ordering helpers for Business Vault Update workflows. */
 public final class BusinessVaultUpdateExecutionSupport {
@@ -27,29 +27,21 @@ public final class BusinessVaultUpdateExecutionSupport {
   private BusinessVaultUpdateExecutionSupport() {}
 
   public static boolean isPipelineExecutableTableType(BvTableType tableType) {
-    return tableType == BvTableType.SCD2 || tableType == BvTableType.PIT;
+    return tableType == BvTableType.SCD2
+        || tableType == BvTableType.PIT
+        || tableType == BvTableType.BUSINESS_TABLE;
   }
 
-  /** Returns SCD2 tables first, then PIT tables, preserving each group's model order. */
+  /**
+   * Orders pipeline-executable tables for update: SCD2, PIT, and SQL business tables, honouring
+   * {@code ref()} dependencies among business tables.
+   */
   public static List<IBvTable> orderTablesForPipelineExecution(List<IBvTable> tables) {
-    List<IBvTable> scd2Tables = new ArrayList<>();
-    List<IBvTable> pitTables = new ArrayList<>();
-    if (tables == null) {
-      return List.of();
-    }
-    for (IBvTable table : tables) {
-      if (table == null || table.getTableType() == null) {
-        continue;
-      }
-      if (table.getTableType() == BvTableType.SCD2) {
-        scd2Tables.add(table);
-      } else if (table.getTableType() == BvTableType.PIT) {
-        pitTables.add(table);
-      }
-    }
-    List<IBvTable> ordered = new ArrayList<>(scd2Tables.size() + pitTables.size());
-    ordered.addAll(scd2Tables);
-    ordered.addAll(pitTables);
-    return ordered;
+    return orderTablesForPipelineExecution(tables, null, null);
+  }
+
+  public static List<IBvTable> orderTablesForPipelineExecution(
+      List<IBvTable> tables, BusinessVaultModel bvModel, DataVaultModel dvModel) {
+    return BvSqlDependencySupport.orderTablesForPipelineExecution(tables, bvModel, dvModel);
   }
 }

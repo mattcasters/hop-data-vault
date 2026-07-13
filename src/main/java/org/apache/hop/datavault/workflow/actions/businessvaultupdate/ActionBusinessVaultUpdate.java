@@ -501,7 +501,8 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
       }
 
       for (IBvTable table :
-          BusinessVaultUpdateExecutionSupport.orderTablesForPipelineExecution(tables)) {
+          BusinessVaultUpdateExecutionSupport.orderTablesForPipelineExecution(
+              tables, bvModel, dvModel)) {
         logBasic(
             BaseMessages.getString(
                 PKG,

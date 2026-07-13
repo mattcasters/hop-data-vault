@@ -99,7 +99,8 @@ public final class ModelPipelineResolver {
     }
     try {
       List<IBvTable> tables =
-          BusinessVaultUpdateExecutionSupport.orderTablesForPipelineExecution(bvModel.getTables());
+          BusinessVaultUpdateExecutionSupport.orderTablesForPipelineExecution(
+              bvModel.getTables(), bvModel, dvModel);
       int generatedCount = 0;
       for (IBvTable table : tables) {
         if (table == null) {

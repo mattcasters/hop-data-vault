@@ -44,8 +44,11 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
+import org.apache.hop.datavault.metadata.businessvault.BvBusinessTable;
 import org.apache.hop.datavault.metadata.businessvault.BvDerivativeRef;
 import org.apache.hop.datavault.metadata.businessvault.BvDvTableReference;
+import org.apache.hop.datavault.metadata.businessvault.BvSqlRef;
+import org.apache.hop.datavault.metadata.businessvault.BvSqlResolvedKind;
 import org.apache.hop.datavault.metadata.businessvault.BvTableBase;
 import org.apache.hop.datavault.metadata.businessvault.BvTableType;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
@@ -256,9 +259,45 @@ public class BusinessVaultModelPainter extends BasePainter {
         Bounds dvBounds = getDvReferenceBounds(target);
         ModelGraphConnectionGeometry.drawConnectionSpline(gc, bvBounds, dvBounds);
       }
+      if (bvTable instanceof BvBusinessTable businessTable) {
+        drawSqlRefConnections(businessTable, bvBounds);
+      }
     }
     gc.setLineStyle(ELineStyle.SOLID);
     gc.setForeground(EColor.BLACK);
+  }
+
+  private void drawSqlRefConnections(BvBusinessTable businessTable, Bounds sourceBounds) {
+    if (businessTable == null || sourceBounds == null) {
+      return;
+    }
+    for (BvSqlRef ref : businessTable.getSqlRefs()) {
+      if (ref == null
+          || ref.getResolvedKind() != BvSqlResolvedKind.BV_TABLE
+          || Utils.isEmpty(ref.getObjectName())) {
+        continue;
+      }
+      IBvTable target = findBvTableByName(ref.getObjectName());
+      if (!(target instanceof BvTableBase targetBase) || targetBase.getLocation() == null) {
+        continue;
+      }
+      ModelGraphConnectionGeometry.drawConnectionSpline(gc, sourceBounds, getBvTableBounds(targetBase));
+    }
+  }
+
+  private IBvTable findBvTableByName(String name) {
+    if (Utils.isEmpty(name) || model == null) {
+      return null;
+    }
+    for (IBvTable table : model.getTables()) {
+      if (table == null) {
+        continue;
+      }
+      if (name.equalsIgnoreCase(table.getName()) || name.equalsIgnoreCase(table.getTableName())) {
+        return table;
+      }
+    }
+    return null;
   }
 
   private void drawRelationshipCandidateLine() {
@@ -522,8 +561,18 @@ public class BusinessVaultModelPainter extends BasePainter {
       }
 
       gc.setFont(EFont.SMALL);
-      gc.drawText(base.getTableType().name(), x + 8, y + 28, true);
+      String typeLabel = base.getTableType().name();
+      if (base instanceof BvBusinessTable businessTable) {
+        typeLabel =
+            typeLabel
+                + " / "
+                + businessTable.getMaterializationOrDefault().getCode();
+      }
+      gc.drawText(typeLabel, x + 8, y + 28, true);
       drawDerivativeReferences(base, x, y);
+      if (base instanceof BvBusinessTable businessTable) {
+        drawSqlRefSummary(businessTable, x, y);
+      }
 
       if (areaOwners != null) {
         areaOwners.add(
@@ -567,36 +616,92 @@ public class BusinessVaultModelPainter extends BasePainter {
     gc.setForeground(EColor.BLACK);
   }
 
+  private void drawSqlRefSummary(BvBusinessTable businessTable, int x, int y) {
+    if (businessTable == null || businessTable.getSqlRefs().isEmpty()) {
+      return;
+    }
+    int offset = countDerivatives(businessTable);
+    gc.setFont(EFont.SMALL);
+    gc.setForeground(EColor.DARKGRAY);
+    int lineHeight = derivativeLineHeight();
+    int yRef = y + DERIVATIVES_TOP + offset * lineHeight;
+    for (BvSqlRef ref : businessTable.getSqlRefs()) {
+      if (ref == null || Utils.isEmpty(ref.getObjectName())) {
+        continue;
+      }
+      String kind = ref.getResolvedKind() != null ? ref.getResolvedKind().getCode() : "?";
+      String label =
+          Utils.isEmpty(ref.getModelName())
+              ? "ref: " + ref.getObjectName() + " (" + kind + ")"
+              : "ref: " + ref.getModelName() + "." + ref.getObjectName() + " (" + kind + ")";
+      gc.drawText(label, x + 8, yRef, true);
+      yRef += lineHeight;
+    }
+    gc.setForeground(EColor.BLACK);
+  }
+
   private int computeBoxWidth(BvTableBase base) {
     int width = 120;
     gc.setFont(EFont.GRAPH);
     String label = Const.NVL(base.getName(), base.getTableType().name());
     width = Math.max(width, gc.textExtent(label).x + 16);
     gc.setFont(EFont.SMALL);
-    width = Math.max(width, gc.textExtent(base.getTableType().name()).x + 16);
+    String typeLabel = base.getTableType().name();
+    if (base instanceof BvBusinessTable businessTable) {
+      typeLabel = typeLabel + " / " + businessTable.getMaterializationOrDefault().getCode();
+    }
+    width = Math.max(width, gc.textExtent(typeLabel).x + 16);
     for (BvDerivativeRef derivative : base.getDerivatives()) {
       if (derivative == null || Utils.isEmpty(derivative.getDvTableName())) {
         continue;
       }
-      String typeLabel =
+      String derLabel =
           derivative.getDvTableType() != null ? derivative.getDvTableType().name() : "?";
       width =
           Math.max(
-              width, gc.textExtent(typeLabel + ": " + derivative.getDvTableName()).x + 16);
+              width, gc.textExtent(derLabel + ": " + derivative.getDvTableName()).x + 16);
+    }
+    if (base instanceof BvBusinessTable businessTable) {
+      for (BvSqlRef ref : businessTable.getSqlRefs()) {
+        if (ref == null || Utils.isEmpty(ref.getObjectName())) {
+          continue;
+        }
+        String kind = ref.getResolvedKind() != null ? ref.getResolvedKind().getCode() : "?";
+        String refLabel =
+            Utils.isEmpty(ref.getModelName())
+                ? "ref: " + ref.getObjectName() + " (" + kind + ")"
+                : "ref: " + ref.getModelName() + "." + ref.getObjectName() + " (" + kind + ")";
+        width = Math.max(width, gc.textExtent(refLabel).x + 16);
+      }
     }
     return width;
   }
 
   private int computeBoxHeight(BvTableBase base) {
-    int refCount = 0;
-    for (BvDerivativeRef derivative : base.getDerivatives()) {
-      if (derivative != null && !Utils.isEmpty(derivative.getDvTableName())) {
-        refCount++;
+    int refCount = countDerivatives(base);
+    if (base instanceof BvBusinessTable businessTable) {
+      for (BvSqlRef ref : businessTable.getSqlRefs()) {
+        if (ref != null && !Utils.isEmpty(ref.getObjectName())) {
+          refCount++;
+        }
       }
     }
     int lineHeight = derivativeLineHeight();
     return Math.max(
         60, DERIVATIVES_TOP + refCount * lineHeight + DERIVATIVES_BOTTOM_PADDING);
+  }
+
+  private static int countDerivatives(BvTableBase base) {
+    int refCount = 0;
+    if (base == null) {
+      return 0;
+    }
+    for (BvDerivativeRef derivative : base.getDerivatives()) {
+      if (derivative != null && !Utils.isEmpty(derivative.getDvTableName())) {
+        refCount++;
+      }
+    }
+    return refCount;
   }
 
   private int derivativeLineHeight() {

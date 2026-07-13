@@ -34,6 +34,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
+import org.apache.hop.datavault.metadata.businessvault.BvBusinessTable;
 import org.apache.hop.datavault.metadata.businessvault.BvTableType;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
@@ -185,6 +186,11 @@ public final class BvCatalogPublisher {
     BvTableType tableType = table.getTableType();
     if (tableType != null) {
       definition.getTags().add("BV " + tableType.name());
+    }
+    if (table instanceof BvBusinessTable businessTable) {
+      definition
+          .getTags()
+          .add("BV " + businessTable.getMaterializationOrDefault().getCode());
     }
     if (!Utils.isEmpty(bvModel.getName())) {
       definition.getTags().add(bvModel.getName());
