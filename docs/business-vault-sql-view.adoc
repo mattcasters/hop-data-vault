@@ -1,0 +1,104 @@
+= Business Vault SQL views and tables
+:toc: macro
+:toclevels: 3
+
+toc::[]
+
+SQL business tables let you author consumption SQL on the Business Vault canvas with explicit dependencies, instead of maintaining opaque dbt models outside the vault graph.
+
+== Why
+
+Raw Data Vault and generated SCD2/PIT tables cover the mechanical patterns. Real projects still need arbitrary SQL for business rules, enrichments, and lookups. dbt handles this with `ref()` / `source()` and dependency ordering. Hop Data Vault brings the same idea onto the `.hbv` model:
+
+* Author SQL with templates
+* Declare sources used by the query
+* Resolve references to other BV or DV objects
+* Materialise as a **view** or **table**
+* Order Business Vault Update pipelines by dependency
+
+== Table type
+
+Add **SQL view / table** from the Business Vault canvas (type `BUSINESS_TABLE` in the `.hbv` file).
+
+|Property |Description
+
+|Name / physical name
+|Logical canvas name and target object name in the BV database
+
+|Materialization
+|`VIEW` → `CREATE OR REPLACE VIEW t AS …` +
+`TABLE` → `CREATE OR REPLACE TABLE t AS …`
+
+|Reference style
+|`dbt` only in the current release
+
+|SQL query
+|Authoring SQL with optional macros
+
+|Sources
+|Explicit list for `{{ source('name', 'table') }}`
+
+|References
+|Parsed from SQL; used for canvas edges and update order
+
+== Template language (dbt style)
+
+[cols="2,3", options="header"]
+|===
+|Macro |Resolution
+
+|`{{ ref('object') }}`
+|Object in this `.hbv` (BV table) or the linked `.hdv` (DV table), by name or physical table name
+
+|`{{ ref('model-name', 'object') }}`
+|Object in a model whose basename matches `model-name` (linked DV or current BV)
+
+|`{{ source('source-name', 'table') }}`
+|Must match a row on the Sources list (schema/database optional)
+|===
+
+Example:
+
+[source,sql]
+----
+SELECT
+  p.product_hk,
+  p.product_name,
+  l.lookup_code
+FROM {{ ref('s_product') }} p
+LEFT JOIN {{ source('refdata', 'ref_lookup_something') }} l
+  ON p.category_id = l.category_id
+----
+
+On save, Hop rewrites macros to dialect-quoted physical names and generates an Execute SQL pipeline:
+
+[source,sql]
+----
+CREATE OR REPLACE VIEW "product_enriched" AS
+SELECT ...
+----
+
+or, when materialization is **Table**:
+
+[source,sql]
+----
+CREATE OR REPLACE TABLE "product_enriched" AS
+SELECT ...
+----
+
+== Canvas and lineage
+
+* Resolved DV `ref()` values create or reuse **DV reference** alias cards and derivative links.
+* Same-model BV `ref()` values draw a dependency edge between business tables.
+* Business Vault Update runs SQL materialisations **after** SCD2/PIT (and after referenced BV tables) using topological order.
+
+== Execution notes
+
+* Create view/table runs in a generated pipeline (not the early DDL batch), so dependents of SCD2/PIT loads see populated tables when the SQL runs in the same update.
+* Full Jinja, multi-file dbt projects, and incremental merge strategies are out of scope.
+
+== Related
+
+* link:business-vault-overview.adoc[Business Vault overview]
+* link:business-vault-update-action.adoc[Business Vault Update action]
+* Issue foundation for automated multi-model execution (clear lineage via `ref` / `source`)

@@ -330,6 +330,15 @@ public class BusinessVaultConfiguration implements IDvTargetLoadConfiguration {
         variables, pitPipelineNamePrefix, DEFAULT_PIT_PIPELINE_NAME_PREFIX, targetTableName, null);
   }
 
+  public String buildBusinessTablePipelineName(IVariables variables, String targetTableName) {
+    return buildPipelineName(
+        variables,
+        businessTablePipelineNamePrefix,
+        DEFAULT_BUSINESS_TABLE_PIPELINE_NAME_PREFIX,
+        targetTableName,
+        null);
+  }
+
   private static String buildPipelineName(
       IVariables variables,
       String configuredPrefix,

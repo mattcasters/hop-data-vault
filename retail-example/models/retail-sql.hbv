@@ -1,0 +1,114 @@
+<!--
+
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<business-vault-model>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-sql.hbv</filename>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <description>SQL business tables: phase-1 historical validity (satb_*) over raw vault satellites</description>
+  <dataVaultModelPath>${PROJECT_HOME}/models/retail-360.hdv</dataVaultModelPath>
+  <configuration>
+    <targetDatabase>Vault</targetDatabase>
+    <scd2DefaultsFolder/>
+    <functionalTimestampField/>
+    <loadDateFieldFallback>x_load_ts</loadDateFieldFallback>
+    <validFromField>x_from_ts</validFromField>
+    <validToField>x_to_ts</validToField>
+    <targetTableBatchSize>1000</targetTableBatchSize>
+    <targetTableParallelCopies>1</targetTableParallelCopies>
+    <target_load_mode>Table Output</target_load_mode>
+    <bulkLoadStagingFolder>${java.io.tmpdir}/dv2/bulk/</bulkLoadStagingFolder>
+    <bulkLoadDelimiter>,</bulkLoadDelimiter>
+    <bulkLoadEnclosure>"</bulkLoadEnclosure>
+    <bulkLoadEncoding>UTF-8</bulkLoadEncoding>
+    <bulkLoadLocalFileRequired>N</bulkLoadLocalFileRequired>
+    <generatedPipelineFolder/>
+    <scd2PipelineNamePrefix>bv-scd2-</scd2PipelineNamePrefix>
+    <pitPipelineNamePrefix>bv-pit-</pitPipelineNamePrefix>
+    <businessTablePipelineNamePrefix>bv-biz-</businessTablePipelineNamePrefix>
+    <generatedWorkflowNamePrefix>BV Bulk Update - </generatedWorkflowNamePrefix>
+    <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
+    <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
+  </configuration>
+  <coaching>
+    <coaching_sources/>
+  </coaching>
+  <tables>
+    <table>
+      <sqlQuery>SELECT
+  product_hk,
+  x_load_ts AS x_from_ts,
+  COALESCE(
+    LEAD(x_load_ts) OVER (
+      PARTITION BY product_hk
+      ORDER BY x_load_ts
+    ),
+    TIMESTAMP '9999-12-31 23:59:59'
+  ) AS x_to_ts,
+  product_name,
+  category,
+  unit_price,
+  x_record_source,
+  x_load_ts
+FROM {{ ref('sat_product') }}</sqlQuery>
+      <referenceStyle>DBT</referenceStyle>
+      <materialization>VIEW</materialization>
+      <sql_sources/>
+      <sql_refs>
+        <sql_ref>
+          <objectName>sat_product</objectName>
+          <resolvedKind>DV_TABLE</resolvedKind>
+          <resolvedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-360.hdv</resolvedModelFilename>
+          <resolvedTableName>sat_product</resolvedTableName>
+          <resolvedDvTableType>SATELLITE</resolvedDvTableType>
+        </sql_ref>
+      </sql_refs>
+      <tableName>satb_product_hb</tableName>
+      <description>Phase 1 historical: add functional from/to validity per sat_product version (raw column names and types unchanged)</description>
+      <tableType>BUSINESS_TABLE</tableType>
+      <derivatives>
+        <derivative>
+          <dvTableName>sat_product</dvTableName>
+          <dvTableType>SATELLITE</dvTableType>
+        </derivative>
+      </derivatives>
+      <xloc>400</xloc>
+      <yloc>160</yloc>
+      <name>satb_product_hb</name>
+    </table>
+  </tables>
+  <notes>
+    <note>
+      <text>satb_* = phase 1 historical validity (from/to) over raw satellite versions.
+satc_* would rename columns and align data types next.
+One insert-only sat_product row becomes a closed interval; the latest stays open until 9999-12-31.</text>
+      <noteType>INFORMATION</noteType>
+      <xloc>48</xloc>
+      <yloc>48</yloc>
+      <width>32</width>
+      <height>32</height>
+    </note>
+  </notes>
+  <dv_references>
+    <dv_reference>
+      <dvTableName>sat_product</dvTableName>
+      <dvTableType>SATELLITE</dvTableType>
+      <xloc>96</xloc>
+      <yloc>160</yloc>
+    </dv_reference>
+  </dv_references>
+  <name>retail-sql</name>
+</business-vault-model>

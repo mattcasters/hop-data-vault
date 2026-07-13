@@ -515,11 +515,20 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       return;
     }
     byte[] beforeChange = captureUndoSnapshot();
-    boolean accepted =
-        table instanceof BvScd2Table scd2Table
-            ? new HopGuiBvScd2TableDialog(getShell(), scd2Table, model, dataVaultModel, variables)
-                .open()
-            : new HopGuiBvTableDialog(getShell(), table, model, dataVaultModel, variables).open();
+    boolean accepted;
+    if (table instanceof BvScd2Table scd2Table) {
+      accepted =
+          new HopGuiBvScd2TableDialog(getShell(), scd2Table, model, dataVaultModel, variables)
+              .open();
+    } else if (table instanceof BvBusinessTable businessTable) {
+      accepted =
+          new HopGuiBvBusinessTableDialog(
+                  getShell(), businessTable, model, dataVaultModel, variables)
+              .open();
+    } else {
+      accepted =
+          new HopGuiBvTableDialog(getShell(), table, model, dataVaultModel, variables).open();
+    }
     if (accepted) {
       commitDialogUndo(beforeChange);
       setChanged();
@@ -1572,8 +1581,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     try {
       List<PipelineMeta> pipelineMetas = new ArrayList<>();
       for (IBvTable table :
-          BusinessVaultUpdateExecutionSupport.orderTablesForPipelineExecution(model.getTables())) {
-        if (!(table instanceof BvScd2Table || table instanceof BvPitTable)) {
+          BusinessVaultUpdateExecutionSupport.orderTablesForPipelineExecution(
+              model.getTables(), model, dataVaultModel)) {
+        if (!(table instanceof BvScd2Table
+            || table instanceof BvPitTable
+            || table instanceof BvBusinessTable)) {
           continue;
         }
         if (!table.isSelected() && nrSelectedBvTables() > 0) {
