@@ -187,21 +187,9 @@ class BvScd2PipelineSupportTest {
   }
 
   @Test
-  void buildIncrementalSatelliteFilterSqlUsesMaxWatermarkOnTarget() {
-    DatabaseMeta databaseMeta = new TestDatabaseMeta("Vault");
-
-    String sql =
-        BvScd2PipelineSupport.buildIncrementalSatelliteFilterSql(
-            databaseMeta,
-            new Variables(),
-            "customer_360_bv",
-            "x_load_ts",
-            "x_load_ts");
-
-    assertTrue(
-        sql.contains(
-            "x_load_ts > COALESCE((SELECT MAX(x_load_ts) FROM customer_360_bv)"));
-    assertTrue(sql.contains(BvScd2PipelineSupport.DEFAULT_INCREMENTAL_SENTINEL));
+  void buildIncrementalSatelliteFilterSqlUsesPositionalParameter() {
+    assertEquals(
+        "x_load_ts > ?", BvScd2PipelineSupport.buildIncrementalSatelliteFilterSql("x_load_ts"));
   }
 
   @Test
@@ -211,19 +199,36 @@ class BvScd2PipelineSupportTest {
     String sql = BvScd2PipelineSupport.buildSatelliteTableInputSql(ctx);
 
     assertTrue(sql.contains(" WHERE "));
-    assertTrue(sql.contains("x_load_ts > COALESCE((SELECT MAX(x_load_ts) FROM bv_customer_scd2)"));
-    assertTrue(sql.contains(BvScd2PipelineSupport.DEFAULT_INCREMENTAL_SENTINEL));
+    // Positional ? — never embeds BV tables or dialect timestamp literals in DV SQL.
+    assertTrue(sql.contains("x_load_ts > ?"));
+    assertFalse(sql.contains("TIMESTAMP '"));
+    assertFalse(sql.contains("CAST("));
+    assertFalse(sql.contains("FROM bv_customer_scd2"));
     assertTrue(sql.indexOf(" WHERE ") < sql.indexOf(" ORDER BY "));
   }
 
   @Test
-  void buildLegTableInputSqlUsesCustomIncrementalWatermarkField() throws Exception {
+  void buildLegTableInputSqlCrossDbDoesNotReferenceBvTable() throws Exception {
     Scd2BuildContext ctx =
-        singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, "event_ts");
+        singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null, "Vault", "BusinessVault");
 
     String sql = BvScd2PipelineSupport.buildSatelliteTableInputSql(ctx);
 
-    assertTrue(sql.contains("x_load_ts > COALESCE((SELECT MAX(event_ts) FROM bv_customer_scd2)"));
+    assertTrue(sql.contains("FROM sat_customer"));
+    assertTrue(sql.contains("x_load_ts > ?"));
+    assertFalse(sql.contains("bv_customer_scd2"));
+    assertFalse(sql.contains("TIMESTAMP '"));
+  }
+
+  @Test
+  void buildIncrementalWatermarkSqlUsesCustomWatermarkField() throws Exception {
+    Scd2BuildContext ctx = singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, "event_ts");
+
+    String sql = BvScd2PipelineSupport.buildIncrementalWatermarkSql(ctx);
+
+    assertTrue(sql.contains("SELECT MAX(event_ts)"));
+    assertTrue(sql.contains("FROM bv_customer_scd2"));
+    assertFalse(sql.contains("TIMESTAMP '"));
   }
 
   @Test
@@ -233,10 +238,25 @@ class BvScd2PipelineSupportTest {
     String sql = BvScd2PipelineSupport.buildOpenTargetTableInputSql(ctx);
 
     assertTrue(sql.contains("FROM bv_customer_scd2"));
-    assertTrue(sql.contains("valid_to = TIMESTAMP '9999-12-31 23:59:59'"));
+    assertTrue(sql.contains("valid_to = ?"));
     assertTrue(sql.contains("customer_hk IN ("));
     assertTrue(sql.contains("FROM sat_customer WHERE"));
-    assertTrue(sql.contains("x_load_ts > COALESCE((SELECT MAX(x_load_ts) FROM bv_customer_scd2)"));
+    assertTrue(sql.contains("x_load_ts > ?"));
+    assertFalse(sql.contains("TIMESTAMP '"));
+    assertTrue(sql.contains("ORDER BY customer_hk, x_load_ts"));
+  }
+
+  @Test
+  void buildOpenTargetTableInputSqlCrossDbOmitsDeltaHashKeySubquery() throws Exception {
+    Scd2BuildContext ctx =
+        singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null, "Vault", "BusinessVault");
+
+    String sql = BvScd2PipelineSupport.buildOpenTargetTableInputSql(ctx);
+
+    assertTrue(sql.contains("FROM bv_customer_scd2"));
+    assertTrue(sql.contains("valid_to = ?"));
+    assertFalse(sql.contains("customer_hk IN ("));
+    assertFalse(sql.contains("sat_customer"));
     assertTrue(sql.contains("ORDER BY customer_hk, x_load_ts"));
   }
 
@@ -248,7 +268,7 @@ class BvScd2PipelineSupportTest {
 
     assertTrue(sql.contains("SELECT customer_hk, valid_from AS _close_lookup_valid_from"));
     assertTrue(sql.contains("FROM bv_customer_scd2"));
-    assertTrue(sql.contains("valid_to = TIMESTAMP '9999-12-31 23:59:59'"));
+    assertTrue(sql.contains("valid_to = ?"));
     assertTrue(sql.contains("customer_hk IN ("));
     assertTrue(sql.contains("ORDER BY customer_hk"));
     assertFalse(sql.contains("name"));
@@ -256,15 +276,63 @@ class BvScd2PipelineSupportTest {
   }
 
   @Test
-  void buildIncrementalWatermarkSqlUsesCoalesceMaxFromTarget() throws Exception {
+  void buildOpenTargetCloseLookupSqlCrossDbOmitsDeltaHashKeySubquery() throws Exception {
+    Scd2BuildContext ctx =
+        singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null, "Vault", "BusinessVault");
+
+    String sql = BvScd2PipelineSupport.buildOpenTargetCloseLookupSql(ctx);
+
+    assertTrue(sql.contains("FROM bv_customer_scd2"));
+    assertTrue(sql.contains("valid_to = ?"));
+    assertFalse(sql.contains("customer_hk IN ("));
+    assertFalse(sql.contains("sat_customer"));
+  }
+
+  @Test
+  void buildIncrementalWatermarkSqlUsesMaxFromTarget() throws Exception {
     Scd2BuildContext ctx = singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null);
 
     String sql = BvScd2PipelineSupport.buildIncrementalWatermarkSql(ctx);
 
-    assertTrue(sql.contains("SELECT COALESCE(MAX(x_load_ts)"));
+    assertTrue(sql.contains("SELECT MAX(x_load_ts)"));
     assertTrue(sql.contains("FROM bv_customer_scd2"));
-    assertTrue(sql.contains(BvScd2PipelineSupport.DEFAULT_INCREMENTAL_SENTINEL));
     assertTrue(sql.contains(BvScd2PipelineSupport.INCREMENTAL_WATERMARK_FIELD));
+    assertFalse(sql.contains("TIMESTAMP '"));
+  }
+
+  @Test
+  void incrementalPipelineWiresWatermarkParamIntoSatelliteTableInput() throws Exception {
+    Scd2BuildContext ctx = singleSatelliteContext(BvScd2BuildMode.INCREMENTAL, null);
+
+    PipelineMeta pipelineMeta = BvScd2PipelineSupport.generatePipeline(ctx);
+
+    assertTrue(
+        pipelineMeta.getTransforms().stream()
+            .anyMatch(t -> BvScd2PipelineSupport.PARAM_WATERMARK_TRANSFORM.equals(t.getName())));
+    assertTrue(
+        pipelineMeta.getTransforms().stream()
+            .anyMatch(
+                t -> BvScd2PipelineSupport.PARAM_OPEN_ROW_FILTER_TRANSFORM.equals(t.getName())));
+
+    TableInputMeta satInput =
+        (TableInputMeta)
+            pipelineMeta.getTransforms().stream()
+                .filter(t -> "read_sat_customer".equals(t.getName()))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+    assertEquals(BvScd2PipelineSupport.PARAM_WATERMARK_TRANSFORM, satInput.getLookup());
+    assertTrue(satInput.getSql().contains("x_load_ts > ?"));
+
+    TableInputMeta openInput =
+        (TableInputMeta)
+            pipelineMeta.getTransforms().stream()
+                .filter(t -> "read_open_bv_customer_scd2".equals(t.getName()))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+    assertEquals(BvScd2PipelineSupport.PARAM_OPEN_ROW_FILTER_TRANSFORM, openInput.getLookup());
+    assertTrue(openInput.getSql().contains("valid_to = ?"));
   }
 
   @Test
@@ -300,7 +368,8 @@ class BvScd2PipelineSupportTest {
     PipelineMeta pipelineMeta = BvScd2PipelineSupport.generatePipeline(ctx);
     List<TransformMeta> transforms = pipelineMeta.getTransforms();
 
-    assertEquals(13, transforms.size());
+    // +2 param Generate Rows (watermark, open-row filter) vs full-rebuild chain
+    assertEquals(15, transforms.size());
     assertEquals(3, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
     assertTrue(
         transforms.stream().anyMatch(t -> "read_open_bv_customer_scd2".equals(t.getName())));
@@ -316,6 +385,22 @@ class BvScd2PipelineSupportTest {
                 t ->
                     ("set_" + BvScd2PipelineSupport.INCREMENTAL_WATERMARK_FIELD)
                         .equals(t.getName())));
+    assertTrue(
+        transforms.stream()
+            .anyMatch(t -> BvScd2PipelineSupport.PARAM_WATERMARK_TRANSFORM.equals(t.getName())));
+    assertTrue(
+        transforms.stream()
+            .anyMatch(
+                t -> BvScd2PipelineSupport.PARAM_OPEN_ROW_FILTER_TRANSFORM.equals(t.getName())));
+    // Parameter sources must be RowGenerator (start transform), not Constant alone
+    assertTrue(
+        transforms.stream()
+            .filter(t -> BvScd2PipelineSupport.PARAM_WATERMARK_TRANSFORM.equals(t.getName()))
+            .allMatch(
+                t ->
+                    t.getTransform()
+                        instanceof
+                        org.apache.hop.pipeline.transforms.rowgenerator.RowGeneratorMeta));
     assertEquals(1, transforms.stream().filter(t -> t.getTransform() instanceof SortedSchemaMergeMeta).count());
     assertEquals(1, transforms.stream().filter(t -> t.getTransform() instanceof MergeJoinMeta).count());
     assertEquals(0, transforms.stream().filter(t -> t.getTransform() instanceof SortRowsMeta).count());
@@ -464,8 +549,11 @@ class BvScd2PipelineSupportTest {
     String customerSql = BvScd2PipelineSupport.buildLegTableInputSql(ctx, ctx.legs.get(0));
     String demoSql = BvScd2PipelineSupport.buildLegTableInputSql(ctx, ctx.legs.get(1));
 
-    assertTrue(customerSql.contains("x_load_ts > COALESCE((SELECT MAX(x_load_ts) FROM customer_bv)"));
-    assertTrue(demoSql.contains("effective_ts > COALESCE((SELECT MAX(x_load_ts) FROM customer_bv)"));
+    assertTrue(customerSql.contains("x_load_ts > ?"));
+    assertTrue(demoSql.contains("effective_ts > ?"));
+    assertFalse(customerSql.contains("FROM customer_bv"));
+    assertFalse(demoSql.contains("FROM customer_bv"));
+    assertFalse(customerSql.contains("TIMESTAMP '"));
   }
 
   @Test
@@ -772,9 +860,19 @@ class BvScd2PipelineSupportTest {
 
   private static Scd2BuildContext singleSatelliteContext(
       BvScd2BuildMode buildMode, String incrementalWatermarkField) throws Exception {
+    return singleSatelliteContext(buildMode, incrementalWatermarkField, "Vault", "Vault");
+  }
+
+  private static Scd2BuildContext singleSatelliteContext(
+      BvScd2BuildMode buildMode,
+      String incrementalWatermarkField,
+      String sourceDbName,
+      String targetDbName)
+      throws Exception {
     DataVaultModel dvModel = loadVault1Model();
     DvSatellite satellite = (DvSatellite) dvModel.findTable("sat_customer");
-    DatabaseMeta databaseMeta = new TestDatabaseMeta("Vault");
+    DatabaseMeta sourceDatabaseMeta = new TestDatabaseMeta(sourceDbName);
+    DatabaseMeta targetDatabaseMeta = new TestDatabaseMeta(targetDbName);
 
     BvScd2Table scd2Table = new BvScd2Table();
     scd2Table.setName("bv_customer_scd2");
@@ -785,7 +883,7 @@ class BvScd2PipelineSupportTest {
     scd2Table.getDerivatives().add(new BvDerivativeRef("sat_customer", DvTableType.SATELLITE));
 
     BusinessVaultModel bvModel = new BusinessVaultModel();
-    bvModel.getConfigurationOrDefault().setTargetDatabase("Vault");
+    bvModel.getConfigurationOrDefault().setTargetDatabase(targetDbName);
 
     return new Scd2BuildContext(
         scd2Table,
@@ -796,10 +894,10 @@ class BvScd2PipelineSupportTest {
         dvModel.getConfigurationOrDefault(),
         null,
         new Variables(),
-        databaseMeta,
-        "Vault",
-        databaseMeta,
-        "Vault",
+        sourceDatabaseMeta,
+        sourceDbName,
+        targetDatabaseMeta,
+        targetDbName,
         "sat_customer",
         "bv_customer_scd2",
         "bv-scd2-bv_customer_scd2-sat_customer",

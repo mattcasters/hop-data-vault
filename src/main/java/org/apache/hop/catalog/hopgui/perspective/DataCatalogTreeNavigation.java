@@ -20,6 +20,7 @@ package org.apache.hop.catalog.hopgui.perspective;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.apache.hop.ui.core.widget.TreeMemory;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TreeItem;
@@ -36,6 +37,32 @@ public final class DataCatalogTreeNavigation {
     }
     collectRecordItems(parent, recordKeys, matches);
     return matches;
+  }
+
+  /**
+   * Expands every ancestor of {@code item} so a programmatic selection is visible. When {@code
+   * treeMemoryKey} is provided, expanded state is persisted like a user expand.
+   */
+  public static void expandAncestors(
+      TreeItem item, String treeMemoryKey, Set<String> seededPaths) {
+    if (item == null || item.isDisposed()) {
+      return;
+    }
+    TreeItem parent = item.getParentItem();
+    while (parent != null && !parent.isDisposed()) {
+      if (!parent.getExpanded()) {
+        parent.setExpanded(true);
+        if (treeMemoryKey != null) {
+          if (seededPaths != null) {
+            DataCatalogTreeMemorySupport.recordExpandedState(
+                parent, treeMemoryKey, true, seededPaths);
+          } else {
+            TreeMemory.getInstance().storeExpanded(treeMemoryKey, parent, true);
+          }
+        }
+      }
+      parent = parent.getParentItem();
+    }
   }
 
   private static void collectRecordItems(

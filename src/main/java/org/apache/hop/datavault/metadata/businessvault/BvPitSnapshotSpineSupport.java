@@ -26,6 +26,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
@@ -186,6 +188,35 @@ public final class BvPitSnapshotSpineSupport {
       case MYSQL, SINGLESTORE -> "CAST('" + value + "' AS DATETIME)";
       case POSTGRES -> "TIMESTAMP '" + value + "'";
     };
+  }
+
+  /**
+   * Postgres/ANSI {@code TIMESTAMP '…'} literals are invalid on SQL Server and MySQL/SingleStore.
+   * Rewrite them to the dialect form from {@link #timestampLiteral(DatabaseMeta, String)} so
+   * authoring SQL (BV views/tables) and fixtures can stay portable.
+   *
+   * <p>Only bare {@code TIMESTAMP 'value'} forms are rewritten (case-insensitive keyword, optional
+   * whitespace). Already dialect-specific casts are left unchanged.
+   */
+  private static final Pattern ANSI_TIMESTAMP_LITERAL =
+      Pattern.compile("(?i)\\bTIMESTAMP\\s+'([^']*)'");
+
+  public static String normalizeAnsiTimestampLiterals(DatabaseMeta databaseMeta, String sql) {
+    if (Utils.isEmpty(sql) || databaseMeta == null) {
+      return sql;
+    }
+    // Postgres authoring form is already the target dialect — avoid no-op churn.
+    if (resolveDialect(databaseMeta) == PitSqlDialect.POSTGRES) {
+      return sql;
+    }
+    Matcher matcher = ANSI_TIMESTAMP_LITERAL.matcher(sql);
+    StringBuilder out = new StringBuilder();
+    while (matcher.find()) {
+      String replacement = Matcher.quoteReplacement(timestampLiteral(databaseMeta, matcher.group(1)));
+      matcher.appendReplacement(out, replacement);
+    }
+    matcher.appendTail(out);
+    return out.toString();
   }
 
   public static String dateLiteral(DatabaseMeta databaseMeta, String yyyyMmDd) {
@@ -440,23 +471,34 @@ public final class BvPitSnapshotSpineSupport {
         + ")";
   }
 
-  public static String buildIncrementalSnapshotFilterSql(
+  /**
+   * Incremental snapshot filter using a positional JDBC parameter for the watermark. Bound at
+   * runtime from a preceding Constant transform — dialect-neutral and safe across separate DV/BV
+   * databases.
+   *
+   * @param snapshotColumnRef outer SQL column/expression compared to the watermark
+   */
+  public static String buildIncrementalSnapshotFilterSql(String snapshotColumnRef) {
+    return snapshotColumnRef + " > ?";
+  }
+
+  /**
+   * BV-only query used at pipeline generation to resolve the incremental snapshot watermark.
+   * Returns {@code MAX(snapshot_date)} only; null results fall back to the default sentinel in
+   * Java so the SQL stays free of dialect-specific timestamp literals.
+   */
+  public static String buildIncrementalSnapshotWatermarkSql(
       DatabaseMeta bvDatabaseMeta,
       IVariables variables,
       String pitTableName,
-      String snapshotDateField,
-      String snapshotColumnRef) {
+      String snapshotDateField) {
     String quotedTable =
         bvDatabaseMeta.getQuotedSchemaTableCombination(variables, null, pitTableName);
     String quotedSnapshotField = bvDatabaseMeta.quoteField(snapshotDateField);
-    return snapshotColumnRef
-        + " > COALESCE((SELECT MAX("
+    return "SELECT MAX("
         + quotedSnapshotField
-        + ") FROM "
-        + quotedTable
-        + "), "
-        + timestampLiteral(bvDatabaseMeta, DEFAULT_INCREMENTAL_SENTINEL)
-        + ")";
+        + ") AS incremental_snapshot_watermark FROM "
+        + quotedTable;
   }
 
   static LocalDateTime anchorSnapshot(LocalDate day, BvPitSnapshotAnchor anchor) {

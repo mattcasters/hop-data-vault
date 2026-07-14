@@ -285,19 +285,48 @@ class BvPitSnapshotSpineSupportTest {
   }
 
   @Test
-  void buildIncrementalSnapshotFilterSqlUsesMaxSnapshotDate() {
+  void buildIncrementalSnapshotFilterSqlUsesPositionalParameter() {
+    assertEquals(
+        "snapshot_spine.snapshot_date > ?",
+        BvPitSnapshotSpineSupport.buildIncrementalSnapshotFilterSql(
+            "snapshot_spine.snapshot_date"));
+  }
+
+  @Test
+  void normalizeAnsiTimestampLiteralsRewritesForSqlServer() {
+    DatabaseMeta sqlServer = new TestDatabaseMeta("Vault", "MSSQLNATIVE");
+    String sql =
+        "COALESCE(LEAD(x) OVER (ORDER BY t), TIMESTAMP '9999-12-31 23:59:59')";
+
+    String normalized =
+        BvPitSnapshotSpineSupport.normalizeAnsiTimestampLiterals(sqlServer, sql);
+
+    assertEquals(
+        "COALESCE(LEAD(x) OVER (ORDER BY t), CAST('9999-12-31 23:59:59' AS datetime2))",
+        normalized);
+  }
+
+  @Test
+  void normalizeAnsiTimestampLiteralsLeavesPostgresUnchanged() {
+    DatabaseMeta postgres = new TestDatabaseMeta("Vault", "POSTGRESQL");
+    String sql = "SELECT TIMESTAMP '1900-01-01 00:00:00'";
+
+    assertEquals(
+        sql, BvPitSnapshotSpineSupport.normalizeAnsiTimestampLiterals(postgres, sql));
+  }
+
+  @Test
+  void buildIncrementalSnapshotWatermarkSqlUsesMaxOnBvTable() {
     DatabaseMeta databaseMeta = new TestDatabaseMeta("BusinessVault");
 
     String sql =
-        BvPitSnapshotSpineSupport.buildIncrementalSnapshotFilterSql(
-            databaseMeta,
-            new Variables(),
-            "pit_customer",
-            "snapshot_date",
-            "snapshot_spine.snapshot_date");
+        BvPitSnapshotSpineSupport.buildIncrementalSnapshotWatermarkSql(
+            databaseMeta, new Variables(), "pit_customer", "snapshot_date");
 
-    assertTrue(sql.contains("snapshot_spine.snapshot_date > COALESCE((SELECT MAX(snapshot_date) FROM pit_customer)"));
-    assertTrue(sql.contains(BvPitSnapshotSpineSupport.DEFAULT_INCREMENTAL_SENTINEL));
+    assertTrue(sql.contains("SELECT MAX(snapshot_date)"));
+    assertTrue(sql.contains("FROM pit_customer"));
+    assertFalse(sql.contains("TIMESTAMP '"));
+    assertFalse(sql.contains("COALESCE"));
   }
 
   @Test

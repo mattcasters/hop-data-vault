@@ -18,11 +18,18 @@
 
 package org.apache.hop.datavault.metadata.businessvault;
 
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.List;
 import org.apache.hop.core.DbCache;
+import org.apache.hop.core.RowMetaAndData;
+import org.apache.hop.core.database.Database;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.Point;
+import org.apache.hop.core.logging.ILoggingObject;
+import org.apache.hop.core.logging.LoggingObjectType;
+import org.apache.hop.core.logging.SimpleLoggingObject;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.util.Utils;
@@ -40,6 +47,8 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.pipeline.PipelineHopMeta;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
+import org.apache.hop.pipeline.transforms.rowgenerator.GeneratorField;
+import org.apache.hop.pipeline.transforms.rowgenerator.RowGeneratorMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 /** Generates PIT build pipelines from DV hub/satellite history. */
 public final class BvPitPipelineSupport {
@@ -48,6 +57,12 @@ public final class BvPitPipelineSupport {
 
   private static final Point LOCATION_TABLE_INPUT = new Point(160, 160);
   private static final Point LOCATION_TABLE_OUTPUT = new Point(400, 160);
+  private static final Point LOCATION_WATERMARK_PARAM = new Point(0, 160);
+
+  /** Constant that feeds the PIT Table Input snapshot watermark {@code ?} parameter. */
+  public static final String PARAM_SNAPSHOT_WATERMARK_TRANSFORM = "param_snapshot_watermark";
+
+  static final String SNAPSHOT_WATERMARK_FIELD = "_snapshot_watermark";
 
   private BvPitPipelineSupport() {}
 
@@ -218,13 +233,7 @@ public final class BvPitPipelineSupport {
       sql.append(" AS ");
       sql.append(ctx.sourceDatabaseMeta().quoteField(ctx.satellitePointerColumnName()));
       sql.append(" FROM hub_keys hk CROSS JOIN snapshot_spine spine WHERE ");
-      sql.append(
-          BvPitSnapshotSpineSupport.buildIncrementalSnapshotFilterSql(
-              ctx.targetDatabaseMeta(),
-              ctx.variables(),
-              ctx.bvTargetTableName(),
-              ctx.snapshotDateField(),
-              "spine.snapshot_date"));
+      sql.append(buildIncrementalSnapshotFilter(ctx));
     }
 
     return sql.toString();
@@ -242,13 +251,7 @@ public final class BvPitPipelineSupport {
     String quotedSatelliteTable =
         ctx.sourceDatabaseMeta()
             .getQuotedSchemaTableCombination(ctx.variables(), null, ctx.satelliteTableName());
-    String incremental =
-        BvPitSnapshotSpineSupport.buildIncrementalSnapshotFilterSql(
-            ctx.targetDatabaseMeta(),
-            ctx.variables(),
-            ctx.bvTargetTableName(),
-            ctx.snapshotDateField(),
-            "spine.snapshot_date");
+    String incremental = buildIncrementalSnapshotFilter(ctx);
 
     return "SELECT hk."
         + quotedHashKey
@@ -288,7 +291,9 @@ public final class BvPitPipelineSupport {
         ctx.pitTable().getName(),
         ctx.bvTargetTableName());
 
-    TransformMeta tableInput = addTableInput(ctx, pipelineMeta);
+    TransformMeta watermarkParam =
+        addSnapshotWatermarkParamConstant(ctx, pipelineMeta, LOCATION_WATERMARK_PARAM);
+    TransformMeta tableInput = addTableInput(ctx, pipelineMeta, watermarkParam);
     if (tableInput != null) {
       GeneratedPipelineMetadataSupport.stampSourceRead(tableInput, ctx.sourceDbName());
     }
@@ -326,16 +331,57 @@ public final class BvPitPipelineSupport {
     }
   }
 
-  private static TransformMeta addTableInput(PitBuildContext ctx, PipelineMeta pipelineMeta)
+  /**
+   * Generate Rows (limit 1) with the snapshot watermark. Must not use Constant alone — Constant
+   * only enriches incoming rows and produces nothing without a predecessor.
+   */
+  private static TransformMeta addSnapshotWatermarkParamConstant(
+      PitBuildContext ctx, PipelineMeta pipelineMeta, Point location) {
+    RowGeneratorMeta rowGeneratorMeta = new RowGeneratorMeta();
+    rowGeneratorMeta.setRowLimit("1");
+    rowGeneratorMeta.setNeverEnding(false);
+    rowGeneratorMeta
+        .getFields()
+        .add(
+            new GeneratorField(
+                SNAPSHOT_WATERMARK_FIELD,
+                "Timestamp",
+                "yyyy-MM-dd HH:mm:ss",
+                -1,
+                -1,
+                null,
+                null,
+                null,
+                resolveIncrementalSnapshotWatermarkValue(ctx),
+                false));
+
+    TransformMeta tm =
+        new TransformMeta("RowGenerator", PARAM_SNAPSHOT_WATERMARK_TRANSFORM, rowGeneratorMeta);
+    tm.setLocation(location);
+    tm.setDistributes(false);
+    pipelineMeta.addTransform(tm);
+    return tm;
+  }
+
+  private static TransformMeta addTableInput(
+      PitBuildContext ctx, PipelineMeta pipelineMeta, TransformMeta watermarkParam)
       throws HopException {
     TableInputMeta tableInputMeta = new TableInputMeta();
     tableInputMeta.setConnection(ctx.sourceDbName());
     DvSqlSupport.assignDisplaySql(tableInputMeta, buildPitTableInputSql(ctx));
+    if (watermarkParam != null) {
+      tableInputMeta.setLookup(watermarkParam.getName());
+    }
 
     TransformMeta tm =
         new TransformMeta("TableInput", "read_" + ctx.bvTargetTableName(), tableInputMeta);
     tm.setLocation(LOCATION_TABLE_INPUT);
     pipelineMeta.addTransform(tm);
+    if (watermarkParam != null) {
+      watermarkParam.setDistributes(false);
+      tableInputMeta.searchInfoAndTargetTransforms(pipelineMeta.getTransforms());
+      pipelineMeta.addPipelineHop(new PipelineHopMeta(watermarkParam, tm));
+    }
     return tm;
   }
 
@@ -366,6 +412,60 @@ public final class BvPitPipelineSupport {
             java.util.Collections.emptySet(),
             false);
     return result.transformMeta;
+  }
+
+  private static String buildIncrementalSnapshotFilter(PitBuildContext ctx) {
+    // Positional ? bound from param_snapshot_watermark Constant (dialect-neutral).
+    return BvPitSnapshotSpineSupport.buildIncrementalSnapshotFilterSql("spine.snapshot_date");
+  }
+
+  /**
+   * Queries the BV PIT table for {@code MAX(snapshot_date)} at pipeline generation time. Falls
+   * back to the default sentinel when the table is missing or empty (null handling in Java keeps
+   * SQL free of dialect-specific timestamp literals).
+   */
+  static String resolveIncrementalSnapshotWatermarkValue(PitBuildContext ctx) {
+    if (ctx == null
+        || ctx.targetDatabaseMeta() == null
+        || Utils.isEmpty(ctx.targetDbName())
+        || Utils.isEmpty(ctx.bvTargetTableName())) {
+      return BvPitSnapshotSpineSupport.DEFAULT_INCREMENTAL_SENTINEL;
+    }
+
+    String sql =
+        BvPitSnapshotSpineSupport.buildIncrementalSnapshotWatermarkSql(
+            ctx.targetDatabaseMeta(),
+            ctx.variables(),
+            ctx.bvTargetTableName(),
+            ctx.snapshotDateField());
+    ILoggingObject loggingObject =
+        new SimpleLoggingObject(
+            BvPitPipelineSupport.class.getSimpleName() + ".resolveIncrementalSnapshotWatermarkValue",
+            LoggingObjectType.GENERAL,
+            null);
+    try (Database db = new Database(loggingObject, ctx.variables(), ctx.targetDatabaseMeta())) {
+      db.connect();
+      RowMetaAndData row = db.getOneRow(sql);
+      if (row == null
+          || row.getData() == null
+          || row.getData().length == 0
+          || row.getData()[0] == null) {
+        return BvPitSnapshotSpineSupport.DEFAULT_INCREMENTAL_SENTINEL;
+      }
+      Object value = row.getData()[0];
+      if (value instanceof Timestamp timestamp) {
+        return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(timestamp);
+      }
+      if (value instanceof java.util.Date date) {
+        return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(date);
+      }
+      String text = String.valueOf(value);
+      return Utils.isEmpty(text)
+          ? BvPitSnapshotSpineSupport.DEFAULT_INCREMENTAL_SENTINEL
+          : text;
+    } catch (Exception e) {
+      return BvPitSnapshotSpineSupport.DEFAULT_INCREMENTAL_SENTINEL;
+    }
   }
 
   private static String buildSatellitePointerSubquery(PitBuildContext ctx) {

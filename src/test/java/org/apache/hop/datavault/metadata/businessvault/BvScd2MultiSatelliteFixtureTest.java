@@ -40,6 +40,7 @@ import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
 import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta;
+import org.apache.hop.pipeline.transforms.rowgenerator.RowGeneratorMeta;
 import org.apache.hop.pipeline.transforms.selectvalues.SelectValuesMeta;
 import org.apache.hop.pipeline.transforms.tableinput.TableInputMeta;
 import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
@@ -177,7 +178,8 @@ class BvScd2MultiSatelliteFixtureTest {
 
     PipelineMeta pipelineMeta = pipelines.get(0);
     List<TransformMeta> transforms = pipelineMeta.getTransforms();
-    assertEquals(28, transforms.size());
+    // +2 param Generate Rows (watermark, open-row filter)
+    assertEquals(30, transforms.size());
     assertEquals(6, transforms.stream().filter(t -> t.getTransform() instanceof TableInputMeta).count());
     assertTrue(
         transforms.stream()
@@ -185,6 +187,13 @@ class BvScd2MultiSatelliteFixtureTest {
                 t ->
                     ("set_" + BvScd2PipelineSupport.INCREMENTAL_WATERMARK_FIELD)
                         .equals(t.getName())));
+    assertTrue(
+        transforms.stream()
+            .anyMatch(t -> BvScd2PipelineSupport.PARAM_WATERMARK_TRANSFORM.equals(t.getName())));
+    assertTrue(
+        transforms.stream()
+            .anyMatch(
+                t -> BvScd2PipelineSupport.PARAM_OPEN_ROW_FILTER_TRANSFORM.equals(t.getName())));
     assertTrue(
         transforms.stream().anyMatch(t -> "read_open_customer_360_bv".equals(t.getName())));
     assertTrue(
@@ -199,15 +208,40 @@ class BvScd2MultiSatelliteFixtureTest {
             metadataProvider, new Variables(), bvModel, dvModel, scd2Table);
     String openReadSql = BvScd2PipelineSupport.buildOpenTargetTableInputSql(buildContext);
     assertTrue(openReadSql.contains("FROM customer_360_bv"));
-    assertTrue(openReadSql.contains("x_to_ts = TIMESTAMP '9999-12-31 23:59:59'"));
+    assertTrue(openReadSql.contains("x_to_ts = ?"));
     assertTrue(openReadSql.contains("customer_hk IN ("));
     assertTrue(openReadSql.contains("FROM sat_customer_demo WHERE"));
     assertTrue(openReadSql.contains("UNION"));
     assertTrue(openReadSql.contains("FROM sat_customer_prefs WHERE"));
+    // 1 open-end ? + 1 watermark ? per satellite leg (JDBC does not reuse binds)
+    int openReadPlaceholders = openReadSql.length() - openReadSql.replace("?", "").length();
+    assertEquals(1 + buildContext.legs.size(), openReadPlaceholders);
+    assertEquals(
+        buildContext.legs.size(),
+        BvScd2PipelineSupport.countDeltaHashKeyWatermarkPlaceholders(buildContext));
+
+    RowGeneratorMeta openRowFilter =
+        (RowGeneratorMeta)
+            transforms.stream()
+                .filter(
+                    t ->
+                        BvScd2PipelineSupport.PARAM_OPEN_ROW_FILTER_TRANSFORM.equals(
+                            t.getName()))
+                .findFirst()
+                .orElseThrow()
+                .getTransform();
+    assertEquals(
+        openReadPlaceholders,
+        openRowFilter.getFields().size(),
+        "param_open_row_filter field count must match open-target ? placeholders");
+
     String closeLookupSql = BvScd2PipelineSupport.buildOpenTargetCloseLookupSql(buildContext);
     assertTrue(closeLookupSql.contains("SELECT customer_hk, x_from_ts AS _close_lookup_valid_from"));
     assertTrue(closeLookupSql.contains("FROM customer_360_bv"));
+    assertTrue(closeLookupSql.contains(" = ?"));
     assertFalse(closeLookupSql.contains("cust_email"));
+    int closePlaceholders = closeLookupSql.length() - closeLookupSql.replace("?", "").length();
+    assertEquals(openReadPlaceholders, closePlaceholders);
     TransformMeta openReadTransform =
         transforms.stream()
             .filter(t -> "read_open_customer_360_bv".equals(t.getName()))

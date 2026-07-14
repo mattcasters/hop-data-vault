@@ -130,18 +130,19 @@ When range end is `NOW_MINUS_HORIZON`, the effective end date is `today − hori
 
 === Incremental loads
 
-When the PIT target table already exists, the build pipeline appends only rows where `snapshot_date` is greater than `MAX(snapshot_date)` in the target table. Re-runs are idempotent for dates already loaded.
+When the PIT target table already exists, the build pipeline appends only rows where `snapshot_date` is greater than the watermark from the BV table. At pipeline generation the plugin queries the **Business Vault** connection for `MAX(snapshot_date)` (null → sentinel in Java), puts the value in a `param_snapshot_watermark` **Generate Rows** transform (limit 1), and binds it into the DV-connected `TableInput` as a JDBC positional parameter (`spine.snapshot_date > ?`). That keeps DV and BV databases separated and SQL dialect-neutral. Re-runs are idempotent for dates already loaded.
 
 == What gets generated
 
 For each PIT table the plugin builds a Hop pipeline that:
 
-1. Resolves snapshot spine bounds from the schedule (and optional MIN load queries on DV tables)
-2. Generates daily snapshot timestamps via Postgres `generate_series` (end-of-day or start-of-day per anchor)
-3. Cross-joins hub distinct hash keys with the snapshot spine
-4. For each `(hash_key, snapshot_date)`, selects the latest satellite load timestamp `≤ snapshot_date` (insert-only satellites)
-5. Filters to snapshot dates not yet present in the PIT table (incremental append)
-6. Loads the Business Vault target table with `TableOutput` (append mode)
+1. Resolves the incremental watermark against the BV PIT table (when present)
+2. Resolves snapshot spine bounds from the schedule (and optional MIN load queries on DV tables)
+3. Generates daily snapshot timestamps via Postgres `generate_series` (end-of-day or start-of-day per anchor)
+4. Cross-joins hub distinct hash keys with the snapshot spine
+5. For each `(hash_key, snapshot_date)`, selects the latest satellite load timestamp `≤ snapshot_date` (insert-only satellites)
+6. Filters to snapshot dates after the resolved watermark (incremental append)
+7. Loads the Business Vault target table with `TableOutput` (append mode)
 
 The pipeline is a single `TableInput` (SQL on the **Data Vault** connection) → `TableOutput` (on the **Business Vault** connection).
 

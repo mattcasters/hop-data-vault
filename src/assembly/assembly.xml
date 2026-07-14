@@ -91,16 +91,17 @@
                 <include>org.apache.hop:hop-transform-ifnull:jar</include>
                 <include>org.apache.hop:hop-transform-insertupdate:jar</include>
                 <include>org.apache.hop:hop-transform-languagemodelchat:jar</include>
+                <include>org.apache.hop:hop-transform-mergejoin:jar</include>
                 <include>org.apache.hop:hop-transform-mergerows:jar</include>
                 <include>org.apache.hop:hop-transform-metainject:jar</include>
                 <include>org.apache.hop:hop-transform-metastructure:jar</include>
                 <include>org.apache.hop:hop-transform-numberrange:jar</include>
                 <include>org.apache.hop:hop-transform-pipelineexecutor:jar</include>
                 <include>org.apache.hop:hop-transform-repeatfields:jar</include>
+                <include>org.apache.hop:hop-transform-rowgenerator:jar</include>
                 <include>org.apache.hop:hop-transform-selectvalues:jar</include>
                 <include>org.apache.hop:hop-transform-sort:jar</include>
                 <include>org.apache.hop:hop-transform-sql:jar</include>
-                <include>org.apache.hop:hop-transform-mergejoin:jar</include>
                 <include>org.apache.hop:hop-transform-tableinput:jar</include>
                 <include>org.apache.hop:hop-transform-tableoutput:jar</include>
                 <include>org.apache.hop:hop-transform-textfile:jar</include>

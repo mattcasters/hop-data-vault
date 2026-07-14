@@ -68,9 +68,23 @@ class BvPitPipelineSupportTest {
             "(SELECT MAX(sat.x_load_ts) FROM sat_customer sat WHERE sat.customer_hk = hk.customer_hk AND sat.x_load_ts <= spine.snapshot_date)"));
     assertTrue(sql.contains("AS sat_customer_ldts"));
     assertTrue(sql.contains("(CURRENT_DATE - INTERVAL '1 day')::date"));
-    assertTrue(
-        sql.contains(
-            "spine.snapshot_date > COALESCE((SELECT MAX(snapshot_date) FROM pit_customer)"));
+    // Positional ? — never embeds PIT table or dialect timestamp literals in DV SQL.
+    assertTrue(sql.contains("spine.snapshot_date > ?"));
+    assertFalse(sql.contains("COALESCE((SELECT MAX(snapshot_date) FROM pit_customer)"));
+    assertFalse(sql.contains("TIMESTAMP '9999"));
+  }
+
+  @Test
+  void buildPitTableInputSqlCrossDbDoesNotReferencePitTable() throws Exception {
+    BvPitPipelineSupport.PitBuildContext ctx = pitContext(null, "Vault", "BusinessVault");
+
+    String sql = BvPitPipelineSupport.buildPitTableInputSql(ctx);
+
+    assertTrue(sql.contains("FROM hub_customer"));
+    assertTrue(sql.contains("FROM sat_customer"));
+    assertTrue(sql.contains("spine.snapshot_date > ?"));
+    assertFalse(sql.contains("FROM pit_customer"));
+    assertFalse(sql.contains("COALESCE((SELECT MAX("));
   }
 
   @Test
@@ -82,7 +96,7 @@ class BvPitPipelineSupportTest {
     assertTrue(sql.contains("WITH RECURSIVE days AS ("));
     assertTrue(sql.contains("DATE_ADD(d.spine_day, INTERVAL 1 DAY)"));
     assertTrue(sql.contains("DATE_SUB(CURRENT_DATE, INTERVAL 1 DAY)"));
-    assertTrue(sql.contains("CAST('1900-01-01 00:00:00' AS DATETIME)"));
+    assertTrue(sql.contains("spine.snapshot_date > ?"));
     assertFalse(sql.contains("generate_series"));
     assertFalse(sql.contains("::timestamp"));
     assertFalse(sql.contains("::date"));
@@ -99,7 +113,7 @@ class BvPitPipelineSupportTest {
     assertTrue(sql.contains("day_offsets AS ("));
     assertTrue(sql.contains("DATE_ADD(b.start_date, INTERVAL o.n DAY)"));
     assertTrue(sql.contains("DATE_SUB(CURRENT_DATE, INTERVAL 1 DAY)"));
-    assertTrue(sql.contains("CAST('1900-01-01 00:00:00' AS DATETIME)"));
+    assertTrue(sql.contains("spine.snapshot_date > ?"));
     assertTrue(sql.contains("CROSS JOIN snapshot_spine spine"));
     assertTrue(sql.contains("LEFT JOIN sat_customer sat ON"));
     assertTrue(sql.contains("GROUP BY hk.customer_hk, spine.snapshot_date"));
@@ -117,7 +131,19 @@ class BvPitPipelineSupportTest {
     PipelineMeta pipelineMeta = BvPitPipelineSupport.generatePipeline(ctx);
 
     assertEquals("bv-pit-pit_customer", pipelineMeta.getName());
-    assertEquals(2, pipelineMeta.getTransforms().size());
+    // watermark param Generate Rows + TableInput + TableOutput
+    assertEquals(3, pipelineMeta.getTransforms().size());
+    TransformMeta watermarkParam =
+        pipelineMeta.getTransforms().stream()
+            .filter(
+                t ->
+                    BvPitPipelineSupport.PARAM_SNAPSHOT_WATERMARK_TRANSFORM.equals(
+                        t.getName()))
+            .findFirst()
+            .orElseThrow();
+    assertTrue(
+        watermarkParam.getTransform()
+            instanceof org.apache.hop.pipeline.transforms.rowgenerator.RowGeneratorMeta);
 
     TransformMeta tableInput =
         pipelineMeta.getTransforms().stream()
@@ -126,7 +152,10 @@ class BvPitPipelineSupportTest {
             .orElseThrow();
     TableInputMeta tableInputMeta = (TableInputMeta) tableInput.getTransform();
     assertEquals("Vault", tableInputMeta.getConnection());
+    assertEquals(
+        BvPitPipelineSupport.PARAM_SNAPSHOT_WATERMARK_TRANSFORM, tableInputMeta.getLookup());
     assertTrue(tableInputMeta.getSql().contains("snapshot_spine"));
+    assertTrue(tableInputMeta.getSql().contains("spine.snapshot_date > ?"));
     assertTrue(tableInputMeta.getSql().contains("WITH\n"));
     assertTrue(tableInputMeta.getSql().contains("earliest_satellite_load AS (\n"));
     assertTrue(tableInputMeta.getSql().contains("CROSS JOIN snapshot_spine spine"));
@@ -167,10 +196,16 @@ class BvPitPipelineSupportTest {
   }
 
   private static BvPitPipelineSupport.PitBuildContext pitContext(String pluginId) throws Exception {
+    return pitContext(pluginId, "Vault", "Vault");
+  }
+
+  private static BvPitPipelineSupport.PitBuildContext pitContext(
+      String pluginId, String sourceDbName, String targetDbName) throws Exception {
     DataVaultModel dvModel = loadVault1Model();
     BusinessVaultModel bvModel = new BusinessVaultModel();
-    bvModel.getConfigurationOrDefault().setTargetDatabase("Vault");
-    DatabaseMeta databaseMeta = new TestDatabaseMeta("Vault", pluginId);
+    bvModel.getConfigurationOrDefault().setTargetDatabase(targetDbName);
+    DatabaseMeta sourceDatabaseMeta = new TestDatabaseMeta(sourceDbName, pluginId);
+    DatabaseMeta targetDatabaseMeta = new TestDatabaseMeta(targetDbName, pluginId);
 
     BvPitTable pitTable = validPitTable();
     return new BvPitPipelineSupport.PitBuildContext(
@@ -184,10 +219,10 @@ class BvPitPipelineSupportTest {
         dvModel.getConfigurationOrDefault(),
         null,
         new Variables(),
-        databaseMeta,
-        "Vault",
-        databaseMeta,
-        "Vault",
+        sourceDatabaseMeta,
+        sourceDbName,
+        targetDatabaseMeta,
+        targetDbName,
         "pit_customer",
         "bv-pit-pit_customer",
         "customer_hk",

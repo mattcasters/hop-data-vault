@@ -114,6 +114,8 @@ public class DataCatalogPerspective implements IHopPerspective {
   private boolean groupByNamespace = DataCatalogPerspectiveAuditSupport.retrieveGroupByNamespace();
   private final Set<String> treeStateSeeded = new HashSet<>();
   private boolean rebuildingTree;
+  /** Suppresses search/filter widget listeners while programmatically adjusting them. */
+  private boolean suppressingFilterEvents;
 
   public DataCatalogPerspective() {
     instance = this;
@@ -199,6 +201,9 @@ public class DataCatalogPerspective implements IHopPerspective {
     wRecordFilter.addListener(
         SWT.Selection,
         e -> {
+          if (suppressingFilterEvents) {
+            return;
+          }
           recordListFilter = DataCatalogRecordListFilter.fromIndex(wRecordFilter.getSelectionIndex());
           refresh();
         });
@@ -220,6 +225,9 @@ public class DataCatalogPerspective implements IHopPerspective {
     searchText.addListener(
         SWT.Modify,
         e -> {
+          if (suppressingFilterEvents) {
+            return;
+          }
           filterText = Const.NVL(searchText.getText(), "").trim();
           refresh();
         });
@@ -366,7 +374,13 @@ public class DataCatalogPerspective implements IHopPerspective {
     }
   }
 
-  /** Activates this perspective and selects a record definition in the tree and details panel. */
+  /**
+   * Activates this perspective and selects a record definition in the tree and details panel.
+   *
+   * <p>Navigation from other perspectives (e.g. Execution Map "Open in Data Catalog") must succeed
+   * even when the catalog tree currently has a type filter or search text that would hide the
+   * target. Preview uses the registry directly and is unaffected by tree filters; selection is not.
+   */
   public void selectRecordDefinition(String catalogConnectionName, RecordDefinitionKey key)
       throws HopException {
     if (Utils.isEmpty(catalogConnectionName) || key == null) {
@@ -377,20 +391,72 @@ public class DataCatalogPerspective implements IHopPerspective {
       throw new HopException(
           BaseMessages.getString(PKG, "DataCatalogPerspective.Error.SelectRecord.TreeUnavailable"));
     }
+
+    // Confirm the definition exists in the catalog backend before relying on the filtered tree.
+    RecordDefinition existing =
+        RecordDefinitionRegistry.getInstance()
+            .read(
+                catalogConnectionName,
+                key,
+                hopGui.getVariables(),
+                hopGui.getMetadataProvider());
+    if (existing == null) {
+      throw new HopException(
+          BaseMessages.getString(
+              PKG,
+              "DataCatalogPerspective.Error.SelectRecord.NotFound",
+              key.toString(),
+              catalogConnectionName));
+    }
+
+    // Tree filters only affect presentation; clear them so the target is listable.
+    boolean filtersCleared = clearTreeFiltersForNavigation();
     activate();
     String recordKey = key.toString();
-    if (!trySelectRecord(catalogConnectionName, recordKey)) {
+    if (filtersCleared || !trySelectRecord(catalogConnectionName, recordKey)) {
       refresh();
-      if (!trySelectRecord(catalogConnectionName, recordKey)) {
-        throw new HopException(
-            BaseMessages.getString(
-                PKG,
-                "DataCatalogPerspective.Error.SelectRecord.NotFound",
-                recordKey,
-                catalogConnectionName));
+    }
+    if (!trySelectRecord(catalogConnectionName, recordKey)) {
+      // Definition exists in the catalog backend; open details even if the tree item is missing
+      // (e.g. transient population failure). Avoid blocking navigation from Execution Map.
+      selectedRecordDefinition = existing;
+      if (detailsPanel != null) {
+        detailsPanel.setRecordDefinition(catalogConnectionName, existing);
       }
+      updateToolbar();
+      return;
     }
     updateSelection();
+  }
+
+  /**
+   * Resets type filter and search text so programmatic navigation can see every record. Returns
+   * true when filters actually changed.
+   */
+  private boolean clearTreeFiltersForNavigation() {
+    boolean changed = false;
+    suppressingFilterEvents = true;
+    try {
+      if (recordListFilter != DataCatalogRecordListFilter.ALL) {
+        recordListFilter = DataCatalogRecordListFilter.ALL;
+        changed = true;
+      }
+      if (wRecordFilter != null && !wRecordFilter.isDisposed() && wRecordFilter.getSelectionIndex() != 0) {
+        wRecordFilter.select(0);
+        changed = true;
+      }
+      if (!Utils.isEmpty(filterText)) {
+        filterText = "";
+        changed = true;
+      }
+      if (searchText != null && !searchText.isDisposed() && !Utils.isEmpty(searchText.getText())) {
+        searchText.setText("");
+        changed = true;
+      }
+    } finally {
+      suppressingFilterEvents = false;
+    }
+    return changed;
   }
 
   public void refresh() {
@@ -501,20 +567,60 @@ public class DataCatalogPerspective implements IHopPerspective {
   }
 
   private boolean trySelectRecord(String catalogConnectionName, String recordKey) {
-    restoreSelection(catalogConnectionName, List.of(recordKey));
+    if (tree == null || tree.isDisposed() || Utils.isEmpty(catalogConnectionName) || Utils.isEmpty(recordKey)) {
+      return false;
+    }
+    TreeItem catalogItem = findCatalogItem(catalogConnectionName);
+    if (catalogItem == null) {
+      return false;
+    }
+    List<TreeItem> itemsToSelect =
+        DataCatalogTreeNavigation.findRecordItems(catalogItem, List.of(recordKey));
+    if (itemsToSelect.isEmpty()) {
+      return false;
+    }
+    TreeItem target = itemsToSelect.get(0);
+    DataCatalogTreeNavigation.expandAncestors(target, TREE_KEY, treeStateSeeded);
+    tree.setSelection(target);
+    tree.showSelection();
     return isRecordSelected(catalogConnectionName, recordKey);
   }
 
   private boolean isRecordSelected(String catalogConnectionName, String recordKey) {
-    if (tree == null || tree.isDisposed() || tree.getSelectionCount() != 1) {
+    if (tree == null || tree.isDisposed() || tree.getSelectionCount() < 1) {
       return false;
     }
-    DataCatalogTreeNode node = (DataCatalogTreeNode) tree.getSelection()[0].getData();
-    return node != null
-        && node.getType() == DataCatalogTreeNode.Type.RECORD
-        && catalogConnectionName.equals(node.getCatalogConnectionName())
-        && node.getRecordKey() != null
-        && recordKey.equals(node.getRecordKey().toString());
+    for (TreeItem selected : tree.getSelection()) {
+      if (selected == null || selected.isDisposed()) {
+        continue;
+      }
+      DataCatalogTreeNode node = (DataCatalogTreeNode) selected.getData();
+      if (node != null
+          && node.getType() == DataCatalogTreeNode.Type.RECORD
+          && catalogConnectionName.equals(node.getCatalogConnectionName())
+          && node.getRecordKey() != null
+          && recordKey.equals(node.getRecordKey().toString())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private TreeItem findCatalogItem(String catalogConnectionName) {
+    if (tree == null || tree.isDisposed() || Utils.isEmpty(catalogConnectionName)) {
+      return null;
+    }
+    for (TreeItem catalogItem : tree.getItems()) {
+      if (catalogItem == null || catalogItem.isDisposed()) {
+        continue;
+      }
+      DataCatalogTreeNode catalogNode = (DataCatalogTreeNode) catalogItem.getData();
+      if (catalogNode != null
+          && catalogConnectionName.equals(catalogNode.getCatalogConnectionName())) {
+        return catalogItem;
+      }
+    }
+    return null;
   }
 
   private void restoreSelection(String selectedCatalog, List<String> selectedRecordKeys) {
@@ -522,27 +628,27 @@ public class DataCatalogPerspective implements IHopPerspective {
       return;
     }
 
-    for (TreeItem catalogItem : tree.getItems()) {
-      DataCatalogTreeNode catalogNode = (DataCatalogTreeNode) catalogItem.getData();
-      if (catalogNode == null
-          || !selectedCatalog.equals(catalogNode.getCatalogConnectionName())) {
-        continue;
-      }
-
-      if (selectedRecordKeys == null || selectedRecordKeys.isEmpty()) {
-        tree.setSelection(catalogItem);
-        return;
-      }
-
-      List<TreeItem> itemsToSelect =
-          DataCatalogTreeNavigation.findRecordItems(catalogItem, selectedRecordKeys);
-
-      if (!itemsToSelect.isEmpty()) {
-        tree.setSelection(itemsToSelect.toArray(new TreeItem[0]));
-      } else {
-        tree.setSelection(catalogItem);
-      }
+    TreeItem catalogItem = findCatalogItem(selectedCatalog);
+    if (catalogItem == null) {
       return;
+    }
+
+    if (selectedRecordKeys == null || selectedRecordKeys.isEmpty()) {
+      tree.setSelection(catalogItem);
+      return;
+    }
+
+    List<TreeItem> itemsToSelect =
+        DataCatalogTreeNavigation.findRecordItems(catalogItem, selectedRecordKeys);
+
+    if (!itemsToSelect.isEmpty()) {
+      for (TreeItem item : itemsToSelect) {
+        DataCatalogTreeNavigation.expandAncestors(item, TREE_KEY, treeStateSeeded);
+      }
+      tree.setSelection(itemsToSelect.toArray(new TreeItem[0]));
+      tree.showSelection();
+    } else {
+      tree.setSelection(catalogItem);
     }
   }
 

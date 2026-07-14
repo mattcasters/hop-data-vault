@@ -27,12 +27,14 @@ Set **Build mode** to *Incremental* on the SCD2 table when you want to append ne
 
 Incremental pipelines extend the shared analytic tail with:
 
-1. **Satellite filter** — each `TableInput` reads only rows where the source functional timestamp is greater than `COALESCE(MAX(watermark) FROM bv_table, sentinel)`
-2. **Open target baseline** (multi-satellite) — reads current open BV rows (`valid_to = open end sentinel`) for hash keys touched by the delta, then merges them ahead of `Analytic Query` so sparse satellites carry forward
-3. **Watermark attach** — at pipeline generation time the plugin queries `SELECT COALESCE(MAX(watermark), sentinel) ...` and a `Constant` transform adds `_incremental_watermark` to every row
-4. **Incremental row filter** — `FilterRows` keeps computed rows where `functional_timestamp > _incremental_watermark`
-5. **Append** — `TableOutput` with `truncate=false`
-6. **Close open version** — `Update` sets `valid_to = valid_from` on the prior open row (match hash key + open `valid_to`) before new open versions are inserted
+1. **Watermark resolve** — at pipeline generation time the plugin queries the **Business Vault** target with `SELECT MAX(watermark) …` (BV connection only; null → open-start sentinel in Java)
+2. **Parameter Generate Rows** — `param_incremental_watermark` (Generate Rows, limit 1) holds the Timestamp value; `param_open_row_filter` holds the open-end sentinel (and watermark when DV/BV share a connection). Generate Rows is used instead of Constant because Constant only enriches incoming rows and would emit nothing as a pipeline start.
+3. **Satellite filter** — each DV-connected `TableInput` uses JDBC positional parameters (`source_ts > ?`) with the watermark transform as its **Insert data from** stream. SQL stays dialect-neutral and never references BV tables
+4. **Open target baseline** — BV-connected `TableInput` with `valid_to = ?` (open-end bound from the param transform). When DV and BV share the same Hop connection name, hash keys are further restricted with `IN (SELECT … FROM sat WHERE ts > ? UNION …)` — one watermark `?` **per satellite leg** (JDBC does not reuse bind values; the param transform repeats the same watermark once per leg). When connections differ, all open BV rows are read
+5. **Watermark attach** — a stream `Constant` (after the analytic chain) adds `_incremental_watermark` to every computed row
+6. **Incremental row filter** — `FilterRows` keeps computed rows where `functional_timestamp > _incremental_watermark`
+7. **Append** — `TableOutput` with `truncate=false`
+8. **Close open version** — `Update` sets `valid_to = valid_from` on the prior open row (match hash key + open `valid_to`) before new open versions are inserted
 
 **Watermark field** resolution:
 
@@ -41,7 +43,7 @@ Incremental pipelines extend the shared analytic tail with:
 3. Model-level functional timestamp default
 4. Load-date fallback from Data Vault configuration
 
-The watermark is always read from the **Business Vault target table** (`MAX(watermark_field)`), matching the PIT incremental pattern.
+The watermark is always read from the **Business Vault target table** (`MAX(watermark_field)`), matching the PIT incremental pattern. DV satellite history may live on a **different** database connection than the BV target.
 
 On the first incremental run against an empty BV table the sentinel (`1900-01-01 00:00:00`) applies, so behaviour matches a full rebuild. Later runs process only satellite deltas and close prior open rows in place.
 

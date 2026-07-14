@@ -13,7 +13,7 @@ Each `.hbv` file embeds a **configuration** object edited via **Edit model** on 
 |Setting |Description
 
 |Target database
-|Database connection (`DatabaseMeta`) where Business Vault tables are created and loaded. Required for DDL, Debug, and Business Vault Update.
+|Database connection (`DatabaseMeta`) where Business Vault tables are created and loaded. Required for DDL, Debug, and Business Vault Update. **May be a different connection** from the linked Data Vault model target — satellite history is read from the DV connection; BV tables are written (and incremental watermarks resolved) on this connection.
 
 |Generated pipeline folder
 |Optional folder where generated build pipelines are saved when debugging or updating. Variables supported.
@@ -76,4 +76,4 @@ Configured on the Business Vault model itself (not inside the configuration bloc
 * Use `${PROJECT_HOME}` when the model lives inside a Hop project
 * **Reload DV model** refreshes the linked model from disk after external edits
 
-The linked `.hdv` must have its own **target database** configured — Business Vault reads satellite history from that connection.
+The linked `.hdv` must have its own **target database** configured — Business Vault reads satellite (and hub) history from that connection. Using separate Hop connection names for DV and BV is supported and recommended when raw vault and business vault live in different databases.
