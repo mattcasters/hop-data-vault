@@ -83,7 +83,7 @@ The **Check model** button will report problems such as:
 
 Type validation compares each mapped source column to the satellite target column definition. Errors are raised for incompatible types or when the source is wider than the target. Warnings cover stored-metadata drift from the live source schema.
 
-On **SQL Server**, detailed type checking also warns when source `NVARCHAR` (or other Unicode string types) map to target `VARCHAR` (ANSI). That mismatch can break **ORDER BY** alignment for multi-active driving keys and can cause false satellite CDC `changed` rows when attribute values are re-read from the vault. ORDER BY risks on string keys are mitigated automatically by applying the same bridge `COLLATE` on target (and hub source) SQL `ORDER BY` when live collations/types differ. Attribute CDC issues still require aligning target DDL with the source SQL type.
+On **SQL Server**, vault string columns are created as `VARCHAR` with a UTF-8 collation so Unicode attributes store correctly without `NVARCHAR`. Detailed type checking still warns when source `NVARCHAR` maps to target `VARCHAR` because sort order can differ. ORDER BY risks on string keys are mitigated automatically by applying the same bridge `COLLATE` (preferring the **source** collation) on target and hub source SQL `ORDER BY` when live collations/types differ.
 
 Satellite update pipelines Sort Rows the **source** stream after the parent hash is calculated in Hop (the merge key is not present in source SQL). The **target** leg is ordered only by SQL `ORDER BY` (no second Sort Rows).
 

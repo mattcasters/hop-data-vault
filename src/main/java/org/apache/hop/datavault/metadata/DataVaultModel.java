@@ -30,6 +30,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.base.AbstractMeta;
 import org.apache.hop.core.CheckResult;
+import org.apache.hop.core.Const;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.changed.ChangedFlag;
@@ -232,7 +233,7 @@ public class DataVaultModel extends HopMetadataBase
 
     List<DataVaultSource> sources =
         loadDataVaultSources(metadataProvider, variables, remarks);
-    checkTargetDatabase(remarks);
+    checkTargetDatabase(remarks, metadataProvider, variables);
     checkTargetLoadMode(remarks, metadataProvider);
     checkTargetLoadModeGuidance(remarks, variables, metadataProvider);
     checkTargetLoadingIntegerSettings(remarks, variables);
@@ -387,7 +388,8 @@ public class DataVaultModel extends HopMetadataBase
     }
   }
 
-  private void checkTargetDatabase(List<ICheckResult> remarks) {
+  private void checkTargetDatabase(
+      List<ICheckResult> remarks, IHopMetadataProvider metadataProvider, IVariables variables) {
     DataVaultConfiguration config = getConfigurationOrDefault();
     if (Utils.isEmpty(config.getTargetDatabase())) {
       remarks.add(
@@ -403,6 +405,25 @@ public class DataVaultModel extends HopMetadataBase
             BaseMessages.getString(
                 PKG, "DataVaultModel.CheckResult.HasTargetDatabase", config.getTargetDatabase()),
             null));
+    if (metadataProvider == null) {
+      return;
+    }
+    try {
+      org.apache.hop.core.database.DatabaseMeta targetDatabase =
+          DvSpecialRecordSupport.loadTargetDatabase(metadataProvider, config);
+      DvTargetUnicodeCapabilitySupport.checkTargetUnicodeCapability(
+          remarks, targetDatabase, variables, config.getTargetDatabase());
+    } catch (HopException e) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_ERROR,
+              BaseMessages.getString(
+                  PKG,
+                  "DataVaultModel.CheckResult.TargetDatabaseLoadFailed",
+                  config.getTargetDatabase(),
+                  Const.NVL(e.getMessage(), e.getClass().getSimpleName())),
+              null));
+    }
   }
 
   private void checkTablesPresent(List<ICheckResult> remarks) {

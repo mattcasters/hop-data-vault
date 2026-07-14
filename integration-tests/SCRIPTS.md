@@ -53,13 +53,13 @@ Runs the full test suite against containerised databases — no host database re
 ./run-tests-all-databases.sh                  # all: postgres mysql singlestore sqlserver
 ./run-tests-all-databases.sh postgres         # one engine (PostgreSQL + French ICU collation suite)
 ./run-tests-all-databases.sh postgres mysql   # several engines
-./run-tests-all-databases.sh sqlserver        # SQL Server + NVARCHAR/collation suite
+./run-tests-all-databases.sh sqlserver        # SQL Server + Unicode/collation suite
 # Invalid names (e.g. postgresql) exit immediately with usage help.
 ```
 
 - PostgreSQL uses port **54321** and hostname `db` ([`environments/docker-postgres.json`](environments/docker-postgres.json))
-- SQL Server uses port **1433**, SA password from the environment file, and `tests/run-tests-sqlserver.hwf` (shared suite + NVARCHAR/collation scenario)
-- PostgreSQL collation uses ICU name `fr-FR-x-icu` on CRM source columns; vault targets keep the database default collation
+- SQL Server uses port **1433**, SA password from the environment file, and `tests/run-tests-sqlserver.hwf` (shared suite + Unicode/collation scenario). The `test` database is created with `Latin1_General_100_CI_AS_SC_UTF8`.
+- PostgreSQL collation uses ICU name `fr-FR-x-icu` on CRM source columns; vault targets keep the database UTF-8 encoding
 - Swaps RDBMS profiles from `metadata/rdbms/profiles/<engine>/` at container start, then restores your local CRM/Vault metadata afterward
 - Metrics: `metrics/<engine>/`
 

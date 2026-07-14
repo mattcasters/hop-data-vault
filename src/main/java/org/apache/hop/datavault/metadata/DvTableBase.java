@@ -444,7 +444,7 @@ public abstract class DvTableBase extends HopMetadataBase implements IHopMetadat
       }
     }
     try {
-      return db.getDDL(targetTableName, targetFields);
+      return DvDdlSupport.getTargetTableDdl(db, targetTableName, targetFields);
     } catch (Exception e) {
       throw new HopException("Error getting DDL for target table: " + targetTableName, e);
     }

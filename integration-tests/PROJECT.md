@@ -114,12 +114,12 @@ See [`SCRIPTS.md`](SCRIPTS.md) for full script reference.
 
 Each engine uses `scripts/docker/compose.<engine>.yml`: a database service (`db`) and a short-lived `hop` service that runs the suite with the matching environment file under `integration-tests/environments/`. Connection metadata is swapped in at container start from `integration-tests/metadata/rdbms/profiles/<engine>/`.
 
-**String collation suite** (`tests/sqlserver-collation/`, also on the main `run-tests.hwf` path): source business keys use a **French collation** while vault hubs/sats use the database default collation, exercising automatic `ORDER BY … COLLATE` remediation (Issue #63).
+**String collation suite** (`tests/sqlserver-collation/`, also on the main `run-tests.hwf` path): source business keys use a **French collation** while vault hubs/sats use UTF-8-capable vault string columns, exercising automatic `ORDER BY … COLLATE` remediation (Issue #63) and Unicode EDW DDL (Issue #73).
 
-| Engine | Source DDL | Collation bridge |
-|--------|------------|------------------|
-| **PostgreSQL** | `VARCHAR … COLLATE "fr-FR-x-icu"` | `ORDER BY col COLLATE "fr-FR-x-icu"` |
-| **SQL Server** | `NVARCHAR … COLLATE French_CI_AS` | `ORDER BY col COLLATE French_CI_AS` |
+| Engine | Source DDL | Vault / bridge |
+|--------|------------|----------------|
+| **PostgreSQL** | `VARCHAR … COLLATE "fr-FR-x-icu"` | UTF8 DB; `ORDER BY col COLLATE "fr-FR-x-icu"` |
+| **SQL Server** | `NVARCHAR … COLLATE French_CI_AS` | DB + `VARCHAR … COLLATE Latin1_General_100_CI_AS_SC_UTF8`; `ORDER BY col COLLATE French_CI_AS` |
 
 SQL Server compose (`compose.sqlserver.yml`) still runs `tests/run-tests-sqlserver.hwf` (shared suites + collation). Profile name for Postgres is **`postgres`** (not `postgresql`).
 
