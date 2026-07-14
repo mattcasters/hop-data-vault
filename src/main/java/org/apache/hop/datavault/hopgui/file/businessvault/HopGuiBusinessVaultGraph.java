@@ -76,6 +76,7 @@ import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDerivativeSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvModelResolver;
+import org.apache.hop.datavault.metadata.businessvault.BusinessVaultBvReferenceSupport;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvReferenceSupport;
 import org.apache.hop.datavault.metadata.GeneratedPipelineMetadataConstants;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
@@ -84,6 +85,7 @@ import org.apache.hop.datavault.metadata.coaching.CoachingSourceRef;
 import org.apache.hop.datavault.metadata.coaching.ICoachingModelAdapter;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultUpdateExecutionSupport;
 import org.apache.hop.datavault.metadata.businessvault.BvBusinessTable;
+import org.apache.hop.datavault.metadata.businessvault.BvBvTableReference;
 import org.apache.hop.datavault.metadata.businessvault.BvDvTableReference;
 import org.apache.hop.datavault.metadata.businessvault.BvPitTable;
 import org.apache.hop.datavault.metadata.businessvault.BvScd2Table;
@@ -198,9 +200,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   private final List<AreaOwner> areaOwners = new ArrayList<>();
   private String mouseOverBvTableName;
   private String mouseOverDvReferenceName;
+  private String mouseOverBvReferenceName;
 
   private IBvTable currentBvTable;
   private BvDvTableReference currentDvReference;
+  private BvBvTableReference currentBvReference;
   private Object dragAnchor;
   private Map<Object, Point> dragStartLocations;
 
@@ -307,6 +311,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       painter.setAreaOwners(areaOwners);
       painter.setMouseOverBvTableName(mouseOverBvTableName);
       painter.setMouseOverDvReferenceName(mouseOverDvReferenceName);
+      painter.setMouseOverBvReferenceName(mouseOverBvReferenceName);
       painter.setMouseOverNoteLink(mouseOverNoteLink);
       painter.setSelectionRegion(selectionRegion);
       painter.setRelationshipDragInfo(
@@ -339,14 +344,20 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   public void reloadDataVaultModel() {
     dataVaultModel = null;
     dataVaultLoadError = null;
-    if (model == null || Utils.isEmpty(model.getDataVaultModelPath())) {
+    if (model == null) {
       redraw();
       return;
     }
     try {
+      // Union of canvas DV aliases (multi-model) + optional legacy linked path.
       dataVaultModel =
-          BusinessVaultDvModelResolver.loadReferencedModel(
-              model.getDataVaultModelPath(), getVariables(), hopGui.getMetadataProvider());
+          BusinessVaultDvModelResolver.buildEffectiveDataVaultModel(
+              model, getVariables(), hopGui.getMetadataProvider());
+      if (dataVaultModel.getTables().isEmpty()
+          && model.getDvReferences().isEmpty()
+          && Utils.isEmpty(model.getDataVaultModelPath())) {
+        dataVaultModel = null;
+      }
     } catch (HopException e) {
       dataVaultLoadError = e.getMessage();
     }
@@ -484,6 +495,34 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     }
   }
 
+  private void showBvReferenceContextDialog(Event e, BvBvTableReference reference) {
+    if (reference == null) {
+      return;
+    }
+    try {
+      Point real = screen2real(e.x, e.y);
+      org.eclipse.swt.graphics.Point p = getShell().getDisplay().map(canvas, null, e.x, e.y);
+      String message =
+          BaseMessages.getString(
+              PKG,
+              "HopGuiBusinessVaultGraph.Context.BvReference.Message",
+              reference.getBvTableName());
+      IGuiContextHandler contextHandler =
+          new HopGuiBusinessVaultBvReferenceContext(model, this, reference, real);
+      avoidContextDialog =
+          GuiContextUtil.getInstance()
+              .handleActionSelection(getShell(), message, new Point(p.x, p.y), contextHandler);
+    } catch (Exception ex) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Context.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Context.Error.Message"),
+          ex);
+    } finally {
+      canvas.setFocus();
+    }
+  }
+
   private void showBvTableContextDialog(Event e, IBvTable table) {
     if (table == null) {
       return;
@@ -550,6 +589,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     updateRelationshipCandidates(screenX, screenY);
     mouseOverBvTableName = null;
     mouseOverDvReferenceName = null;
+    mouseOverBvReferenceName = null;
     clearCanvasDragState();
     clearNoteDragState();
     clearSelectionRegion();
@@ -568,6 +608,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     updateRelationshipCandidates(screenX, screenY);
     mouseOverBvTableName = null;
     mouseOverDvReferenceName = null;
+    mouseOverBvReferenceName = null;
     clearCanvasDragState();
     clearNoteDragState();
     clearSelectionRegion();
@@ -648,6 +689,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   private void clearCanvasDragState() {
     currentBvTable = null;
     currentDvReference = null;
+    currentBvReference = null;
     iconDragStart = null;
     iconOffset = null;
     iconDragCommitted = false;
@@ -681,6 +723,12 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       }
     }
     for (BvDvTableReference reference : getSelectedDvReferences()) {
+      Point loc = reference.getLocation();
+      if (loc != null) {
+        dragStartLocations.put(reference, new Point(loc.x, loc.y));
+      }
+    }
+    for (BvBvTableReference reference : getSelectedBvReferences()) {
       Point loc = reference.getLocation();
       if (loc != null) {
         dragStartLocations.put(reference, new Point(loc.x, loc.y));
@@ -730,6 +778,12 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
         setCanvasObjectLocation(reference, start.x + dx, start.y + dy);
       }
     }
+    for (BvBvTableReference reference : getSelectedBvReferences()) {
+      Point start = dragStartLocations.get(reference);
+      if (start != null) {
+        setCanvasObjectLocation(reference, start.x + dx, start.y + dy);
+      }
+    }
     for (DvNote note : getSelectedNotes()) {
       Point start = dragStartLocations.get(note);
       if (start != null) {
@@ -745,6 +799,13 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
   }
 
   private void setCanvasObjectLocation(BvDvTableReference reference, int x, int y) {
+    int clampedX = Math.max(0, x);
+    int clampedY = Math.max(0, y);
+    Point snapped = PropsUi.calculateGridPosition(new Point(clampedX, clampedY));
+    reference.setLocation(snapped);
+  }
+
+  private void setCanvasObjectLocation(BvBvTableReference reference, int x, int y) {
     int clampedX = Math.max(0, x);
     int clampedY = Math.max(0, y);
     Point snapped = PropsUi.calculateGridPosition(new Point(clampedX, clampedY));
@@ -788,9 +849,20 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     return null;
   }
 
+  private BvBvTableReference getAreaOwnerBvReference(AreaOwner areaOwner) {
+    if (areaOwner == null) {
+      return null;
+    }
+    if (areaOwner.getParent() instanceof BvBvTableReference reference) {
+      return reference;
+    }
+    return null;
+  }
+
   private boolean hasSelectedCanvasObjects() {
     return !getSelectedBvTables().isEmpty()
         || !getSelectedDvReferences().isEmpty()
+        || !getSelectedBvReferences().isEmpty()
         || !getSelectedNotes().isEmpty();
   }
 
@@ -840,6 +912,39 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     return selected;
   }
 
+  private List<BvBvTableReference> getSelectedBvReferences() {
+    List<BvBvTableReference> selected = new ArrayList<>();
+    if (model == null) {
+      return selected;
+    }
+    for (BvBvTableReference reference : model.getBvReferences()) {
+      if (reference != null && reference.isSelected()) {
+        selected.add(reference);
+      }
+    }
+    return selected;
+  }
+
+  private boolean isBvReferenceInLassoScreenRect(
+      BvBvTableReference reference, int lassoMinX, int lassoMinY, int lassoMaxX, int lassoMaxY) {
+    if (reference == null) {
+      return false;
+    }
+    Point loc = reference.getLocation();
+    if (loc == null) {
+      return false;
+    }
+    int tw = Math.max(140, reference.getDrawnBoxWidth());
+    int th = Math.max(70, reference.getDrawnBoxHeight());
+    int tMinX = (int) (loc.x + offset.x);
+    int tMinY = (int) (loc.y + offset.y);
+    int tMaxX = tMinX + tw;
+    int tMaxY = tMinY + th;
+    boolean xOverlap = Math.max(lassoMinX, tMinX) < Math.min(lassoMaxX, tMaxX);
+    boolean yOverlap = Math.max(lassoMinY, tMinY) < Math.min(lassoMaxY, tMaxY);
+    return xOverlap && yOverlap;
+  }
+
   private String getUniqueBvTableName(String base) {
     if (model == null) {
       return base;
@@ -869,26 +974,115 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     if (model == null || tableType == null) {
       return;
     }
-    if (dataVaultModel == null) {
-      if (!Utils.isEmpty(dataVaultLoadError)) {
-        new ErrorDialog(
-            hopGui.getShell(),
-            BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.AddDvReference.Error.Title"),
-            dataVaultLoadError,
-            null);
-      } else {
-        new ErrorDialog(
-            hopGui.getShell(),
-            BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.AddDvReference.Error.Title"),
-            BaseMessages.getString(
-                PKG, "HopGuiBusinessVaultGraph.AddDvReference.Error.MissingDvModel"),
-            null);
+
+    List<BusinessVaultDvReferenceSupport.DvModelSource> sources =
+        BusinessVaultDvReferenceSupport.listDvModelSources(
+            model, dataVaultModel, getVariables(), hopGui.getMetadataProvider());
+    // Always at least "Browse .hdv…"; if only browse and no catalog/linked, still allow pick.
+    boolean onlyBrowse =
+        sources.size() == 1 && sources.get(0).browseFile();
+    if (onlyBrowse
+        && dataVaultModel == null
+        && Utils.isEmpty(model.getDataVaultModelPath())) {
+      // Still proceed — user can browse. Soft tip is in the browse dialog title/message.
+    }
+
+    BusinessVaultDvReferenceSupport.DvModelSource chosenSource;
+    if (sources.size() == 1 && !sources.get(0).browseFile()) {
+      chosenSource = sources.get(0);
+    } else {
+      String[] sourceLabels =
+          sources.stream()
+              .map(BusinessVaultDvReferenceSupport.DvModelSource::label)
+              .toArray(String[]::new);
+      EnterSelectionDialog sourceDialog =
+          new EnterSelectionDialog(
+              getShell(),
+              sourceLabels,
+              BaseMessages.getString(
+                  PKG, "HopGuiBusinessVaultGraph.AddDvReference.SelectModel.Title"),
+              BaseMessages.getString(
+                  PKG, "HopGuiBusinessVaultGraph.AddDvReference.SelectModel.Message"));
+      String selectedSource = sourceDialog.open();
+      if (Utils.isEmpty(selectedSource)) {
+        return;
       }
+      chosenSource =
+          sources.stream()
+              .filter(s -> selectedSource.equals(s.label()))
+              .findFirst()
+              .orElse(null);
+      if (chosenSource == null) {
+        return;
+      }
+    }
+
+    DataVaultModel sourceModel;
+    String modelFilenameForAlias = null;
+    try {
+      if (chosenSource.browseFile()) {
+        String browsed =
+            BaseDialog.presentFileDialog(
+                hopGui.getShell(),
+                new String[] {"*.hdv", "*"},
+                new String[] {
+                  BaseMessages.getString(
+                      PKG, "HopGuiBusinessVaultGraph.AddDvReference.Browse.FilterHdv"),
+                  BaseMessages.getString(
+                      PKG, "HopGuiBusinessVaultGraph.AddDvReference.Browse.FilterAll")
+                },
+                true);
+        if (Utils.isEmpty(browsed)) {
+          return;
+        }
+        modelFilenameForAlias = browsed;
+        sourceModel =
+            BusinessVaultDvReferenceSupport.loadDvModel(
+                browsed, model.getFilename(), getVariables(), hopGui.getMetadataProvider());
+      } else if (chosenSource.linkedModel()) {
+        sourceModel = dataVaultModel;
+        if (sourceModel == null) {
+          // Optional legacy default path on older models.
+          sourceModel =
+              BusinessVaultDvReferenceSupport.loadDvModel(
+                  chosenSource.modelFilename(),
+                  model.getFilename(),
+                  getVariables(),
+                  hopGui.getMetadataProvider());
+        }
+        // Persist path on the alias so multi-model resolution does not need a global default.
+        modelFilenameForAlias = chosenSource.modelFilename();
+      } else {
+        sourceModel =
+            BusinessVaultDvReferenceSupport.loadDvModel(
+                chosenSource.modelFilename(),
+                model.getFilename(),
+                getVariables(),
+                hopGui.getMetadataProvider());
+        modelFilenameForAlias = chosenSource.modelFilename();
+      }
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.AddDvReference.Error.Title"),
+          e.getMessage(),
+          e);
+      return;
+    }
+
+    if (sourceModel == null) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.AddDvReference.Error.Title"),
+          BaseMessages.getString(
+              PKG, "HopGuiBusinessVaultGraph.AddDvReference.Error.MissingDvModel"),
+          null);
       return;
     }
 
     List<String> choices =
-        BusinessVaultDvReferenceSupport.listAvailableDvTableNames(dataVaultModel, model, tableType);
+        BusinessVaultDvReferenceSupport.listAvailableDvTableNames(
+            sourceModel, model, tableType, modelFilenameForAlias);
     if (choices.isEmpty()) {
       new ErrorDialog(
           hopGui.getShell(),
@@ -912,7 +1106,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       return;
     }
 
-    IDvTable dvTable = dataVaultModel.findTable(selectedName);
+    IDvTable dvTable = sourceModel.findTable(selectedName);
     if (dvTable == null) {
       return;
     }
@@ -920,11 +1114,142 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     int x = click != null ? click.x : 50;
     int y = click != null ? click.y : 50;
     BvDvTableReference reference =
-        BusinessVaultDvReferenceSupport.createReference(dvTable, new Point(x, y));
+        BusinessVaultDvReferenceSupport.createReference(
+            dvTable, new Point(x, y), modelFilenameForAlias);
     if (reference == null) {
       return;
     }
     model.getDvReferences().add(reference);
+    setChanged();
+    redraw();
+  }
+
+  private void addBvReferenceAtClick(Point click) {
+    if (model == null) {
+      return;
+    }
+
+    List<BusinessVaultBvReferenceSupport.BvModelSource> sources =
+        BusinessVaultBvReferenceSupport.listBvModelSources(
+            model, getVariables(), hopGui.getMetadataProvider());
+
+    BusinessVaultBvReferenceSupport.BvModelSource chosenSource;
+    if (sources.size() == 1 && !sources.get(0).browseFile()) {
+      chosenSource = sources.get(0);
+    } else {
+      String[] sourceLabels =
+          sources.stream()
+              .map(BusinessVaultBvReferenceSupport.BvModelSource::label)
+              .toArray(String[]::new);
+      EnterSelectionDialog sourceDialog =
+          new EnterSelectionDialog(
+              getShell(),
+              sourceLabels,
+              BaseMessages.getString(
+                  PKG, "HopGuiBusinessVaultGraph.AddBvReference.SelectModel.Title"),
+              BaseMessages.getString(
+                  PKG, "HopGuiBusinessVaultGraph.AddBvReference.SelectModel.Message"));
+      String selectedSource = sourceDialog.open();
+      if (Utils.isEmpty(selectedSource)) {
+        return;
+      }
+      chosenSource =
+          sources.stream()
+              .filter(s -> selectedSource.equals(s.label()))
+              .findFirst()
+              .orElse(null);
+      if (chosenSource == null) {
+        return;
+      }
+    }
+
+    BusinessVaultModel sourceModel;
+    String modelFilenameForAlias;
+    try {
+      if (chosenSource.browseFile()) {
+        String browsed =
+            BaseDialog.presentFileDialog(
+                hopGui.getShell(),
+                new String[] {"*.hbv", "*"},
+                new String[] {
+                  BaseMessages.getString(
+                      PKG, "HopGuiBusinessVaultGraph.AddBvReference.Browse.FilterHbv"),
+                  BaseMessages.getString(
+                      PKG, "HopGuiBusinessVaultGraph.AddBvReference.Browse.FilterAll")
+                },
+                true);
+        if (Utils.isEmpty(browsed)) {
+          return;
+        }
+        modelFilenameForAlias = browsed;
+        sourceModel =
+            BusinessVaultBvReferenceSupport.loadBvModel(
+                browsed, model.getFilename(), getVariables(), hopGui.getMetadataProvider());
+      } else {
+        modelFilenameForAlias = chosenSource.modelFilename();
+        sourceModel =
+            BusinessVaultBvReferenceSupport.loadBvModel(
+                chosenSource.modelFilename(),
+                model.getFilename(),
+                getVariables(),
+                hopGui.getMetadataProvider());
+      }
+    } catch (Exception e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.AddBvReference.Error.Title"),
+          e.getMessage(),
+          e);
+      return;
+    }
+
+    if (sourceModel == null) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.AddBvReference.Error.Title"),
+          BaseMessages.getString(
+              PKG, "HopGuiBusinessVaultGraph.AddBvReference.Error.MissingBvModel"),
+          null);
+      return;
+    }
+
+    List<String> choices =
+        BusinessVaultBvReferenceSupport.listAvailableBvTableNames(
+            sourceModel, model, modelFilenameForAlias);
+    if (choices.isEmpty()) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.AddBvReference.Error.Title"),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.AddBvReference.Error.NoTables"),
+          null);
+      return;
+    }
+
+    EnterSelectionDialog dialog =
+        new EnterSelectionDialog(
+            getShell(),
+            choices.toArray(new String[0]),
+            BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.AddBvReference.Dialog.Title"),
+            BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.AddBvReference.Dialog.Message"));
+    String selectedName = dialog.open();
+    if (Utils.isEmpty(selectedName)) {
+      return;
+    }
+
+    IBvTable bvTable = sourceModel.findTable(selectedName);
+    if (bvTable == null) {
+      return;
+    }
+
+    int x = click != null ? click.x : 50;
+    int y = click != null ? click.y : 50;
+    BvBvTableReference reference =
+        BusinessVaultBvReferenceSupport.createReference(
+            bvTable, new Point(x, y), modelFilenameForAlias);
+    if (reference == null) {
+      return;
+    }
+    model.getBvReferences().add(reference);
     setChanged();
     redraw();
   }
@@ -1007,6 +1332,55 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
                 ref != null
                     && reference.getDvTableName() != null
                     && reference.getDvTableName().equalsIgnoreCase(ref.getDvTableName()));
+    graph.setChanged();
+    graph.redraw();
+  }
+
+  @GuiContextAction(
+      id = "bv-graph-add-bv-reference",
+      parentId = HopGuiBusinessVaultContext.CONTEXT_ID,
+      type = GuiActionType.Create,
+      name = "i18n::HopGuiBusinessVaultGraph.Context.AddBvReference.Name",
+      tooltip = "i18n::HopGuiBusinessVaultGraph.Context.AddBvReference.Tooltip",
+      image = "business-vault-model.svg",
+      category = "Business Vault",
+      categoryOrder = "0")
+  public void addBvTableReference(HopGuiBusinessVaultContext context) {
+    HopGuiBusinessVaultGraph graph = context.getBusinessVaultGraph();
+    if (graph == null || context.getModel() == null) {
+      return;
+    }
+    graph.markUndoPoint();
+    graph.addBvReferenceAtClick(context.getClick());
+  }
+
+  @GuiContextAction(
+      id = "bv-graph-delete-bv-reference",
+      parentId = HopGuiBusinessVaultBvReferenceContext.CONTEXT_ID,
+      type = GuiActionType.Delete,
+      name = "i18n::HopGuiBusinessVaultGraph.Context.DeleteBvReference.Name",
+      tooltip = "i18n::HopGuiBusinessVaultGraph.Context.DeleteBvReference.Tooltip",
+      image = "ui/images/delete.svg",
+      category = "Business Vault",
+      categoryOrder = "1")
+  public void deleteBvReference(HopGuiBusinessVaultBvReferenceContext context) {
+    BvBvTableReference reference = context.getReference();
+    HopGuiBusinessVaultGraph graph = context.getBusinessVaultGraph();
+    BusinessVaultModel bvModel = context.getModel();
+    if (reference == null || graph == null || bvModel == null) {
+      return;
+    }
+    graph.markUndoPoint();
+    bvModel
+        .getBvReferences()
+        .removeIf(
+            ref ->
+                ref != null
+                    && reference.getBvTableName() != null
+                    && reference.getBvTableName().equalsIgnoreCase(ref.getBvTableName())
+                    && Objects.equals(
+                        reference.getReferencedModelFilename(),
+                        ref.getReferencedModelFilename()));
     graph.setChanged();
     graph.redraw();
   }
@@ -1567,6 +1941,16 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     if (dataVaultModel != null) {
       return true;
     }
+    // SQL-only BV models need no DV universe; SCD2/PIT need canvas DV aliases.
+    boolean needsDv =
+        model != null
+            && model.getTables().stream()
+                .anyMatch(t -> t instanceof BvScd2Table || t instanceof BvPitTable);
+    if (!needsDv) {
+      dataVaultModel =
+          new org.apache.hop.datavault.metadata.DataVaultModel();
+      return true;
+    }
     new ErrorDialog(
         hopGui.getShell(),
         BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.Debug.Error.Title"),
@@ -1821,6 +2205,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     }
     mouseOverBvTableName = null;
     mouseOverDvReferenceName = null;
+    mouseOverBvReferenceName = null;
     mouseOverNoteLink = null;
   }
 
@@ -1906,7 +2291,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     navigateToTable(tableName);
   }
 
-  /** Selects and centers a business vault table or DV reference on this graph canvas. */
+  /** Selects and centers a business vault table or DV/BV reference on this graph canvas. */
   public void navigateToTable(String tableName) {
     if (model == null || Utils.isEmpty(tableName)) {
       return;
@@ -1925,6 +2310,15 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       mouseInteractions().unselectAllOnCanvas();
       reference.setSelected(true);
       centerOnDvReference(reference);
+      redraw();
+      updateGui();
+      return;
+    }
+    BvBvTableReference bvReference = model.findBvReference(tableName);
+    if (bvReference != null) {
+      mouseInteractions().unselectAllOnCanvas();
+      bvReference.setSelected(true);
+      centerOnBvReference(bvReference);
       redraw();
       updateGui();
       return;
@@ -1959,7 +2353,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     }
     try {
       BusinessVaultDvNavigationSupport.navigateToDvTable(
-          hopGui, model, reference.getDvTableName(), getVariables());
+          hopGui, model, reference, getVariables());
     } catch (HopException e) {
       new ErrorDialog(
           hopGui.getShell(),
@@ -1969,7 +2363,36 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     }
   }
 
+  private void navigateToReferencedBvTable(BvBvTableReference reference) {
+    if (reference == null || Utils.isEmpty(reference.getBvTableName())) {
+      return;
+    }
+    try {
+      BusinessVaultBvNavigationSupport.navigateToBvTable(
+          hopGui, model, reference, getVariables());
+    } catch (HopException e) {
+      new ErrorDialog(
+          hopGui.getShell(),
+          BaseMessages.getString(PKG, "HopGuiBusinessVaultGraph.NavigateBvReference.Error.Title"),
+          e.getMessage(),
+          e);
+    }
+  }
+
   private void centerOnDvReference(BvDvTableReference reference) {
+    if (reference == null) {
+      return;
+    }
+    Point loc = reference.getLocation();
+    if (loc == null) {
+      return;
+    }
+    int boxW = Math.max(140, reference.getDrawnBoxWidth());
+    int boxH = Math.max(70, reference.getDrawnBoxHeight());
+    centerOnCanvasLocation(loc, boxW, boxH);
+  }
+
+  private void centerOnBvReference(BvBvTableReference reference) {
     if (reference == null) {
       return;
     }
@@ -2094,6 +2517,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       }
     }
     for (BvDvTableReference reference : model.getDvReferences()) {
+      if (reference != null) {
+        reference.setSelected(true);
+      }
+    }
+    for (BvBvTableReference reference : model.getBvReferences()) {
       if (reference != null) {
         reference.setSelected(true);
       }
@@ -2246,7 +2674,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     List<IBvTable> tablesToDelete = getSelectedBvTables();
     List<DvNote> notesToDelete = getSelectedNotes();
     List<BvDvTableReference> referencesToDelete = getSelectedDvReferences();
-    if (tablesToDelete.isEmpty() && notesToDelete.isEmpty() && referencesToDelete.isEmpty()) {
+    List<BvBvTableReference> bvReferencesToDelete = getSelectedBvReferences();
+    if (tablesToDelete.isEmpty()
+        && notesToDelete.isEmpty()
+        && referencesToDelete.isEmpty()
+        && bvReferencesToDelete.isEmpty()) {
       return;
     }
 
@@ -2259,6 +2691,9 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       modelChanged = true;
     }
     if (model.getDvReferences().removeAll(referencesToDelete)) {
+      modelChanged = true;
+    }
+    if (model.getBvReferences().removeAll(bvReferencesToDelete)) {
       modelChanged = true;
     }
     if (modelChanged) {
@@ -2494,9 +2929,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       AreaOwner areaOwner = getVisibleAreaOwner(logicalX, logicalY);
       IBvTable bvTable = getAreaOwnerBvTable(areaOwner);
       BvDvTableReference dvReference = getAreaOwnerDvReference(areaOwner);
+      BvBvTableReference bvReference = getAreaOwnerBvReference(areaOwner);
       DvNote note = getAreaOwnerNote(areaOwner);
       AreaOwner.AreaType areaType = areaOwner == null ? null : areaOwner.getAreaType();
-      Object canvasObject = bvTable != null ? bvTable : dvReference;
+      Object canvasObject =
+          bvTable != null ? bvTable : dvReference != null ? dvReference : bvReference;
       return new ModelGraphHit(areaOwner, areaType, note, canvasObject);
     }
 
@@ -2521,6 +2958,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
           prepareExclusiveDragSelection(control, bvHit.isSelected(), () -> bvHit.setSelected(true));
           currentBvTable = bvHit;
           currentDvReference = null;
+          currentBvReference = null;
           iconDragStart = new Point(real.x, real.y);
           iconDragCommitted = false;
           Point loc = bvHit.getLocation() != null ? bvHit.getLocation() : new Point(0, 0);
@@ -2548,9 +2986,33 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
               control, dvRefHit.isSelected(), () -> dvRefHit.setSelected(true));
           currentDvReference = dvRefHit;
           currentBvTable = null;
+          currentBvReference = null;
           iconDragStart = new Point(real.x, real.y);
           iconDragCommitted = false;
           Point loc = dvRefHit.getLocation() != null ? dvRefHit.getLocation() : new Point(0, 0);
+          iconOffset = new Point(real.x - loc.x, real.y - loc.y);
+          clearNoteDragState();
+          clearSelectionRegion();
+          redraw();
+          return true;
+        }
+      }
+
+      if (obj instanceof BvBvTableReference bvRefHit) {
+        if (e.button == 1 && areaType == AreaOwner.AreaType.TRANSFORM_NAME) {
+          avoidContextDialog = true;
+          navigateToReferencedBvTable(bvRefHit);
+          return true;
+        }
+        if (e.button == 1 && areaType == AreaOwner.AreaType.TRANSFORM_ICON) {
+          prepareExclusiveDragSelection(
+              control, bvRefHit.isSelected(), () -> bvRefHit.setSelected(true));
+          currentBvReference = bvRefHit;
+          currentBvTable = null;
+          currentDvReference = null;
+          iconDragStart = new Point(real.x, real.y);
+          iconDragCommitted = false;
+          Point loc = bvRefHit.getLocation() != null ? bvRefHit.getLocation() : new Point(0, 0);
           iconOffset = new Point(real.x - loc.x, real.y - loc.y);
           clearNoteDragState();
           clearSelectionRegion();
@@ -2593,6 +3055,10 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
         currentDvReference.setSelected(true);
         doRedraw = mouseMoveCanvasObject(real, currentDvReference) || doRedraw;
       }
+      if (currentBvReference != null) {
+        currentBvReference.setSelected(true);
+        doRedraw = mouseMoveCanvasObject(real, currentBvReference) || doRedraw;
+      }
       return doRedraw;
     }
 
@@ -2624,6 +3090,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       return isRelationshipDragActive()
           || currentBvTable != null
           || currentDvReference != null
+          || currentBvReference != null
           || iconDragStart != null
           || currentNote != null
           || noteDragStart != null
@@ -2661,6 +3128,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
           reference.setSelected(false);
         }
       }
+      for (BvBvTableReference reference : model.getBvReferences()) {
+        if (reference != null) {
+          reference.setSelected(false);
+        }
+      }
     }
 
     @Override
@@ -2680,6 +3152,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
       }
       for (BvDvTableReference reference : model.getDvReferences()) {
         if (isDvReferenceInLassoScreenRect(reference, lassoMinX, lassoMinY, lassoMaxX, lassoMaxY)) {
+          reference.setSelected(true);
+        }
+      }
+      for (BvBvTableReference reference : model.getBvReferences()) {
+        if (isBvReferenceInLassoScreenRect(reference, lassoMinX, lassoMinY, lassoMaxX, lassoMaxY)) {
           reference.setSelected(true);
         }
       }
@@ -2752,6 +3229,19 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
         return true;
       }
 
+      BvBvTableReference bvRefHit = currentBvReference;
+      if (bvRefHit != null) {
+        if (isControlDown(e)) {
+          bvRefHit.setSelected(!bvRefHit.isSelected());
+          redraw();
+        } else if (!avoidContextDialog) {
+          showBvReferenceContextDialog(e, bvRefHit);
+        }
+        clearCanvasDragState();
+        avoidContextDialog = false;
+        return true;
+      }
+
       if (!avoidContextDialog) {
         showBusinessVaultContextDialog(e, real);
         avoidContextDialog = true;
@@ -2763,11 +3253,13 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     public boolean clearHoverState() {
       if (mouseOverBvTableName == null
           && mouseOverDvReferenceName == null
+          && mouseOverBvReferenceName == null
           && mouseOverNoteLink == null) {
         return false;
       }
       mouseOverBvTableName = null;
       mouseOverDvReferenceName = null;
+      mouseOverBvReferenceName = null;
       mouseOverNoteLink = null;
       return true;
     }
@@ -2776,6 +3268,7 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     public boolean updateHoverState(AreaOwner areaOwner, Point real) {
       String newBvOver = null;
       String newDvOver = null;
+      String newBvRefOver = null;
       if (areaOwner != null
           && areaOwner.getAreaType() == AreaOwner.AreaType.TRANSFORM_NAME
           && !isRelationshipDragActive()
@@ -2786,6 +3279,9 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
         } else if (areaOwner.getParent() instanceof BvDvTableReference dvReference
             && dvReference.getDvTableName() != null) {
           newDvOver = dvReference.getDvTableName();
+        } else if (areaOwner.getParent() instanceof BvBvTableReference bvReference
+            && bvReference.getBvTableName() != null) {
+          newBvRefOver = bvReference.getBvTableName();
         }
       }
       boolean doRedraw = false;
@@ -2799,6 +3295,12 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
         mouseOverDvReferenceName = newDvOver;
         doRedraw = true;
       }
+      if ((mouseOverBvReferenceName == null && newBvRefOver != null)
+          || (mouseOverBvReferenceName != null
+              && !mouseOverBvReferenceName.equals(newBvRefOver))) {
+        mouseOverBvReferenceName = newBvRefOver;
+        doRedraw = true;
+      }
       Cursor hand = getDisplay().getSystemCursor(SWT.CURSOR_HAND);
       if (newDvOver != null) {
         if (!Objects.equals(getCanvasCursor(), hand)) {
@@ -2808,6 +3310,17 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
         String tip =
             BaseMessages.getString(
                 PKG, "HopGuiBusinessVaultGraph.NavigateDvReference.Tooltip", newDvOver);
+        if (!Objects.equals(canvas.getToolTipText(), tip)) {
+          canvas.setToolTipText(tip);
+        }
+      } else if (newBvRefOver != null) {
+        if (!Objects.equals(getCanvasCursor(), hand)) {
+          setCanvasCursor(hand);
+          doRedraw = true;
+        }
+        String tip =
+            BaseMessages.getString(
+                PKG, "HopGuiBusinessVaultGraph.NavigateBvReference.Tooltip", newBvRefOver);
         if (!Objects.equals(canvas.getToolTipText(), tip)) {
           canvas.setToolTipText(tip);
         }
@@ -2949,6 +3462,11 @@ public class HopGuiBusinessVaultGraph extends HopGuiModelGraphBase
     for (BvDvTableReference reference : model.getDvReferences()) {
       if (reference != null) {
         reference.setSelected(tableName.equals(reference.getDvTableName()));
+      }
+    }
+    for (BvBvTableReference reference : model.getBvReferences()) {
+      if (reference != null) {
+        reference.setSelected(tableName.equals(reference.getBvTableName()));
       }
     }
     redraw();

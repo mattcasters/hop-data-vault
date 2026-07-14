@@ -35,7 +35,7 @@ import org.apache.hop.pipeline.transforms.sql.ExecSqlMeta;
 
 /**
  * Generates build pipelines that materialize SQL business tables as views or tables via Execute
- * SQL.
+ * SQL, with dialect-aware CREATE statements.
  */
 public final class BvSqlViewPipelineSupport {
 
@@ -44,6 +44,14 @@ public final class BvSqlViewPipelineSupport {
   private static final Point LOCATION_EXEC_SQL = new Point(160, 160);
 
   private BvSqlViewPipelineSupport() {}
+
+  /**
+   * Result of building materialization SQL for a business table.
+   *
+   * @param sql full script to run (may contain multiple statements)
+   * @param singleStatement when true, Exec SQL should run the script as one statement
+   */
+  public record CreateScript(String sql, boolean singleStatement) {}
 
   public static List<PipelineMeta> generateBuildPipelines(
       IHopMetadataProvider metadataProvider,
@@ -73,12 +81,13 @@ public final class BvSqlViewPipelineSupport {
               businessTable.getName()));
     }
 
-    BvSqlRefResolver.syncRefsFromSql(businessTable, bvModel, dvModel);
+    BvSqlRefResolver.syncRefsFromSql(
+        businessTable, bvModel, dvModel, variables, metadataProvider);
     String resolvedQuery =
         BvSqlRefResolver.resolveSql(
             businessTable, bvModel, dvModel, metadataProvider, variables, targetDatabaseMeta);
-    String ddl =
-        buildCreateStatement(businessTable, targetDatabaseMeta, variables, resolvedQuery);
+    CreateScript createScript =
+        buildCreateScript(businessTable, targetDatabaseMeta, variables, resolvedQuery);
 
     String targetTableName =
         !Utils.isEmpty(businessTable.getTableName())
@@ -92,9 +101,9 @@ public final class BvSqlViewPipelineSupport {
 
     ExecSqlMeta execSqlMeta = new ExecSqlMeta();
     execSqlMeta.setConnection(targetDatabaseMeta.getName());
-    execSqlMeta.setSql(ddl);
+    execSqlMeta.setSql(createScript.sql());
     execSqlMeta.setExecutedEachInputRow(false);
-    execSqlMeta.setSingleStatement(true);
+    execSqlMeta.setSingleStatement(createScript.singleStatement());
     execSqlMeta.setReplaceVariables(true);
 
     TransformMeta transformMeta =
@@ -120,10 +129,33 @@ public final class BvSqlViewPipelineSupport {
   }
 
   /**
-   * Builds {@code CREATE OR REPLACE VIEW|TABLE qualifiedName AS <query>} (Postgres-friendly default
-   * shape).
+   * Builds dialect-aware materialization SQL for a business table.
+   *
+   * <p>Convenience wrapper that returns only the SQL text (used by the Generated SQL dialog).
    */
   public static String buildCreateStatement(
+      BvBusinessTable businessTable,
+      DatabaseMeta targetDatabaseMeta,
+      IVariables variables,
+      String resolvedQuery)
+      throws HopException {
+    return buildCreateScript(businessTable, targetDatabaseMeta, variables, resolvedQuery).sql();
+  }
+
+  /**
+   * Builds dialect-aware materialization SQL.
+   *
+   * <ul>
+   *   <li><b>VIEW / Postgres, MySQL, SingleStore, generic</b> — {@code CREATE OR REPLACE VIEW t AS
+   *       q}
+   *   <li><b>VIEW / SQL Server</b> — {@code CREATE OR ALTER VIEW t AS q}
+   *   <li><b>TABLE / MySQL, SingleStore</b> — {@code CREATE OR REPLACE TABLE t AS q}
+   *   <li><b>TABLE / Postgres</b> — {@code DROP TABLE IF EXISTS t;} + {@code CREATE TABLE t AS q}
+   *   <li><b>TABLE / SQL Server</b> — {@code DROP TABLE IF EXISTS t;} + {@code SELECT * INTO t FROM
+   *       (q) AS _src}
+   * </ul>
+   */
+  public static CreateScript buildCreateScript(
       BvBusinessTable businessTable,
       DatabaseMeta targetDatabaseMeta,
       IVariables variables,
@@ -150,15 +182,55 @@ public final class BvSqlViewPipelineSupport {
     String quotedTarget =
         BvSqlRefResolver.quoteTable(targetDatabaseMeta, variables, null, targetTableName);
     BvSqlMaterialization materialization = businessTable.getMaterializationOrDefault();
-    String objectKind = materialization == BvSqlMaterialization.TABLE ? "TABLE" : "VIEW";
     String query = stripTrailingSemicolon(resolvedQuery.trim());
+    BvPitSnapshotSpineSupport.PitSqlDialect dialect =
+        BvPitSnapshotSpineSupport.resolveDialect(targetDatabaseMeta);
 
-    return "CREATE OR REPLACE "
-        + objectKind
-        + " "
-        + quotedTarget
-        + " AS\n"
-        + query;
+    if (materialization == BvSqlMaterialization.VIEW) {
+      return buildViewScript(dialect, quotedTarget, query);
+    }
+    return buildTableScript(dialect, quotedTarget, query);
+  }
+
+  private static CreateScript buildViewScript(
+      BvPitSnapshotSpineSupport.PitSqlDialect dialect, String quotedTarget, String query) {
+    if (dialect == BvPitSnapshotSpineSupport.PitSqlDialect.SQL_SERVER) {
+      return new CreateScript(
+          "CREATE OR ALTER VIEW " + quotedTarget + " AS\n" + query, true);
+    }
+    return new CreateScript(
+        "CREATE OR REPLACE VIEW " + quotedTarget + " AS\n" + query, true);
+  }
+
+  private static CreateScript buildTableScript(
+      BvPitSnapshotSpineSupport.PitSqlDialect dialect, String quotedTarget, String query) {
+    return switch (dialect) {
+      case SQL_SERVER ->
+          new CreateScript(
+              "DROP TABLE IF EXISTS "
+                  + quotedTarget
+                  + ";\n"
+                  + "SELECT * INTO "
+                  + quotedTarget
+                  + " FROM (\n"
+                  + query
+                  + "\n) AS _bv_sql_src",
+              false);
+      case MYSQL, SINGLESTORE ->
+          new CreateScript(
+              "CREATE OR REPLACE TABLE " + quotedTarget + " AS\n" + query, true);
+      case POSTGRES ->
+          // Postgres has no CREATE OR REPLACE TABLE; drop then CTAS.
+          new CreateScript(
+              "DROP TABLE IF EXISTS "
+                  + quotedTarget
+                  + ";\n"
+                  + "CREATE TABLE "
+                  + quotedTarget
+                  + " AS\n"
+                  + query,
+              false);
+    };
   }
 
   private static String stripTrailingSemicolon(String sql) {

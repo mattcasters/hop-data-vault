@@ -79,14 +79,13 @@ public class BusinessVaultModel extends HopMetadataBase
   @HopMetadataProperty
   private String description;
 
-  @GuiWidgetElement(
-      order = "0200",
-      type = GuiElementType.FILENAME,
-      label = "i18n::BusinessVaultModel.DataVaultModelPath.Label",
-      toolTip = "i18n::BusinessVaultModel.DataVaultModelPath.ToolTip",
-      parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
-  @HopMetadataProperty
-  private String dataVaultModelPath;
+  /**
+   * Optional legacy default {@code .hdv} path. Prefer canvas {@link BvDvTableReference} aliases
+   * (with optional per-alias {@code referencedModelFilename}) for multi-model DV sources. Kept for
+   * backward compatibility with older {@code .hbv} files; not required and not shown in the model
+   * dialog.
+   */
+  @HopMetadataProperty private String dataVaultModelPath;
 
   @HopMetadataProperty(key = "configuration")
   private BusinessVaultConfiguration configuration = new BusinessVaultConfiguration();
@@ -107,6 +106,15 @@ public class BusinessVaultModel extends HopMetadataBase
   @Getter(AccessLevel.NONE)
   @Setter(AccessLevel.NONE)
   private List<BvDvTableReference> dvReferences = new ArrayList<>();
+
+  /**
+   * Canvas aliases for tables defined in another Business Vault model ({@code .hbv}), used for
+   * multi-step BV layers (historize → harmonize → rename).
+   */
+  @HopMetadataProperty(key = "bv_reference", groupKey = "bv_references")
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
+  private List<BvBvTableReference> bvReferences = new ArrayList<>();
 
   protected final ChangedFlag changedFlag = new ChangedFlag();
 
@@ -162,10 +170,22 @@ public class BusinessVaultModel extends HopMetadataBase
     this.dvReferences = dvReferences != null ? dvReferences : new ArrayList<>();
   }
 
+  public @NonNull List<BvBvTableReference> getBvReferences() {
+    if (bvReferences == null) {
+      bvReferences = new ArrayList<>();
+    }
+    return bvReferences;
+  }
+
+  public void setBvReferences(List<BvBvTableReference> bvReferences) {
+    this.bvReferences = bvReferences != null ? bvReferences : new ArrayList<>();
+  }
+
   private void ensureLists() {
     setTables(tables);
     setNotes(notes);
     setDvReferences(dvReferences);
+    setBvReferences(bvReferences);
   }
 
   @Override
@@ -242,6 +262,23 @@ public class BusinessVaultModel extends HopMetadataBase
         maxy = refMaxY;
       }
     }
+    for (BvBvTableReference reference : getBvReferences()) {
+      if (reference == null) {
+        continue;
+      }
+      Point loc = reference.getLocation();
+      if (loc == null) {
+        continue;
+      }
+      int refMaxX = loc.x + Math.max(140, reference.getDrawnBoxWidth());
+      int refMaxY = loc.y + Math.max(70, reference.getDrawnBoxHeight());
+      if (refMaxX > maxx) {
+        maxx = refMaxX;
+      }
+      if (refMaxY > maxy) {
+        maxy = refMaxY;
+      }
+    }
     return new Point(maxx + 200, maxy + 200);
   }
 
@@ -269,26 +306,31 @@ public class BusinessVaultModel extends HopMetadataBase
     return null;
   }
 
+  public BvBvTableReference findBvReference(String bvTableName) {
+    if (Utils.isEmpty(bvTableName)) {
+      return null;
+    }
+    for (BvBvTableReference reference : getBvReferences()) {
+      if (reference != null && bvTableName.equalsIgnoreCase(reference.getBvTableName())) {
+        return reference;
+      }
+    }
+    return null;
+  }
+
   public List<ICheckResult> check(IHopMetadataProvider metadataProvider, IVariables variables) {
     List<ICheckResult> remarks = new ArrayList<>();
-    if (Utils.isEmpty(dataVaultModelPath)) {
-      remarks.add(
-          new CheckResult(
-              ICheckResult.TYPE_RESULT_ERROR,
-              BaseMessages.getString(PKG, "BusinessVaultModel.CheckResult.MissingDataVaultModelPath"),
-              null));
-      return remarks;
-    }
 
-    DataVaultModel dataVaultModel;
+    // DV tables come from canvas Hub/Link/Satellite references (multi-model capable).
+    // Optional legacy dataVaultModelPath is only a default when an alias has no path.
+    DataVaultModel dataVaultModel = null;
     try {
       dataVaultModel =
-          BusinessVaultDvModelResolver.loadReferencedModel(
-              dataVaultModelPath, variables, metadataProvider);
+          BusinessVaultDvModelResolver.buildEffectiveDataVaultModel(
+              this, variables, metadataProvider);
     } catch (HopException e) {
-      remarks.add(
-          new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), null));
-      return remarks;
+      remarks.add(new CheckResult(ICheckResult.TYPE_RESULT_ERROR, e.getMessage(), null));
+      // Continue with null model so table-level checks still report structure issues.
     }
 
     if (getTables().isEmpty()) {
@@ -324,6 +366,9 @@ public class BusinessVaultModel extends HopMetadataBase
       table.check(remarks, metadataProvider, variables, this, dataVaultModel);
     }
 
+    // SQL business-table dependency graph (cycles reported once for the model).
+    BvSqlValidationSupport.validateModelSqlGraph(remarks, this);
+
     BusinessVaultConfiguration config = getConfigurationOrDefault();
     org.apache.hop.core.database.DatabaseMeta targetDatabase = null;
     try {
@@ -346,29 +391,119 @@ public class BusinessVaultModel extends HopMetadataBase
       if (reference == null || Utils.isEmpty(reference.getDvTableName())) {
         continue;
       }
-      IDvTable dvTable = dataVaultModel.findTable(reference.getDvTableName());
-      if (dvTable == null) {
+      String modelPath = reference.getReferencedModelFilename();
+      if (Utils.isEmpty(modelPath)) {
+        modelPath = dataVaultModelPath;
+      }
+      if (Utils.isEmpty(modelPath)) {
         remarks.add(
             new CheckResult(
                 ICheckResult.TYPE_RESULT_ERROR,
                 BaseMessages.getString(
                     PKG,
-                    "BusinessVaultModel.CheckResult.UnknownDvReference",
+                    "BusinessVaultModel.CheckResult.DvReferenceMissingModelPath",
                     reference.getDvTableName()),
                 null));
         continue;
       }
-      if (reference.getDvTableType() != null
-          && dvTable.getTableType() != reference.getDvTableType()) {
+      try {
+        IDvTable dvTable =
+            BusinessVaultDvModelResolver.resolveDvTable(
+                this, reference.getDvTableName(), variables, metadataProvider);
+        if (dvTable == null) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG,
+                      "BusinessVaultModel.CheckResult.UnknownDvReference",
+                      reference.getDvTableName()),
+                  null));
+          continue;
+        }
+        if (reference.getDvTableType() != null
+            && dvTable.getTableType() != reference.getDvTableType()) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG,
+                      "BusinessVaultModel.CheckResult.DvReferenceTypeMismatch",
+                      reference.getDvTableName(),
+                      reference.getDvTableType(),
+                      dvTable.getTableType()),
+                  null));
+        }
+      } catch (HopException e) {
         remarks.add(
             new CheckResult(
                 ICheckResult.TYPE_RESULT_ERROR,
                 BaseMessages.getString(
                     PKG,
-                    "BusinessVaultModel.CheckResult.DvReferenceTypeMismatch",
+                    "BusinessVaultModel.CheckResult.DvReferenceLoadFailed",
                     reference.getDvTableName(),
-                    reference.getDvTableType(),
-                    dvTable.getTableType()),
+                    modelPath,
+                    e.getMessage()),
+                null));
+      }
+    }
+
+    for (BvBvTableReference reference : getBvReferences()) {
+      if (reference == null || Utils.isEmpty(reference.getBvTableName())) {
+        continue;
+      }
+      if (Utils.isEmpty(reference.getReferencedModelFilename())) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "BusinessVaultModel.CheckResult.MissingBvReferenceModelPath",
+                    reference.getBvTableName()),
+                null));
+        continue;
+      }
+      try {
+        BusinessVaultModel external =
+            BvSqlModelPathSupport.loadBusinessVaultModelUncached(
+                variables != null
+                    ? variables.resolve(reference.getReferencedModelFilename())
+                    : reference.getReferencedModelFilename(),
+                metadataProvider);
+        IBvTable bvTable = external.findTable(reference.getBvTableName());
+        if (bvTable == null) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG,
+                      "BusinessVaultModel.CheckResult.UnknownBvReference",
+                      reference.getBvTableName(),
+                      reference.getReferencedModelFilename()),
+                  null));
+        } else if (reference.getBvTableType() != null
+            && bvTable.getTableType() != reference.getBvTableType()) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG,
+                      "BusinessVaultModel.CheckResult.BvReferenceTypeMismatch",
+                      reference.getBvTableName(),
+                      reference.getBvTableType(),
+                      bvTable.getTableType()),
+                  null));
+        }
+      } catch (Exception e) {
+        remarks.add(
+            new CheckResult(
+                ICheckResult.TYPE_RESULT_ERROR,
+                BaseMessages.getString(
+                    PKG,
+                    "BusinessVaultModel.CheckResult.BvReferenceLoadFailed",
+                    reference.getBvTableName(),
+                    reference.getReferencedModelFilename(),
+                    e.getMessage()),
                 null));
       }
     }

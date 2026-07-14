@@ -127,6 +127,22 @@ public final class DmCatalogPublisher {
       }
     }
 
+    try {
+      CatalogModelRegistrySupport.registerDimensionalModel(
+          catalogConnectionName, dmModel, variables, metadataProvider, workflowName);
+      if (log != null) {
+        log.logBasic(
+            "Published DM model registry entry: "
+                + CatalogModelRegistrySupport.modelRegistryKey(
+                    variables, DmCatalogNamespaces.resolveModelBasename(dmModel)));
+      }
+    } catch (Exception e) {
+      errorCount++;
+      if (log != null) {
+        log.logError("Failed to publish DM model registry entry", e);
+      }
+    }
+
     return new PublishResult(tableCount, errorCount);
   }
 

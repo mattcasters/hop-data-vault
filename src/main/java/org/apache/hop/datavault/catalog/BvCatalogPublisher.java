@@ -131,6 +131,22 @@ public final class BvCatalogPublisher {
       }
     }
 
+    try {
+      CatalogModelRegistrySupport.registerBusinessVaultModel(
+          catalogConnectionName, bvModel, variables, metadataProvider, workflowName);
+      if (log != null) {
+        log.logBasic(
+            "Published BV model registry entry: "
+                + CatalogModelRegistrySupport.modelRegistryKey(
+                    variables, BvCatalogNamespaces.resolveModelBasename(bvModel)));
+      }
+    } catch (Exception e) {
+      errorCount++;
+      if (log != null) {
+        log.logError("Failed to publish BV model registry entry", e);
+      }
+    }
+
     return new PublishResult(tableCount, errorCount);
   }
 

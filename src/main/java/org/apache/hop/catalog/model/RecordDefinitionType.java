@@ -29,5 +29,11 @@ public enum RecordDefinitionType {
   FACT_TABLE,
   PHYSICAL_TABLE,
   VIEW,
+  /** Index entry for a Data Vault model file ({@code .hdv}). */
+  DV_MODEL,
+  /** Index entry for a Business Vault model file ({@code .hbv}). */
+  BV_MODEL,
+  /** Index entry for a dimensional model file ({@code .hdm}). */
+  DM_MODEL,
   UNKNOWN
 }

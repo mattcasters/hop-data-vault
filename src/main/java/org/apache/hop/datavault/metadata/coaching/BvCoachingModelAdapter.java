@@ -74,10 +74,15 @@ public class BvCoachingModelAdapter implements ICoachingModelAdapter {
   @Override
   public String resolveCatalogConnectionName(IVariables variables, IHopMetadataProvider metadataProvider)
       throws HopException {
+    // Prefer BV model configuration catalog; fall back to effective DV models from canvas refs.
+    String fromBv = model.getConfigurationOrDefault().getDataCatalogConnection();
+    if (!org.apache.hop.core.util.Utils.isEmpty(fromBv)) {
+      return fromBv;
+    }
     DataVaultModel dvModel =
-        BusinessVaultDvModelResolver.loadReferencedModel(
-            model.getDataVaultModelPath(), variables, metadataProvider);
-    if (dvModel == null) {
+        BusinessVaultDvModelResolver.buildEffectiveDataVaultModel(
+            model, variables, metadataProvider);
+    if (dvModel == null || dvModel.getTables().isEmpty()) {
       return null;
     }
     return DvSourceCatalogService.resolveCatalogConnection(dvModel, variables, metadataProvider);
@@ -85,7 +90,7 @@ public class BvCoachingModelAdapter implements ICoachingModelAdapter {
 
   @Override
   public void setCatalogConnectionName(String catalogConnectionName) {
-    // BV catalog is owned by the linked DV model; no-op here.
+    model.getConfigurationOrDefault().setDataCatalogConnection(catalogConnectionName);
   }
 
   @Override

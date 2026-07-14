@@ -22,6 +22,7 @@ limitations under the License.
   <dataVaultModelPath>${PROJECT_HOME}/models/retail-360.hdv</dataVaultModelPath>
   <configuration>
     <targetDatabase>Vault</targetDatabase>
+    <dataCatalogConnection>local-catalog</dataCatalogConnection>
     <scd2DefaultsFolder/>
     <functionalTimestampField/>
     <loadDateFieldFallback>x_load_ts</loadDateFieldFallback>
@@ -195,5 +196,6 @@ It is possible to load incrementally as well.</text>
       <yloc>304</yloc>
     </dv_reference>
   </dv_references>
+  <bv_references/>
   <name>retail-360</name>
 </business-vault-model>

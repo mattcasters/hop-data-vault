@@ -39,7 +39,9 @@ For a slide-style executive summary, see [presentations/hop-data-vault-overview.
 | Business Vault modeler (`.hbv`) | Available | [business-vault-overview.adoc](business-vault-overview.adoc) |
 | BV SCD2 (single + multi-satellite merge) | Available | [business-vault-scd2.adoc](business-vault-scd2.adoc) |
 | BV PIT tables | Available | [business-vault-pit.adoc](business-vault-pit.adoc) |
-| BV SQL views / tables (`ref` / `source`) | Available | [business-vault-sql-view.adoc](business-vault-sql-view.adoc) |
+| BV SQL views / tables (`ref` / `source`) | Available | [business-vault-sql-view.adoc](business-vault-sql-view.adoc) (`vault1.hbv` + `retail-sql.hbv` samples) |
+| Catalog model registry (DV/BV/DM index) | Available | Published on catalog publish; short `ref('model', 'table')` lookup |
+| BV→BV canvas references (multi-step BV) | Available | Alias cards + SQL `ref()` to tables in another `.hbv` |
 | Business Vault Update action | Available | [business-vault-update-action.adoc](business-vault-update-action.adoc) |
 | Dimensional modeler (`.hdm`) | Available | [dimensional-modeler-overview.adoc](dimensional-modeler-overview.adoc) |
 | Dimensional Update / Publish actions | Available | [dimensional-update-action.adoc](dimensional-update-action.adoc) |

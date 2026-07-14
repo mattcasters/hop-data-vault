@@ -1,0 +1,42 @@
+{
+  "namespace" : "hop/retail-example/models-registry/dv",
+  "name" : "retail-360",
+  "type" : "DV_MODEL",
+  "description" : "Retail end-to-end model: customer 360, orders, order lines, warehouses",
+  "rowMetaXml" : null,
+  "origin" : {
+    "modelType" : "DATA_VAULT_MODEL",
+    "modelName" : "retail-360",
+    "modelFilename" : "${PROJECT_HOME}/models/retail-360.hdv",
+    "modelElementName" : null,
+    "hopProject" : "retail-example",
+    "createdAt" : 1784011770271,
+    "updatedAt" : 1784015236934,
+    "lastDiscoveredAt" : null,
+    "updatedBy" : null,
+    "lastWorkflow" : "retail-360 initial DV",
+    "lastPipeline" : null
+  },
+  "physicalTable" : null,
+  "physicalFile" : null,
+  "physicalIcebergTable" : null,
+  "tags" : [ "MODEL_REGISTRY", "DATA_VAULT_MODEL" ],
+  "glossaryTerms" : [ ],
+  "customProperties" : {
+    "tableNamespace" : {
+      "type" : "STRING",
+      "value" : "hop/retail-example/models/retail-360"
+    },
+    "fileExtension" : {
+      "type" : "STRING",
+      "value" : "hdv"
+    },
+    "modelKind" : {
+      "type" : "STRING",
+      "value" : "DATA_VAULT_MODEL"
+    }
+  },
+  "validationAcknowledgements" : [ ],
+  "qualityRules" : [ ],
+  "dvSource" : null
+}

@@ -137,6 +137,22 @@ public final class DvCatalogPublisher {
     // DV source record definitions are maintained in the source catalog (local-catalog).
     // Publishing a model only snapshots target table layouts under hop/project/models/.
 
+    try {
+      CatalogModelRegistrySupport.registerDataVaultModel(
+          catalogConnectionName, model, variables, metadataProvider, workflowName);
+      if (log != null) {
+        log.logBasic(
+            "Published DV model registry entry: "
+                + CatalogModelRegistrySupport.modelRegistryKey(
+                    variables, DvCatalogNamespaces.resolveModelBasename(model)));
+      }
+    } catch (Exception e) {
+      errorCount++;
+      if (log != null) {
+        log.logError("Failed to publish DV model registry entry", e);
+      }
+    }
+
     return new PublishResult(tableCount, sourceCount, errorCount);
   }
 

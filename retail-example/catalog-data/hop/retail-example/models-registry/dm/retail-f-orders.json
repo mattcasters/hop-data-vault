@@ -1,0 +1,42 @@
+{
+  "namespace" : "hop/retail-example/models-registry/dm",
+  "name" : "retail-f-orders",
+  "type" : "DM_MODEL",
+  "description" : "Retail warehouse star schema with date role-playing and extended catalog tables",
+  "rowMetaXml" : null,
+  "origin" : {
+    "modelType" : "DIMENSIONAL_MODEL",
+    "modelName" : "retail-f-orders",
+    "modelFilename" : "${PROJECT_HOME}/models/retail-f-orders.hdm",
+    "modelElementName" : null,
+    "hopProject" : "retail-example",
+    "createdAt" : 1784011969405,
+    "updatedAt" : 1784011969405,
+    "lastDiscoveredAt" : null,
+    "updatedBy" : null,
+    "lastWorkflow" : "retail-f-orders.hdm",
+    "lastPipeline" : null
+  },
+  "physicalTable" : null,
+  "physicalFile" : null,
+  "physicalIcebergTable" : null,
+  "tags" : [ "MODEL_REGISTRY", "DIMENSIONAL_MODEL" ],
+  "glossaryTerms" : [ ],
+  "customProperties" : {
+    "tableNamespace" : {
+      "type" : "STRING",
+      "value" : "hop/retail-example/dimensional/retail-f-orders"
+    },
+    "fileExtension" : {
+      "type" : "STRING",
+      "value" : "hdm"
+    },
+    "modelKind" : {
+      "type" : "STRING",
+      "value" : "DIMENSIONAL_MODEL"
+    }
+  },
+  "validationAcknowledgements" : [ ],
+  "qualityRules" : [ ],
+  "dvSource" : null
+}

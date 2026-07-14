@@ -25,15 +25,17 @@ import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.datavault.hopgui.file.vault.HopGuiVaultGraph;
 import org.apache.hop.datavault.hopgui.file.vault.HopVaultFileType;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvModelLoadSupport;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultDvModelResolver;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
+import org.apache.hop.datavault.metadata.businessvault.BvDvTableReference;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
 import org.apache.hop.ui.hopgui.perspective.explorer.ExplorerPerspective;
 
-/** Opens the linked Data Vault model and navigates to a referenced table. */
+/** Opens a Data Vault model and navigates to a referenced table (linked or external path). */
 public final class BusinessVaultDvNavigationSupport {
 
   private static final Class<?> PKG = BusinessVaultDvNavigationSupport.class;
@@ -43,14 +45,33 @@ public final class BusinessVaultDvNavigationSupport {
   public static void navigateToDvTable(
       HopGui hopGui, BusinessVaultModel bvModel, String dvTableName, IVariables variables)
       throws HopException {
+    navigateToDvTable(hopGui, bvModel, dvTableName, null, variables);
+  }
+
+  public static void navigateToDvTable(
+      HopGui hopGui,
+      BusinessVaultModel bvModel,
+      BvDvTableReference reference,
+      IVariables variables)
+      throws HopException {
+    if (reference == null) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "BusinessVaultDvNavigationSupport.Error.MissingTableName"));
+    }
+    navigateToDvTable(
+        hopGui, bvModel, reference.getDvTableName(), reference.getReferencedModelFilename(), variables);
+  }
+
+  public static void navigateToDvTable(
+      HopGui hopGui,
+      BusinessVaultModel bvModel,
+      String dvTableName,
+      String referencedModelFilename,
+      IVariables variables)
+      throws HopException {
     if (hopGui == null) {
       throw new HopException(
           BaseMessages.getString(PKG, "BusinessVaultDvNavigationSupport.Error.MissingHopGui"));
-    }
-    if (bvModel == null || Utils.isEmpty(bvModel.getDataVaultModelPath())) {
-      throw new HopException(
-          BaseMessages.getString(
-              PKG, "BusinessVaultDvNavigationSupport.Error.MissingDataVaultModelPath"));
     }
     if (Utils.isEmpty(dvTableName)) {
       throw new HopException(
@@ -63,20 +84,50 @@ public final class BusinessVaultDvNavigationSupport {
           BaseMessages.getString(PKG, "BusinessVaultDvNavigationSupport.Error.MissingTableName"));
     }
 
+    String modelPath = referencedModelFilename;
+    if (Utils.isEmpty(modelPath) && bvModel != null) {
+      modelPath =
+          BusinessVaultDvModelResolver.resolveModelPathForDvTable(bvModel, resolvedTableName);
+    }
+    if (Utils.isEmpty(modelPath)) {
+      throw new HopException(
+          BaseMessages.getString(
+              PKG, "BusinessVaultDvNavigationSupport.Error.MissingDataVaultModelPath"));
+    }
+
+    String referringBv = bvModel != null ? bvModel.getFilename() : null;
     DataVaultModel dvModel =
-        BusinessVaultDvModelResolver.loadReferencedModel(
-            bvModel.getDataVaultModelPath(), variables, hopGui.getMetadataProvider());
+        DvModelLoadSupport.loadDataVaultModel(
+            modelPath, referringBv, variables, hopGui.getMetadataProvider());
     IDvTable table = dvModel.findTable(resolvedTableName);
+    if (table == null) {
+      // Fall back to config-linked model if external path failed to contain the table.
+      if (!Utils.isEmpty(referencedModelFilename)
+          && bvModel != null
+          && !Utils.isEmpty(bvModel.getDataVaultModelPath())) {
+        dvModel =
+            BusinessVaultDvModelResolver.loadReferencedModel(
+                bvModel.getDataVaultModelPath(), variables, hopGui.getMetadataProvider());
+        table = dvModel.findTable(resolvedTableName);
+        modelPath = bvModel.getDataVaultModelPath();
+      }
+    }
     if (table == null) {
       throw new HopException(
           BaseMessages.getString(
               PKG,
               "BusinessVaultDvNavigationSupport.Error.TableNotFound",
               resolvedTableName,
-              bvModel.getDataVaultModelPath()));
+              modelPath));
     }
 
-    String resolvedPath = HopVfs.normalize(variables.resolve(bvModel.getDataVaultModelPath()));
+    String resolvedPath =
+        DvModelLoadSupport.resolveModelPath(modelPath, referringBv, variables);
+    try {
+      resolvedPath = HopVfs.normalize(variables != null ? variables.resolve(resolvedPath) : resolvedPath);
+    } catch (Exception e) {
+      resolvedPath = variables != null ? variables.resolve(modelPath) : modelPath;
+    }
 
     ExplorerPerspective explorer = HopGui.getExplorerPerspective();
     hopGui.setActivePerspective(explorer);

@@ -150,12 +150,20 @@ public final class ModelTableLayoutPreviewSupport {
   public static DataVaultModel loadReferencedDataVaultModel(
       BusinessVaultModel bvModel, IVariables variables, IHopMetadataProvider metadataProvider)
       throws HopException {
-    if (bvModel == null || Utils.isEmpty(bvModel.getDataVaultModelPath())) {
+    if (bvModel == null) {
       throw new HopException(
           BaseMessages.getString(PKG, "ModelTableLayoutPreviewSupport.Error.MissingDvModel"));
     }
-    return BusinessVaultDvModelResolver.loadReferencedModel(
-        bvModel.getDataVaultModelPath(), variables, metadataProvider);
+    DataVaultModel effective =
+        BusinessVaultDvModelResolver.buildEffectiveDataVaultModel(
+            bvModel, variables, metadataProvider);
+    if (effective.getTables().isEmpty()
+        && bvModel.getDvReferences().isEmpty()
+        && Utils.isEmpty(bvModel.getDataVaultModelPath())) {
+      throw new HopException(
+          BaseMessages.getString(PKG, "ModelTableLayoutPreviewSupport.Error.MissingDvModel"));
+    }
+    return effective;
   }
 
   public static MetadataPreview buildMetadataPreviewRows(IRowMeta layout) {

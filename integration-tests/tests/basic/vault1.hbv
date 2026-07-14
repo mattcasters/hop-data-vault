@@ -22,6 +22,7 @@ limitations under the License.
   <dataVaultModelPath>${PROJECT_HOME}/tests/basic/vault1.hdv</dataVaultModelPath>
   <configuration>
     <targetDatabase>Vault</targetDatabase>
+    <dataCatalogConnection>local-catalog</dataCatalogConnection>
     <generatedPipelineFolder/>
     <scd2PipelineNamePrefix>bv-scd2-</scd2PipelineNamePrefix>
     <pitPipelineNamePrefix>bv-pit-</pitPipelineNamePrefix>
@@ -83,6 +84,78 @@ limitations under the License.
       <xloc>496</xloc>
       <yloc>32</yloc>
       <name>pit_customer</name>
+    </table>
+    <table>
+      <sqlQuery>SELECT
+  customer_hk,
+  name,
+  email,
+  address,
+  city,
+  x_record_source,
+  x_load_ts,
+  x_from_ts,
+  x_to_ts
+FROM {{ ref('sat_customer_hb') }}</sqlQuery>
+      <referenceStyle>DBT</referenceStyle>
+      <materialization>VIEW</materialization>
+      <sql_sources/>
+      <sql_refs>
+        <sql_ref>
+          <objectName>sat_customer_hb</objectName>
+          <resolvedKind>BV_TABLE</resolvedKind>
+          <resolvedTableName>sat_customer_hb</resolvedTableName>
+        </sql_ref>
+      </sql_refs>
+      <tableName>sat_customer_hb_v</tableName>
+      <description>SQL view over SCD2 sat_customer_hb (issue #57 fixture: ref + dependency order)</description>
+      <tableType>BUSINESS_TABLE</tableType>
+      <derivatives/>
+      <xloc>720</xloc>
+      <yloc>176</yloc>
+      <name>sat_customer_hb_v</name>
+    </table>
+    <table>
+      <sqlQuery>SELECT
+  customer_hk,
+  x_load_ts AS x_from_ts,
+  COALESCE(
+    LEAD(x_load_ts) OVER (
+      PARTITION BY customer_hk
+      ORDER BY x_load_ts
+    ),
+    TIMESTAMP '9999-12-31 23:59:59'
+  ) AS x_to_ts,
+  name,
+  email,
+  address,
+  city,
+  x_record_source,
+  x_load_ts
+FROM {{ ref('sat_customer') }}</sqlQuery>
+      <referenceStyle>DBT</referenceStyle>
+      <materialization>VIEW</materialization>
+      <sql_sources/>
+      <sql_refs>
+        <sql_ref>
+          <objectName>sat_customer</objectName>
+          <resolvedKind>DV_TABLE</resolvedKind>
+          <resolvedTableName>sat_customer</resolvedTableName>
+          <resolvedDvTableType>SATELLITE</resolvedDvTableType>
+        </sql_ref>
+      </sql_refs>
+      <tableName>satb_customer_hb</tableName>
+      <description>Phase-1 historical SQL view: LEAD validity ranges over raw sat_customer (satb_* pattern)</description>
+      <tableType>BUSINESS_TABLE</tableType>
+      <derivatives>
+        <derivative>
+          <dvTableName>sat_customer</dvTableName>
+          <dvTableType>SATELLITE</dvTableType>
+        </derivative>
+      </derivatives>
+      <xloc>720</xloc>
+      <yloc>304</yloc>
+      <name>satb_customer_hb</name>
     </table>
   </tables>
   <notes>

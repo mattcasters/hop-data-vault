@@ -304,8 +304,8 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
 
       BusinessVaultModel bvModel = loadBusinessVaultModel(getMetadataProvider(), getVariables());
       DataVaultModel dvModel =
-          BusinessVaultDvModelResolver.loadReferencedModel(
-              bvModel.getDataVaultModelPath(), getVariables(), getMetadataProvider());
+          BusinessVaultDvModelResolver.buildEffectiveDataVaultModel(
+              bvModel, getVariables(), getMetadataProvider());
 
       if (logModelCheckFailures || abortOnModelCheckFailures) {
         List<ICheckResult> remarks = bvModel.check(getMetadataProvider(), getVariables());
@@ -555,7 +555,7 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
             ExecutionMetricsProfileResolver.resolve(
                 resolve(executionMetricsProfile),
                 resolve(metricsOutputFolder),
-                resolve(dataCatalogConnection),
+                resolveCatalogConnection(bvModel),
                 pipelineConfig.getTargetDatabase(),
                 GeneratedPipelineMetadataConstants.MODEL_TYPE_BV,
                 getParentWorkflow(),
@@ -642,7 +642,7 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
   }
 
   private boolean publishModelToCatalog(BusinessVaultModel bvModel, DataVaultModel dvModel) {
-    String catalogConnection = resolve(dataCatalogConnection);
+    String catalogConnection = resolveCatalogConnection(bvModel);
     if (Utils.isEmpty(catalogConnection)) {
       logError(
           BaseMessages.getString(PKG, "ActionBusinessVaultUpdate.Error.NoDataCatalogConnection"));
@@ -681,6 +681,25 @@ public class ActionBusinessVaultUpdate extends ActionBase implements Cloneable, 
           BaseMessages.getString(PKG, "ActionBusinessVaultUpdate.Error.CatalogPublishFailed"), e);
       return false;
     }
+  }
+
+  /**
+   * Action catalog connection wins; otherwise the Business Vault model configuration default
+   * ({@link BusinessVaultConfiguration#getDataCatalogConnection()}).
+   */
+  private String resolveCatalogConnection(BusinessVaultModel bvModel) {
+    String actionConnection = resolve(dataCatalogConnection);
+    if (!Utils.isEmpty(actionConnection)) {
+      return actionConnection;
+    }
+    if (bvModel == null) {
+      return null;
+    }
+    BusinessVaultConfiguration config = bvModel.getConfigurationOrDefault();
+    if (config == null || Utils.isEmpty(config.getDataCatalogConnection())) {
+      return null;
+    }
+    return resolve(config.getDataCatalogConnection());
   }
 
   private List<IBvTable> filterTables(List<IBvTable> tables) {

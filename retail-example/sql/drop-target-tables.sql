@@ -15,9 +15,14 @@
  * limitations under the License.
  *
  */
+ 
+-- Drop views first to avoid dependency errors
+DROP VIEW IF EXISTS satb_product_hb;
+DROP VIEW IF EXISTS customer_email_phone;
+
 
 -- Drop dimensional model tables
-DROP TABLE IF EXISTS f_sales_agg;
+DROP TABLE IF EXISTS f_sales_aggs;
 DROP TABLE IF EXISTS f_sales;
 DROP TABLE IF EXISTS f_order_lifecycle;
 DROP TABLE IF EXISTS f_daily_balance;

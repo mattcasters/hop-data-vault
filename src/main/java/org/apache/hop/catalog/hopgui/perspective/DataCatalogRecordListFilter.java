@@ -40,6 +40,12 @@ public enum DataCatalogRecordListFilter {
           RecordDefinitionType.DV_HUB,
           RecordDefinitionType.DV_LINK,
           RecordDefinitionType.DV_SATELLITE)),
+  MODEL_REGISTRY(
+      "DataCatalogPerspective.Filter.ModelRegistry",
+      List.of(
+          RecordDefinitionType.DV_MODEL,
+          RecordDefinitionType.BV_MODEL,
+          RecordDefinitionType.DM_MODEL)),
   OPERATIONS("DataCatalogPerspective.Filter.Operations", "operations"),
   LOAD_METRICS("DataCatalogPerspective.Filter.LoadMetrics", "load-metrics");
 

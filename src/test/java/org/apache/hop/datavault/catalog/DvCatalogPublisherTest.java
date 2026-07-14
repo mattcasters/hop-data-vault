@@ -31,6 +31,7 @@ import org.apache.hop.catalog.impl.file.FileDataCatalog;
 import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.catalog.model.RecordDefinition;
 import org.apache.hop.catalog.model.RecordDefinitionKey;
+import org.apache.hop.catalog.model.RecordDefinitionType;
 import org.apache.hop.catalog.model.RecordDefinitionValidationAcknowledgement;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
 import org.apache.hop.catalog.xp.RegisterDataCatalogMetadataExtensionPoint;
@@ -144,6 +145,35 @@ class DvCatalogPublisherTest {
     assertEquals(
         "retired column", afterRepublish.getValidationAcknowledgements().get(0).getComment());
     assertEquals("test", afterRepublish.getValidationAcknowledgements().get(0).getAcknowledgedBy());
+  }
+
+  @Test
+  void publishWritesModelRegistryEntry() throws Exception {
+    DataVaultModel model = loadDataVaultModel("integration-tests/tests/basic/vault1.hdv");
+    model.setFilename("/workspace/integration-tests/tests/basic/vault1.hdv");
+
+    DvCatalogPublisher.PublishResult result =
+        DvCatalogPublisher.publish(
+            CATALOG_CONNECTION, model, variables, metadataProvider, "registry-test");
+    assertTrue(result.getTableCount() > 0);
+
+    RecordDefinitionKey modelKey =
+        CatalogModelRegistrySupport.modelRegistryKey(variables, "vault1");
+    RecordDefinition modelEntry =
+        RecordDefinitionRegistry.getInstance()
+            .read(CATALOG_CONNECTION, modelKey, variables, metadataProvider);
+    assertNotNull(modelEntry, "expected DV model registry entry for vault1");
+    assertEquals(RecordDefinitionType.DV_MODEL, modelEntry.getType());
+    assertNotNull(modelEntry.getOrigin());
+    assertNotNull(modelEntry.getOrigin().getModelFilename());
+    assertTrue(modelEntry.getTags().contains("MODEL_REGISTRY"));
+    String resolved =
+        CatalogModelRegistrySupport.resolveModelFilename(
+            "vault1", RecordDefinitionType.DV_MODEL, variables, metadataProvider);
+    assertNotNull(resolved);
+    assertTrue(
+        resolved.contains("vault1.hdv") || resolved.contains("vault1"),
+        () -> "unexpected model path: " + resolved);
   }
 
   private static DataCatalogMeta buildCatalogMeta(Path catalogDir) {

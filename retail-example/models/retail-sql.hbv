@@ -22,6 +22,7 @@ limitations under the License.
   <dataVaultModelPath>${PROJECT_HOME}/models/retail-360.hdv</dataVaultModelPath>
   <configuration>
     <targetDatabase>Vault</targetDatabase>
+    <dataCatalogConnection>local-catalog</dataCatalogConnection>
     <scd2DefaultsFolder/>
     <functionalTimestampField/>
     <loadDateFieldFallback>x_load_ts</loadDateFieldFallback>
@@ -63,12 +64,13 @@ limitations under the License.
   unit_price,
   x_record_source,
   x_load_ts
-FROM {{ ref('sat_product') }}</sqlQuery>
+FROM {{ ref('retail-360', 'sat_product') }}</sqlQuery>
       <referenceStyle>DBT</referenceStyle>
       <materialization>VIEW</materialization>
       <sql_sources/>
       <sql_refs>
         <sql_ref>
+          <modelName>retail-360</modelName>
           <objectName>sat_product</objectName>
           <resolvedKind>DV_TABLE</resolvedKind>
           <resolvedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-360.hdv</resolvedModelFilename>
@@ -106,6 +108,7 @@ One insert-only sat_product row becomes a closed interval; the latest stays open
     <dv_reference>
       <dvTableName>sat_product</dvTableName>
       <dvTableType>SATELLITE</dvTableType>
+      <referencedModelFilename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-360.hdv</referencedModelFilename>
       <xloc>96</xloc>
       <yloc>160</yloc>
     </dv_reference>
