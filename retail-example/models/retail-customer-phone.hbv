@@ -1,0 +1,98 @@
+<!--
+
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<business-vault-model>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/test/test-business-vault-model.hbv</filename>
+  <name_sync_with_filename>Y</name_sync_with_filename>
+  <description/>
+  <configuration>
+    <targetDatabase>Vault</targetDatabase>
+    <dataCatalogConnection>local-catalog</dataCatalogConnection>
+    <scd2DefaultsFolder/>
+    <functionalTimestampField/>
+    <loadDateFieldFallback>LOAD_DATE</loadDateFieldFallback>
+    <validFromField>valid_from</validFromField>
+    <validToField>valid_to</validToField>
+    <targetTableBatchSize>1000</targetTableBatchSize>
+    <targetTableParallelCopies>1</targetTableParallelCopies>
+    <target_load_mode>Table Output</target_load_mode>
+    <bulkLoadStagingFolder>${java.io.tmpdir}/dv2/bulk/</bulkLoadStagingFolder>
+    <bulkLoadDelimiter>,</bulkLoadDelimiter>
+    <bulkLoadEnclosure>"</bulkLoadEnclosure>
+    <bulkLoadEncoding>UTF-8</bulkLoadEncoding>
+    <bulkLoadLocalFileRequired>Y</bulkLoadLocalFileRequired>
+    <generatedPipelineFolder/>
+    <scd2PipelineNamePrefix>bv-scd2-</scd2PipelineNamePrefix>
+    <pitPipelineNamePrefix>bv-pit-</pitPipelineNamePrefix>
+    <businessTablePipelineNamePrefix>bv-biz-</businessTablePipelineNamePrefix>
+    <generatedWorkflowNamePrefix>BV Bulk Update - </generatedWorkflowNamePrefix>
+    <openStartSentinel>1900-01-01 00:00:00</openStartSentinel>
+    <openEndSentinel>9999-12-31 23:59:59</openEndSentinel>
+  </configuration>
+  <coaching>
+    <coaching_sources/>
+  </coaching>
+  <tables>
+    <table>
+      <sqlQuery>WITH customer_360_bv AS (
+  SELECT * FROM {{ ref('retail-360', 'customer_360_bv') }}
+)
+SELECT customer_hk, cust_email as email, cust_phone 
+FROM customer_360_bv
+WHERE now() BETWEEN x_from_ts and x_to_ts
+AND   cust_email IS NOT NULL
+AND   cust_phone IS NOT NULL
+</sqlQuery>
+      <referenceStyle>DBT</referenceStyle>
+      <materialization>VIEW</materialization>
+      <sql_sources/>
+      <sql_refs>
+        <sql_ref>
+          <modelName>retail-360</modelName>
+          <objectName>customer_360_bv</objectName>
+          <resolvedKind>BV_TABLE</resolvedKind>
+          <resolvedModelFilename>${PROJECT_HOME}/models/retail-360.hbv</resolvedModelFilename>
+          <resolvedTableName>customer_360_bv</resolvedTableName>
+        </sql_ref>
+      </sql_refs>
+      <tableName>customer_mail_phone</tableName>
+      <description/>
+      <tableType>BUSINESS_TABLE</tableType>
+      <derivatives>
+        <derivative>
+          <dvTableName>sat_product</dvTableName>
+          <dvTableType>SATELLITE</dvTableType>
+        </derivative>
+      </derivatives>
+      <xloc>496</xloc>
+      <yloc>224</yloc>
+      <name>customer_mail_phone</name>
+    </table>
+  </tables>
+  <notes/>
+  <dv_references/>
+  <bv_references>
+    <bv_reference>
+      <bvTableName>customer_360_bv</bvTableName>
+      <physicalTableName>customer_360_bv</physicalTableName>
+      <referencedModelFilename>${PROJECT_HOME}/models/retail-360.hbv</referencedModelFilename>
+      <xloc>224</xloc>
+      <yloc>176</yloc>
+    </bv_reference>
+  </bv_references>
+  <name>test-business-vault-model</name>
+</business-vault-model>

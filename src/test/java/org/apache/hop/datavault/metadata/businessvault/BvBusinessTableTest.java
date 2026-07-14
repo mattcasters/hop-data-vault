@@ -80,6 +80,7 @@ class BvBusinessTableTest {
   @Test
   void checkRequiresSqlAndSourceDeclaration() {
     BusinessVaultModel model = new BusinessVaultModel();
+    model.getConfigurationOrDefault().setTargetDatabase("Vault");
     BvBusinessTable table = new BvBusinessTable();
     table.setName("v1");
     table.setTableName("v1");
@@ -94,12 +95,13 @@ class BvBusinessTableTest {
             .anyMatch(
                 r ->
                     r.getType() == ICheckResult.TYPE_RESULT_ERROR
-                        && r.getText().contains("source")));
+                        && r.getText().toLowerCase().contains("source")));
   }
 
   @Test
   void checkPassesWhenRefAndSourceResolve() {
     BusinessVaultModel model = new BusinessVaultModel();
+    model.getConfigurationOrDefault().setTargetDatabase("Vault");
     BvScd2Table scd2 = new BvScd2Table();
     scd2.setName("s_product");
     scd2.setTableName("s_product");
@@ -127,6 +129,7 @@ class BvBusinessTableTest {
     table.setName("t1");
     table.setTableName("t1");
     table.setMaterialization(BvSqlMaterialization.VIEW);
+    // null DatabaseMeta defaults to Postgres-style dialect
     String viewDdl =
         BvSqlViewPipelineSupport.buildCreateStatement(table, null, new Variables(), "SELECT 1");
     assertTrue(viewDdl.startsWith("CREATE OR REPLACE VIEW"));
@@ -135,8 +138,9 @@ class BvBusinessTableTest {
     table.setMaterialization(BvSqlMaterialization.TABLE);
     String tableDdl =
         BvSqlViewPipelineSupport.buildCreateStatement(table, null, new Variables(), "SELECT 2;");
-    assertTrue(tableDdl.startsWith("CREATE OR REPLACE TABLE"));
-    assertTrue(tableDdl.contains("SELECT 2"));
-    assertFalse(tableDdl.trim().endsWith(";"));
+    // Postgres TABLE: drop + CREATE TABLE AS (no CREATE OR REPLACE TABLE)
+    assertTrue(tableDdl.contains("DROP TABLE IF EXISTS t1;"));
+    assertTrue(tableDdl.contains("CREATE TABLE t1 AS\nSELECT 2"));
+    assertFalse(tableDdl.contains("CREATE OR REPLACE TABLE"));
   }
 }

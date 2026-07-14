@@ -20,8 +20,6 @@ package org.apache.hop.datavault.hopgui.file.businessvault;
 
 import org.apache.hop.core.Props;
 import org.apache.hop.core.variables.IVariables;
-import org.apache.hop.core.util.Utils;
-import org.apache.hop.datavault.hopgui.file.vault.HopVaultFileType;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultConfiguration;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
 import org.apache.hop.i18n.BaseMessages;
@@ -50,7 +48,14 @@ import org.jspecify.annotations.NonNull;
 import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
 import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
-/** Dialog to edit the properties of a {@link BusinessVaultModel}. */
+/**
+ * Dialog to edit the properties of a {@link BusinessVaultModel}.
+ *
+ * <p>Layout matches Data Vault / dimensional model dialogs: name and description in the header;
+ * target database and <strong>data catalog</strong> ({@code MetaSelectionLine}) on the General tab.
+ * Data Vault tables are referenced via canvas Hub/Link/Satellite aliases (multi-model), not a
+ * single global {@code .hdv} path.
+ */
 public class HopGuiBusinessVaultModelDialog {
   private static final Class<?> PKG = HopGuiBusinessVaultModelDialog.class;
 
@@ -62,8 +67,6 @@ public class HopGuiBusinessVaultModelDialog {
 
   private Text wName;
   private Text wDescription;
-  private Text wDataVaultModelPath;
-  private Button wDataVaultModelPathBrowse;
   private GuiCompositeWidgets widgets;
   private Composite wGeneralTabComp;
   private Composite wTargetLoadTabComp;
@@ -129,34 +132,6 @@ public class HopGuiBusinessVaultModelDialog {
     wDescription.setLayoutData(fdDescription);
     wDescription.addModifyListener(e -> input.setChanged());
 
-    Label wlDataVaultModelPath = new Label(shell, SWT.RIGHT);
-    wlDataVaultModelPath.setText(
-        BaseMessages.getString(PKG, "HopGuiBusinessVaultModelDialog.DataVaultModelPath.Label"));
-    PropsUi.setLook(wlDataVaultModelPath);
-    FormData fdlDataVaultModelPath = new FormData();
-    fdlDataVaultModelPath.left = new FormAttachment(0, 0);
-    fdlDataVaultModelPath.top = new FormAttachment(wDescription, margin);
-    fdlDataVaultModelPath.right = new FormAttachment(middle, -margin);
-    wlDataVaultModelPath.setLayoutData(fdlDataVaultModelPath);
-
-    wDataVaultModelPathBrowse = new Button(shell, SWT.PUSH);
-    PropsUi.setLook(wDataVaultModelPathBrowse);
-    wDataVaultModelPathBrowse.setText(BaseMessages.getString(PKG, "System.Button.Browse"));
-    FormData fdDataVaultModelPathBrowse = new FormData();
-    fdDataVaultModelPathBrowse.right = new FormAttachment(100, 0);
-    fdDataVaultModelPathBrowse.top = new FormAttachment(wDescription, margin);
-    wDataVaultModelPathBrowse.setLayoutData(fdDataVaultModelPathBrowse);
-    wDataVaultModelPathBrowse.addListener(SWT.Selection, e -> browseDataVaultModelPath());
-
-    wDataVaultModelPath = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wDataVaultModelPath);
-    FormData fdDataVaultModelPath = new FormData();
-    fdDataVaultModelPath.left = new FormAttachment(middle, 0);
-    fdDataVaultModelPath.top = new FormAttachment(wDescription, margin);
-    fdDataVaultModelPath.right = new FormAttachment(wDataVaultModelPathBrowse, -margin);
-    wDataVaultModelPath.setLayoutData(fdDataVaultModelPath);
-    wDataVaultModelPath.addModifyListener(e -> input.setChanged());
-
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
     wOk.addListener(SWT.Selection, e -> ok());
@@ -172,7 +147,7 @@ public class HopGuiBusinessVaultModelDialog {
     wTabFolder.setLayoutData(
         new FormDataBuilder()
             .left()
-            .top(new FormAttachment(wDataVaultModelPath, margin))
+            .top(new FormAttachment(wDescription, margin))
             .right()
             .bottom(new FormAttachment(wOk, -margin))
             .result());
@@ -252,20 +227,6 @@ public class HopGuiBusinessVaultModelDialog {
     return composite;
   }
 
-  private void browseDataVaultModelPath() {
-    String filename =
-        BaseDialog.presentFileDialog(
-            false,
-            shell,
-            new String[] {"*" + HopVaultFileType.VAULT_FILE_EXTENSION},
-            new String[] {HopVaultFileType.VAULT_FILE_TYPE_DESCRIPTION},
-            false);
-    if (!Utils.isEmpty(filename)) {
-      wDataVaultModelPath.setText(filename);
-      input.setChanged();
-    }
-  }
-
   private void getData() {
     populatingWidgets = true;
     try {
@@ -274,9 +235,6 @@ public class HopGuiBusinessVaultModelDialog {
       }
       if (input.getDescription() != null) {
         wDescription.setText(input.getDescription());
-      }
-      if (input.getDataVaultModelPath() != null) {
-        wDataVaultModelPath.setText(input.getDataVaultModelPath());
       }
       BusinessVaultConfiguration configuration = input.getConfigurationOrDefault();
       widgets.setWidgetsContents(
@@ -299,7 +257,6 @@ public class HopGuiBusinessVaultModelDialog {
   private void ok() {
     input.setName(wName.getText());
     input.setDescription(wDescription.getText());
-    input.setDataVaultModelPath(wDataVaultModelPath.getText());
     BusinessVaultConfiguration configuration = input.getConfigurationOrDefault();
     widgets.getWidgetsContents(
         configuration, BusinessVaultConfiguration.GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID);

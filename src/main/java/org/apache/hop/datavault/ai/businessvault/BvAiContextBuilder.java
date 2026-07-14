@@ -222,13 +222,13 @@ public final class BvAiContextBuilder {
 
   private static String serializeLinkedDvModelStructure(
       BusinessVaultModel model, IVariables variables, IHopMetadataProvider metadataProvider) {
-    if (Utils.isEmpty(model.getDataVaultModelPath())) {
-      return "{}";
-    }
     try {
       DataVaultModel dvModel =
-          BusinessVaultDvModelResolver.loadReferencedModel(
-              model.getDataVaultModelPath(), variables, metadataProvider);
+          BusinessVaultDvModelResolver.buildEffectiveDataVaultModel(
+              model, variables, metadataProvider);
+      if (dvModel == null || dvModel.getTables().isEmpty()) {
+        return "{}";
+      }
       return DvAiContextBuilder.serializeModelStructure(dvModel);
     } catch (Exception e) {
       return "{\"loaded\":false,\"error\":" + DvAiContextBuilder.jsonString(e.getMessage()) + "}";

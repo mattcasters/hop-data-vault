@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.gui.Point;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
@@ -31,6 +32,10 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 /**
  * Resolves {@code ref()} / {@code source()} macros against Business Vault and Data Vault models and
  * rewrites authoring SQL to dialect-quoted physical names.
+ *
+ * <p>Two-arg {@code ref('model', 'object')} supports filesystem paths relative to the current BV
+ * model (e.g. {@code ../models/retail-360}), with optional {@code .hdv}/{@code .hbv} and {@code
+ * ${PROJECT_HOME}/} normalization.
  */
 public final class BvSqlRefResolver {
 
@@ -42,12 +47,21 @@ public final class BvSqlRefResolver {
    */
   public static List<BvSqlRef> syncRefsFromSql(
       BvBusinessTable table, BusinessVaultModel bvModel, DataVaultModel dvModel) {
+    return syncRefsFromSql(table, bvModel, dvModel, null, null);
+  }
+
+  public static List<BvSqlRef> syncRefsFromSql(
+      BvBusinessTable table,
+      BusinessVaultModel bvModel,
+      DataVaultModel dvModel,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
     if (table == null) {
       return List.of();
     }
     List<BvSqlRef> refs = BvSqlTemplateParser.extractRefs(table.getSqlQuery());
     for (BvSqlRef ref : refs) {
-      resolveRef(ref, table, bvModel, dvModel);
+      resolveRef(ref, table, bvModel, dvModel, variables, metadataProvider);
     }
     table.setSqlRefs(refs);
     syncDerivativesFromResolvedRefs(table, refs);
@@ -56,6 +70,16 @@ public final class BvSqlRefResolver {
 
   public static void resolveRef(
       BvSqlRef ref, BvBusinessTable self, BusinessVaultModel bvModel, DataVaultModel dvModel) {
+    resolveRef(ref, self, bvModel, dvModel, null, null);
+  }
+
+  public static void resolveRef(
+      BvSqlRef ref,
+      BvBusinessTable self,
+      BusinessVaultModel bvModel,
+      DataVaultModel dvModel,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
     if (ref == null || Utils.isEmpty(ref.getObjectName())) {
       if (ref != null) {
         ref.setResolvedKind(BvSqlResolvedKind.UNKNOWN);
@@ -71,47 +95,334 @@ public final class BvSqlRefResolver {
     String modelName = ref.getModelName();
 
     if (Utils.isEmpty(modelName)) {
-      // Same BV model first, then linked DV.
-      IBvTable bvTable = findBvTable(bvModel, objectName, self);
-      if (bvTable != null) {
-        ref.setResolvedKind(BvSqlResolvedKind.BV_TABLE);
-        ref.setResolvedTableName(physicalName(bvTable));
-        if (bvModel != null && !Utils.isEmpty(bvModel.getFilename())) {
-          ref.setResolvedModelFilename(bvModel.getFilename());
-        }
-        return;
-      }
-      IDvTable dvTable = findDvTable(dvModel, objectName);
-      if (dvTable != null) {
-        ref.setResolvedKind(BvSqlResolvedKind.DV_TABLE);
-        ref.setResolvedTableName(physicalName(dvTable));
-        ref.setResolvedDvTableType(dvTable.getTableType());
-        if (dvModel != null && !Utils.isEmpty(dvModel.getFilename())) {
-          ref.setResolvedModelFilename(dvModel.getFilename());
-        }
-      }
+      resolveOneArgRef(
+          ref, self, bvModel, dvModel, objectName, variables, metadataProvider);
       return;
     }
 
-    // Two-arg ref: match model basename against current BV / linked DV only in MVP.
-    String modelKey = modelBasename(modelName);
-    if (bvModel != null && modelMatches(bvModel.getFilename(), bvModel.getName(), modelKey)) {
+    resolveTwoArgRef(ref, self, bvModel, dvModel, modelName.trim(), objectName, variables, metadataProvider);
+  }
+
+  private static void resolveOneArgRef(
+      BvSqlRef ref,
+      BvBusinessTable self,
+      BusinessVaultModel bvModel,
+      DataVaultModel dvModel,
+      String objectName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    IBvTable bvTable = findBvTable(bvModel, objectName, self);
+    if (bvTable != null) {
+      applyBvResolution(ref, bvTable, bvModel);
+      return;
+    }
+    // Canvas Hub/Link/Satellite reference (multi-model path when set).
+    if (bvModel != null) {
+      BvDvTableReference alias =
+          BusinessVaultDvReferenceSupport.findDvReference(bvModel, objectName);
+      if (alias != null) {
+        String modelPath =
+            !Utils.isEmpty(alias.getReferencedModelFilename())
+                ? alias.getReferencedModelFilename()
+                : bvModel.getDataVaultModelPath();
+        if (!Utils.isEmpty(modelPath) && metadataProvider != null) {
+          try {
+            IDvTable fromAlias =
+                BusinessVaultDvModelResolver.resolveDvTable(
+                    bvModel, objectName, variables, metadataProvider);
+            if (fromAlias != null) {
+              applyDvResolution(ref, fromAlias, modelPath);
+              return;
+            }
+          } catch (Exception ignored) {
+            // fall through to effective/linked model
+          }
+        } else if (alias.getDvTableType() != null) {
+          // Alias present without loadable path: still record kind for dependency UI.
+          ref.setResolvedKind(BvSqlResolvedKind.DV_TABLE);
+          ref.setResolvedTableName(objectName);
+          ref.setResolvedDvTableType(alias.getDvTableType());
+          return;
+        }
+      }
+    }
+    IDvTable dvTable = findDvTable(dvModel, objectName);
+    if (dvTable != null) {
+      String modelPath =
+          BusinessVaultDvModelResolver.resolveModelPathForDvTable(bvModel, objectName);
+      if (Utils.isEmpty(modelPath) && dvModel != null) {
+        modelPath = dvModel.getFilename();
+      }
+      applyDvResolution(ref, dvTable, modelPath);
+    }
+  }
+
+  private static void resolveTwoArgRef(
+      BvSqlRef ref,
+      BvBusinessTable self,
+      BusinessVaultModel bvModel,
+      DataVaultModel linkedDvModel,
+      String modelArg,
+      String objectName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    // 1) Current BV by basename / path match (no file I/O).
+    if (bvModel != null
+        && modelMatches(bvModel.getFilename(), bvModel.getName(), modelBasename(modelArg))) {
       IBvTable bvTable = findBvTable(bvModel, objectName, self);
       if (bvTable != null) {
-        ref.setResolvedKind(BvSqlResolvedKind.BV_TABLE);
-        ref.setResolvedTableName(physicalName(bvTable));
-        ref.setResolvedModelFilename(bvModel.getFilename());
+        applyBvResolution(ref, bvTable, bvModel);
         return;
       }
     }
-    if (dvModel != null && modelMatches(dvModel.getFilename(), dvModel.getName(), modelKey)) {
-      IDvTable dvTable = findDvTable(dvModel, objectName);
+
+    // 2) Config-linked DV by basename / path match.
+    if (linkedDvModel != null
+        && modelMatches(
+            linkedDvModel.getFilename(), linkedDvModel.getName(), modelBasename(modelArg))) {
+      IDvTable dvTable = findDvTable(linkedDvModel, objectName);
       if (dvTable != null) {
-        ref.setResolvedKind(BvSqlResolvedKind.DV_TABLE);
-        ref.setResolvedTableName(physicalName(dvTable));
-        ref.setResolvedDvTableType(dvTable.getTableType());
-        ref.setResolvedModelFilename(dvModel.getFilename());
+        applyDvResolution(ref, dvTable, linkedDvModel.getFilename());
+        return;
       }
+    }
+
+    // 3) Catalog model registry (short basename → registered model file).
+    if (metadataProvider != null
+        && variables != null
+        && !BvSqlModelPathSupport.looksLikeFilesystemPath(modelArg)) {
+      if (tryResolveFromCatalog(ref, modelArg, objectName, variables, metadataProvider)) {
+        return;
+      }
+    }
+
+    // 4) Filesystem path relative to current BV (and PROJECT_HOME fallbacks).
+    String referring = bvModel != null ? bvModel.getFilename() : null;
+    try {
+      BvSqlModelPathSupport.ResolvedModelPath resolvedPath =
+          BvSqlModelPathSupport.resolveExistingModelPath(modelArg, referring, variables);
+      if (tryLoadExternalFromPath(ref, resolvedPath, objectName, variables, metadataProvider)) {
+        return;
+      }
+      // File found but object missing: still record model path for diagnostics.
+      ref.setResolvedModelFilename(resolvedPath.storedPath());
+    } catch (HopException ignored) {
+      // Path could not be resolved — try catalog even for path-like args, then UNKNOWN.
+      if (metadataProvider != null && variables != null) {
+        tryResolveFromCatalog(ref, modelArg, objectName, variables, metadataProvider);
+      }
+    }
+  }
+
+  /**
+   * Resolves short catalog basenames by trying <strong>all</strong> candidate model files (DV then
+   * BV). Same basename can map to both {@code retail-360.hdv} and {@code retail-360.hbv}; object
+   * existence decides which wins.
+   */
+  private static boolean tryResolveFromCatalog(
+      BvSqlRef ref,
+      String modelArg,
+      String objectName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    try {
+      List<String> candidates =
+          org.apache.hop.datavault.catalog.CatalogModelRegistrySupport.listModelFilenamesForBasename(
+              modelArg, variables, metadataProvider);
+      if (candidates.isEmpty()) {
+        return false;
+      }
+      String lastTried = null;
+      for (String filename : candidates) {
+        if (Utils.isEmpty(filename)) {
+          continue;
+        }
+        lastTried = filename;
+        if (tryResolveInModelFile(ref, filename, objectName, variables, metadataProvider)) {
+          return true;
+        }
+      }
+      if (!Utils.isEmpty(lastTried)) {
+        ref.setResolvedModelFilename(lastTried);
+      }
+    } catch (Exception ignored) {
+      // Catalog unavailable or load failed.
+    }
+    return false;
+  }
+
+  /** Loads a candidate path as HBV and/or HDV and returns true when {@code objectName} is found. */
+  private static boolean tryResolveInModelFile(
+      BvSqlRef ref,
+      String filename,
+      String objectName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    if (Utils.isEmpty(filename)) {
+      return false;
+    }
+    String lower = filename.toLowerCase(java.util.Locale.ROOT);
+    if (lower.endsWith(".hbv") || lower.contains(".hbv")) {
+      if (tryResolveInHbvFile(ref, filename, objectName, variables, metadataProvider)) {
+        return true;
+      }
+      // Explicit .hbv path: do not also force HDV.
+      if (lower.endsWith(".hbv")) {
+        return false;
+      }
+    }
+    if (lower.endsWith(".hdv") || lower.contains(".hdv") || !lower.endsWith(".hbv")) {
+      if (tryResolveInHdvFile(ref, filename, objectName, variables, metadataProvider)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean tryResolveInHbvFile(
+      BvSqlRef ref,
+      String filename,
+      String objectName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    try {
+      String loadPath = variables != null ? variables.resolve(filename) : filename;
+      BusinessVaultModel externalBv =
+          BvSqlModelPathSupport.loadBusinessVaultModelUncached(loadPath, metadataProvider);
+      IBvTable bvTable = findBvTable(externalBv, objectName, null);
+      if (bvTable != null) {
+        ref.setResolvedKind(BvSqlResolvedKind.BV_TABLE);
+        ref.setResolvedTableName(physicalName(bvTable));
+        ref.setResolvedModelFilename(filename);
+        return true;
+      }
+    } catch (Exception ignored) {
+      // not a loadable HBV or object missing
+    }
+    return false;
+  }
+
+  private static boolean tryResolveInHdvFile(
+      BvSqlRef ref,
+      String filename,
+      String objectName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    try {
+      DataVaultModel externalDv =
+          BvSqlModelPathSupport.loadDataVaultModel(filename, null, variables, metadataProvider);
+      IDvTable dvTable = findDvTable(externalDv, objectName);
+      if (dvTable != null) {
+        applyDvResolution(ref, dvTable, filename);
+        return true;
+      }
+    } catch (Exception ignored) {
+      // not a loadable HDV or object missing
+    }
+    return false;
+  }
+
+  private static boolean tryLoadExternalFromPath(
+      BvSqlRef ref,
+      BvSqlModelPathSupport.ResolvedModelPath resolvedPath,
+      String objectName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    if (resolvedPath == null) {
+      return false;
+    }
+    if (resolvedPath.kind() == BvSqlModelPathSupport.ModelFileKind.HDV
+        || resolvedPath.kind() == BvSqlModelPathSupport.ModelFileKind.UNKNOWN) {
+      try {
+        DataVaultModel externalDv =
+            BvSqlModelPathSupport.loadDataVaultModel(
+                resolvedPath.loadPath(), null, variables, metadataProvider);
+        IDvTable dvTable = findDvTable(externalDv, objectName);
+        if (dvTable != null) {
+          applyDvResolution(ref, dvTable, resolvedPath.storedPath());
+          return true;
+        }
+      } catch (HopException ignored) {
+        // try HBV if kind unknown or sibling
+      }
+    }
+    if (resolvedPath.kind() == BvSqlModelPathSupport.ModelFileKind.HBV
+        || resolvedPath.kind() == BvSqlModelPathSupport.ModelFileKind.UNKNOWN) {
+      try {
+        BusinessVaultModel externalBv =
+            BvSqlModelPathSupport.loadBusinessVaultModel(resolvedPath, metadataProvider);
+        IBvTable bvTable = findBvTable(externalBv, objectName, null);
+        if (bvTable != null) {
+          ref.setResolvedKind(BvSqlResolvedKind.BV_TABLE);
+          ref.setResolvedTableName(physicalName(bvTable));
+          ref.setResolvedModelFilename(resolvedPath.storedPath());
+          return true;
+        }
+      } catch (HopException ignored) {
+        // leave for sibling try
+      }
+    }
+    // Same basename sibling: .hdv found but object missing → try .hbv (and reverse).
+    return trySiblingModelExtension(ref, resolvedPath, objectName, variables, metadataProvider);
+  }
+
+  /**
+   * When the first resolved file exists but does not contain the object, try the opposite vault
+   * extension (e.g. {@code retail-360.hdv} → {@code retail-360.hbv}).
+   */
+  private static boolean trySiblingModelExtension(
+      BvSqlRef ref,
+      BvSqlModelPathSupport.ResolvedModelPath resolvedPath,
+      String objectName,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider) {
+    if (resolvedPath == null || Utils.isEmpty(resolvedPath.loadPath())) {
+      return false;
+    }
+    String loadPath = resolvedPath.loadPath();
+    String lower = loadPath.toLowerCase(java.util.Locale.ROOT);
+    String siblingLoad;
+    if (lower.endsWith(".hdv")) {
+      siblingLoad = loadPath.substring(0, loadPath.length() - 4) + ".hbv";
+    } else if (lower.endsWith(".hbv")) {
+      siblingLoad = loadPath.substring(0, loadPath.length() - 4) + ".hdv";
+    } else {
+      return false;
+    }
+    if (!BvSqlModelPathSupport.fileExists(siblingLoad)) {
+      return false;
+    }
+    String storedSibling = siblingLoad;
+    try {
+      storedSibling =
+          org.apache.hop.datavault.metadata.DvModelLoadSupport.toStoredModelPath(
+              siblingLoad, null, variables);
+    } catch (Exception ignored) {
+      // keep absolute sibling path
+    }
+    if (siblingLoad.toLowerCase(java.util.Locale.ROOT).endsWith(".hbv")) {
+      return tryResolveInHbvFile(ref, storedSibling, objectName, variables, metadataProvider)
+          || tryResolveInHbvFile(ref, siblingLoad, objectName, variables, metadataProvider);
+    }
+    return tryResolveInHdvFile(ref, storedSibling, objectName, variables, metadataProvider)
+        || tryResolveInHdvFile(ref, siblingLoad, objectName, variables, metadataProvider);
+  }
+
+  private static void applyBvResolution(
+      BvSqlRef ref, IBvTable bvTable, BusinessVaultModel bvModel) {
+    ref.setResolvedKind(BvSqlResolvedKind.BV_TABLE);
+    ref.setResolvedTableName(physicalName(bvTable));
+    if (bvModel != null && !Utils.isEmpty(bvModel.getFilename())) {
+      ref.setResolvedModelFilename(bvModel.getFilename());
+    }
+  }
+
+  private static void applyDvResolution(BvSqlRef ref, IDvTable dvTable, String modelFilename) {
+    ref.setResolvedKind(BvSqlResolvedKind.DV_TABLE);
+    ref.setResolvedTableName(physicalName(dvTable));
+    ref.setResolvedDvTableType(dvTable.getTableType());
+    if (!Utils.isEmpty(modelFilename)) {
+      ref.setResolvedModelFilename(modelFilename);
     }
   }
 
@@ -127,11 +438,6 @@ public final class BvSqlRefResolver {
           || ref.getResolvedDvTableType() == null) {
         continue;
       }
-      String dvName =
-          !Utils.isEmpty(ref.getResolvedTableName())
-              ? ref.getResolvedTableName()
-              : ref.getObjectName();
-      // Prefer object name for derivative identity (matches canvas DV ref names).
       String derivativeName = ref.getObjectName();
       if (!BusinessVaultDerivativeSupport.hasDerivative(table, derivativeName)) {
         table
@@ -143,6 +449,8 @@ public final class BvSqlRefResolver {
 
   /**
    * Ensures the BV model has canvas {@link BvDvTableReference} aliases for each resolved DV ref.
+   * Does not create a second alias when the table name is already on the canvas (avoids stacking
+   * cards at 0,0 on every dialog OK).
    */
   public static void ensureDvCanvasAliases(
       BusinessVaultModel bvModel, List<BvSqlRef> refs, DataVaultModel dvModel) {
@@ -155,22 +463,121 @@ public final class BvSqlRefResolver {
           || Utils.isEmpty(ref.getObjectName())) {
         continue;
       }
-      if (BusinessVaultDvReferenceSupport.hasDvReference(bvModel, ref.getObjectName())) {
+      BvDvTableReference existing =
+          BusinessVaultDvReferenceSupport.findDvReference(bvModel, ref.getObjectName());
+      if (existing != null) {
+        // Upgrade existing alias with model path when missing; never add a duplicate.
+        if (Utils.isEmpty(existing.getReferencedModelFilename())
+            && !Utils.isEmpty(ref.getResolvedModelFilename())) {
+          existing.setReferencedModelFilename(ref.getResolvedModelFilename());
+        }
+        continue;
+      }
+      // Also skip if path-aware match would find a multi-model alias under another key style.
+      if (BusinessVaultDvReferenceSupport.hasDvReference(
+          bvModel, ref.getObjectName(), ref.getResolvedModelFilename())) {
         continue;
       }
       IDvTable dvTable = findDvTable(dvModel, ref.getObjectName());
+      BvDvTableReference alias;
       if (dvTable != null) {
-        BvDvTableReference alias =
-            BusinessVaultDvReferenceSupport.createReference(dvTable, null);
-        if (alias != null) {
-          bvModel.getDvReferences().add(alias);
-        }
+        alias =
+            BusinessVaultDvReferenceSupport.createReference(
+                dvTable, null, ref.getResolvedModelFilename());
       } else if (ref.getResolvedDvTableType() != null) {
-        bvModel
-            .getDvReferences()
-            .add(new BvDvTableReference(ref.getObjectName(), ref.getResolvedDvTableType()));
+        alias = new BvDvTableReference(ref.getObjectName(), ref.getResolvedDvTableType());
+        if (!Utils.isEmpty(ref.getResolvedModelFilename())) {
+          alias.setReferencedModelFilename(ref.getResolvedModelFilename());
+        }
+      } else {
+        continue;
+      }
+      if (alias != null) {
+        placeNewAlias(bvModel, alias);
+        bvModel.getDvReferences().add(alias);
       }
     }
+  }
+
+  /**
+   * Ensures the BV model has canvas {@link BvBvTableReference} aliases for each resolved external
+   * BV table ref (multi-step BV layers). Same-model BV tables are already on the canvas and are
+   * skipped. Does not create a second alias when the table name is already present.
+   */
+  public static void ensureBvCanvasAliases(BusinessVaultModel bvModel, List<BvSqlRef> refs) {
+    if (bvModel == null || refs == null) {
+      return;
+    }
+    for (BvSqlRef ref : refs) {
+      if (ref == null
+          || ref.getResolvedKind() != BvSqlResolvedKind.BV_TABLE
+          || Utils.isEmpty(ref.getObjectName())) {
+        continue;
+      }
+      // Same-model tables live as IBvTable nodes, not external aliases.
+      if (Utils.isEmpty(ref.getResolvedModelFilename())
+          || sameBvModel(bvModel, ref.getResolvedModelFilename())) {
+        continue;
+      }
+      BvBvTableReference existing =
+          BusinessVaultBvReferenceSupport.findBvReference(bvModel, ref.getObjectName());
+      if (existing != null) {
+        if (Utils.isEmpty(existing.getReferencedModelFilename())
+            && !Utils.isEmpty(ref.getResolvedModelFilename())) {
+          existing.setReferencedModelFilename(ref.getResolvedModelFilename());
+        }
+        continue;
+      }
+      if (BusinessVaultBvReferenceSupport.hasBvReference(
+          bvModel, ref.getObjectName(), ref.getResolvedModelFilename())) {
+        continue;
+      }
+      BvBvTableReference alias =
+          new BvBvTableReference(ref.getObjectName(), null, ref.getResolvedModelFilename());
+      if (!Utils.isEmpty(ref.getResolvedTableName())) {
+        alias.setPhysicalTableName(ref.getResolvedTableName());
+      }
+      placeNewBvAlias(bvModel, alias);
+      bvModel.getBvReferences().add(alias);
+    }
+  }
+
+  private static boolean sameBvModel(BusinessVaultModel bvModel, String resolvedModelFilename) {
+    if (bvModel == null || Utils.isEmpty(resolvedModelFilename)) {
+      return false;
+    }
+    return BusinessVaultBvReferenceSupport.sameModelPath(
+        bvModel.getFilename(), resolvedModelFilename);
+  }
+
+  /** Offset new aliases so they are not stacked at (0,0). */
+  private static void placeNewAlias(BusinessVaultModel bvModel, BvDvTableReference alias) {
+    if (alias == null) {
+      return;
+    }
+    if (alias.getLocation() != null
+        && (alias.getLocation().x != 0 || alias.getLocation().y != 0)) {
+      return;
+    }
+    int index = bvModel != null ? bvModel.getDvReferences().size() : 0;
+    int x = 80 + (index % 4) * 160;
+    int y = 80 + (index / 4) * 100;
+    alias.setLocation(new Point(x, y));
+  }
+
+  private static void placeNewBvAlias(BusinessVaultModel bvModel, BvBvTableReference alias) {
+    if (alias == null) {
+      return;
+    }
+    if (alias.getLocation() != null
+        && (alias.getLocation().x != 0 || alias.getLocation().y != 0)) {
+      return;
+    }
+    int index = bvModel != null ? bvModel.getBvReferences().size() : 0;
+    // Place below DV alias grid so the two kinds do not stack on top of each other.
+    int x = 80 + (index % 4) * 160;
+    int y = 280 + (index / 4) * 100;
+    alias.setLocation(new Point(x, y));
   }
 
   public static BvSqlSource findSource(BvBusinessTable table, String sourceName, String tableName) {
@@ -206,10 +613,10 @@ public final class BvSqlRefResolver {
     }
     List<BvSqlRef> refs = table.getSqlRefs();
     if (refs == null || refs.isEmpty()) {
-      refs = syncRefsFromSql(table, bvModel, dvModel);
+      refs = syncRefsFromSql(table, bvModel, dvModel, variables, metadataProvider);
     } else {
       for (BvSqlRef ref : refs) {
-        resolveRef(ref, table, bvModel, dvModel);
+        resolveRef(ref, table, bvModel, dvModel, variables, metadataProvider);
       }
     }
 
@@ -237,7 +644,9 @@ public final class BvSqlRefResolver {
     try {
       return BvSqlTemplateParser.rewrite(
           table.getSqlQuery(),
-          macro -> rewriteMacro(macro, table, resolvedRefs, bvDatabase, dvDatabase, metadataProvider, variables));
+          macro ->
+              rewriteMacro(
+                  macro, table, resolvedRefs, bvDatabase, dvDatabase, metadataProvider, variables));
     } catch (SqlRewriteException e) {
       throw new HopException(e.getMessage(), e.getCause());
     }
@@ -390,7 +799,10 @@ public final class BvSqlRefResolver {
     }
     int dot = name.lastIndexOf('.');
     if (dot > 0) {
-      name = name.substring(0, dot);
+      String ext = name.substring(dot).toLowerCase();
+      if (".hdv".equals(ext) || ".hbv".equals(ext)) {
+        name = name.substring(0, dot);
+      }
     }
     return name;
   }

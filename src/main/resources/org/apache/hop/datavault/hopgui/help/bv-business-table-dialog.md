@@ -27,9 +27,11 @@ Author a SQL query that materialises as a **view** or **table** in the Business 
 ## Templates (dbt style)
 
 - `{{ ref('object') }}` — BV table in this model or DV table in the linked vault model
-- `{{ ref('model', 'object') }}` — object in a model matching that basename
+- `{{ ref('model', 'object') }}` — object in another model file. `model` may be a relative path (e.g. `../models/retail-360` or another `.hbv` for multi-step BV layers), with optional extension, a catalog registry basename, or a path under `${PROJECT_HOME}`
 - `{{ source('source', 'table') }}` — must be declared on the **Sources** tab
 
-Use **Parse / sync refs** after editing SQL. **Preview resolved SQL** shows the full CREATE statement.
+Use **Parse / sync refs** after editing SQL — it resolves paths, fills the **References** tab (including resolved model path), and can place **DV** and external **BV** aliases on the canvas. You can also place BV references from the canvas context menu (**Add Business Vault reference**). **Preview SQL** runs a row preview of the resolved query against the BV target database. The **Generated SQL** tab shows the full `CREATE OR REPLACE VIEW|TABLE` statement and refreshes when you open that tab.
 
 See `docs/business-vault-sql-view.adoc` for full documentation.
+
+Samples: `integration-tests/tests/basic/vault1.hbv` (`sat_customer_hb_v`, `satb_customer_hb`) and `retail-example/models/retail-sql.hbv` (`satb_product_hb`).

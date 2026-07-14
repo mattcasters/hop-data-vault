@@ -69,12 +69,9 @@ public final class ResourceDefinitionGroupResolver {
     for (String modelFile : group.getBusinessVaultModelFiles()) {
       if (!Utils.isEmpty(modelFile)) {
         BusinessVaultModel model = loadBusinessVaultModel(modelFile, variables, metadataProvider);
-        DataVaultModel dvModel = null;
-        if (!Utils.isEmpty(model.getDataVaultModelPath())) {
-          dvModel =
-              BusinessVaultDvModelResolver.loadReferencedModel(
-                  model.getDataVaultModelPath(), variables, metadataProvider);
-        }
+        DataVaultModel dvModel =
+            BusinessVaultDvModelResolver.buildEffectiveDataVaultModel(
+                model, variables, metadataProvider);
         String catalogConnection =
             resolveGroupCatalogConnection(group, null, variables, metadataProvider);
         bvModels.add(new ValidationModels.LoadedBusinessVaultModel(model, dvModel, catalogConnection));

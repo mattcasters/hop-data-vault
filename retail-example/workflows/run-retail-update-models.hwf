@@ -205,7 +205,7 @@ limitations under the License.
       <description>Fail the workflow when source quality has blocking findings</description>
       <type>EVALUATE_QUALITY_GATE</type>
       <attributes/>
-      <xloc>640</xloc>
+      <xloc>672</xloc>
       <yloc>48</yloc>
       <parallel>N</parallel>
       <attributes_hac/>

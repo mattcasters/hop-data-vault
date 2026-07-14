@@ -44,15 +44,34 @@ class BusinessVaultModelTest {
   }
 
   @Test
-  void checkReportsMissingDataVaultModelPath() {
+  void checkAllowsEmptyLinkedPathWhenNoDvReferences() {
     BusinessVaultModel model = new BusinessVaultModel();
+    // No required single DV model path; empty model is warning-only (no tables).
+    var remarks = model.check(null, new Variables());
+    assertFalse(
+        remarks.stream()
+            .anyMatch(
+                r ->
+                    r.getType() == ICheckResult.TYPE_RESULT_ERROR
+                        && r.getText() != null
+                        && r.getText().toLowerCase().contains("data vault model file path")));
+    assertTrue(
+        remarks.stream()
+            .anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_WARNING));
+  }
+
+  @Test
+  void checkDvReferenceRequiresModelPath() {
+    BusinessVaultModel model = new BusinessVaultModel();
+    model.getDvReferences().add(new BvDvTableReference("hub_customer", DvTableType.HUB));
     var remarks = model.check(null, new Variables());
     assertTrue(
         remarks.stream()
-            .anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR));
-    assertFalse(
-        remarks.stream()
-            .anyMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_OK));
+            .anyMatch(
+                r ->
+                    r.getType() == ICheckResult.TYPE_RESULT_ERROR
+                        && r.getText() != null
+                        && r.getText().contains("hub_customer")));
   }
 
   @Test
@@ -62,8 +81,14 @@ class BusinessVaultModelTest {
     original.setDescription("Customer business vault");
     original.setDataVaultModelPath("integration-tests/tests/basic/vault1.hdv");
     original.getConfigurationOrDefault().setTargetDatabase("Vault");
+    original.getConfigurationOrDefault().setDataCatalogConnection("local-catalog");
     original.getTables().add(new BvScd2Table());
     original.getDvReferences().add(new BvDvTableReference("hub_customer", DvTableType.HUB));
+    BvBvTableReference bvRef =
+        new BvBvTableReference(
+            "satb_product_hb", BvTableType.BUSINESS_TABLE, "${PROJECT_HOME}/models/bv-historize.hbv");
+    bvRef.setPhysicalTableName("satb_product_hb");
+    original.getBvReferences().add(bvRef);
 
     String xml =
         XmlHandler.aroundTag(
@@ -80,11 +105,19 @@ class BusinessVaultModelTest {
     assertEquals(
         original.getConfigurationOrDefault().getTargetDatabase(),
         restored.getConfigurationOrDefault().getTargetDatabase());
+    assertEquals(
+        "local-catalog", restored.getConfigurationOrDefault().getDataCatalogConnection());
     assertEquals(1, restored.getTables().size());
     assertEquals(BvTableType.SCD2, restored.getTables().get(0).getTableType());
     assertEquals(1, restored.getDvReferences().size());
     assertEquals("hub_customer", restored.getDvReferences().get(0).getDvTableName());
     assertEquals(DvTableType.HUB, restored.getDvReferences().get(0).getDvTableType());
+    assertEquals(1, restored.getBvReferences().size());
+    assertEquals("satb_product_hb", restored.getBvReferences().get(0).getBvTableName());
+    assertEquals(BvTableType.BUSINESS_TABLE, restored.getBvReferences().get(0).getBvTableType());
+    assertEquals(
+        "${PROJECT_HOME}/models/bv-historize.hbv",
+        restored.getBvReferences().get(0).getReferencedModelFilename());
   }
 
   @Test

@@ -52,7 +52,7 @@ public final class BvSqlDependencySupport {
     // Sync refs for business tables so edges are current.
     for (IBvTable table : tables) {
       if (table instanceof BvBusinessTable businessTable) {
-        BvSqlRefResolver.syncRefsFromSql(businessTable, bvModel, dvModel);
+        BvSqlRefResolver.syncRefsFromSql(businessTable, bvModel, dvModel, null, null);
       }
     }
 

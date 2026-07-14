@@ -139,18 +139,21 @@ public final class ReferencedObjectResolver {
       context.addEdge(ExecutionMapEdgeType.REFERENCES, fromNodeId, modelNodeId, description);
       DataVaultModel dvModel = null;
       try {
-        String dvPath = bvModel.getDataVaultModelPath();
-        if (!Utils.isEmpty(dvPath)) {
-          dvModel =
-              BusinessVaultDvModelResolver.loadReferencedModel(
-                  dvPath, context.getVariables(), context.getMetadataProvider());
+        dvModel =
+            BusinessVaultDvModelResolver.buildEffectiveDataVaultModel(
+                bvModel, context.getVariables(), context.getMetadataProvider());
+        if (dvModel != null && !dvModel.getTables().isEmpty()) {
+          String dvLabel =
+              !Utils.isEmpty(dvModel.getFilename())
+                  ? dvModel.getFilename()
+                  : "effective-dv-from-references";
           String dvNodeId =
               addModelNode(context, modelNodeId, ExecutionMapNodeType.DATA_VAULT_MODEL, dvModel);
-          context.addEdge(ExecutionMapEdgeType.MODEL_LINK, modelNodeId, dvNodeId, dvPath);
+          context.addEdge(ExecutionMapEdgeType.MODEL_LINK, modelNodeId, dvNodeId, dvLabel);
         }
       } catch (Exception e) {
         context.addWarning(
-            "Failed to resolve linked DV model for BV '"
+            "Failed to resolve Data Vault models for BV '"
                 + bvModel.getName()
                 + "': "
                 + e.getMessage());

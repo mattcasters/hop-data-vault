@@ -394,13 +394,18 @@ Golden datasets: `hub-customer-led-golden1/2`, `sat-customer-led-golden1/2` in `
 
 ## Test suite: `tests/basic/` — Business Vault intro (`vault1.hbv`)
 
-After the raw vault load in `update-vault1.hwf`, you can rebuild a simple Business Vault SCD2 table:
+After the raw vault load in `update-vault1.hwf`, the suite rebuilds Business Vault objects via **Business Vault Update** on `vault1.hbv`:
 
 - **BV model:** `tests/basic/vault1.hbv` (links to `vault1.hdv`)
 - **SCD2 table:** `sat_customer_hb` — one satellite derivative (`sat_customer`)
-- **Workflow:** `tests/basic/update-bv-vault1.hwf` (optional; not in the main orchestrator)
+- **PIT table:** `pit_customer`
+- **SQL views (issue #57):**
+  - `sat_customer_hb_v` — `SELECT … FROM {{ ref('sat_customer_hb') }}` (BV→BV dependency; CREATE VIEW after SCD2)
+  - `satb_customer_hb` — phase-1 historical LEAD validity over `{{ ref('sat_customer') }}` (DV satellite)
+- **Validation:** `validate-sat-customer-hb UNIT`, `validate-sat-customer-hb-v UNIT` (same golden as SCD2), `validate-pit-customer UNIT`
+- **Standalone BV workflow:** `tests/basic/update-bv-vault1.hwf` (optional; BV only)
 
-See [docs/business-vault-scd2.adoc](../docs/business-vault-scd2.adoc) for SCD2 concepts.
+See [docs/business-vault-scd2.adoc](../docs/business-vault-scd2.adoc) and [docs/business-vault-sql-view.adoc](../docs/business-vault-sql-view.adoc).
 
 ---
 

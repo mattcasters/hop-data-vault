@@ -1,0 +1,42 @@
+{
+  "namespace" : "hop/retail-example/models-registry/bv",
+  "name" : "retail-sql",
+  "type" : "BV_MODEL",
+  "description" : "SQL business tables: phase-1 historical validity (satb_*) over raw vault satellites",
+  "rowMetaXml" : null,
+  "origin" : {
+    "modelType" : "BUSINESS_VAULT_MODEL",
+    "modelName" : "retail-sql",
+    "modelFilename" : "${PROJECT_HOME}/models/retail-sql.hbv",
+    "modelElementName" : null,
+    "hopProject" : "retail-example",
+    "createdAt" : 1784011806082,
+    "updatedAt" : 1784015239086,
+    "lastDiscoveredAt" : null,
+    "updatedBy" : null,
+    "lastWorkflow" : "retail-sql",
+    "lastPipeline" : null
+  },
+  "physicalTable" : null,
+  "physicalFile" : null,
+  "physicalIcebergTable" : null,
+  "tags" : [ "MODEL_REGISTRY", "BUSINESS_VAULT_MODEL" ],
+  "glossaryTerms" : [ ],
+  "customProperties" : {
+    "tableNamespace" : {
+      "type" : "STRING",
+      "value" : "hop/retail-example/business-vault/retail-sql"
+    },
+    "fileExtension" : {
+      "type" : "STRING",
+      "value" : "hbv"
+    },
+    "modelKind" : {
+      "type" : "STRING",
+      "value" : "BUSINESS_VAULT_MODEL"
+    }
+  },
+  "validationAcknowledgements" : [ ],
+  "qualityRules" : [ ],
+  "dvSource" : null
+}

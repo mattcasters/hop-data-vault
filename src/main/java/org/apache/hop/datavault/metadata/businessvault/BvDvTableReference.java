@@ -39,6 +39,12 @@ public class BvDvTableReference {
   @HopMetadataProperty(storeWithCode = true)
   private DvTableType dvTableType;
 
+  /**
+   * Optional path to the Data Vault model that owns this table when it is not the BV-linked {@code
+   * .hdv} (portable {@code ${PROJECT_HOME}/…} form preferred).
+   */
+  @HopMetadataProperty private String referencedModelFilename;
+
   @HopMetadataProperty(inline = true)
   private Point location = new Point(0, 0);
 

@@ -23,6 +23,7 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DvNote;
 import org.apache.hop.datavault.metadata.IDvTable;
 import org.apache.hop.datavault.metadata.businessvault.BusinessVaultModel;
+import org.apache.hop.datavault.metadata.businessvault.BvBvTableReference;
 import org.apache.hop.datavault.metadata.businessvault.BvDvTableReference;
 import org.apache.hop.datavault.metadata.businessvault.BvTableBase;
 import org.apache.hop.datavault.metadata.businessvault.IBvTable;
@@ -83,6 +84,23 @@ public final class ModelBoundsSupport {
       }
     }
     for (BvDvTableReference reference : model.getDvReferences()) {
+      if (reference == null) {
+        continue;
+      }
+      Point loc = reference.getLocation();
+      if (loc == null) {
+        continue;
+      }
+      int refMaxX = loc.x + Math.max(140, reference.getDrawnBoxWidth());
+      int refMaxY = loc.y + Math.max(70, reference.getDrawnBoxHeight());
+      if (refMaxX > maxx) {
+        maxx = refMaxX;
+      }
+      if (refMaxY > maxy) {
+        maxy = refMaxY;
+      }
+    }
+    for (BvBvTableReference reference : model.getBvReferences()) {
       if (reference == null) {
         continue;
       }

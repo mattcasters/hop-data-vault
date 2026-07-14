@@ -22,6 +22,7 @@ import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.hop.catalog.metadata.DataCatalogMeta;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
@@ -68,6 +69,20 @@ public class BusinessVaultConfiguration implements IDvTargetLoadConfiguration {
       parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
   @HopMetadataProperty(key = "targetDatabase")
   private String targetDatabase;
+
+  /**
+   * Default data catalog metadata connection for catalog publish and registry lookups. Same pattern
+   * as {@code DataVaultConfiguration} / {@code DimensionalConfiguration}.
+   */
+  @GuiWidgetElement(
+      order = "0060",
+      type = GuiElementType.METADATA,
+      metadata = DataCatalogMeta.class,
+      label = "i18n::BusinessVaultConfiguration.DataCatalogConnection.Label",
+      toolTip = "i18n::BusinessVaultConfiguration.DataCatalogConnection.ToolTip",
+      parentId = GUI_PLUGIN_ELEMENT_GENERAL_TAB_ID)
+  @HopMetadataProperty
+  private String dataCatalogConnection;
 
   @GuiWidgetElement(
       order = "0150",

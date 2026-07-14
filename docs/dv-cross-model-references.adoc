@@ -61,9 +61,10 @@ Model check verifies:
 
 == Related patterns
 
-* **Business Vault** — single linked `.hdv` on the `.hbv` file for derivative layout (orthogonal to subject-area splitting).
+* **Business Vault** — linked `.hdv` on the `.hbv` for default SCD2/PIT layout; multi-model DV aliases use `referencedModelFilename`; multi-step BV layers use **BV table references** (`bv_references` → other `.hbv` files) and the catalog **model registry**. See link:business-vault-sql-view.adoc[Business Vault SQL views and tables].
 * **EXTERNAL_READ** — physical tables exist but Hop does not generate loads; references are for *metadata* reuse across model files.
 * **Dimensional aliases** — `DIMENSION_ALIAS` + `referencedModelFilename` in `.hdm` files.
+* **Catalog model registry** — DV/BV/DM Update publish upserts `hop/{project}/models-registry/{basename}` for short-name discovery.
 
 == Test fixtures
 

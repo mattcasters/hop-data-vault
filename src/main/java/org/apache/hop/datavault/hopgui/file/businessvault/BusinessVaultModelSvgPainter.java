@@ -71,14 +71,12 @@ public final class BusinessVaultModelSvgPainter {
       painter.setDrawNotes(renderOptions.isIncludeNotes());
       painter.setMaximum(
           ModelBoundsSupport.getMaximum(model, renderOptions.isIncludeNotes()));
-      if (!Utils.isEmpty(model.getDataVaultModelPath())) {
-        try {
-          painter.setDataVaultModel(
-              BusinessVaultDvModelResolver.loadReferencedModel(
-                  model.getDataVaultModelPath(), variables, metadataProvider));
-        } catch (HopException ignored) {
-          // SVG export still renders without hash-key annotations when DV model is unavailable.
-        }
+      try {
+        painter.setDataVaultModel(
+            BusinessVaultDvModelResolver.buildEffectiveDataVaultModel(
+                model, variables, metadataProvider));
+      } catch (HopException ignored) {
+        // SVG export still renders without hash-key annotations when DV model is unavailable.
       }
       painter.drawBusinessVaultModel(metadataProvider);
 

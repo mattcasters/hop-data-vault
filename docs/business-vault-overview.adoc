@@ -54,7 +54,9 @@ From a Business Vault table you can jump to the linked Data Vault model and sele
 |Point-in-time helper for technical as-of queries: hub grain × snapshot dates with satellite load-timestamp pointers. See link:business-vault-pit.adoc[Business Vault PIT].
 
 |Business / SQL table (`BvBusinessTable`)
-|SQL-sourced object materialised as a **view** or **table** (`CREATE OR REPLACE VIEW|TABLE … AS …`) with dbt-style `{{ ref() }}` / `{{ source() }}` dependencies. See link:business-vault-sql-view.adoc[Business Vault SQL views and tables].
+|SQL-sourced object materialised as a **view** or **table** (`CREATE OR REPLACE VIEW|TABLE … AS …`) with dbt-style `{{ ref() }}` / `{{ source() }}` dependencies. Multi-step layers can `ref()` tables in another `.hbv` or place **Business Vault references** on the canvas. See link:business-vault-sql-view.adoc[Business Vault SQL views and tables].
+
+Data Vault hubs, links, and satellites are referenced with **canvas aliases** (Add Hub / Link / Satellite reference), optionally from multiple `.hdv` models via the catalog or file browse. There is no required single “linked Data Vault model file” on the BV.
 |===
 
 == Workflow integration
@@ -89,7 +91,7 @@ See link:dv-integration-modes.adoc[Data Vault integration modes].
 
 The `integration-tests/tests/` folder includes:
 
-* `basic/vault1.hbv` — introductory SCD2 (`sat_customer_hb`) and PIT (`pit_customer`) from one hub and satellite
+* `basic/vault1.hbv` — introductory SCD2 (`sat_customer_hb`), PIT (`pit_customer`), and SQL views (`sat_customer_hb_v` over SCD2, `satb_customer_hb` historical LEAD over `sat_customer`)
 * `multi-satellite-bv/customer-360.hdv` / `customer-360.hbv` — four satellites merged into `customer_360_bv`
 
 image::images/data-vault-model-customer-360.png[Customer 360 raw vault model,align="center"]

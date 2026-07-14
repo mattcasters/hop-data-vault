@@ -27,6 +27,7 @@ import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.hopgui.EnumDialogSupport;
+import org.apache.hop.datavault.hopgui.file.dimensional.DmSourceSqlGuiSupport;
 import org.apache.hop.datavault.hopgui.file.modelgraph.ModelDialogValidationSupport;
 import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
 import org.apache.hop.datavault.hopgui.help.HelpTopics;
@@ -46,7 +47,6 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
-import org.apache.hop.ui.core.dialog.ShowMessageDialog;
 import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.core.widget.ColumnInfo;
 import org.apache.hop.ui.core.widget.SQLStyledTextComp;
@@ -87,6 +87,9 @@ public class HopGuiBvBusinessTableDialog {
   private Combo wMaterialization;
   private Combo wReferenceStyle;
   private TextComposite wSqlQuery;
+  private TextComposite wGeneratedSql;
+  private CTabFolder wTabFolder;
+  private CTabItem generatedSqlTab;
   private TableView wSources;
   private TableView wRefs;
 
@@ -209,19 +212,19 @@ public class HopGuiBvBusinessTableDialog {
     fdReferenceStyle.right = new FormAttachment(100, 0);
     wReferenceStyle.setLayoutData(fdReferenceStyle);
 
-    CTabFolder tabFolder = new CTabFolder(shell, SWT.BORDER);
-    PropsUi.setLook(tabFolder);
+    wTabFolder = new CTabFolder(shell, SWT.BORDER);
+    PropsUi.setLook(wTabFolder);
     FormData fdTabFolder = new FormData();
     fdTabFolder.left = new FormAttachment(0, 0);
     fdTabFolder.top = new FormAttachment(wReferenceStyle, margin);
     fdTabFolder.right = new FormAttachment(100, 0);
     fdTabFolder.bottom = new FormAttachment(100, -50);
-    tabFolder.setLayoutData(fdTabFolder);
+    wTabFolder.setLayoutData(fdTabFolder);
 
     // --- SQL tab ---
-    CTabItem sqlTab = new CTabItem(tabFolder, SWT.NONE);
+    CTabItem sqlTab = new CTabItem(wTabFolder, SWT.NONE);
     sqlTab.setText(BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.Tab.Sql"));
-    Composite sqlComp = new Composite(tabFolder, SWT.NONE);
+    Composite sqlComp = new Composite(wTabFolder, SWT.NONE);
     PropsUi.setLook(sqlComp);
     sqlComp.setLayout(new FormLayout());
     sqlTab.setControl(sqlComp);
@@ -236,14 +239,15 @@ public class HopGuiBvBusinessTableDialog {
     wSyncRefs.addListener(SWT.Selection, e -> syncRefsFromSqlUi());
 
     Button wPreviewSql = new Button(sqlComp, SWT.PUSH);
-    wPreviewSql.setText(
-        BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.PreviewResolved.Label"));
+    wPreviewSql.setText(BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.PreviewSql.Label"));
+    wPreviewSql.setToolTipText(
+        BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.PreviewSql.ToolTip"));
     PropsUi.setLook(wPreviewSql);
     FormData fdPreviewSql = new FormData();
     fdPreviewSql.left = new FormAttachment(wSyncRefs, margin);
     fdPreviewSql.top = new FormAttachment(0, margin);
     wPreviewSql.setLayoutData(fdPreviewSql);
-    wPreviewSql.addListener(SWT.Selection, e -> previewResolvedSql());
+    wPreviewSql.addListener(SWT.Selection, e -> previewSql());
 
     int sqlStyle = SWT.MULTI | SWT.LEFT | SWT.BORDER | SWT.H_SCROLL | SWT.V_SCROLL;
     if (EnvironmentUtils.getInstance().isWeb()) {
@@ -260,10 +264,44 @@ public class HopGuiBvBusinessTableDialog {
     fdSqlQuery.bottom = new FormAttachment(100, 0);
     wSqlQuery.setLayoutData(fdSqlQuery);
 
+    // --- Generated SQL tab ---
+    generatedSqlTab = new CTabItem(wTabFolder, SWT.NONE);
+    generatedSqlTab.setText(
+        BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.Tab.GeneratedSql"));
+    Composite generatedSqlComp = new Composite(wTabFolder, SWT.NONE);
+    PropsUi.setLook(generatedSqlComp);
+    generatedSqlComp.setLayout(new FormLayout());
+    generatedSqlTab.setControl(generatedSqlComp);
+
+    Label wlGeneratedSql = new Label(generatedSqlComp, SWT.LEFT);
+    wlGeneratedSql.setText(
+        BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.GeneratedSql.Info"));
+    PropsUi.setLook(wlGeneratedSql);
+    FormData fdlGeneratedSql = new FormData();
+    fdlGeneratedSql.left = new FormAttachment(0, 0);
+    fdlGeneratedSql.top = new FormAttachment(0, margin);
+    fdlGeneratedSql.right = new FormAttachment(100, 0);
+    wlGeneratedSql.setLayoutData(fdlGeneratedSql);
+
+    if (EnvironmentUtils.getInstance().isWeb()) {
+      wGeneratedSql = new StyledTextComp(variables, generatedSqlComp, sqlStyle);
+    } else {
+      wGeneratedSql = new SQLStyledTextComp(variables, generatedSqlComp, sqlStyle);
+      wGeneratedSql.addLineStyleListener(getSqlReservedWords());
+    }
+    setTextEditable(wGeneratedSql, false);
+    PropsUi.setLook(wGeneratedSql, Props.WIDGET_STYLE_FIXED);
+    FormData fdGeneratedSql = new FormData();
+    fdGeneratedSql.left = new FormAttachment(0, 0);
+    fdGeneratedSql.top = new FormAttachment(wlGeneratedSql, margin);
+    fdGeneratedSql.right = new FormAttachment(100, 0);
+    fdGeneratedSql.bottom = new FormAttachment(100, 0);
+    wGeneratedSql.setLayoutData(fdGeneratedSql);
+
     // --- Sources tab ---
-    CTabItem sourcesTab = new CTabItem(tabFolder, SWT.NONE);
+    CTabItem sourcesTab = new CTabItem(wTabFolder, SWT.NONE);
     sourcesTab.setText(BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.Tab.Sources"));
-    Composite sourcesComp = new Composite(tabFolder, SWT.NONE);
+    Composite sourcesComp = new Composite(wTabFolder, SWT.NONE);
     PropsUi.setLook(sourcesComp);
     sourcesComp.setLayout(new FormLayout());
     sourcesTab.setControl(sourcesComp);
@@ -318,9 +356,9 @@ public class HopGuiBvBusinessTableDialog {
     wSources.setLayoutData(fdSources);
 
     // --- Refs tab ---
-    CTabItem refsTab = new CTabItem(tabFolder, SWT.NONE);
+    CTabItem refsTab = new CTabItem(wTabFolder, SWT.NONE);
     refsTab.setText(BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.Tab.References"));
-    Composite refsComp = new Composite(tabFolder, SWT.NONE);
+    Composite refsComp = new Composite(wTabFolder, SWT.NONE);
     PropsUi.setLook(refsComp);
     refsComp.setLayout(new FormLayout());
     refsTab.setControl(refsComp);
@@ -347,6 +385,11 @@ public class HopGuiBvBusinessTableDialog {
               ColumnInfo.COLUMN_TYPE_TEXT,
               false,
               true),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.Refs.Column.ResolvedModel"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false,
+              true),
         };
     wRefs =
         new TableView(
@@ -364,7 +407,14 @@ public class HopGuiBvBusinessTableDialog {
     fdRefs.bottom = new FormAttachment(100, 0);
     wRefs.setLayoutData(fdRefs);
 
-    tabFolder.setSelection(0);
+    wTabFolder.addListener(
+        SWT.Selection,
+        e -> {
+          if (wTabFolder.getSelection() == generatedSqlTab) {
+            refreshGeneratedSql();
+          }
+        });
+    wTabFolder.setSelection(0);
 
     Button wOk = new Button(shell, SWT.PUSH);
     wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
@@ -434,6 +484,7 @@ public class HopGuiBvBusinessTableDialog {
         item.setText(
             3, ref.getResolvedKind() != null ? ref.getResolvedKind().getCode() : "");
         item.setText(4, Const.NVL(ref.getResolvedTableName(), ""));
+        item.setText(5, Const.NVL(ref.getResolvedModelFilename(), ""));
       }
     }
     if (wRefs.table.getItemCount() == 0) {
@@ -452,9 +503,12 @@ public class HopGuiBvBusinessTableDialog {
     target.setReferenceStyle(BvSqlReferenceStyle.lookupDescription(wReferenceStyle.getText()));
     target.setSqlQuery(wSqlQuery.getText());
     target.setSources(readSources());
-    BvSqlRefResolver.syncRefsFromSql(target, businessVaultModel, dataVaultModel);
+    IHopMetadataProvider metadataProvider = HopGui.getInstance().getMetadataProvider();
+    BvSqlRefResolver.syncRefsFromSql(
+        target, businessVaultModel, dataVaultModel, variables, metadataProvider);
     BvSqlRefResolver.ensureDvCanvasAliases(
         businessVaultModel, target.getSqlRefs(), dataVaultModel);
+    BvSqlRefResolver.ensureBvCanvasAliases(businessVaultModel, target.getSqlRefs());
   }
 
   private List<BvSqlSource> readSources() {
@@ -511,28 +565,67 @@ public class HopGuiBvBusinessTableDialog {
     return t;
   }
 
-  private void previewResolvedSql() {
+  /**
+   * Resolves authoring SQL (ref/source macros) and shows a row preview against the BV target
+   * database.
+   */
+  private void previewSql() {
     try {
-      BvBusinessTable draft = new BvBusinessTable();
-      applyTo(draft);
-      String resolvedQuery =
-          BvSqlRefResolver.resolveSql(
-              draft, businessVaultModel, dataVaultModel, null, variables, null);
-      String ddl =
-          BvSqlViewPipelineSupport.buildCreateStatement(draft, null, variables, resolvedQuery);
-      new ShowMessageDialog(
-              shell,
-              SWT.OK | SWT.ICON_INFORMATION,
-              BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.PreviewResolved.Title"),
-              ddl,
-              true)
-          .open();
+      IHopMetadataProvider metadataProvider = HopGui.getInstance().getMetadataProvider();
+      DatabaseMeta targetDatabase =
+          BvTargetDatabaseSupport.loadTargetDatabase(
+              metadataProvider, businessVaultModel.getConfigurationOrDefault());
+      String resolvedQuery = buildResolvedQuery(metadataProvider, targetDatabase);
+      DmSourceSqlGuiSupport.previewSourceSql(
+          shell, variables, metadataProvider, targetDatabase, resolvedQuery);
     } catch (Exception e) {
       new ErrorDialog(
           shell,
           BaseMessages.getString(PKG, "HopGuiBvBusinessTableDialog.Error.Title"),
           e.getMessage(),
           e);
+    }
+  }
+
+  /** Rebuilds the CREATE OR REPLACE VIEW|TABLE statement shown on the Generated SQL tab. */
+  private void refreshGeneratedSql() {
+    if (wGeneratedSql == null || wGeneratedSql.isDisposed()) {
+      return;
+    }
+    try {
+      IHopMetadataProvider metadataProvider = HopGui.getInstance().getMetadataProvider();
+      DatabaseMeta targetDatabase =
+          BvTargetDatabaseSupport.loadTargetDatabase(
+              metadataProvider, businessVaultModel.getConfigurationOrDefault());
+      BvBusinessTable draft = new BvBusinessTable();
+      applyTo(draft);
+      String resolvedQuery = buildResolvedQuery(metadataProvider, targetDatabase);
+      String ddl =
+          BvSqlViewPipelineSupport.buildCreateStatement(
+              draft, targetDatabase, variables, resolvedQuery);
+      wGeneratedSql.setText(Const.NVL(ddl, ""));
+    } catch (Exception e) {
+      wGeneratedSql.setText(
+          BaseMessages.getString(
+              PKG,
+              "HopGuiBvBusinessTableDialog.GeneratedSql.Error",
+              Const.NVL(e.getMessage(), e.getClass().getSimpleName())));
+    }
+  }
+
+  private String buildResolvedQuery(
+      IHopMetadataProvider metadataProvider, DatabaseMeta targetDatabase) throws Exception {
+    BvBusinessTable draft = new BvBusinessTable();
+    applyTo(draft);
+    return BvSqlRefResolver.resolveSql(
+        draft, businessVaultModel, dataVaultModel, metadataProvider, variables, targetDatabase);
+  }
+
+  private static void setTextEditable(TextComposite text, boolean editable) {
+    if (text instanceof SQLStyledTextComp sqlStyled) {
+      sqlStyled.setEditable(editable);
+    } else if (text instanceof StyledTextComp styled) {
+      styled.setEditable(editable);
     }
   }
 
