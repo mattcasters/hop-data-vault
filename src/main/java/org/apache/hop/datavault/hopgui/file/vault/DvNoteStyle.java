@@ -87,39 +87,25 @@ public final class DvNoteStyle {
     };
   }
 
+  /**
+   * Text foreground for note body text. All note types use light fills (gray, yellow, red, blue),
+   * so black is required for contrast in light mode. Hop's contrastColor maps black to white in
+   * dark mode. {@code type} is retained for call-site consistency with other style methods.
+   */
   public static RgbColor textColor(DvNoteType type) {
-    if (type == null) {
-      type = DvNoteType.GENERAL;
-    }
     GuiResource res = resourcesOrNull();
     if (res != null) {
-      return switch (type) {
-        case IMPORTANT, INFORMATION -> fromColor(res.getColorWhite());
-        default -> fromColor(res.getColorBlack());
-      };
+      return fromColor(res.getColorBlack());
     }
-    return switch (type) {
-      case IMPORTANT, INFORMATION -> new RgbColor(255, 255, 255);
-      default -> new RgbColor(0, 0, 0);
-    };
+    return new RgbColor(0, 0, 0);
   }
 
-  /** Hyperlink foreground; contrasts with each note type background. */
+  /**
+   * Hyperlink foreground; same contrast rules as {@link #textColor(DvNoteType)} so links stay
+   * readable on light note fills.
+   */
   public static RgbColor linkColor(DvNoteType type) {
-    if (type == null) {
-      type = DvNoteType.GENERAL;
-    }
-    GuiResource res = resourcesOrNull();
-    if (res != null) {
-      return switch (type) {
-        case IMPORTANT, INFORMATION -> fromColor(res.getColorWhite());
-        default -> fromColor(res.getColorBlack());
-      };
-    }
-    return switch (type) {
-      case IMPORTANT, INFORMATION -> new RgbColor(255, 255, 255);
-      default -> new RgbColor(0, 0, 0);
-    };
+    return textColor(type);
   }
 
   public static int borderWidth(DvNoteType type, boolean selected) {
