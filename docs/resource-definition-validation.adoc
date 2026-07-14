@@ -42,6 +42,22 @@ Acknowledgements persist with the catalog record so teams can document conscious
 . Acknowledge warnings that are accepted risk, with a short reason.
 . Run **Check model** on the `.hdv` file — detailed type checking uses live database schemas when enabled.
 
+== Schema impact simulation (programmatic)
+
+`SchemaImpactSimulationService` orchestrates catalog schema comparison and optional downstream impact enrichment for CI/CD and design-time dry-runs:
+
+| Mode | Expected | Actual |
+|------|----------|--------|
+| `LIVE_SOURCE` | Working tree, or tagged catalog version | Live physical source discovery |
+| `WORKING_VS_VERSION` | Catalog version tag | Working-tree catalog |
+| `VERSION_VS_VERSION` | Baseline version tag | Other version tag |
+
+Results include a `ValidationReport`, optional `ImpactGraph` blast-radius labels on issues, and overall status (`PASS` / `WARNING` / `CRITICAL_BLOCKED`).
+
+`SchemaValidationReportFormatter` emits log text, Markdown (CI artifact layout), and HTML. `SchemaValidationReportFileWriter` writes those artifacts via Hop VFS.
+
+Catalog version tags are described in link:data-catalog.adoc#catalog-versions[Data Catalog — Catalog versions].
+
 == Related documents
 
 * link:data-catalog.adoc[Data Catalog]
