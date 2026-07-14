@@ -99,14 +99,14 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
     </action>
     <action>
       <replacevars>Y</replacevars>
+      <fields/>
       <filename>${PROJECT_HOME}/work/retail-csv-wave.properties</filename>
       <file_variable_type>CURRENT_WORKFLOW</file_variable_type>
-      <fields/>
       <name>Set RETAIL_CSV_WAVE</name>
       <description>Load RETAIL_CSV_WAVE written by generate-retail-data.py</description>
       <type>SET_VARIABLES</type>
       <attributes/>
-      <xloc>512</xloc>
+      <xloc>592</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -134,7 +134,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>608</xloc>
+      <xloc>736</xloc>
       <yloc>64</yloc>
       <parallel>N</parallel>
       <attributes_hac/>

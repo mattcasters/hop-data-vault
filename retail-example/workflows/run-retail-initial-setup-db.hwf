@@ -140,21 +140,21 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>208</xloc>
+      <xloc>288</xloc>
       <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
     <action>
       <replacevars>Y</replacevars>
+      <fields/>
       <filename>${PROJECT_HOME}/work/retail-csv-wave.properties</filename>
       <file_variable_type>CURRENT_WORKFLOW</file_variable_type>
-      <fields/>
       <name>Set RETAIL_CSV_WAVE</name>
       <description>Load RETAIL_CSV_WAVE written by generate-retail-data.py</description>
       <type>SET_VARIABLES</type>
       <attributes/>
-      <xloc>656</xloc>
+      <xloc>800</xloc>
       <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -182,7 +182,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>752</xloc>
+      <xloc>976</xloc>
       <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -210,7 +210,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>384</xloc>
+      <xloc>464</xloc>
       <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -227,7 +227,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>560</xloc>
+      <xloc>624</xloc>
       <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
