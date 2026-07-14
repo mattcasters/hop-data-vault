@@ -148,12 +148,16 @@ The BV **target database** plugin id selects the script shape (same dialect dete
 |Materialization |Dialect |Generated script (conceptually)
 
 |VIEW
-|PostgreSQL, MySQL, SingleStore, other
+|PostgreSQL, MySQL, other
 |`CREATE OR REPLACE VIEW t AS <query>`
 
 |VIEW
 |SQL Server
 |`CREATE OR ALTER VIEW t AS <query>`
+
+|VIEW
+|SingleStore
+|`DROP VIEW IF EXISTS t;` + `CREATE VIEW t AS <query>` (no `CREATE OR REPLACE VIEW`)
 
 |TABLE
 |MySQL, SingleStore
@@ -168,7 +172,7 @@ The BV **target database** plugin id selects the script shape (same dialect dete
 |`DROP TABLE IF EXISTS t;` + `SELECT * INTO t FROM (<query>) AS _bv_sql_src`
 |===
 
-Multi-statement TABLE scripts run with Exec SQL **single statement** disabled so DROP + CREATE both execute.
+Multi-statement scripts (Postgres/SQL Server TABLE, SingleStore VIEW) run with Exec SQL **single statement** disabled so DROP + CREATE both execute.
 
 == Canvas and lineage
 
@@ -240,6 +244,7 @@ Use **Validate** in the SQL business table dialog for a single-table check witho
 
 * Create view/table runs in a generated pipeline (not the early DDL batch), so dependents of SCD2/PIT loads see populated tables when the SQL runs in the same update.
 * Pipeline name prefix comes from BV configuration (`businessTablePipelineNamePrefix`, default `bv-biz-`).
+* **Portable timestamp literals:** authoring SQL may use Postgres/ANSI `TIMESTAMP 'yyyy-MM-dd HH:mm:ss'`. At materialization time those literals are rewritten for the BV target dialect (SQL Server → `CAST('…' AS datetime2)`, MySQL/SingleStore → `CAST('…' AS DATETIME)`). Prefer that form in shared fixtures over engine-specific casts.
 * Iceberg / engines without classic CREATE VIEW support are not specially handled yet — treat as generic Postgres-style SQL and verify on your warehouse.
 * Full Jinja, multi-file dbt projects, and incremental merge strategies are out of scope.
 

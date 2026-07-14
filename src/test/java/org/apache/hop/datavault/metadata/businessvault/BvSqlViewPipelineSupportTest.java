@@ -69,6 +69,64 @@ class BvSqlViewPipelineSupportTest {
   }
 
   @Test
+  void viewScriptSingleStoreDropsThenCreateView() throws Exception {
+    BvBusinessTable table = viewTable("sat_customer_hb_v", "SELECT customer_hk FROM sat_customer_hb");
+    BvSqlViewPipelineSupport.CreateScript script =
+        BvSqlViewPipelineSupport.buildCreateScript(
+            table,
+            new TestDatabaseMeta("Vault", "SINGLESTORE"),
+            new Variables(),
+            "SELECT customer_hk FROM sat_customer_hb");
+
+    assertFalse(script.singleStatement());
+    assertTrue(script.sql().contains("DROP VIEW IF EXISTS sat_customer_hb_v;"));
+    assertTrue(script.sql().contains("CREATE VIEW sat_customer_hb_v AS\n"));
+    assertFalse(script.sql().contains("CREATE OR REPLACE VIEW"));
+    assertFalse(script.sql().contains("CREATE OR ALTER VIEW"));
+  }
+
+  @Test
+  void viewScriptSqlServerRewritesAnsiTimestampLiterals() throws Exception {
+    String authoringSql =
+        "SELECT COALESCE(LEAD(x_load_ts) OVER (PARTITION BY customer_hk ORDER BY x_load_ts),"
+            + " TIMESTAMP '9999-12-31 23:59:59') AS x_to_ts FROM sat_customer";
+    BvBusinessTable table = viewTable("satb_customer_hb", authoringSql);
+    BvSqlViewPipelineSupport.CreateScript script =
+        BvSqlViewPipelineSupport.buildCreateScript(
+            table,
+            new TestDatabaseMeta("Vault", "MSSQLNATIVE"),
+            new Variables(),
+            authoringSql);
+
+    assertTrue(script.sql().startsWith("CREATE OR ALTER VIEW satb_customer_hb AS"));
+    assertTrue(script.sql().contains("CAST('9999-12-31 23:59:59' AS datetime2)"));
+    assertFalse(script.sql().contains("TIMESTAMP '9999-12-31 23:59:59'"));
+  }
+
+  @Test
+  void viewScriptMysqlRewritesAnsiTimestampLiterals() throws Exception {
+    String authoringSql = "SELECT TIMESTAMP '1900-01-01 00:00:00' AS open_start";
+    BvBusinessTable table = viewTable("v1", authoringSql);
+    BvSqlViewPipelineSupport.CreateScript script =
+        BvSqlViewPipelineSupport.buildCreateScript(
+            table, new TestDatabaseMeta("Vault", "MYSQL"), new Variables(), authoringSql);
+
+    assertTrue(script.sql().contains("CAST('1900-01-01 00:00:00' AS DATETIME)"));
+    assertFalse(script.sql().contains("TIMESTAMP '1900-01-01 00:00:00'"));
+  }
+
+  @Test
+  void viewScriptPostgresKeepsAnsiTimestampLiterals() throws Exception {
+    String authoringSql = "SELECT TIMESTAMP '9999-12-31 23:59:59' AS open_end";
+    BvBusinessTable table = viewTable("v1", authoringSql);
+    BvSqlViewPipelineSupport.CreateScript script =
+        BvSqlViewPipelineSupport.buildCreateScript(
+            table, new TestDatabaseMeta("Vault", "POSTGRESQL"), new Variables(), authoringSql);
+
+    assertTrue(script.sql().contains("TIMESTAMP '9999-12-31 23:59:59'"));
+  }
+
+  @Test
   void tableScriptPostgresDropsThenCreateTableAs() throws Exception {
     BvBusinessTable table = tableMaterialization("t1", "SELECT 2");
     BvSqlViewPipelineSupport.CreateScript script =

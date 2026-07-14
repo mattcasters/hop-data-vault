@@ -82,6 +82,8 @@ import org.apache.hop.pipeline.transforms.ifnull.Field;
 import org.apache.hop.pipeline.transforms.ifnull.IfNullMeta;
 import org.apache.hop.pipeline.transforms.constant.ConstantField;
 import org.apache.hop.pipeline.transforms.constant.ConstantMeta;
+import org.apache.hop.pipeline.transforms.rowgenerator.GeneratorField;
+import org.apache.hop.pipeline.transforms.rowgenerator.RowGeneratorMeta;
 import org.apache.hop.pipeline.transforms.repeatfields.Repeat;
 import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta;
 import org.apache.hop.pipeline.transforms.repeatfields.RepeatFieldsMeta.RepeatType;
@@ -110,6 +112,12 @@ public final class BvScd2PipelineSupport {
   static final String RECORD_SOURCE_CONCAT_SEPARATOR = ", ";
   public static final String DEFAULT_INCREMENTAL_SENTINEL = "1900-01-01 00:00:00";
   static final String INCREMENTAL_WATERMARK_FIELD = "_incremental_watermark";
+  /** Table Input JDBC parameter field for the open-end sentinel (positional {@code ?}). */
+  static final String OPEN_END_PARAM_FIELD = "_param_open_end";
+  /** Standalone Constant that feeds satellite Table Input {@code ?} watermarks. */
+  public static final String PARAM_WATERMARK_TRANSFORM = "param_incremental_watermark";
+  /** Standalone Constant that feeds open-target / close-lookup Table Input {@code ?} params. */
+  public static final String PARAM_OPEN_ROW_FILTER_TRANSFORM = "param_open_row_filter";
   static final String CLOSE_LOOKUP_VALID_FROM_FIELD = "_close_lookup_valid_from";
   static final String CLOSE_LOOKUP_READ_PREFIX = "read_open_close_lookup_";
   static final String JOIN_CLOSE_LOOKUP_VALID_FROM = "join_close_lookup_valid_from";
@@ -183,7 +191,21 @@ public final class BvScd2PipelineSupport {
         ctx.scd2Table.getName(),
         ctx.bvTargetTableName);
 
-    TransformMeta tableInput = addSatelliteTableInput(ctx, pipelineMeta);
+    TransformMeta watermarkParam = null;
+    TransformMeta openRowFilterParam = null;
+    if (ctx.scd2Table != null && ctx.scd2Table.isIncrementalBuild()) {
+      watermarkParam =
+          addIncrementalWatermarkParamConstant(
+              ctx, pipelineMeta, new Point(LOCATION_START.x - SPACING_WIDTH, LOCATION_START.y));
+      openRowFilterParam =
+          addOpenRowFilterParamConstant(
+              ctx,
+              pipelineMeta,
+              new Point(
+                  LOCATION_START.x - SPACING_WIDTH, LOCATION_START.y + LEG_SPACING_HEIGHT));
+    }
+
+    TransformMeta tableInput = addSatelliteTableInput(ctx, pipelineMeta, watermarkParam);
     if (tableInput != null) {
       GeneratedPipelineMetadataSupport.stampSourceRead(tableInput, ctx.sourceDbName);
     }
@@ -194,7 +216,8 @@ public final class BvScd2PipelineSupport {
               ctx,
               pipelineMeta,
               new Point(LOCATION_START.x, LOCATION_START.y + LEG_SPACING_HEIGHT),
-              false);
+              false,
+              openRowFilterParam);
       mergeInput = addSortedSchemaMerge(ctx, pipelineMeta, List.of(tableInput, baselineOutput));
     }
     TransformMeta analyticQuery = addAnalyticQuery(ctx, pipelineMeta, mergeInput);
@@ -221,12 +244,28 @@ public final class BvScd2PipelineSupport {
         ctx.scd2Table.getName(),
         ctx.bvTargetTableName);
 
+    TransformMeta watermarkParam = null;
+    TransformMeta openRowFilterParam = null;
+    if (ctx.scd2Table != null && ctx.scd2Table.isIncrementalBuild()) {
+      watermarkParam =
+          addIncrementalWatermarkParamConstant(
+              ctx, pipelineMeta, new Point(LOCATION_START.x - SPACING_WIDTH, LOCATION_START.y));
+      openRowFilterParam =
+          addOpenRowFilterParamConstant(
+              ctx,
+              pipelineMeta,
+              new Point(
+                  LOCATION_START.x - SPACING_WIDTH,
+                  LOCATION_START.y + ctx.legs.size() * LEG_SPACING_HEIGHT));
+    }
+
     List<TransformMeta> legOutputs = new ArrayList<>();
     for (int legIndex = 0; legIndex < ctx.legs.size(); legIndex++) {
       SatelliteLeg leg = ctx.legs.get(legIndex);
       Point legLocation =
           new Point(LOCATION_START.x, LOCATION_START.y + legIndex * LEG_SPACING_HEIGHT);
-      TransformMeta tableInput = addLegTableInput(ctx, leg, pipelineMeta, legLocation);
+      TransformMeta tableInput =
+          addLegTableInput(ctx, leg, pipelineMeta, legLocation, watermarkParam);
       if (tableInput != null) {
         GeneratedPipelineMetadataSupport.stampSourceRead(tableInput, ctx.sourceDbName);
       }
@@ -237,7 +276,9 @@ public final class BvScd2PipelineSupport {
     if (ctx.scd2Table != null && ctx.scd2Table.isIncrementalBuild()) {
       Point baselineLocation =
           new Point(LOCATION_START.x, LOCATION_START.y + ctx.legs.size() * LEG_SPACING_HEIGHT);
-      legOutputs.add(addIncrementalBaselineLeg(ctx, pipelineMeta, baselineLocation, true));
+      legOutputs.add(
+          addIncrementalBaselineLeg(
+              ctx, pipelineMeta, baselineLocation, true, openRowFilterParam));
     }
 
     TransformMeta sortedMerge = addSortedSchemaMerge(ctx, pipelineMeta, legOutputs);
@@ -741,11 +782,26 @@ public final class BvScd2PipelineSupport {
     return buildLegTableInputSql(ctx, ctx.legs.get(0));
   }
 
+  /**
+   * True when DV source and BV target use the same Hop connection name. Cross-connection
+   * incremental SQL must never embed the other connection's tables in a single statement.
+   */
+  static boolean usesSharedTargetConnection(Scd2BuildContext ctx) {
+    return ctx != null
+        && !Utils.isEmpty(ctx.sourceDbName)
+        && ctx.sourceDbName.equals(ctx.targetDbName);
+  }
+
+  /**
+   * Distinct hash keys from DV satellites that have rows after the watermark parameter.
+   * Each UNION branch uses its own positional {@code ?} for the watermark — JDBC does not reuse
+   * bind values across placeholders. The open-row filter parameter row must supply one watermark
+   * field per branch ({@link #countDeltaHashKeyWatermarkPlaceholders}).
+   *
+   * <p>Only safe to embed in BV-connected SQL when {@link #usesSharedTargetConnection}.
+   */
   static String buildDeltaHashKeysSubquerySql(Scd2BuildContext ctx) {
     List<String> unionBranches = new ArrayList<>();
-    String watermarkField =
-        ctx.scd2Table.resolveIncrementalWatermarkField(
-            ctx.bvConfig, ctx.dvConfig, ctx.variables);
     for (SatelliteLeg leg : ctx.legs) {
       String hashKeyColumn = ctx.sourceDatabaseMeta.quoteField(ctx.hashKeyFieldName);
       String satelliteTable =
@@ -757,13 +813,7 @@ public final class BvScd2PipelineSupport {
               : ctx.functionalTimestampField;
       String sourceTimestampColumn =
           ctx.sourceDatabaseMeta.quoteField(sourceTimestampField);
-      String filter =
-          buildIncrementalSatelliteFilterSql(
-              ctx.targetDatabaseMeta,
-              ctx.variables,
-              ctx.bvTargetTableName,
-              watermarkField,
-              sourceTimestampColumn);
+      String filter = buildIncrementalSatelliteFilterSql(sourceTimestampColumn);
       unionBranches.add(
           "SELECT "
               + hashKeyColumn
@@ -782,6 +832,17 @@ public final class BvScd2PipelineSupport {
           + " WHERE 1 = 0";
     }
     return String.join(" UNION ", unionBranches);
+  }
+
+  /**
+   * Number of watermark {@code ?} placeholders in {@link #buildDeltaHashKeysSubquerySql} (one per
+   * satellite leg). Used to size the open-row filter parameter row.
+   */
+  static int countDeltaHashKeyWatermarkPlaceholders(Scd2BuildContext ctx) {
+    if (ctx == null || ctx.legs == null || ctx.legs.isEmpty()) {
+      return 0;
+    }
+    return ctx.legs.size();
   }
 
   public static String buildOpenTargetTableInputSql(Scd2BuildContext ctx) {
@@ -810,10 +871,11 @@ public final class BvScd2PipelineSupport {
             ctx.variables, null, ctx.bvTargetTableName));
     sql.append(" WHERE ");
     sql.append(ctx.targetDatabaseMeta.quoteField(ctx.validToField));
-    sql.append(" = TIMESTAMP '");
-    sql.append(ctx.openEndSentinel);
-    sql.append("'");
-    if (ctx.includeHashKey) {
+    // Positional ? bound from param_open_row_filter (open-end sentinel).
+    sql.append(" = ?");
+    // Delta hash-key pushdown references DV satellites — only valid on a shared connection.
+    // One ? per UNION branch for the watermark (parameter row repeats the value).
+    if (ctx.includeHashKey && usesSharedTargetConnection(ctx)) {
       sql.append(" AND ");
       sql.append(ctx.targetDatabaseMeta.quoteField(ctx.hashKeyFieldName));
       sql.append(" IN (");
@@ -851,10 +913,9 @@ public final class BvScd2PipelineSupport {
             ctx.variables, null, ctx.bvTargetTableName));
     sql.append(" WHERE ");
     sql.append(ctx.targetDatabaseMeta.quoteField(ctx.validToField));
-    sql.append(" = TIMESTAMP '");
-    sql.append(ctx.openEndSentinel);
-    sql.append("'");
-    if (ctx.includeHashKey) {
+    sql.append(" = ?");
+    // Delta hash-key pushdown references DV satellites — only valid on a shared connection.
+    if (ctx.includeHashKey && usesSharedTargetConnection(ctx)) {
       sql.append(" AND ");
       sql.append(ctx.targetDatabaseMeta.quoteField(ctx.hashKeyFieldName));
       sql.append(" IN (");
@@ -870,25 +931,19 @@ public final class BvScd2PipelineSupport {
     return sql.toString();
   }
 
-  public static String buildIncrementalSatelliteFilterSql(
-      DatabaseMeta bvDatabaseMeta,
-      IVariables variables,
-      String bvTargetTableName,
-      String watermarkField,
-      String sourceTimestampColumnRef) {
-    String quotedTable =
-        bvDatabaseMeta.getQuotedSchemaTableCombination(variables, null, bvTargetTableName);
-    String quotedWatermarkField = bvDatabaseMeta.quoteField(watermarkField);
-    return sourceTimestampColumnRef
-        + " > COALESCE((SELECT MAX("
-        + quotedWatermarkField
-        + ") FROM "
-        + quotedTable
-        + "), TIMESTAMP '"
-        + DEFAULT_INCREMENTAL_SENTINEL
-        + "')";
+  /**
+   * Incremental satellite filter using a positional JDBC parameter for the watermark.
+   * Bound at runtime from a preceding Constant / Get Variables transform — dialect-neutral.
+   */
+  public static String buildIncrementalSatelliteFilterSql(String sourceTimestampColumnRef) {
+    return sourceTimestampColumnRef + " > ?";
   }
 
+  /**
+   * BV-only query used at pipeline generation to resolve the incremental watermark value.
+   * Returns {@code MAX(watermark)} only; null/empty results fall back to the default sentinel in
+   * Java so the SQL stays free of dialect-specific timestamp literals.
+   */
   public static String buildIncrementalWatermarkSql(Scd2BuildContext ctx) {
     String watermarkField =
         ctx.scd2Table.resolveIncrementalWatermarkField(
@@ -897,11 +952,9 @@ public final class BvScd2PipelineSupport {
         ctx.targetDatabaseMeta.getQuotedSchemaTableCombination(
             ctx.variables, null, ctx.bvTargetTableName);
     String quotedWatermarkField = ctx.targetDatabaseMeta.quoteField(watermarkField);
-    return "SELECT COALESCE(MAX("
+    return "SELECT MAX("
         + quotedWatermarkField
-        + "), TIMESTAMP '"
-        + DEFAULT_INCREMENTAL_SENTINEL
-        + "') AS "
+        + ") AS "
         + INCREMENTAL_WATERMARK_FIELD
         + " FROM "
         + quotedTable;
@@ -986,17 +1039,8 @@ public final class BvScd2PipelineSupport {
               : ctx.functionalTimestampField;
       String sourceTimestampColumn =
           ctx.sourceDatabaseMeta.quoteField(sourceTimestampField);
-      String watermarkField =
-          ctx.scd2Table.resolveIncrementalWatermarkField(
-              ctx.bvConfig, ctx.dvConfig, ctx.variables);
       sql.append(" WHERE ");
-      sql.append(
-          buildIncrementalSatelliteFilterSql(
-              ctx.targetDatabaseMeta,
-              ctx.variables,
-              ctx.bvTargetTableName,
-              watermarkField,
-              sourceTimestampColumn));
+      sql.append(buildIncrementalSatelliteFilterSql(sourceTimestampColumn));
     }
     sql.append(" ORDER BY ");
     if (ctx.includeHashKey) {
@@ -1194,51 +1238,174 @@ public final class BvScd2PipelineSupport {
     return null;
   }
 
-  private static TransformMeta addSatelliteTableInput(Scd2BuildContext ctx, PipelineMeta pipelineMeta) {
-    return addLegTableInput(ctx, ctx.legs.get(0), pipelineMeta, LOCATION_START);
+  private static TransformMeta addSatelliteTableInput(
+      Scd2BuildContext ctx, PipelineMeta pipelineMeta, TransformMeta watermarkParam) {
+    return addLegTableInput(ctx, ctx.legs.get(0), pipelineMeta, LOCATION_START, watermarkParam);
   }
 
   private static TransformMeta addLegTableInput(
-      Scd2BuildContext ctx, SatelliteLeg leg, PipelineMeta pipelineMeta, Point location) {
+      Scd2BuildContext ctx,
+      SatelliteLeg leg,
+      PipelineMeta pipelineMeta,
+      Point location,
+      TransformMeta watermarkParam) {
     TableInputMeta tableInputMeta = new TableInputMeta();
     tableInputMeta.setConnection(ctx.sourceDbName);
     DvSqlSupport.assignDisplaySql(tableInputMeta, buildLegTableInputSql(ctx, leg));
+    if (watermarkParam != null) {
+      // Single ? for watermark — bound from param Constant info stream.
+      tableInputMeta.setLookup(watermarkParam.getName());
+    }
 
     TransformMeta tm =
         new TransformMeta("TableInput", "read_" + leg.satelliteTableName, tableInputMeta);
     tm.setLocation(location);
     pipelineMeta.addTransform(tm);
+    if (watermarkParam != null) {
+      wireTableInputParameterStream(pipelineMeta, tableInputMeta, watermarkParam, tm);
+    }
     return tm;
   }
 
   private static TransformMeta addOpenTargetTableInput(
-      Scd2BuildContext ctx, PipelineMeta pipelineMeta, Point location) {
+      Scd2BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      Point location,
+      TransformMeta openRowFilterParam) {
     TableInputMeta tableInputMeta = new TableInputMeta();
     tableInputMeta.setConnection(ctx.targetDbName);
     DvSqlSupport.assignDisplaySql(tableInputMeta, buildOpenTargetTableInputSql(ctx));
+    if (openRowFilterParam != null) {
+      tableInputMeta.setLookup(openRowFilterParam.getName());
+    }
 
     TransformMeta tm =
         new TransformMeta("TableInput", "read_open_" + ctx.bvTargetTableName, tableInputMeta);
     tm.setLocation(location);
     pipelineMeta.addTransform(tm);
+    if (openRowFilterParam != null) {
+      wireTableInputParameterStream(pipelineMeta, tableInputMeta, openRowFilterParam, tm);
+    }
     GeneratedPipelineMetadataSupport.stampTargetRead(
         tm, "scd2", ctx.scd2Table.getName(), ctx.bvTargetTableName, ctx.targetDbName);
     return tm;
   }
 
   private static TransformMeta addOpenTargetCloseLookupTableInput(
-      Scd2BuildContext ctx, PipelineMeta pipelineMeta, Point location) {
+      Scd2BuildContext ctx,
+      PipelineMeta pipelineMeta,
+      Point location,
+      TransformMeta openRowFilterParam) {
     TableInputMeta tableInputMeta = new TableInputMeta();
     tableInputMeta.setConnection(ctx.targetDbName);
     DvSqlSupport.assignDisplaySql(tableInputMeta, buildOpenTargetCloseLookupSql(ctx));
+    if (openRowFilterParam != null) {
+      tableInputMeta.setLookup(openRowFilterParam.getName());
+    }
 
     TransformMeta tm =
         new TransformMeta(
             "TableInput", CLOSE_LOOKUP_READ_PREFIX + ctx.bvTargetTableName, tableInputMeta);
     tm.setLocation(location);
     pipelineMeta.addTransform(tm);
+    if (openRowFilterParam != null) {
+      wireTableInputParameterStream(pipelineMeta, tableInputMeta, openRowFilterParam, tm);
+    }
     GeneratedPipelineMetadataSupport.stampTargetRead(
         tm, "scd2", ctx.scd2Table.getName(), ctx.bvTargetTableName, ctx.targetDbName);
+    return tm;
+  }
+
+  /**
+   * Wires a Table Input info stream so JDBC {@code ?} placeholders receive fields from {@code
+   * paramSource} in field order. Copies to all targets when the param Constant fans out.
+   */
+  private static void wireTableInputParameterStream(
+      PipelineMeta pipelineMeta,
+      TableInputMeta tableInputMeta,
+      TransformMeta paramSource,
+      TransformMeta tableInput) {
+    paramSource.setDistributes(false);
+    tableInputMeta.searchInfoAndTargetTransforms(pipelineMeta.getTransforms());
+    pipelineMeta.addPipelineHop(new PipelineHopMeta(paramSource, tableInput));
+  }
+
+  /**
+   * Single Timestamp field used as the satellite Table Input watermark parameter ({@code ?}).
+   * Value is resolved against the BV target at pipeline generation time.
+   *
+   * <p>Uses Generate Rows (not Constant): Constant only enriches incoming rows and emits nothing
+   * when used as a pipeline start without a predecessor.
+   */
+  private static TransformMeta addIncrementalWatermarkParamConstant(
+      Scd2BuildContext ctx, PipelineMeta pipelineMeta, Point location) {
+    return addParameterRowGenerator(
+        pipelineMeta,
+        PARAM_WATERMARK_TRANSFORM,
+        location,
+        List.of(
+            timestampGeneratorField(
+                INCREMENTAL_WATERMARK_FIELD, resolveIncrementalWatermarkValue(ctx))));
+  }
+
+  /**
+   * Parameter row for open-target / close-lookup Table Inputs.
+   *
+   * <ul>
+   *   <li>Always: open-end sentinel ({@code valid_to = ?}) — first field
+   *   <li>Same-connection only: one watermark field per UNION branch in the delta hash-key
+   *       subquery ({@code … WHERE ts > ?}). JDBC requires a distinct bind value for each {@code
+   *       ?}; the same watermark value is repeated for each leg.
+   * </ul>
+   */
+  private static TransformMeta addOpenRowFilterParamConstant(
+      Scd2BuildContext ctx, PipelineMeta pipelineMeta, Point location) {
+    List<GeneratorField> fields = new ArrayList<>();
+    fields.add(timestampGeneratorField(OPEN_END_PARAM_FIELD, ctx.openEndSentinel));
+    if (ctx.includeHashKey && usesSharedTargetConnection(ctx)) {
+      String watermark = resolveIncrementalWatermarkValue(ctx);
+      int watermarkParams = countDeltaHashKeyWatermarkPlaceholders(ctx);
+      for (int i = 0; i < watermarkParams; i++) {
+        // Unique field names; Table Input binds by position to each ? in order.
+        fields.add(
+            timestampGeneratorField(INCREMENTAL_WATERMARK_FIELD + "_" + i, watermark));
+      }
+    }
+    return addParameterRowGenerator(
+        pipelineMeta, PARAM_OPEN_ROW_FILTER_TRANSFORM, location, fields);
+  }
+
+  private static final String TIMESTAMP_PARAM_FORMAT = "yyyy-MM-dd HH:mm:ss";
+
+  private static GeneratorField timestampGeneratorField(String name, String value) {
+    return new GeneratorField(
+        name,
+        "Timestamp",
+        TIMESTAMP_PARAM_FORMAT,
+        -1,
+        -1,
+        null,
+        null,
+        null,
+        value,
+        false);
+  }
+
+  /** Generate Rows with limit 1 — a true start transform that feeds Table Input {@code ?} params. */
+  private static TransformMeta addParameterRowGenerator(
+      PipelineMeta pipelineMeta,
+      String transformName,
+      Point location,
+      List<GeneratorField> fields) {
+    RowGeneratorMeta rowGeneratorMeta = new RowGeneratorMeta();
+    rowGeneratorMeta.setRowLimit("1");
+    rowGeneratorMeta.setNeverEnding(false);
+    rowGeneratorMeta.getFields().addAll(fields);
+
+    TransformMeta tm = new TransformMeta("RowGenerator", transformName, rowGeneratorMeta);
+    tm.setLocation(location);
+    tm.setDistributes(false);
+    pipelineMeta.addTransform(tm);
     return tm;
   }
 
@@ -1246,8 +1413,10 @@ public final class BvScd2PipelineSupport {
       Scd2BuildContext ctx,
       PipelineMeta pipelineMeta,
       Point location,
-      boolean multiSatelliteMerge) {
-    TransformMeta openRead = addOpenTargetTableInput(ctx, pipelineMeta, location);
+      boolean multiSatelliteMerge,
+      TransformMeta openRowFilterParam) {
+    TransformMeta openRead =
+        addOpenTargetTableInput(ctx, pipelineMeta, location, openRowFilterParam);
     if (!multiSatelliteMerge) {
       return openRead;
     }
@@ -1687,9 +1856,10 @@ public final class BvScd2PipelineSupport {
 
     TransformMeta filterOpen =
         addFilterNewOpenRows(ctx, pipelineMeta, rowsToWrite, new Point(x, y + 40));
+    TransformMeta openRowFilterParam = findTransform(pipelineMeta, PARAM_OPEN_ROW_FILTER_TRANSFORM);
     TransformMeta closeLookupRead =
         addOpenTargetCloseLookupTableInput(
-            ctx, pipelineMeta, new Point(x - SPACING_WIDTH, y + 40));
+            ctx, pipelineMeta, new Point(x - SPACING_WIDTH, y + 40), openRowFilterParam);
     TransformMeta joinCloseLookup =
         addJoinCloseLookupValidFrom(
             ctx, pipelineMeta, filterOpen, closeLookupRead, new Point(x + SPACING_WIDTH, y + 40));

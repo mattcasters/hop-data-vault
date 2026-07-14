@@ -311,11 +311,11 @@
       <version>${hop.version}</version>
       <scope>test</scope>
     </dependency>
+    <!-- Compile scope: BV incremental Table Input params use Generate Rows (limit 1) -->
     <dependency>
       <groupId>org.apache.hop</groupId>
       <artifactId>hop-transform-rowgenerator</artifactId>
       <version>${hop.version}</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>

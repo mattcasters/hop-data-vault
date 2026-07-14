@@ -71,7 +71,10 @@ class ExecutionMapNavigationSupportTest {
     catalog.setEnabled(true);
     FileDataCatalog fileCatalog = new FileDataCatalog();
     fileCatalog.setStorageDirectory(
-        Path.of("retail-example/catalog-data").toAbsolutePath().toString().replace('\\', '/'));
+        Path.of("retail-example/work/edw-catalog")
+            .toAbsolutePath()
+            .toString()
+            .replace('\\', '/'));
     catalog.setCatalog(fileCatalog);
     metadataProvider.getSerializer(DataCatalogMeta.class).save(catalog);
     RecordDefinitionRegistry.getInstance().invalidate();
@@ -333,7 +336,10 @@ class ExecutionMapNavigationSupportTest {
     vaultCatalog.setEnabled(true);
     FileDataCatalog vaultFileCatalog = new FileDataCatalog();
     vaultFileCatalog.setStorageDirectory(
-        Path.of("retail-example/catalog-data").toAbsolutePath().toString().replace('\\', '/'));
+        Path.of("retail-example/work/edw-catalog")
+            .toAbsolutePath()
+            .toString()
+            .replace('\\', '/'));
     vaultCatalog.setCatalog(vaultFileCatalog);
     metadataProvider.getSerializer(DataCatalogMeta.class).save(vaultCatalog);
     RecordDefinitionRegistry.getInstance().invalidate();

@@ -42,6 +42,26 @@ class DataCatalogRecordListFilterTest {
     assertFalse(DataCatalogRecordListFilter.SOURCES.toQuery().matches(operationsDefinition()));
   }
 
+  /**
+   * Tree filters hide target datasets (e.g. sat_product) while Execution Map preview still works
+   * via registry.read. Open-in-catalog must clear filters before selecting in the tree.
+   */
+  @Test
+  void sourcesFilterHidesRetail360Satellite() {
+    RecordDefinition satProduct = new RecordDefinition();
+    satProduct.setKey(
+        new RecordDefinitionKey("hop/retail-example/models/retail-360", "sat_product"));
+    satProduct.setType(RecordDefinitionType.DV_SATELLITE);
+
+    assertTrue(DataCatalogRecordListFilter.ALL.toQuery().matches(satProduct));
+    assertFalse(DataCatalogRecordListFilter.SOURCES.toQuery().matches(satProduct));
+    assertTrue(DataCatalogRecordListFilter.DATA_VAULT_TABLES.toQuery().matches(satProduct));
+
+    RecordDefinitionQuery search = DataCatalogRecordListFilter.ALL.toQuery();
+    search.setNameContains("hub_customer");
+    assertFalse(search.matches(satProduct));
+  }
+
   @Test
   void dataVaultTablesFilterMatchesHubLinkAndSatellite() {
     assertTrue(DataCatalogRecordListFilter.DATA_VAULT_TABLES.toQuery().matches(hubDefinition()));

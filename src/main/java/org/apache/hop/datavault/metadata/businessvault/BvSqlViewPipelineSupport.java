@@ -146,9 +146,10 @@ public final class BvSqlViewPipelineSupport {
    * Builds dialect-aware materialization SQL.
    *
    * <ul>
-   *   <li><b>VIEW / Postgres, MySQL, SingleStore, generic</b> — {@code CREATE OR REPLACE VIEW t AS
-   *       q}
+   *   <li><b>VIEW / Postgres, MySQL, generic</b> — {@code CREATE OR REPLACE VIEW t AS q}
    *   <li><b>VIEW / SQL Server</b> — {@code CREATE OR ALTER VIEW t AS q}
+   *   <li><b>VIEW / SingleStore</b> — {@code DROP VIEW IF EXISTS t;} + {@code CREATE VIEW t AS q}
+   *       (SingleStore does not support {@code CREATE OR REPLACE VIEW})
    *   <li><b>TABLE / MySQL, SingleStore</b> — {@code CREATE OR REPLACE TABLE t AS q}
    *   <li><b>TABLE / Postgres</b> — {@code DROP TABLE IF EXISTS t;} + {@code CREATE TABLE t AS q}
    *   <li><b>TABLE / SQL Server</b> — {@code DROP TABLE IF EXISTS t;} + {@code SELECT * INTO t FROM
@@ -183,6 +184,8 @@ public final class BvSqlViewPipelineSupport {
         BvSqlRefResolver.quoteTable(targetDatabaseMeta, variables, null, targetTableName);
     BvSqlMaterialization materialization = businessTable.getMaterializationOrDefault();
     String query = stripTrailingSemicolon(resolvedQuery.trim());
+    // Portable authoring SQL often uses ANSI TIMESTAMP '…'; rewrite for SQL Server / MySQL.
+    query = BvPitSnapshotSpineSupport.normalizeAnsiTimestampLiterals(targetDatabaseMeta, query);
     BvPitSnapshotSpineSupport.PitSqlDialect dialect =
         BvPitSnapshotSpineSupport.resolveDialect(targetDatabaseMeta);
 
@@ -194,12 +197,23 @@ public final class BvSqlViewPipelineSupport {
 
   private static CreateScript buildViewScript(
       BvPitSnapshotSpineSupport.PitSqlDialect dialect, String quotedTarget, String query) {
-    if (dialect == BvPitSnapshotSpineSupport.PitSqlDialect.SQL_SERVER) {
-      return new CreateScript(
-          "CREATE OR ALTER VIEW " + quotedTarget + " AS\n" + query, true);
-    }
-    return new CreateScript(
-        "CREATE OR REPLACE VIEW " + quotedTarget + " AS\n" + query, true);
+    return switch (dialect) {
+      case SQL_SERVER ->
+          new CreateScript("CREATE OR ALTER VIEW " + quotedTarget + " AS\n" + query, true);
+      case SINGLESTORE ->
+          // SingleStore rejects CREATE OR REPLACE VIEW; drop then create (multi-statement).
+          new CreateScript(
+              "DROP VIEW IF EXISTS "
+                  + quotedTarget
+                  + ";\n"
+                  + "CREATE VIEW "
+                  + quotedTarget
+                  + " AS\n"
+                  + query,
+              false);
+      case POSTGRES, MYSQL ->
+          new CreateScript("CREATE OR REPLACE VIEW " + quotedTarget + " AS\n" + query, true);
+    };
   }
 
   private static CreateScript buildTableScript(
