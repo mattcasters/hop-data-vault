@@ -134,7 +134,9 @@ public final class DmCatalogPublisher {
         log.logBasic(
             "Published DM model registry entry: "
                 + CatalogModelRegistrySupport.modelRegistryKey(
-                    variables, DmCatalogNamespaces.resolveModelBasename(dmModel)));
+                    variables,
+                    DmCatalogNamespaces.resolveModelBasename(dmModel),
+                    org.apache.hop.catalog.model.RecordDefinitionType.DM_MODEL));
       }
     } catch (Exception e) {
       errorCount++;

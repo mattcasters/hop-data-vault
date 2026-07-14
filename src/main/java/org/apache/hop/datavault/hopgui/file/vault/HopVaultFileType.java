@@ -268,7 +268,7 @@ public class HopVaultFileType extends HopFileTypeBase {
               }
             });
     newAction.setCategory("File");
-    newAction.setCategoryOrder("1");
+    newAction.setCategoryOrder("991");
 
     handlers.add(new GuiContextHandler("NewDataVaultModel", List.of(newAction)));
     return handlers;

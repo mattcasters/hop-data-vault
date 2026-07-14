@@ -22,10 +22,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import org.apache.hop.catalog.metadata.ResourceDefinitionGroupMeta;
+import org.apache.hop.catalog.versioning.CatalogVersionGuiSupport;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.IVariables;
-import org.apache.hop.datavault.resourcedefinition.SourceRecordValidationService;
+import org.apache.hop.datavault.resourcedefinition.SchemaImpactSimulationResult;
+import org.apache.hop.datavault.resourcedefinition.SimulationStatus;
 import org.apache.hop.datavault.resourcedefinition.ValidationReport;
 import org.apache.hop.datavault.resourcedefinition.ValidationReport.IssueSeverity;
 import org.apache.hop.datavault.resourcedefinition.ValidationReport.RecordDefinitionValidation;
@@ -40,17 +42,22 @@ import org.apache.hop.ui.core.widget.TableView;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
 import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
 import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
-/** Interactive validation results: severity-sorted issues with drill-down and acknowledgement. */
+/**
+ * Interactive validation / impact results: severity-sorted issues with drill-down, acknowledgement,
+ * catalog version tagging, and blocking rows highlighted.
+ */
 public final class ResourceDefinitionValidationResultsDialog {
 
   private static final Class<?> PKG = ResourceDefinitionValidationResultsDialog.class;
@@ -62,6 +69,7 @@ public final class ResourceDefinitionValidationResultsDialog {
   private final IHopMetadataProvider metadataProvider;
 
   private ValidationReport report;
+  private SchemaImpactSimulationResult simulation;
   private Shell shell;
   private Label wlSummary;
   private TableView wIssues;
@@ -70,12 +78,22 @@ public final class ResourceDefinitionValidationResultsDialog {
 
   public ResourceDefinitionValidationResultsDialog(
       Shell parent, HopGui hopGui, ResourceDefinitionGroupMeta group, ValidationReport report) {
+    this(parent, hopGui, group, report, null);
+  }
+
+  public ResourceDefinitionValidationResultsDialog(
+      Shell parent,
+      HopGui hopGui,
+      ResourceDefinitionGroupMeta group,
+      ValidationReport report,
+      SchemaImpactSimulationResult simulation) {
     this.parent = parent;
     this.hopGui = hopGui;
     this.group = group;
     this.variables = hopGui.getVariables();
     this.metadataProvider = hopGui.getMetadataProvider();
     this.report = report;
+    this.simulation = simulation;
   }
 
   public ResourceDefinitionValidationResultsDialog(
@@ -83,12 +101,22 @@ public final class ResourceDefinitionValidationResultsDialog {
       IVariables variables,
       IHopMetadataProvider metadataProvider,
       ValidationReport report) {
+    this(parent, variables, metadataProvider, report, null);
+  }
+
+  public ResourceDefinitionValidationResultsDialog(
+      Shell parent,
+      IVariables variables,
+      IHopMetadataProvider metadataProvider,
+      ValidationReport report,
+      SchemaImpactSimulationResult simulation) {
     this.parent = parent;
     this.hopGui = HopGui.getInstance();
     this.group = null;
     this.variables = variables;
     this.metadataProvider = metadataProvider;
     this.report = report;
+    this.simulation = simulation;
   }
 
   public void open() {
@@ -131,6 +159,11 @@ public final class ResourceDefinitionValidationResultsDialog {
               false),
           new ColumnInfo(
               BaseMessages.getString(
+                  PKG, "ResourceDefinitionValidationResultsDialog.Column.DownstreamImpact"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
+          new ColumnInfo(
+              BaseMessages.getString(
                   PKG, "ResourceDefinitionValidationResultsDialog.Column.Proposals"),
               ColumnInfo.COLUMN_TYPE_TEXT,
               false)
@@ -169,6 +202,12 @@ public final class ResourceDefinitionValidationResultsDialog {
     wRevalidate.setEnabled(group != null);
     wRevalidate.addListener(SWT.Selection, e -> revalidate());
 
+    Button wTagVersion = new Button(shell, SWT.PUSH);
+    wTagVersion.setText(
+        BaseMessages.getString(PKG, "ResourceDefinitionValidationResultsDialog.TagVersion.Label"));
+    wTagVersion.setEnabled(group != null && hopGui != null);
+    wTagVersion.addListener(SWT.Selection, e -> tagCatalogVersion());
+
     Button wClose = new Button(shell, SWT.PUSH);
     wClose.setText(BaseMessages.getString(PKG, "System.Button.Close"));
     wClose.addListener(SWT.Selection, e -> shell.dispose());
@@ -176,12 +215,15 @@ public final class ResourceDefinitionValidationResultsDialog {
     DialogHelpSupport.createHelpButton(shell, HelpTopics.RESOURCE_DEFINITION_VALIDATION_RESULTS);
 
     BaseTransformDialog.positionBottomButtons(
-        shell, new Button[] {wShowAcknowledged, wHandle, wRevalidate, wClose}, margin, wIssues);
+        shell,
+        new Button[] {wShowAcknowledged, wHandle, wRevalidate, wTagVersion, wClose},
+        margin,
+        wIssues);
 
     wIssues.getTable().addListener(SWT.MouseDoubleClick, e -> openSelectedIssue());
 
     refreshTable();
-    shell.setMinimumSize(800, 520);
+    shell.setMinimumSize(960, 560);
     shell.pack();
     shell.open();
   }
@@ -190,6 +232,11 @@ public final class ResourceDefinitionValidationResultsDialog {
     boolean showAcknowledged = wShowAcknowledged.getSelection();
     rows = buildRows(report, showAcknowledged);
     updateSummary(showAcknowledged);
+
+    Display display = shell.getDisplay();
+    Color blockingFg = display.getSystemColor(SWT.COLOR_RED);
+    Color warningFg = display.getSystemColor(SWT.COLOR_DARK_YELLOW);
+    Color ackFg = display.getSystemColor(SWT.COLOR_DARK_GRAY);
 
     wIssues.clearAll(false);
     for (int i = 0; i < rows.size(); i++) {
@@ -200,12 +247,17 @@ public final class ResourceDefinitionValidationResultsDialog {
       item.setText(2, formatRecordDefinition(row.validation()));
       item.setText(3, Const.NVL(row.issue().fieldName(), ""));
       item.setText(4, row.issue().message());
+      item.setText(5, Const.NVL(row.issue().downstreamImpact(), ""));
       item.setText(
-          5,
+          6,
           Integer.toString(
               row.issue().proposals() != null ? row.issue().proposals().size() : 0));
       if (row.acknowledged()) {
-        item.setForeground(shell.getDisplay().getSystemColor(SWT.COLOR_DARK_GRAY));
+        item.setForeground(ackFg);
+      } else if (row.issue().severity() == IssueSeverity.BLOCKING) {
+        item.setForeground(blockingFg);
+      } else if (row.issue().severity() == IssueSeverity.WARNING) {
+        item.setForeground(warningFg);
       }
     }
     wIssues.removeEmptyRows();
@@ -227,23 +279,46 @@ public final class ResourceDefinitionValidationResultsDialog {
       }
     }
     int hiddenAcknowledged = showAcknowledged ? 0 : report.getAcknowledgedIssueCount();
+    String statusBanner = formatStatusBanner();
     wlSummary.setText(
-        BaseMessages.getString(
-            PKG,
-            "ResourceDefinitionValidationResultsDialog.Summary.Detailed",
-            report.getTotalDefinitions(),
-            rows.size(),
-            blocking,
-            warnings,
-            hiddenAcknowledged,
-            report.hasBlockingIssues()
-                ? BaseMessages.getString(
-                    PKG, "ResourceDefinitionValidationResultsDialog.HasBlocking")
-                : BaseMessages.getString(
-                    PKG, "ResourceDefinitionValidationResultsDialog.NoBlocking")));
+        statusBanner
+            + "  |  "
+            + BaseMessages.getString(
+                PKG,
+                "ResourceDefinitionValidationResultsDialog.Summary.Detailed",
+                report.getTotalDefinitions(),
+                rows.size(),
+                blocking,
+                warnings,
+                hiddenAcknowledged,
+                report.hasBlockingIssues()
+                    ? BaseMessages.getString(
+                        PKG, "ResourceDefinitionValidationResultsDialog.HasBlocking")
+                    : BaseMessages.getString(
+                        PKG, "ResourceDefinitionValidationResultsDialog.NoBlocking")));
   }
 
-  private static List<ValidationIssueRow> buildRows(ValidationReport report, boolean showAcknowledged) {
+  private String formatStatusBanner() {
+    SimulationStatus status =
+        simulation != null
+            ? simulation.status()
+            : (report.hasBlockingIssues()
+                ? SimulationStatus.CRITICAL_BLOCKED
+                : report.getIssueCount() > 0
+                    ? SimulationStatus.WARNING
+                    : SimulationStatus.PASS);
+    return switch (status) {
+      case CRITICAL_BLOCKED ->
+          BaseMessages.getString(PKG, "ResourceDefinitionValidationResultsDialog.Status.Critical");
+      case WARNING ->
+          BaseMessages.getString(PKG, "ResourceDefinitionValidationResultsDialog.Status.Warning");
+      case PASS ->
+          BaseMessages.getString(PKG, "ResourceDefinitionValidationResultsDialog.Status.Pass");
+    };
+  }
+
+  private static List<ValidationIssueRow> buildRows(
+      ValidationReport report, boolean showAcknowledged) {
     List<ValidationIssueRow> rows = new ArrayList<>();
     for (RecordDefinitionValidation validation : report.getRecordValidations()) {
       List<ValidationIssue> issues =
@@ -302,12 +377,22 @@ public final class ResourceDefinitionValidationResultsDialog {
     dialog.open();
   }
 
+  private void tagCatalogVersion() {
+    if (group == null || hopGui == null) {
+      return;
+    }
+    CatalogVersionGuiSupport.tagVersionFromGroup(hopGui, group);
+  }
+
   private void revalidate() {
     if (group == null) {
       return;
     }
     try {
-      report = SourceRecordValidationService.validateGroup(group, variables, metadataProvider);
+      simulation =
+          ResourceDefinitionValidationGuiSupport.runLiveSimulation(
+              group, variables, metadataProvider);
+      report = simulation.validationReport();
       refreshTable();
     } catch (Exception e) {
       new ErrorDialog(
@@ -324,7 +409,10 @@ public final class ResourceDefinitionValidationResultsDialog {
       return;
     }
     try {
-      report = SourceRecordValidationService.validateGroup(group, variables, metadataProvider);
+      simulation =
+          ResourceDefinitionValidationGuiSupport.runLiveSimulation(
+              group, variables, metadataProvider);
+      report = simulation.validationReport();
       refreshTable();
     } catch (Exception ignored) {
       refreshTable();

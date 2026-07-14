@@ -27,6 +27,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.catalog.versioning.CatalogVersionGuiSupport;
 import org.apache.hop.datavault.catalog.DvSourceCatalogService;
 import org.apache.hop.datavault.hopgui.file.businessvault.HopBusinessVaultFileType;
 import org.apache.hop.datavault.hopgui.file.dimensional.HopDimensionalFileType;
@@ -184,6 +185,24 @@ public class ResourceDefinitionGroupMetaEditor extends MetadataEditor<ResourceDe
     fdValidate.right = new FormAttachment(100, 0);
     fdValidate.bottom = new FormAttachment(100, 0);
     wValidate.setLayoutData(fdValidate);
+
+    Button wTagVersion = new Button(parent, SWT.PUSH);
+    wTagVersion.setText(
+        BaseMessages.getString(PKG, "ResourceDefinitionGroupMetaEditor.TagCatalogVersion.Label"));
+    wTagVersion.addListener(SWT.Selection, e -> tagCatalogVersion());
+    FormData fdTagVersion = new FormData();
+    fdTagVersion.right = new FormAttachment(wValidate, -margin);
+    fdTagVersion.bottom = new FormAttachment(100, 0);
+    wTagVersion.setLayoutData(fdTagVersion);
+
+    Button wListVersions = new Button(parent, SWT.PUSH);
+    wListVersions.setText(
+        BaseMessages.getString(PKG, "ResourceDefinitionGroupMetaEditor.ListCatalogVersions.Label"));
+    wListVersions.addListener(SWT.Selection, e -> listCatalogVersions());
+    FormData fdListVersions = new FormData();
+    fdListVersions.right = new FormAttachment(wTagVersion, -margin);
+    fdListVersions.bottom = new FormAttachment(100, 0);
+    wListVersions.setLayoutData(fdListVersions);
 
     setWidgetsContent();
     resetChanged();
@@ -343,6 +362,18 @@ public class ResourceDefinitionGroupMetaEditor extends MetadataEditor<ResourceDe
     ResourceDefinitionGroupMeta draft = new ResourceDefinitionGroupMeta();
     getWidgetsContent(draft);
     ResourceDefinitionValidationGuiSupport.validateAndShowResults(HopGui.getInstance(), draft);
+  }
+
+  private void tagCatalogVersion() {
+    ResourceDefinitionGroupMeta draft = new ResourceDefinitionGroupMeta();
+    getWidgetsContent(draft);
+    CatalogVersionGuiSupport.tagVersionFromGroup(HopGui.getInstance(), draft);
+  }
+
+  private void listCatalogVersions() {
+    ResourceDefinitionGroupMeta draft = new ResourceDefinitionGroupMeta();
+    getWidgetsContent(draft);
+    CatalogVersionGuiSupport.listVersionsForGroup(HopGui.getInstance(), draft);
   }
 
   @Override

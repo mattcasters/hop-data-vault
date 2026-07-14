@@ -34,6 +34,7 @@ import org.apache.hop.catalog.model.RecordDefinitionKey;
 import org.apache.hop.catalog.model.RecordDefinitionQuery;
 import org.apache.hop.catalog.model.RecordDefinitionRef;
 import org.apache.hop.catalog.spi.IDataCatalog;
+import org.apache.hop.catalog.versioning.CatalogVersionStore;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.gui.plugin.GuiElementType;
@@ -148,10 +149,12 @@ public class FileDataCatalog implements IDataCatalog {
     ensureConnected();
     RecordDefinitionQuery effectiveQuery = query != null ? query : new RecordDefinitionQuery();
     List<RecordDefinitionRef> results = new ArrayList<>();
+    Path versionsRoot = resolvedRoot.resolve(CatalogVersionStore.VERSIONS_DIRECTORY_NAME);
     try (Stream<Path> paths = Files.walk(resolvedRoot)) {
       paths
           .filter(Files::isRegularFile)
           .filter(path -> path.toString().endsWith(".json"))
+          .filter(path -> !isUnderDirectory(path, versionsRoot))
           .forEach(
               path -> {
                 try {
@@ -170,10 +173,27 @@ public class FileDataCatalog implements IDataCatalog {
     return results;
   }
 
+  /**
+   * Resolved absolute storage root after {@link #connect}. Used by catalog versioning to place
+   * snapshots beside the working-tree record definitions.
+   */
+  public Path getResolvedRoot() {
+    return resolvedRoot;
+  }
+
   private void ensureConnected() throws HopException {
     if (resolvedRoot == null) {
       throw new HopException("File data catalog is not connected");
     }
+  }
+
+  private static boolean isUnderDirectory(Path path, Path directory) {
+    if (path == null || directory == null || !Files.exists(directory)) {
+      return false;
+    }
+    Path normalizedPath = path.toAbsolutePath().normalize();
+    Path normalizedDir = directory.toAbsolutePath().normalize();
+    return normalizedPath.startsWith(normalizedDir);
   }
 
   private Path toRecordPath(RecordDefinitionKey key) throws HopException {
@@ -186,7 +206,7 @@ public class FileDataCatalog implements IDataCatalog {
     return path.resolve(sanitizePathSegment(key.getName()) + ".json");
   }
 
-  static String sanitizePathSegment(String segment) {
+  public static String sanitizePathSegment(String segment) {
     if (segment == null) {
       return "_";
     }

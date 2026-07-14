@@ -232,7 +232,7 @@ public class HopDimensionalFileType extends HopFileTypeBase {
               }
             });
     newAction.setCategory("File");
-    newAction.setCategoryOrder("1");
+    newAction.setCategoryOrder("993");
 
     handlers.add(new GuiContextHandler("NewDimensionalModel", List.of(newAction)));
     return handlers;

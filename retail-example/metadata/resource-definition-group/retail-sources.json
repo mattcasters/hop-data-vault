@@ -9,7 +9,9 @@
   "dataCatalogConnection": "local-catalog",
   "description": "",
   "business_vault_model": [
-    "${PROJECT_HOME}/models/retail-360.hbv"
+    "${PROJECT_HOME}/models/retail-360.hbv",
+    "${PROJECT_HOME}/models/retail-customer-phone.hbv",
+    "${PROJECT_HOME}/models/retail-sql.hbv"
   ],
   "dimensional_model": [
     "${PROJECT_HOME}/models/retail-conformed-dims.hdm",

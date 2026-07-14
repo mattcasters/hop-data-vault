@@ -72,12 +72,7 @@ AND   cust_phone IS NOT NULL
       <tableName>customer_mail_phone</tableName>
       <description/>
       <tableType>BUSINESS_TABLE</tableType>
-      <derivatives>
-        <derivative>
-          <dvTableName>sat_product</dvTableName>
-          <dvTableType>SATELLITE</dvTableType>
-        </derivative>
-      </derivatives>
+      <derivatives/>
       <xloc>496</xloc>
       <yloc>224</yloc>
       <name>customer_mail_phone</name>

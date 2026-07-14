@@ -90,6 +90,12 @@ public final class ValidationReportFormatter {
                     Const.NVL(issue.fieldName(), ""),
                     issue.message()))
             .append(Const.CR);
+        if (!Utils.isEmpty(issue.downstreamImpact())) {
+          builder
+              .append("    Downstream impact: ")
+              .append(issue.downstreamImpact())
+              .append(Const.CR);
+        }
         for (RemediationProposal proposal : issue.proposals()) {
           builder.append(
                   BaseMessages.getString(

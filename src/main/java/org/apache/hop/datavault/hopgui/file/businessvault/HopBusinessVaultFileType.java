@@ -232,7 +232,7 @@ public class HopBusinessVaultFileType extends HopFileTypeBase {
               }
             });
     newAction.setCategory("File");
-    newAction.setCategoryOrder("1");
+    newAction.setCategoryOrder("992");
 
     handlers.add(new GuiContextHandler("NewBusinessVaultModel", List.of(newAction)));
     return handlers;

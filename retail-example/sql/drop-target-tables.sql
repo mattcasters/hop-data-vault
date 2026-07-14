@@ -18,8 +18,7 @@
  
 -- Drop views first to avoid dependency errors
 DROP VIEW IF EXISTS satb_product_hb;
-DROP VIEW IF EXISTS customer_email_phone;
-
+DROP VIEW IF EXISTS customer_mail_phone;
 
 -- Drop dimensional model tables
 DROP TABLE IF EXISTS f_sales_aggs;
