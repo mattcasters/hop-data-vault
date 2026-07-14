@@ -17,11 +17,16 @@
 
 package org.apache.hop.datavault.workflow.actions.validatedefinitions;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.hop.catalog.metadata.ResourceDefinitionGroupMeta;
+import org.apache.hop.catalog.versioning.CatalogVersionEntry;
+import org.apache.hop.catalog.versioning.CatalogVersionService;
 import org.apache.hop.core.Result;
 import org.apache.hop.core.annotations.Action;
 import org.apache.hop.core.exception.HopException;
@@ -30,7 +35,8 @@ import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.util.Utils;
-import org.apache.hop.metadata.api.IHopMetadataProvider;
+import org.apache.hop.datavault.catalog.DvSourceCatalogService;
+import org.apache.hop.datavault.resourcedefinition.ResourceDefinitionGroupResolver;
 import org.apache.hop.datavault.resourcedefinition.SchemaCompareMode;
 import org.apache.hop.datavault.resourcedefinition.SchemaImpactSimulationRequest;
 import org.apache.hop.datavault.resourcedefinition.SchemaImpactSimulationResult;
@@ -41,6 +47,7 @@ import org.apache.hop.datavault.resourcedefinition.SchemaValidationReportFormatt
 import org.apache.hop.datavault.resourcedefinition.ValidationReport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataProperty;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.workflow.action.ActionBase;
 import org.apache.hop.workflow.action.IAction;
 
@@ -80,8 +87,9 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
 
   @GuiWidgetElement(
       order = "0200",
-      type = GuiElementType.TEXT,
+      type = GuiElementType.COMBO,
       variables = true,
+      comboValuesMethod = "getCatalogVersionTagOptions",
       label = "i18n::ActionValidateResourceDefinitions.TargetCatalogVersion.Label",
       toolTip = "i18n::ActionValidateResourceDefinitions.TargetCatalogVersion.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
@@ -100,8 +108,9 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
 
   @GuiWidgetElement(
       order = "0400",
-      type = GuiElementType.TEXT,
+      type = GuiElementType.COMBO,
       variables = true,
+      comboValuesMethod = "getCatalogVersionTagOptions",
       label = "i18n::ActionValidateResourceDefinitions.BaselineVersion.Label",
       toolTip = "i18n::ActionValidateResourceDefinitions.BaselineVersion.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
@@ -189,7 +198,8 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
   }
 
   /**
-   * Hop GUI comboValuesMethod contract: {@code (ILogChannel, IHopMetadataProvider) -> List/String[]}.
+   * Hop GUI comboValuesMethod contract: {@code (ILogChannel, IHopMetadataProvider) -> List}. With
+   * {@code variables=true}, COMBO fields render as ComboVar.
    */
   public List<String> getCompareModeOptions(ILogChannel log, IHopMetadataProvider metadataProvider) {
     return Arrays.asList(
@@ -211,6 +221,47 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
         SchemaValidationFailureSeverity.FAIL_ON_BLOCKING.name(),
         SchemaValidationFailureSeverity.FAIL_ON_WARNINGS.name(),
         SchemaValidationFailureSeverity.WARN_ONLY.name());
+  }
+
+  /**
+   * Catalog version tags for the FILE catalog of the selected resource definition group. Leading
+   * empty entry means "no tag / working tree" depending on compare mode. Editable ComboVar still
+   * allows free typing (including variable expressions).
+   */
+  public List<String> getCatalogVersionTagOptions(
+      ILogChannel log, IHopMetadataProvider metadataProvider) {
+    Set<String> tags = new LinkedHashSet<>();
+    tags.add("");
+    if (metadataProvider == null || Utils.isEmpty(resourceDefinitionGroup)) {
+      return new ArrayList<>(tags);
+    }
+    try {
+      ResourceDefinitionGroupMeta group =
+          ResourceDefinitionGroupResolver.loadGroup(resourceDefinitionGroup, metadataProvider);
+      String connection = group != null ? group.getDataCatalogConnection() : null;
+      if (Utils.isEmpty(connection)) {
+        connection =
+            DvSourceCatalogService.resolvePreferredCatalogConnection(null, this, metadataProvider);
+      }
+      if (Utils.isEmpty(connection)) {
+        return new ArrayList<>(tags);
+      }
+      for (CatalogVersionEntry entry :
+          CatalogVersionService.listVersions(connection, this, metadataProvider)) {
+        if (entry != null && !Utils.isEmpty(entry.getTag())) {
+          tags.add(entry.getTag().trim());
+        }
+      }
+    } catch (Exception e) {
+      if (log != null) {
+        log.logDetailed(
+            "Unable to list catalog version tags for group '"
+                + resourceDefinitionGroup
+                + "': "
+                + e.getMessage());
+      }
+    }
+    return new ArrayList<>(tags);
   }
 
   @Override

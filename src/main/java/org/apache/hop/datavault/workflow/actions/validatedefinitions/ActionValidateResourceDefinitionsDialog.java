@@ -13,33 +13,45 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
 package org.apache.hop.datavault.workflow.actions.validatedefinitions;
 
+import java.util.List;
 import org.apache.hop.core.Const;
+import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
+import org.apache.hop.datavault.hopgui.help.HelpTopics;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.ui.core.FormDataBuilder;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.gui.GuiCompositeWidgets;
+import org.apache.hop.ui.core.gui.GuiCompositeWidgetsAdapter;
+import org.apache.hop.ui.core.widget.ComboVar;
+import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.workflow.action.ActionDialog;
 import org.apache.hop.workflow.WorkflowMeta;
 import org.apache.hop.workflow.action.IAction;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormLayout;
+import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
-import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
-import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
 public class ActionValidateResourceDefinitionsDialog extends ActionDialog {
 
   private static final Class<?> PKG = ActionValidateResourceDefinitions.class;
+
+  /** GuiElements default ids match field names on the action. */
+  private static final String WIDGET_RESOURCE_GROUP = "resourceDefinitionGroup";
+
+  private static final String WIDGET_TARGET_VERSION = "targetCatalogVersion";
+  private static final String WIDGET_BASELINE_VERSION = "baselineCatalogVersion";
 
   private final ActionValidateResourceDefinitions action;
   private boolean cancelled = true;
@@ -87,7 +99,23 @@ public class ActionValidateResourceDefinitionsDialog extends ActionDialog {
         ActionValidateResourceDefinitions.GUI_PLUGIN_ELEMENT_PARENT_ID,
         null);
 
+    widgets.setWidgetsListener(
+        new GuiCompositeWidgetsAdapter() {
+          @Override
+          public void widgetModified(
+              GuiCompositeWidgets compositeWidgets, Control changedWidget, String widgetId) {
+            action.setChanged();
+            if (WIDGET_RESOURCE_GROUP.equals(widgetId)) {
+              // Keep action.resourceDefinitionGroup in sync so version lists re-resolve correctly.
+              compositeWidgets.getWidgetsContents(
+                  action, ActionValidateResourceDefinitions.GUI_PLUGIN_ELEMENT_PARENT_ID);
+              refreshCatalogVersionCombos();
+            }
+          }
+        });
+
     setWidgetsContent();
+    refreshCatalogVersionCombos();
 
     boolean changedBeforeOpen = action.hasChanged();
     focusActionName();
@@ -113,7 +141,51 @@ public class ActionValidateResourceDefinitionsDialog extends ActionDialog {
 
   private void getWidgetsContent() {
     action.setName(wName.getText());
-    widgets.getWidgetsContents(action, ActionValidateResourceDefinitions.GUI_PLUGIN_ELEMENT_PARENT_ID);
+    widgets.getWidgetsContents(
+        action, ActionValidateResourceDefinitions.GUI_PLUGIN_ELEMENT_PARENT_ID);
+  }
+
+  /**
+   * Reload catalog version tags for ComboVar fields after the resource definition group changes.
+   * Preserves any free-typed value (including variable expressions).
+   */
+  private void refreshCatalogVersionCombos() {
+    if (widgets == null) {
+      return;
+    }
+    String previousTarget = getComboText(WIDGET_TARGET_VERSION);
+    String previousBaseline = getComboText(WIDGET_BASELINE_VERSION);
+
+    List<String> tags =
+        action.getCatalogVersionTagOptions(
+            LogChannel.UI, HopGui.getInstance().getMetadataProvider());
+    String[] items = tags.toArray(new String[0]);
+    widgets.setComboValues(WIDGET_TARGET_VERSION, items);
+    widgets.setComboValues(WIDGET_BASELINE_VERSION, items);
+
+    setComboText(WIDGET_TARGET_VERSION, previousTarget);
+    setComboText(WIDGET_BASELINE_VERSION, previousBaseline);
+  }
+
+  private String getComboText(String widgetId) {
+    Control control = widgets.getWidgetsMap().get(widgetId);
+    if (control instanceof ComboVar comboVar) {
+      return Const.NVL(comboVar.getText(), "");
+    }
+    if (control instanceof Combo combo) {
+      return Const.NVL(combo.getText(), "");
+    }
+    return "";
+  }
+
+  private void setComboText(String widgetId, String text) {
+    Control control = widgets.getWidgetsMap().get(widgetId);
+    String value = Const.NVL(text, "");
+    if (control instanceof ComboVar comboVar) {
+      comboVar.setText(value);
+    } else if (control instanceof Combo combo) {
+      combo.setText(value);
+    }
   }
 
   private void ok() {

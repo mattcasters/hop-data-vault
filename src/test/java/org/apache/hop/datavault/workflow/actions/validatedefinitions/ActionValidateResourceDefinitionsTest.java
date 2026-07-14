@@ -48,6 +48,11 @@ class ActionValidateResourceDefinitionsTest {
     assertTrue(severities.contains(SchemaValidationFailureSeverity.WARN_ONLY.name()));
     List<String> formats = action.getReportFormatOptions(null, null);
     assertEquals(3, formats.size());
+
+    // No group selected: only the empty "optional" entry.
+    List<String> tags = action.getCatalogVersionTagOptions(null, null);
+    assertEquals(1, tags.size());
+    assertEquals("", tags.getFirst());
   }
 
   @Test
