@@ -81,6 +81,45 @@ For **content** rules (not empty, allowed values, ranges, nulls), bind quality r
 
 Model-level **Check model** validates `.hdv` / `.hbv` / `.hdm` structure separately; these layers complement each other.
 
+== Catalog versions
+
+File-based catalogs can freeze **source record definitions** under a semantic tag (for example `v2.4.0` or `2026-Q3-Release`). Tags are a design-time baseline for schema comparison and CI gates; they are independent of DTAP database state.
+
+=== Storage layout
+
+Versions live under the catalog storage directory in a **non-hidden** folder named `catalog-versions` (not `.catalog-versions`):
+
+[source]
+----
+catalog-data/
+├── hop/.../sources/*.json          # working tree (editable)
+└── catalog-versions/
+    ├── versions.json               # tag → snapshot index
+    └── snapshots/<snapshot-id>/
+        ├── manifest.json
+        └── records/hop/.../*.json  # immutable copies
+----
+
+The working-tree catalog **list** API ignores `catalog-versions/` so snapshots never appear as live records.
+
+=== Tagging from Hop GUI
+
+. Open metadata type **Resource definition group**.
+. Select the group that references your DV/BV/DM models.
+. Set the **Default catalog connection** (FILE catalog).
+. Use **Tag catalog version** to snapshot all source definitions currently referenced by the group's models.
+. Use **List catalog versions** to review existing tags, timestamps, and record counts.
+
+Duplicate tags are rejected. Snapshot contents are immutable: editing working-tree JSON after tagging does not change the frozen version.
+
+=== Scope (MVP)
+
+* Snapshots cover **source record definitions** discovered from the resource definition group (hubs, satellites, links, BV SCD2 feeds, and DM `RECORD_DEFINITION` sources).
+* Model files (`.hdv` / `.hbv` / `.hdm`) remain versioned in Git; they are not copied into the snapshot.
+* Only the **FILE** catalog implementation is supported.
+
+Later releases use these tags as the expected contract for the schema validation workflow action (compare tagged catalog vs live source, with optional Markdown reports).
+
 == Related documents
 
 * link:datavault-source.adoc[Data Vault Source]

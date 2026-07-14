@@ -42,11 +42,11 @@ import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.row.RowMeta;
 
-/** JSON-serializable document stored by {@link FileDataCatalog}. */
+/** JSON-serializable document stored by {@link FileDataCatalog} and catalog version snapshots. */
 @Getter
 @Setter
 @NoArgsConstructor
-class RecordDefinitionDocument {
+public class RecordDefinitionDocument {
 
   private String namespace;
   private String name;
@@ -65,7 +65,7 @@ class RecordDefinitionDocument {
   private List<RecordQualityRuleBinding> qualityRules = new ArrayList<>();
   private DvSourceRecord dvSource;
 
-  static RecordDefinitionDocument from(RecordDefinition definition) throws HopException {
+  public static RecordDefinitionDocument from(RecordDefinition definition) throws HopException {
     definition.validate();
     RecordDefinitionDocument doc = new RecordDefinitionDocument();
     doc.namespace = definition.getKey().getNamespace();
@@ -97,7 +97,7 @@ class RecordDefinitionDocument {
     return doc;
   }
 
-  RecordDefinition toRecordDefinition() throws HopException {
+  public RecordDefinition toRecordDefinition() throws HopException {
     RecordDefinition definition = new RecordDefinition();
     definition.setKey(new RecordDefinitionKey(namespace, name));
     definition.setType(parseType(type));
