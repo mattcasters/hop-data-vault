@@ -67,12 +67,14 @@ retail-example/
 ├── metadata/                  # CRM, Vault, local-catalog, rule sets, run configurations
 │   └── data-quality-rule-set/ # retail-source-quality + retail-target-quality libraries
 ├── catalog-data/              # E2E-* sources, retail-360 target bindings, quality ops stubs
+│   └── catalog-versions/      # Optional semantic source-contract tags (schema gate baselines)
 ├── pipelines/                 # create-source-tables, load-e2e-sources-to-crm
 ├── files/                     # Generated CSV source files
 ├── models/
 │   ├── retail-360.hdv         # Data Vault model (target: Vault)
 │   ├── retail-360.hbv         # Business Vault model (target: Vault)
 │   └── retail-warehouse.hdm   # Dimensional model (target: Vault)
+├── reports/                   # Load overview + schema validation gate artifacts
 ├── sql/                       # drop-source / drop-target, load control, staging views
 ├── execution-maps/
 │   ├── update-retail-dv-bv-dm.hem
@@ -99,6 +101,17 @@ From the repository root:
 # Incremental load: read control, generate update wave, load CRM, DV + BV + DM, advance control
 ./scripts/run-hop.sh retail-example workflows/run-retail-update.hwf
 ```
+
+## Schema validation gate
+
+`workflows/run-retail-update-models.hwf` starts with **Validate resource definitions** on group `retail-sources`:
+
+- Compares catalog contracts to live CRM sources (`LIVE_SOURCE`)
+- Includes downstream impact (hubs / sats / BV)
+- Fails on warnings (strict sample)
+- Writes `reports/retail-schema-validation.md` and `.html`
+
+Tag baselines from the **Resource definition group** editor (**Tag catalog version**). See [docs/resource-definition-validation.adoc](../docs/resource-definition-validation.adoc) for the DTAP recipe and action parameters.
 
 ## Data quality (measure + gate)
 

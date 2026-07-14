@@ -78,8 +78,58 @@ Results include a `ValidationReport`, optional `ImpactGraph` blast-radius labels
 
 Catalog version tags are described in link:data-catalog.adoc#catalog-versions[Data Catalog — Catalog versions].
 
+== DTAP promotion recipe
+
+Use catalog versions and the schema gate to keep Development, Test, Acceptance, and Production aligned without “deploy and pray.”
+
+. **DEV — approve schema change**
+.. Import or refresh source definitions in the Data Catalog.
+.. Run **Validate sources** on the resource definition group; review **downstream impact**.
+.. Apply remediations or acknowledge accepted warnings.
+.. **Tag catalog version** (for example `v2.4.0` or `2026-Q3-Release`) after the contract is agreed.
+. **Git promote**
+.. Commit model files (`.hdv` / `.hbv` / `.hdm`), catalog working tree, and `catalog-data/catalog-versions/` when the project stores the catalog in Git.
+.. Promote the same tag through DTAP branches or release artifacts.
+. **TEST / ACC / PROD — gate before load**
+.. In the daily update workflow, place **Validate resource definitions** before Data Vault / Business Vault / Dimensional update actions.
+.. Configure for example:
++
+----
+Resource definition group: ${RESOURCE_GROUP}
+Target catalog version:    ${PROMOTED_TAG}   # empty = working tree only
+Compare mode:              LIVE_SOURCE
+Report output path:        ${PROJECT_HOME}/reports
+Report format:             BOTH
+Failure severity:          FAIL_ON_BLOCKING  # or FAIL_ON_WARNINGS
+Include downstream impact: Y
+----
+.. On failure, open the Markdown/HTML report under `reports/` (or your CI artifact path) and fix DDL / mappings before re-running loads.
+. **Offline design review** (optional)
+.. `WORKING_VS_VERSION` — compare a tagged baseline to the current working-tree catalog without touching live sources.
+.. `VERSION_VS_VERSION` — compare two tags when reviewing a PR that only changes frozen contracts.
+
+=== Retail example
+
+The retail project workflow `retail-example/workflows/run-retail-update-models.hwf` runs **Validate resource definitions** on group `retail-sources` with:
+
+* Report output path: `${PROJECT_HOME}/reports`
+* Report base name: `retail-schema-validation`
+* Format: Markdown and HTML
+* Failure severity: fail on warnings (strict sample)
+* Downstream impact enabled
+
+Generated files look like `retail-example/reports/retail-schema-validation.md` (and `.html`) when the gate runs.
+
+=== Limitations (MVP)
+
+* Catalog version snapshots freeze **source record definitions**, not model files (models stay in Git).
+* Dimensional impact from free-form SQL is **table-level** only.
+* The validation action does **not** auto-apply DDL; pair with update-action `failIfDdlNeeded` for target-DB readiness.
+* Content quality (nulls, ranges, allowed values) uses the separate Measure / Evaluate quality gate stack — see link:data-quality.adoc[Data quality].
+
 == Related documents
 
 * link:data-catalog.adoc[Data Catalog]
 * link:datavault-source.adoc[Data Vault Source]
 * link:datavault-update-action.adoc[Data Vault Update action] (model check options)
+* link:data-quality.adoc[Data quality]

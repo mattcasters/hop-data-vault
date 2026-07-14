@@ -118,7 +118,7 @@ Duplicate tags are rejected. Snapshot contents are immutable: editing working-tr
 * Model files (`.hdv` / `.hbv` / `.hdm`) remain versioned in Git; they are not copied into the snapshot.
 * Only the **FILE** catalog implementation is supported.
 
-Later releases use these tags as the expected contract for the schema validation workflow action (compare tagged catalog vs live source, with optional Markdown reports).
+Use tagged versions as the expected contract for the **Validate resource definitions** workflow action (compare tagged catalog vs live source or vs working tree, with optional Markdown/HTML reports). DTAP promotion steps are in link:resource-definition-validation.adoc#dtap-promotion-recipe[Resource definition validation — DTAP recipe].
 
 == Related documents
 

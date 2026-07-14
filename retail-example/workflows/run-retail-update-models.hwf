@@ -118,7 +118,15 @@ limitations under the License.
     </action>
     <action>
       <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
+      <targetCatalogVersion/>
+      <compareMode>LIVE_SOURCE</compareMode>
+      <baselineCatalogVersion/>
+      <reportOutputPath>${PROJECT_HOME}/reports</reportOutputPath>
+      <reportFileBaseName>retail-schema-validation</reportFileBaseName>
+      <reportFormat>BOTH</reportFormat>
+      <failureSeverity>FAIL_ON_WARNINGS</failureSeverity>
       <failOnWarnings>Y</failOnWarnings>
+      <includeImpact>Y</includeImpact>
       <name>Validate resource definitions</name>
       <type>VALIDATE_RESOURCE_DEFINITIONS</type>
       <attributes/>

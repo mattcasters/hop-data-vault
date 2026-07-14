@@ -31,6 +31,7 @@ For a slide-style executive summary, see [presentations/hop-data-vault-overview.
 |---------|--------|---------------|
 | Data Catalog + `DV_SOURCE` record definitions | Available | [data-catalog.adoc](data-catalog.adoc), [datavault-source.adoc](datavault-source.adoc) |
 | Resource definition validation (issues, proposals, acknowledgements) | Available | [resource-definition-validation.adoc](resource-definition-validation.adoc) |
+| Catalog version tags + schema impact simulation (CI/CD gate, blast radius) | Available | [resource-definition-validation.adoc](resource-definition-validation.adoc), [data-catalog.adoc](data-catalog.adoc) |
 | Data quality measure + quality gate (content rules, persist, alerts) | Available (Phase 2) | [data-quality.adoc](data-quality.adoc) |
 | Data Vault modeler (`.hdv`) | Available | [datavault-plugin.adoc](datavault-plugin.adoc) |
 | Model validation (Check model, type checking) | Available | [datavault-update-action.adoc](datavault-update-action.adoc) |
@@ -96,7 +97,7 @@ Visual modeler for hubs, links, and satellites with embedded configuration (targ
 
 ### Model validation
 
-**Check model** in the GUI and model checks in update actions share one engine: structural rules plus optional **detailed data type checking** against live source schemas. Catalog **resource definition validation** adds feed-level checks with remediation proposals and acknowledgements.
+**Check model** in the GUI and model checks in update actions share one engine: structural rules plus optional **detailed data type checking** against live source schemas. Catalog **resource definition validation** adds feed-level checks with remediation proposals, acknowledgements, **downstream impact** (Source→DV→BV→DM), and optional **catalog version** baselines. The **Validate resource definitions** workflow action acts as a CI/CD schema gate and can write Markdown/HTML reports under the project reports folder.
 
 ### Business Vault (`.hbv`)
 
@@ -153,6 +154,6 @@ Docker-based runners (`scripts/run-hop.sh`, `run-postgres.sh`), parallel pipelin
 The transition from 0.0.x to 0.1.x emphasizes:
 
 - Documentation completeness and accurate catalog-first workflows
-- Validation UX (model checks + catalog issue handling)
+- Validation UX (model checks + catalog issue handling, schema gates, catalog versions)
 - Retail tutorial as the primary onboarding path
 - Hardening existing modelers and actions rather than large new subsystems
