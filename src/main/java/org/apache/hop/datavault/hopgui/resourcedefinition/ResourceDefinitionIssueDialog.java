@@ -40,6 +40,7 @@ import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
+import org.apache.hop.ui.core.dialog.MessageBox;
 import org.apache.hop.ui.core.widget.ColumnInfo;
 import org.apache.hop.ui.core.widget.TableView;
 import org.apache.hop.ui.hopgui.HopGui;
@@ -53,6 +54,7 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
+import org.apache.hop.datavault.resourcedefinition.ValidationReport.IssueSeverity;
 import org.apache.hop.datavault.hopgui.help.DialogHelpSupport;
 import org.apache.hop.datavault.hopgui.help.HelpTopics;
 
@@ -219,18 +221,29 @@ public final class ResourceDefinitionIssueDialog {
         validation.key() != null
             ? validation.key().getNamespace() + "/" + validation.key().getName()
             : "?";
-    return BaseMessages.getString(
-        PKG,
-        "ResourceDefinitionIssueDialog.Header",
-        issue.severity(),
-        issue.kind(),
-        Const.NVL(issue.fieldName(), ""),
-        issue.message(),
-        keyLabel,
-        Const.NVL(validation.sourceType(), ""),
-        acknowledged
-            ? BaseMessages.getString(PKG, "ResourceDefinitionIssueDialog.Acknowledged.Yes")
-            : BaseMessages.getString(PKG, "ResourceDefinitionIssueDialog.Acknowledged.No"));
+    String header =
+        BaseMessages.getString(
+            PKG,
+            "ResourceDefinitionIssueDialog.Header",
+            issue.severity(),
+            issue.kind(),
+            Const.NVL(issue.fieldName(), ""),
+            issue.message(),
+            keyLabel,
+            Const.NVL(validation.sourceType(), ""),
+            acknowledged
+                ? BaseMessages.getString(PKG, "ResourceDefinitionIssueDialog.Acknowledged.Yes")
+                : BaseMessages.getString(PKG, "ResourceDefinitionIssueDialog.Acknowledged.No"));
+    if (!Utils.isEmpty(issue.downstreamImpact())) {
+      header =
+          header
+              + "\n"
+              + BaseMessages.getString(
+                  PKG,
+                  "ResourceDefinitionIssueDialog.ConfirmApply.Impact",
+                  issue.downstreamImpact());
+    }
+    return header;
   }
 
   private String buildUsagesText() {
@@ -285,6 +298,9 @@ public final class ResourceDefinitionIssueDialog {
     if (proposal.type() == org.apache.hop.datavault.resourcedefinition.ValidationReport.ProposalType.BLOCK_UPDATE_UNTIL_RESOLVED) {
       return;
     }
+    if (!confirmDestructiveApply(shell, proposal)) {
+      return;
+    }
     try {
       reloadDefinition();
       ApplyResult result =
@@ -311,6 +327,70 @@ public final class ResourceDefinitionIssueDialog {
           BaseMessages.getString(PKG, "ResourceDefinitionIssueDialog.Error.ApplyProposal"),
           e instanceof HopException ? e : new HopException(e));
     }
+  }
+
+  /**
+   * Dry-run style confirmation for proposals that change catalog contracts or model mappings when
+   * the issue is blocking or has known downstream impact.
+   */
+  private boolean confirmDestructiveApply(Shell shell, RemediationProposal proposal) {
+    boolean destructive =
+        proposal.type()
+                == org.apache.hop.datavault.resourcedefinition.ValidationReport.ProposalType
+                    .REFRESH_CATALOG_CONTRACT
+            || proposal.type()
+                == org.apache.hop.datavault.resourcedefinition.ValidationReport.ProposalType
+                    .UPDATE_TARGET_COLUMN_LENGTH
+            || proposal.type()
+                == org.apache.hop.datavault.resourcedefinition.ValidationReport.ProposalType
+                    .EXTEND_EXISTING_SATELLITE
+            || proposal.type()
+                == org.apache.hop.datavault.resourcedefinition.ValidationReport.ProposalType
+                    .ADD_NEW_SATELLITE;
+    if (!destructive) {
+      return true;
+    }
+    boolean blocking = issue.severity() == IssueSeverity.BLOCKING;
+    boolean hasImpact = !Utils.isEmpty(issue.downstreamImpact());
+    if (!blocking && !hasImpact) {
+      return true;
+    }
+
+    StringBuilder message = new StringBuilder();
+    message
+        .append(
+            BaseMessages.getString(
+                PKG, "ResourceDefinitionIssueDialog.ConfirmApply.Message", proposal.summary()))
+        .append('\n');
+    if (blocking) {
+      message
+          .append('\n')
+          .append(BaseMessages.getString(PKG, "ResourceDefinitionIssueDialog.ConfirmApply.Blocking"))
+          .append('\n');
+    }
+    if (hasImpact) {
+      message
+          .append('\n')
+          .append(
+              BaseMessages.getString(
+                  PKG,
+                  "ResourceDefinitionIssueDialog.ConfirmApply.Impact",
+                  issue.downstreamImpact()))
+          .append('\n');
+    }
+    if (blocking) {
+      message
+          .append('\n')
+          .append(
+              BaseMessages.getString(
+                  PKG, "ResourceDefinitionIssueDialog.ConfirmApply.AcceptDestructive"));
+    }
+
+    MessageBox box =
+        new MessageBox(shell, SWT.ICON_WARNING | SWT.YES | SWT.NO | SWT.PRIMARY_MODAL);
+    box.setText(BaseMessages.getString(PKG, "ResourceDefinitionIssueDialog.ConfirmApply.Title"));
+    box.setMessage(message.toString());
+    return box.open() == SWT.YES;
   }
 
   private void acknowledgeIssue(Shell shell) {

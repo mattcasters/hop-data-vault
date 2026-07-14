@@ -8,18 +8,38 @@ Beyond **Check model** on `.hdv` / `.hbv` / `.hdm` files, the plugin validates *
 
 == When validation runs
 
-* Explicit **Validate** action on catalog record definition groups in the Data Catalog perspective
+* Explicit **Validate sources** on a **Resource definition group** metadata editor (design time)
+* Workflow action **Validate resource definitions (schema gate)** before DV/BV/DM loads (CI/CD)
 * Pipelines that depend on catalog layout (indirectly, via model checks and source resolution)
 
 Model validation and catalog validation are complementary: a passing model check still requires accurate source definitions in the catalog.
 
+== Workflow action (CI/CD gate)
+
+The **Validate resource definitions** workflow action accepts:
+
+| Parameter | Purpose |
+|-----------|---------|
+| Resource definition group | Required validation scope |
+| Target catalog version | Optional tag (`${TARGET_VERSION}`); empty = working tree |
+| Compare mode | `LIVE_SOURCE` (default), `WORKING_VS_VERSION`, `VERSION_VS_VERSION` |
+| Baseline catalog version | Expected side for offline compares |
+| Report output path | Folder/path for Markdown and/or HTML (Hop VFS) |
+| Report format | `MARKDOWN`, `HTML`, or `BOTH` |
+| Failure severity | `FAIL_ON_BLOCKING` (default), `FAIL_ON_WARNINGS`, `WARN_ONLY` |
+| Include downstream impact | Annotate issues with Source→DV→BV→DM blast radius |
+
+Legacy **Fail on warnings** remains for older workflows and maps to `FAIL_ON_WARNINGS` when the severity combo is left at the default.
+
 == Validation results dialog
 
-After validation, the **Validation results** dialog lists issues grouped by severity:
+After validation, the **Validation results** dialog lists issues with status banner (`PASS` / `WARNINGS` / `CRITICAL BLOCKED`):
 
-* **Errors** — block correct loading or metadata use
-* **Warnings** — drift, missing optional data, or policy notices
-* **Info** — informational checks
+* **BLOCKING** rows are highlighted in red
+* **WARNING** rows are highlighted in amber
+* **Downstream impact** column shows hubs, satellites, BV, and DM dependents when known
+* **Tag catalog version** freezes the current source contracts for later CI compares
+* Applying a remediation proposal on a blocking issue asks for confirmation that shows the blast radius
 
 Each row identifies the affected record (`namespace/name`) and a human-readable message.
 
