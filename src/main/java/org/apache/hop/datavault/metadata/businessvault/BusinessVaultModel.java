@@ -41,8 +41,9 @@ import org.apache.hop.core.gui.plugin.GuiWidgetElement;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
-import org.apache.hop.datavault.metadata.DvTargetLoadModelCheckSupport;
 import org.apache.hop.datavault.metadata.DvNote;
+import org.apache.hop.datavault.metadata.DvTargetLoadModelCheckSupport;
+import org.apache.hop.datavault.metadata.DvTargetUnicodeCapabilitySupport;
 import org.apache.hop.datavault.metadata.coaching.ModelCoachingConfiguration;
 import org.apache.hop.datavault.metadata.DvTableType;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -375,6 +376,10 @@ public class BusinessVaultModel extends HopMetadataBase
       targetDatabase = BvTargetDatabaseSupport.loadTargetDatabase(metadataProvider, config);
     } catch (HopException e) {
       // Target database validation is reported on individual tables.
+    }
+    if (targetDatabase != null) {
+      DvTargetUnicodeCapabilitySupport.checkTargetUnicodeCapability(
+          remarks, targetDatabase, variables, config.getTargetDatabase());
     }
     DvTargetLoadModelCheckSupport.checkTargetLoadMode(remarks, config, targetDatabase);
     DvTargetLoadModelCheckSupport.checkTargetLoadModeGuidance(

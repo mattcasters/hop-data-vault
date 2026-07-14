@@ -37,6 +37,7 @@ import org.apache.hop.core.row.RowMeta;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.DataVaultModel;
+import org.apache.hop.datavault.metadata.DvDdlSupport;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.metadata.api.HopMetadataBase;
 import org.apache.hop.metadata.api.HopMetadataProperty;
@@ -184,7 +185,7 @@ public abstract class BvTableBase extends HopMetadataBase implements IHopMetadat
             getClass().getSimpleName() + ".generateBuildDdl", LoggingObjectType.GENERAL, null);
     try (Database db = new Database(loggingObject, variables, targetDatabaseMeta)) {
       db.connect();
-      String ddl = db.getDDL(targetTableName, targetFields);
+      String ddl = DvDdlSupport.getTargetTableDdl(db, targetTableName, targetFields);
       if (!Utils.isEmpty(ddl)) {
         result.add(ddl);
       }

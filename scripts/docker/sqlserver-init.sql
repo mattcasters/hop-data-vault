@@ -16,8 +16,10 @@
  *
  */
 
+-- EDW target requires a UTF-8 database collation so VARCHAR can store full Unicode
+-- (SQL Server 2019+). Generated DDL also applies this collation on string columns.
 IF DB_ID(N'test') IS NULL
 BEGIN
-  CREATE DATABASE [test];
+  CREATE DATABASE [test] COLLATE Latin1_General_100_CI_AS_SC_UTF8;
 END
 GO

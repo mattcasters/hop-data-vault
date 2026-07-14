@@ -143,8 +143,17 @@ image::images/data-vault-model-dialog-target-loading-tab.png[Target loading tab,
 |Number of rows Sort Rows keeps in memory before spilling to disk in generated update pipelines (default 1000000). Used where a merge key is computed in Hop (for example satellite/link hash sort). Hub updates rely on SQL `ORDER BY` only (no Sort Rows). Supports variables.
 |===
 
-On **SQL Server**, generated hub (and satellite target) SQL automatically inspects live source/target column collations and types. When a sort risk is detected (for example `NVARCHAR` vs `VARCHAR`, or different collations), the same bridge `COLLATE` is applied on both source and target `ORDER BY` expressions so Merge Rows streams stay aligned without manual configuration.
+On **SQL Server**, generated hub (and satellite target) SQL automatically inspects live source/target column collations and types. When a sort risk is detected (for example `NVARCHAR` vs `VARCHAR`, or different collations), the same bridge `COLLATE` is applied on both source and target `ORDER BY` expressions so Merge Rows streams stay aligned without manual configuration. Vault `VARCHAR` columns are created with the UTF-8 collation `Latin1_General_100_CI_AS_SC_UTF8` (SQL Server 2019+) so Unicode values store without requiring `NVARCHAR`.
 
+=== Unicode capability (EDW requirement)
+
+Data Vault, Business Vault, and dimensional models require a **Unicode-capable target database**. Model check (and update actions that enforce model check) refuse to treat non-Unicode targets as valid EDW destinations:
+
+* **SQL Server** — database default collation must end with `_UTF8` (for example `Latin1_General_100_CI_AS_SC_UTF8`). Requires SQL Server 2019 or later.
+* **PostgreSQL** — database encoding must be `UTF8`.
+* **MySQL / MariaDB / SingleStore** — schema character set must be `utf8mb4` (plain `utf8` or `latin1` is rejected).
+
+If the vault database is unreachable during check, a **warning** is raised so offline design can continue; when connectivity is available and the encoding is wrong, an **error** blocks the update.
 
 === Generated pipelines tab
 

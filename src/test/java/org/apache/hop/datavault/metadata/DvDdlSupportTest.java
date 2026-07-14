@@ -151,9 +151,72 @@ class DvDdlSupportTest {
     assertEquals(link, deduplicated.get(1));
   }
 
+  @Test
+  void enrichSqlServerFieldDefinitionAppendsUtf8Collation() {
+    DatabaseMeta sqlServer = databaseMetaWithPluginId(DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID);
+    String definition = "customer_id VARCHAR(50)";
+    String enriched = DvDdlSupport.enrichSqlServerFieldDefinition(sqlServer, definition);
+    assertEquals(
+        "customer_id VARCHAR(50) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION, enriched);
+  }
+
+  @Test
+  void enrichSqlServerDdlRewritesCreateAndAlterStrings() {
+    DatabaseMeta sqlServer = databaseMetaWithPluginId(DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID);
+    String create =
+        "CREATE TABLE hub_item (\n  item_hk VARBINARY(16),\n  item_code VARCHAR(50)\n);";
+    String rewritten = DvDdlSupport.enrichSqlServerDdl(sqlServer, create);
+    assertTrue(rewritten.contains("item_code VARCHAR(50) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+    assertFalse(rewritten.toUpperCase().contains("VARBINARY(16) COLLATE"));
+
+    String alter = "ALTER TABLE hub_item ADD name VARCHAR(100)";
+    assertTrue(
+        DvDdlSupport.enrichSqlServerDdl(sqlServer, alter)
+            .contains("VARCHAR(100) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+  }
+
+  @Test
+  void rewriteSqlServerStringCollationsDoesNotDoubleApply() {
+    String already =
+        "customer_id VARCHAR(50) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION;
+    assertEquals(already, DvDdlSupport.rewriteSqlServerStringCollations(already));
+
+    String plain = "customer_id VARCHAR(50), name CHAR(10), notes TEXT";
+    String rewritten = DvDdlSupport.rewriteSqlServerStringCollations(plain);
+    assertTrue(rewritten.contains("VARCHAR(50) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+    assertTrue(rewritten.contains("CHAR(10) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+    assertTrue(rewritten.contains("TEXT COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+    assertFalse(rewritten.toUpperCase().contains("NVARCHAR"));
+  }
+
+  @Test
+  void rewriteSqlServerStringCollationsSkipsUnicodeTypes() {
+    String sql = "code NVARCHAR(50), label NCHAR(10), body NTEXT, plain VARCHAR(20)";
+    String rewritten = DvDdlSupport.rewriteSqlServerStringCollations(sql);
+    assertTrue(rewritten.contains("NVARCHAR(50)"));
+    assertFalse(rewritten.matches("(?is).*NVARCHAR\\(50\\)\\s+COLLATE.*"));
+    assertTrue(rewritten.contains("VARCHAR(20) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+  }
+
+  @Test
+  void enrichSqlServerDdlIsNoOpForPostgres() {
+    DatabaseMeta postgres = databaseMetaWithPluginId(DvBulkLoadPluginSupport.POSTGRESQL_DB_PLUGIN_ID);
+    String ddl = "CREATE TABLE t (name VARCHAR(50));";
+    assertEquals(ddl, DvDdlSupport.enrichSqlServerDdl(postgres, ddl));
+  }
+
   private static DatabaseMeta singleStoreDatabaseMeta() {
     return new DatabaseMeta(
         "singlestore-test", "SingleStore (MemSQL)", "Native", "", "localhost", "test", "root", "");
+  }
+
+  private static DatabaseMeta databaseMetaWithPluginId(String pluginId) {
+    return new DatabaseMeta() {
+      @Override
+      public String getPluginId() {
+        return pluginId;
+      }
+    };
   }
 
   private static IRowMeta hubLayout() {
