@@ -34,6 +34,7 @@ Full capability list with maturity labels: **[docs/feature-overview.md](docs/fea
 Highlights:
 
 - **Data Catalog** — `DV_SOURCE` record definitions under `hop/{project}/sources`; catalog validation with proposals and acknowledgements
+- **Catalog versions + schema gate** — tag source contracts, **Validate resource definitions** CI action, impact blast radius, Markdown/HTML reports
 - **Raw Data Vault** — `.hdv` modeler, Check model, Data Vault Update action, hybrid integration modes
 - **Business Vault** — `.hbv` SCD2 (single and multi-satellite), PIT tables, Business Vault Update action
 - **Dimensional modeler** — `.hdm` Kimball loads, Dimensional Publish/Update actions
@@ -119,17 +120,17 @@ mvn clean package
 
 Artifacts:
 
-- `target/hop-datavault-0.2.0-SNAPSHOT.jar`
-- `target/hop-datavault-0.2.0-SNAPSHOT.zip` (ready-to-unzip plugin layout)
+- `target/hop-datavault-0.3.0-SNAPSHOT.jar`
+- `target/hop-datavault-0.3.0-SNAPSHOT.zip` (ready-to-unzip plugin layout)
 
 ## Installation (external plugin)
 
 1. Unzip the assembly zip into your Hop installation, or manually copy the jar to:
    ```
-   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.2.0-SNAPSHOT.jar
+   $HOP_HOME/plugins/misc/datavault/hop-datavault-0.3.0-SNAPSHOT.jar
    ```
 2. Restart Hop GUI.
-3. New metadata types appear under **Metadata → Data Vault**. **Data Vault Update** and **Business Vault Update** actions are available in workflows. `.hdv` and `.hbv` files open in the visual modelers.
+3. New metadata types appear under **Metadata → Data Vault**. **Data Vault Update**, **Business Vault Update**, and **Validate resource definitions** actions are available in workflows. `.hdv` and `.hbv` files open in the visual modelers.
 
 ## Usage
 
@@ -160,10 +161,10 @@ SELECT * FROM sat_customer WHERE x_load_end_ts IS NULL
 - Multi-active satellites via driving keys
 - Record source groups for partial model updates
 
-## Roadmap / 0.2.x focus
+## Roadmap / 0.3.x focus
 
-**Shipped:** dimensional modeler, execution maps, catalog-first sources, resource definition validation, data quality rules and gates, multi-DB integration hardening.
+**Shipped in 0.3.0 preview:** catalog version tags, schema impact simulation, **Validate resource definitions** CI/CD gate (compare modes, failure severity, Markdown/HTML reports, downstream impact), retail `work/` runtime tree, schema-gate docs and screenshots.
 
-**0.2.x:** data-quality Phase 2 (profile rules, SQL assertions, ops persistence, alerts), incremental Business Vault SCD2, primary-key import/detection, SQL Server collation remediation.
+**Also shipped (0.2.x line):** dimensional modeler, execution maps, catalog-first sources, data quality rules and gates, multi-DB integration hardening, incremental Business Vault SCD2, primary-key import/detection, SQL Server / Unicode EDW hardening.
 
 **Planned:** BV naming rules engine, Marquez / OpenLineage export, hash-key ModPartitioner parallelism, additional source types.
