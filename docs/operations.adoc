@@ -56,11 +56,16 @@ Bracket DV/BV/DM update waves with two workflow actions:
 1. **Begin Vault Update** — assigns `DV_WORKFLOW_EXECUTION_ID` (and `DV_WORKFLOW_EXECUTION_STARTED_AT`) before model updates run.
 2. **End Vault Update** — correlates all `load_run` rows with that execution id, publishes `workflow_load_overview` / `workflow_load_overview_model` to the OPS database, and optionally writes Markdown/HTML reports and logs a full overview.
 
-Retail example (`run-retail-update.hwf`):
+Retail example (`run-retail-update.hwf` / `run-retail-update-models.hwf`):
 
 ```
-Load CSV to CRM → Begin Vault Update → update-retail-dv-bv-dm → End Vault Update → Advance load control
+Schema gate (Validate resource definitions)
+  → Measure / Evaluate source quality
+  → Begin Vault Update → update-retail-dv-bv-dm → End Vault Update
+  → Advance load control
 ```
+
+Schema gate details and HTML report samples: link:resource-definition-validation.adoc[Resource definition validation].
 
 Configure **End Vault Update** with the same execution metrics profile as the update actions (`retail-execution-metrics`). Retail report files default to `${PROJECT_HOME}/work/reports`.
 

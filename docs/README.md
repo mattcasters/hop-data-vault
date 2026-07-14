@@ -17,7 +17,7 @@ limitations under the License.
 
 # Hop Data Vault documentation index
 
-Documentation for the **hop-datavault** plugin (version **0.2.0-SNAPSHOT**). The **0.2.x** line adds data-quality rules and gates, multi-DB hardening, and Business Vault incremental loading, on top of the 0.1.x documentation and retail tutorial work.
+Documentation for the **hop-datavault** plugin (version **0.3.0-SNAPSHOT**). Recent work adds **catalog version tags**, a **CI/CD schema validation gate** (workflow action + Markdown/HTML reports + downstream impact), data-quality rules and gates, multi-DB hardening, and Business Vault incremental loading.
 
 **New here?** Read [feature-overview.md](feature-overview.md), then follow [getting-started-retail.adoc](getting-started-retail.adoc).
 
@@ -39,10 +39,10 @@ Documentation for the **hop-datavault** plugin (version **0.2.0-SNAPSHOT**). The
 
 | Document | Description |
 |----------|-------------|
-| [data-catalog.adoc](data-catalog.adoc) | Local catalog setup, namespaces, refresh |
+| [data-catalog.adoc](data-catalog.adoc) | Local catalog setup, namespaces, refresh, **catalog version tags** |
 | [datavault-source.adoc](datavault-source.adoc) | `DV_SOURCE` record definitions |
 | [datavault-source-database.adoc](datavault-source-database.adoc) | Database-backed source fields |
-| [resource-definition-validation.adoc](resource-definition-validation.adoc) | Catalog validation, proposals, acknowledgements |
+| [resource-definition-validation.adoc](resource-definition-validation.adoc) | Schema gate action, GUI validate, impact, proposals, HTML/MD reports, DTAP |
 | [data-quality.adoc](data-quality.adoc) | Content quality measure, gate, history, alert sinks (Phase 2) |
 | [record-definition-input.adoc](record-definition-input.adoc) | Pipeline transform: read catalog definitions as rows |
 

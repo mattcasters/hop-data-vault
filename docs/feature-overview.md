@@ -95,9 +95,21 @@ Visual modeler for hubs, links, and satellites with embedded configuration (targ
 
 **Data Vault Update** workflow action validates (optionally), generates DDL, stages update pipelines, and runs them in parallel with a shared load timestamp.
 
-### Model validation
+### Model validation and schema gate
 
-**Check model** in the GUI and model checks in update actions share one engine: structural rules plus optional **detailed data type checking** against live source schemas. Catalog **resource definition validation** adds feed-level checks with remediation proposals, acknowledgements, **downstream impact** (Source→DV→BV→DM), and optional **catalog version** baselines. The **Validate resource definitions** workflow action acts as a CI/CD schema gate and can write Markdown/HTML reports under the project reports folder.
+**Check model** in the GUI and model checks in update actions share one engine: structural rules plus optional **detailed data type checking** against live source schemas.
+
+Catalog **resource definition validation** adds feed-level checks with remediation proposals, acknowledgements, and **downstream impact** (Source→DV→BV→DM). From a **Resource definition group** you can **Tag catalog version**, **List catalog versions**, and **Validate sources** interactively.
+
+The **Validate resource definitions** workflow action is the **CI/CD schema gate**:
+
+* Compare modes: live source vs catalog, working tree vs tagged baseline, or version vs version
+* Failure severity (`FAIL_ON_BLOCKING`, `FAIL_ON_WARNINGS`, `WARN_ONLY`)
+* Markdown/HTML reports (for example under `work/reports/`) with blast-radius tables
+
+See [resource-definition-validation.adoc](resource-definition-validation.adoc) and [data-catalog.adoc](data-catalog.adoc#catalog-versions).
+
+![Validate resource definitions action dialog](images/validate-resource-definitions-action-dialog.png)
 
 ### Business Vault (`.hbv`)
 

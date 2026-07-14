@@ -99,9 +99,26 @@ From the repository root:
 ./scripts/run-hop.sh retail-example workflows/run-retail-initial.hwf
 ----
 
-The workflow drops and recreates schemas, generates CSV source files, loads CRM, validates resource definitions, **measures source data quality and applies a quality gate** (blocking findings stop the load), then runs Data Vault Update, Business Vault Update, and Dimensional Update. After the update it re-measures sources in **alert-only** mode. See link:data-quality.adoc[Data quality].
+The workflow drops and recreates schemas, bootstraps `work/` (FILE catalog + schema-gate baseline `v1.0.0`), generates CSV source files, loads CRM, runs the **schema gate**, **measures source data quality and applies a quality gate** (blocking findings stop the load), then runs Data Vault Update, Business Vault Update, and Dimensional Update. After the update it re-measures sources in **alert-only** mode.
 
 In Hop GUI you can open `workflows/run-retail-initial.hwf` and run it with a configured pipeline run configuration.
+
+== Chapter 4b — Schema gate and catalog versions
+
+Retail wires **Validate resource definitions** in `workflows/run-retail-update-models.hwf` (shared by initial and update):
+
+* Group: `retail-sources`
+* Compare mode: `WORKING_VS_VERSION` against baseline tag **`v1.0.0`**
+* Reports: `work/reports/retail-schema-validation.md` and `.html`
+* Downstream impact enabled
+
+Design-time: open metadata **Resource definition group** `retail-sources` for **Tag catalog version**, **List catalog versions**, and **Validate sources**.
+
+image::images/resource-definition-group-editor-with-version-mgt-buttons.png[Resource definition group retail-sources with catalog version and Validate sources buttons,align="center"]
+
+image::images/validate-resource-definitions-action-dialog.png[Validate resource definitions workflow action as used in the retail schema gate,align="center"]
+
+Full parameter reference, GUI issue dialogs, and sample HTML reports: link:resource-definition-validation.adoc[Resource definition validation]. Content rules (nulls, domains) are separate — see link:data-quality.adoc[Data quality].
 
 == Chapter 5 — Run an incremental update
 
