@@ -119,8 +119,8 @@ limitations under the License.
     <action>
       <resourceDefinitionGroup>retail-sources</resourceDefinitionGroup>
       <targetCatalogVersion/>
-      <compareMode>LIVE_SOURCE</compareMode>
-      <baselineCatalogVersion/>
+      <compareMode>WORKING_VS_VERSION</compareMode>
+      <baselineCatalogVersion>v1.0.0</baselineCatalogVersion>
       <reportOutputPath>${PROJECT_HOME}/reports</reportOutputPath>
       <reportFileBaseName>retail-schema-validation</reportFileBaseName>
       <reportFormat>BOTH</reportFormat>

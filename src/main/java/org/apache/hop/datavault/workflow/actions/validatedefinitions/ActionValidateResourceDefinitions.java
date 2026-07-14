@@ -17,6 +17,7 @@
 
 package org.apache.hop.datavault.workflow.actions.validatedefinitions;
 
+import java.util.Arrays;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -27,7 +28,9 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.gui.plugin.GuiElementType;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.GuiWidgetElement;
+import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.util.Utils;
+import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.datavault.resourcedefinition.SchemaCompareMode;
 import org.apache.hop.datavault.resourcedefinition.SchemaImpactSimulationRequest;
 import org.apache.hop.datavault.resourcedefinition.SchemaImpactSimulationResult;
@@ -185,28 +188,29 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
     this.includeImpact = meta.includeImpact;
   }
 
-  public String[] getCompareModeOptions() {
-    return new String[] {
-      SchemaCompareMode.LIVE_SOURCE.name(),
-      SchemaCompareMode.WORKING_VS_VERSION.name(),
-      SchemaCompareMode.VERSION_VS_VERSION.name()
-    };
+  /**
+   * Hop GUI comboValuesMethod contract: {@code (ILogChannel, IHopMetadataProvider) -> List/String[]}.
+   */
+  public List<String> getCompareModeOptions(ILogChannel log, IHopMetadataProvider metadataProvider) {
+    return Arrays.asList(
+        SchemaCompareMode.LIVE_SOURCE.name(),
+        SchemaCompareMode.WORKING_VS_VERSION.name(),
+        SchemaCompareMode.VERSION_VS_VERSION.name());
   }
 
-  public String[] getReportFormatOptions() {
-    return new String[] {
-      SchemaValidationReportFileWriter.ReportFormat.MARKDOWN.name(),
-      SchemaValidationReportFileWriter.ReportFormat.HTML.name(),
-      SchemaValidationReportFileWriter.ReportFormat.BOTH.name()
-    };
+  public List<String> getReportFormatOptions(ILogChannel log, IHopMetadataProvider metadataProvider) {
+    return Arrays.asList(
+        SchemaValidationReportFileWriter.ReportFormat.MARKDOWN.name(),
+        SchemaValidationReportFileWriter.ReportFormat.HTML.name(),
+        SchemaValidationReportFileWriter.ReportFormat.BOTH.name());
   }
 
-  public String[] getFailureSeverityOptions() {
-    return new String[] {
-      SchemaValidationFailureSeverity.FAIL_ON_BLOCKING.name(),
-      SchemaValidationFailureSeverity.FAIL_ON_WARNINGS.name(),
-      SchemaValidationFailureSeverity.WARN_ONLY.name()
-    };
+  public List<String> getFailureSeverityOptions(
+      ILogChannel log, IHopMetadataProvider metadataProvider) {
+    return Arrays.asList(
+        SchemaValidationFailureSeverity.FAIL_ON_BLOCKING.name(),
+        SchemaValidationFailureSeverity.FAIL_ON_WARNINGS.name(),
+        SchemaValidationFailureSeverity.WARN_ONLY.name());
   }
 
   @Override
@@ -228,6 +232,15 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
     String versionTag = resolveOptional(targetCatalogVersion);
     String baselineTag = resolveOptional(baselineCatalogVersion);
     SchemaCompareMode mode = parseCompareMode(compareMode);
+
+    // LIVE_SOURCE: expected contract = target version, or baseline if target is empty.
+    // WORKING_VS_VERSION: expected = baseline (or target if baseline empty); actual = working tree.
+    if (mode == SchemaCompareMode.LIVE_SOURCE && versionTag == null && baselineTag != null) {
+      versionTag = baselineTag;
+    }
+    if (mode == SchemaCompareMode.WORKING_VS_VERSION && baselineTag == null && versionTag != null) {
+      baselineTag = versionTag;
+    }
 
     SchemaImpactSimulationRequest request =
         SchemaImpactSimulationRequest.builder()

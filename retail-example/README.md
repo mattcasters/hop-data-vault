@@ -106,12 +106,14 @@ From the repository root:
 
 `workflows/run-retail-update-models.hwf` starts with **Validate resource definitions** on group `retail-sources`:
 
-- Compares catalog contracts to live CRM sources (`LIVE_SOURCE`)
+- Compare mode **`WORKING_VS_VERSION`** against baseline tag **`v1.0.0`** (catalog field length/type drift)
 - Includes downstream impact (hubs / sats / BV)
 - Fails on warnings (strict sample)
 - Writes `reports/retail-schema-validation.md` and `.html`
 
-Tag baselines from the **Resource definition group** editor (**Tag catalog version**). See [docs/resource-definition-validation.adoc](../docs/resource-definition-validation.adoc) for the DTAP recipe and action parameters.
+Create/refresh the baseline with **Tag catalog version** on the resource definition group (store under `catalog-data/catalog-versions/`). Use **`LIVE_SOURCE`** only when you want to compare the expected contract to physical CRM columns (not catalog-only metadata edits).
+
+See [docs/resource-definition-validation.adoc](../docs/resource-definition-validation.adoc) for the DTAP recipe and action parameters.
 
 ## Data quality (measure + gate)
 

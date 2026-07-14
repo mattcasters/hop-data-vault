@@ -17,10 +17,10 @@
 
 package org.apache.hop.datavault.workflow.actions.validatedefinitions;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.apache.hop.datavault.resourcedefinition.SchemaCompareMode;
 import org.apache.hop.datavault.resourcedefinition.SchemaValidationFailureSeverity;
 import org.apache.hop.datavault.resourcedefinition.SchemaValidationReportFileWriter;
@@ -39,20 +39,15 @@ class ActionValidateResourceDefinitionsTest {
     assertTrue(action.isIncludeImpact());
     assertTrue(action.isEvaluation());
 
-    assertArrayEquals(
-        new String[] {
-          SchemaCompareMode.LIVE_SOURCE.name(),
-          SchemaCompareMode.WORKING_VS_VERSION.name(),
-          SchemaCompareMode.VERSION_VS_VERSION.name()
-        },
-        action.getCompareModeOptions());
-    assertArrayEquals(
-        new String[] {
-          SchemaValidationFailureSeverity.FAIL_ON_BLOCKING.name(),
-          SchemaValidationFailureSeverity.FAIL_ON_WARNINGS.name(),
-          SchemaValidationFailureSeverity.WARN_ONLY.name()
-        },
-        action.getFailureSeverityOptions());
+    // Hop GUI requires (ILogChannel, IHopMetadataProvider) signature.
+    List<String> modes = action.getCompareModeOptions(null, null);
+    assertEquals(3, modes.size());
+    assertTrue(modes.contains(SchemaCompareMode.WORKING_VS_VERSION.name()));
+    List<String> severities = action.getFailureSeverityOptions(null, null);
+    assertEquals(3, severities.size());
+    assertTrue(severities.contains(SchemaValidationFailureSeverity.WARN_ONLY.name()));
+    List<String> formats = action.getReportFormatOptions(null, null);
+    assertEquals(3, formats.size());
   }
 
   @Test

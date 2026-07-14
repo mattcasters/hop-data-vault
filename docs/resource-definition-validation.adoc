@@ -21,9 +21,9 @@ The **Validate resource definitions** workflow action accepts:
 | Parameter | Purpose |
 |-----------|---------|
 | Resource definition group | Required validation scope |
-| Target catalog version | Optional tag (`${TARGET_VERSION}`); empty = working tree |
+| Target catalog version | Tag such as `v1.0.0` / `${TARGET_VERSION}`. **LIVE_SOURCE:** expected contract (empty = working tree). **VERSION_VS_VERSION:** actual tag. **WORKING_VS_VERSION:** used as baseline if Baseline is empty. |
 | Compare mode | `LIVE_SOURCE` (default), `WORKING_VS_VERSION`, `VERSION_VS_VERSION` |
-| Baseline catalog version | Expected side for offline compares |
+| Baseline catalog version | **WORKING_VS_VERSION / VERSION_VS_VERSION:** expected/reference tag (e.g. `v1.0.0`). **LIVE_SOURCE:** used as expected when Target is empty. |
 | Report output path | Folder/path for Markdown and/or HTML (Hop VFS) |
 | Report format | `MARKDOWN`, `HTML`, or `BOTH` |
 | Failure severity | `FAIL_ON_BLOCKING` (default), `FAIL_ON_WARNINGS`, `WARN_ONLY` |
@@ -112,11 +112,15 @@ Include downstream impact: Y
 
 The retail project workflow `retail-example/workflows/run-retail-update-models.hwf` runs **Validate resource definitions** on group `retail-sources` with:
 
+* Compare mode: **`WORKING_VS_VERSION`** — picks up catalog field edits (length/type) against a frozen tag
+* Baseline catalog version: **`v1.0.0`** (must exist under `catalog-data/catalog-versions/`)
 * Report output path: `${PROJECT_HOME}/reports`
 * Report base name: `retail-schema-validation`
 * Format: Markdown and HTML
 * Failure severity: fail on warnings (strict sample)
 * Downstream impact enabled
+
+To detect a length change from the tagged baseline, edit the working-tree source JSON (or catalog UI) and re-run the workflow. `LIVE_SOURCE` compares to the **physical** CRM table and will not see catalog-only metadata edits.
 
 Generated files look like `retail-example/reports/retail-schema-validation.md` (and `.html`) when the gate runs.
 
