@@ -144,7 +144,9 @@ public final class DvCatalogPublisher {
         log.logBasic(
             "Published DV model registry entry: "
                 + CatalogModelRegistrySupport.modelRegistryKey(
-                    variables, DvCatalogNamespaces.resolveModelBasename(model)));
+                    variables,
+                    DvCatalogNamespaces.resolveModelBasename(model),
+                    org.apache.hop.catalog.model.RecordDefinitionType.DV_MODEL));
       }
     } catch (Exception e) {
       errorCount++;

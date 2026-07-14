@@ -138,7 +138,9 @@ public final class BvCatalogPublisher {
         log.logBasic(
             "Published BV model registry entry: "
                 + CatalogModelRegistrySupport.modelRegistryKey(
-                    variables, BvCatalogNamespaces.resolveModelBasename(bvModel)));
+                    variables,
+                    BvCatalogNamespaces.resolveModelBasename(bvModel),
+                    org.apache.hop.catalog.model.RecordDefinitionType.BV_MODEL));
       }
     } catch (Exception e) {
       errorCount++;

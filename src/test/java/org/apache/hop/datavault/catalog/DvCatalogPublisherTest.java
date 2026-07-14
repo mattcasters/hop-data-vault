@@ -157,12 +157,17 @@ class DvCatalogPublisherTest {
             CATALOG_CONNECTION, model, variables, metadataProvider, "registry-test");
     assertTrue(result.getTableCount() > 0);
 
+    // Registry entries are type-scoped (models-registry/dv|bv|dm) so DV/BV basenames never collide.
     RecordDefinitionKey modelKey =
-        CatalogModelRegistrySupport.modelRegistryKey(variables, "vault1");
+        CatalogModelRegistrySupport.modelRegistryKey(
+            variables, "vault1", RecordDefinitionType.DV_MODEL);
     RecordDefinition modelEntry =
         RecordDefinitionRegistry.getInstance()
             .read(CATALOG_CONNECTION, modelKey, variables, metadataProvider);
-    assertNotNull(modelEntry, "expected DV model registry entry for vault1");
+    assertNotNull(
+        modelEntry,
+        "expected DV model registry entry for vault1 under " + modelKey.getNamespace());
+    assertEquals("hop/integration-tests/models-registry/dv", modelKey.getNamespace());
     assertEquals(RecordDefinitionType.DV_MODEL, modelEntry.getType());
     assertNotNull(modelEntry.getOrigin());
     assertNotNull(modelEntry.getOrigin().getModelFilename());
