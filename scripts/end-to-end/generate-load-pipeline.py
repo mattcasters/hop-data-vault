@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Generate load-e2e-sources-to-crm.hpl for the retail example project."""
+"""Generate a stable load-e2e-sources-to-crm.hpl for the retail example.
+
+CSV filenames use Hop variable RETAIL_CSV_WAVE (e.g. initial, 2024-01) so data
+generation no longer rewrites this pipeline on every wave.
+"""
 
 #  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
@@ -7,33 +11,6 @@
 #  The ASF licenses this file to You under the Apache License, Version 2.0
 #  (the "License"); you may not use this file except in compliance with
 #  the License.  You may obtain a copy of the License at
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
 #
 #       http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -66,6 +43,14 @@ HOP_TYPE = {
     "Timestamp": ("Date", "yyyy-MM-dd", "-1"),
 }
 
+# Customer satellites include changed existing ids on update and must be upserted into CRM.
+UPDATE_UPSERT_PREFIXES = {
+    "customer_demo",
+    "customer_contact",
+    "customer_address",
+    "customer_prefs",
+}
+
 
 def csv_field_xml(name: str, data_type: str, length: str, precision: str, _hop_type: int) -> str:
     hop_type, fmt, prec = HOP_TYPE[data_type]
@@ -86,7 +71,7 @@ def csv_field_xml(name: str, data_type: str, length: str, precision: str, _hop_t
       </field>"""
 
 
-def csv_input_transform(prefix: str, wave: str, yloc: int) -> str:
+def csv_input_transform(prefix: str, yloc: int) -> str:
     fields = []
     for _name, definition in SOURCE_DEFINITIONS.items():
         if definition["prefix"] == prefix:
@@ -94,10 +79,11 @@ def csv_input_transform(prefix: str, wave: str, yloc: int) -> str:
                 fields.append(csv_field_xml(*field))
             break
     fields_xml = "\n".join(fields)
+    # Wave suffix comes from workflow variable RETAIL_CSV_WAVE (set from properties).
     return f"""  <transform>
     <type>CSVInput</type>
     <name>{prefix}_csv</name>
-    <filename>${{PROJECT_HOME}}/files/{prefix}_{wave}.csv</filename>
+    <filename>${{PROJECT_HOME}}/files/{prefix}_${{RETAIL_CSV_WAVE}}.csv</filename>
     <include_filename>N</include_filename>
     <rownum_field/>
     <header>Y</header>
@@ -189,7 +175,8 @@ def insert_update_transform(prefix: str, yloc: int) -> str:
   </transform>"""
 
 
-def table_output_transform(table_name: str, yloc: int, truncate: str) -> str:
+def table_output_transform(table_name: str, yloc: int) -> str:
+    # truncate=N: initial load runs after DROP so tables are empty; update waves append new rows.
     return f"""  <transform>
     <type>TableOutput</type>
     <name>{table_name}_out</name>
@@ -197,7 +184,7 @@ def table_output_transform(table_name: str, yloc: int, truncate: str) -> str:
     <schema/>
     <table>{table_name}</table>
     <commit>1000</commit>
-    <truncate>{truncate}</truncate>
+    <truncate>N</truncate>
     <only_when_have_rows>N</only_when_have_rows>
     <ignore_errors>N</ignore_errors>
     <use_batch>Y</use_batch>
@@ -230,27 +217,17 @@ def table_output_transform(table_name: str, yloc: int, truncate: str) -> str:
   </transform>"""
 
 
-# Customer satellites include changed existing ids on update and must be upserted into CRM.
-UPDATE_UPSERT_PREFIXES = {
-    "customer_demo",
-    "customer_contact",
-    "customer_address",
-    "customer_prefs",
-}
-
-
-def build_pipeline(wave: str) -> str:
-    truncate = "Y" if wave == "initial" else "N"
+def build_pipeline() -> str:
     prefixes = [definition["prefix"] for definition in SOURCE_DEFINITIONS.values()]
     transforms = []
     hops = []
     for index, prefix in enumerate(prefixes):
         yloc = 64 + index * 48
-        transforms.append(csv_input_transform(prefix, wave, yloc))
-        if wave != "initial" and prefix in UPDATE_UPSERT_PREFIXES:
+        transforms.append(csv_input_transform(prefix, yloc))
+        if prefix in UPDATE_UPSERT_PREFIXES:
             transforms.append(insert_update_transform(prefix, yloc))
         else:
-            transforms.append(table_output_transform(prefix, yloc, truncate))
+            transforms.append(table_output_transform(prefix, yloc))
         hops.append(
             f"""    <hop>
       <from>{prefix}_csv</from>
@@ -288,11 +265,6 @@ def build_pipeline(wave: str) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-home", type=Path, default=DEFAULT_PROJECT_HOME)
-    parser.add_argument(
-        "--wave",
-        default="initial",
-        help="CSV wave suffix embedded in generated pipeline filenames",
-    )
     return parser.parse_args()
 
 
@@ -301,8 +273,8 @@ def main() -> None:
     pipeline_dir = args.project_home / "pipelines"
     pipeline_dir.mkdir(parents=True, exist_ok=True)
     path = pipeline_dir / "load-e2e-sources-to-crm.hpl"
-    path.write_text(build_pipeline(args.wave), encoding="utf-8")
-    print(f"Wrote {path}")
+    path.write_text(build_pipeline(), encoding="utf-8")
+    print(f"Wrote {path} (filenames use ${{RETAIL_CSV_WAVE}})")
 
 
 if __name__ == "__main__":

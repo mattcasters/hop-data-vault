@@ -148,4 +148,8 @@ CSV files are written to `files/` by `../scripts/end-to-end/generate-retail-data
 
 Default scale: 10,000 customers, 1,000 products, 100,000 orders.
 
-Each data generation run also regenerates `pipelines/load-e2e-sources-to-crm.hpl` with filenames for the current wave.
+CSV wave selection uses Hop variable **`RETAIL_CSV_WAVE`** (for example `initial` or
+`2024-01`). `generate-retail-data.py` writes `work/retail-csv-wave.properties`; the
+workflows load it with **Set variables** before `load-e2e-sources-to-crm.hpl`, which
+reads files as `${PROJECT_HOME}/files/<table>_${RETAIL_CSV_WAVE}.csv`. The pipeline
+XML is stable and is not rewritten on each run.

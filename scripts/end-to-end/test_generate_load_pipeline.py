@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for generated CRM load pipeline behavior on update waves."""
+"""Tests for stable CRM load pipeline generation (variable wave filenames)."""
 
 #  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
@@ -33,16 +33,20 @@ _spec.loader.exec_module(_module)
 
 
 class GenerateLoadPipelineTest(unittest.TestCase):
-    def test_update_wave_upserts_customer_satellites(self) -> None:
-        pipeline = _module.build_pipeline("2024-02")
+    def test_stable_pipeline_uses_wave_variable(self) -> None:
+        pipeline = _module.build_pipeline()
+        self.assertIn("${RETAIL_CSV_WAVE}", pipeline)
+        self.assertIn(
+            "${PROJECT_HOME}/files/customer_hub_${RETAIL_CSV_WAVE}.csv", pipeline
+        )
+        # Customer satellites always upsert; other tables append (truncate=N).
         self.assertIn("<type>InsertUpdate</type>", pipeline)
         self.assertIn("<name>customer_demo_out</name>", pipeline)
         self.assertIn("<truncate>N</truncate>", pipeline)
-
-    def test_initial_wave_truncates_with_table_output_only(self) -> None:
-        pipeline = _module.build_pipeline("initial")
-        self.assertNotIn("<type>InsertUpdate</type>", pipeline)
-        self.assertIn("<truncate>Y</truncate>", pipeline)
+        self.assertNotIn("<truncate>Y</truncate>", pipeline)
+        # No baked-in wave labels.
+        self.assertNotIn("customer_hub_initial.csv", pipeline)
+        self.assertNotIn("customer_hub_2024-01.csv", pipeline)
 
 
 if __name__ == "__main__":

@@ -651,11 +651,13 @@ def main() -> None:
 
     print(f"Generated retail CSV wave '{wave}' in {files_dir}")
 
-    load_pipeline_script = args.project_home / "scripts" / "generate-load-pipeline.py"
-    subprocess.run(
-        [sys.executable, str(load_pipeline_script), "--project-home", str(args.project_home), "--wave", wave],
-        check=True,
-    )
+    # Expose wave to Hop; load pipeline uses ${RETAIL_CSV_WAVE} and is not rewritten.
+    (files_dir / PERIOD_LABEL_FILE).write_text(wave + "\n", encoding="utf-8")
+    work_dir = args.project_home / "work"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    props_path = work_dir / "retail-csv-wave.properties"
+    props_path.write_text(f"RETAIL_CSV_WAVE={wave}\n", encoding="utf-8")
+    print(f"Wrote {props_path} (RETAIL_CSV_WAVE={wave})")
 
 
 if __name__ == "__main__":

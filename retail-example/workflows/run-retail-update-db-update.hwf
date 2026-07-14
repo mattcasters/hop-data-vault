@@ -98,6 +98,20 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
       <attributes_hac/>
     </action>
     <action>
+      <replacevars>Y</replacevars>
+      <filename>${PROJECT_HOME}/work/retail-csv-wave.properties</filename>
+      <file_variable_type>CURRENT_WORKFLOW</file_variable_type>
+      <fields/>
+      <name>Set RETAIL_CSV_WAVE</name>
+      <description>Load RETAIL_CSV_WAVE written by generate-retail-data.py</description>
+      <type>SET_VARIABLES</type>
+      <attributes/>
+      <xloc>512</xloc>
+      <yloc>64</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
       <filename>${PROJECT_HOME}/pipelines/load-e2e-sources-to-crm.hpl</filename>
       <params_from_previous>N</params_from_previous>
       <exec_per_row>N</exec_per_row>
@@ -136,6 +150,13 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode update --p
     </hop>
     <hop>
       <from>Generate update data</from>
+      <to>Set RETAIL_CSV_WAVE</to>
+      <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Set RETAIL_CSV_WAVE</from>
       <to>Load CSV to CRM</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
