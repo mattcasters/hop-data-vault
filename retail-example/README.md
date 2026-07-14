@@ -66,24 +66,26 @@ retail-example/
 ├── environments/local-docker-postgres.json
 ├── metadata/                  # CRM, Vault, local-catalog, rule sets, run configurations
 │   └── data-quality-rule-set/ # retail-source-quality + retail-target-quality libraries
-├── catalog-data/              # E2E-* sources, retail-360 target bindings, quality ops stubs
-│   └── catalog-versions/      # Optional semantic source-contract tags (schema gate baselines)
+├── fixtures/
+│   └── schema-gate-baseline/  # Seed for catalog-versions tag v1.0.0 (copied into work/)
 ├── pipelines/                 # create-source-tables, load-e2e-sources-to-crm
-├── files/                     # Generated CSV source files
-├── models/
-│   ├── retail-360.hdv         # Data Vault model (target: Vault)
-│   ├── retail-360.hbv         # Business Vault model (target: Vault)
-│   └── retail-warehouse.hdm   # Dimensional model (target: Vault)
-├── reports/                   # Load overview + schema validation gate artifacts
+├── files/                     # Generated CSV source files (mostly gitignored)
+├── models/                    # TRACKED .hdv / .hbv / .hdm
 ├── sql/                       # drop-source / drop-target, load control, staging views
-├── execution-maps/
-│   ├── update-retail-dv-bv-dm.hem
-│   └── simulate-6-months.hem
+├── scripts/                   # generate data, bootstrap work/, catalog sources
+├── work/                      # GITIGNORED runtime tree (created on first run)
+│   ├── edw-catalog/           # FILE data catalog (sources, published models, versions)
+│   ├── reports/               # Schema gate + load overview MD/HTML
+│   ├── execution-maps/        # Generated .hem files
+│   └── metrics/               # Per-run metrics JSON
 └── workflows/
     ├── run-retail-initial.hwf
     ├── run-retail-update.hwf
-    └── simulate-6-months.hwf
+    └── simulate-n-months.hwf
 ```
+
+`local-catalog` points at `${PROJECT_HOME}/work/edw-catalog`. Initial setup runs
+`scripts/bootstrap-retail-work.py` (E2E sources + schema-gate baseline copy).
 
 Shared Python helpers live in `../scripts/end-to-end/` (repo root, not inside this project).
 
@@ -109,9 +111,14 @@ From the repository root:
 - Compare mode **`WORKING_VS_VERSION`** against baseline tag **`v1.0.0`** (catalog field length/type drift)
 - Includes downstream impact (hubs / sats / BV)
 - Fails on warnings (strict sample)
-- Writes `reports/retail-schema-validation.md` and `.html`
+- Writes `work/reports/retail-schema-validation.md` and `.html`
 
-Create/refresh the baseline with **Tag catalog version** on the resource definition group (store under `catalog-data/catalog-versions/`). Use **`LIVE_SOURCE`** only when you want to compare the expected contract to physical CRM columns (not catalog-only metadata edits).
+Baseline **`v1.0.0`** is seeded from `fixtures/schema-gate-baseline/` into
+`work/edw-catalog/catalog-versions/` by `bootstrap-retail-work.py`. Refresh the
+live baseline with **Tag catalog version** on the resource definition group when
+source contracts change intentionally. Use **`LIVE_SOURCE`** only when you want
+to compare the expected contract to physical CRM columns (not catalog-only
+metadata edits).
 
 See [docs/resource-definition-validation.adoc](../docs/resource-definition-validation.adoc) for the DTAP recipe and action parameters.
 
@@ -125,7 +132,8 @@ Both **initial** and **update** workflows:
 2. **Evaluate source quality gate** with `FAIL_ON_BLOCKING` — blocks vault update on bad extracts
 3. After vault update completes: **Measure target data quality (post)** (`POST_UPDATE`, persist to OPS) on the three published tables + **Alert on target quality (post)** with `ALERT_ONLY` (`alertSinks=log,ops_table`, `remeasureIfNoPriorReport=N`)
 
-Operations catalog stubs for quality history tables live under `catalog-data/hop/retail-example/operations/`.
+Operations catalog stubs for quality history tables are published under
+`work/edw-catalog/hop/retail-example/operations/` at runtime.
 
 See [docs/data-quality.adoc](../docs/data-quality.adoc) for rule types and action details.
 

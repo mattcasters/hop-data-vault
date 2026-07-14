@@ -334,7 +334,12 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     namespace = project_sources_namespace(args.project_home)
-    catalog_dir = args.project_home / "catalog-data" / Path(*namespace.split("/"))
+    catalog_dir = (
+        args.project_home.expanduser().resolve()
+        / "work"
+        / "edw-catalog"
+        / Path(*namespace.split("/"))
+    )
     catalog_dir.mkdir(parents=True, exist_ok=True)
 
     for name, definition in SOURCE_DEFINITIONS.items():

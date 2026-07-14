@@ -40,7 +40,7 @@ limitations under the License.
     <parameter>
       <name>METRICS_FOLDER</name>
       <description>Valid in the current workflow</description>
-      <default_value>${PROJECT_HOME}/metrics</default_value>
+      <default_value>${PROJECT_HOME}/work/metrics</default_value>
     </parameter>
     <parameter>
       <name>PIPELINE_COPIES</name>
@@ -121,7 +121,7 @@ limitations under the License.
       <targetCatalogVersion/>
       <compareMode>WORKING_VS_VERSION</compareMode>
       <baselineCatalogVersion>v1.0.0</baselineCatalogVersion>
-      <reportOutputPath>${PROJECT_HOME}/reports</reportOutputPath>
+      <reportOutputPath>${PROJECT_HOME}/work/reports</reportOutputPath>
       <reportFileBaseName>retail-schema-validation</reportFileBaseName>
       <reportFormat>BOTH</reportFormat>
       <failureSeverity>FAIL_ON_WARNINGS</failureSeverity>
@@ -145,7 +145,7 @@ limitations under the License.
       <logToWorkflow>Y</logToWorkflow>
       <writeMarkdownReport>Y</writeMarkdownReport>
       <writeHtmlReport>Y</writeHtmlReport>
-      <reportOutputFolder>${PROJECT_HOME}/reports</reportOutputFolder>
+      <reportOutputFolder>${PROJECT_HOME}/work/reports</reportOutputFolder>
       <reportFileBaseName>retail-dv-initial-report</reportFileBaseName>
       <failIfNoMetricsFound>Y</failIfNoMetricsFound>
       <includePipelineDetail>Y</includePipelineDetail>

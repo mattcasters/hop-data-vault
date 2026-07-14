@@ -5,7 +5,6 @@ target/**
 **/*.iml
 
 integration-tests/metrics/
-retail-example/metrics/
 
 project/metrics
 project/vault-catalog
@@ -19,20 +18,14 @@ AGENTS.md
 
 .vscode/
 
+# Retail example runtime tree (FILE catalog, reports, HEMs, metrics, …)
+retail-example/work/
+
+# Generated CSV control markers and period waves under files/
 retail-example/files/.dv-load-date
 retail-example/files/.load-control
 retail-example/files/.period-label
 retail-example/files/.period-table
-retail-example/reports/
-
-retail-example/catalog-data/hop/retail-example/business-vault/
-retail-example/catalog-data/hop/retail-example/dimensional/
-retail-example/catalog-data/hop/retail-example/models/retail-360/
-retail-example/catalog-data/hop/retail-example/operations/
-
-integration-tests/catalog-data/**/*.json
-integration-tests/vault-catalog/**/*.json
-
 retail-example/files/customer_address_*.csv
 retail-example/files/customer_contact_*.csv
 retail-example/files/customer_demo_*.csv
@@ -43,14 +36,11 @@ retail-example/files/order_line_*.csv
 retail-example/files/product_*.csv
 retail-example/files/warehouse_*.csv
 
-retail-example/catalog-data/hop/retail-example/models/retail-360/*.json
-retail-example/catalog-data/hop/retail-example/models/retail-360/*.json
-retail-example/execution-maps/*.hem
+integration-tests/catalog-data/**/*.json
+integration-tests/vault-catalog/**/*.json
 
 docs/video-tutorials/**/output/
 scripts/video/.venv/
 
 docs/video-tutorials/**/output/**
 docs/video-tutorials/**/hop-project/metrics/**
-
-

@@ -85,7 +85,7 @@ Sources (Data Catalog / CRM)
 
 ### Data Catalog and sources
 
-Record definitions of type **`DV_SOURCE`** describe logical feeds: record-source indicator, optional **group** for partial loads, and physical layout (database table today). Definitions live under namespace `hop/{project}/sources` in the project `catalog-data/` tree and open in the **Data Catalog** perspective.
+Record definitions of type **`DV_SOURCE`** describe logical feeds: record-source indicator, optional **group** for partial loads, and physical layout (database table today). Definitions live under namespace `hop/{project}/sources` in the project's FILE catalog storage directory (retail: `work/edw-catalog/`) and open in the **Data Catalog** perspective.
 
 Hubs, links, and satellites reference source **names**, not raw connection details — one stable vocabulary from catalog through models to generated pipelines.
 

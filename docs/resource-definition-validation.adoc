@@ -88,7 +88,7 @@ Use catalog versions and the schema gate to keep Development, Test, Acceptance, 
 .. Apply remediations or acknowledge accepted warnings.
 .. **Tag catalog version** (for example `v2.4.0` or `2026-Q3-Release`) after the contract is agreed.
 . **Git promote**
-.. Commit model files (`.hdv` / `.hbv` / `.hdm`), catalog working tree, and `catalog-data/catalog-versions/` when the project stores the catalog in Git.
+.. Commit model files (`.hdv` / `.hbv` / `.hdm`) and any **seeded** version fixtures. Prefer a gitignored runtime catalog (`work/edw-catalog/`) for working-tree and snapshot files generated on each machine.
 .. Promote the same tag through DTAP branches or release artifacts.
 . **TEST / ACC / PROD — gate before load**
 .. In the daily update workflow, place **Validate resource definitions** before Data Vault / Business Vault / Dimensional update actions.
@@ -98,12 +98,12 @@ Use catalog versions and the schema gate to keep Development, Test, Acceptance, 
 Resource definition group: ${RESOURCE_GROUP}
 Target catalog version:    ${PROMOTED_TAG}   # empty = working tree only
 Compare mode:              LIVE_SOURCE
-Report output path:        ${PROJECT_HOME}/reports
+Report output path:        ${PROJECT_HOME}/work/reports
 Report format:             BOTH
 Failure severity:          FAIL_ON_BLOCKING  # or FAIL_ON_WARNINGS
 Include downstream impact: Y
 ----
-.. On failure, open the Markdown/HTML report under `reports/` (or your CI artifact path) and fix DDL / mappings before re-running loads.
+.. On failure, open the Markdown/HTML report under `work/reports/` (or your CI artifact path) and fix DDL / mappings before re-running loads.
 . **Offline design review** (optional)
 .. `WORKING_VS_VERSION` — compare a tagged baseline to the current working-tree catalog without touching live sources.
 .. `VERSION_VS_VERSION` — compare two tags when reviewing a PR that only changes frozen contracts.
@@ -113,8 +113,8 @@ Include downstream impact: Y
 The retail project workflow `retail-example/workflows/run-retail-update-models.hwf` runs **Validate resource definitions** on group `retail-sources` with:
 
 * Compare mode: **`WORKING_VS_VERSION`** — picks up catalog field edits (length/type) against a frozen tag
-* Baseline catalog version: **`v1.0.0`** (must exist under `catalog-data/catalog-versions/`)
-* Report output path: `${PROJECT_HOME}/reports`
+* Baseline catalog version: **`v1.0.0`** (seeded from `fixtures/schema-gate-baseline/` into `work/edw-catalog/catalog-versions/` by bootstrap)
+* Report output path: `${PROJECT_HOME}/work/reports`
 * Report base name: `retail-schema-validation`
 * Format: Markdown and HTML
 * Failure severity: fail on warnings (strict sample)
@@ -122,7 +122,7 @@ The retail project workflow `retail-example/workflows/run-retail-update-models.h
 
 To detect a length change from the tagged baseline, edit the working-tree source JSON (or catalog UI) and re-run the workflow. `LIVE_SOURCE` compares to the **physical** CRM table and will not see catalog-only metadata edits.
 
-Generated files look like `retail-example/reports/retail-schema-validation.md` (and `.html`) when the gate runs.
+Generated files look like `retail-example/work/reports/retail-schema-validation.md` (and `.html`) when the gate runs.
 
 === Limitations (MVP)
 

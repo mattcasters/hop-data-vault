@@ -95,7 +95,14 @@ def main() -> None:
     if wave not in {"initial"} and len(wave) != 7:
         raise SystemExit(f"Unsupported wave label: {wave}")
 
-    catalog_dir = args.project_home / "catalog-data" / "hop" / "retail-example" / "sources"
+    catalog_dir = (
+        args.project_home.expanduser().resolve()
+        / "work"
+        / "edw-catalog"
+        / "hop"
+        / "retail-example"
+        / "sources"
+    )
     for source_name, prefix in SOURCE_PREFIXES.items():
         path = catalog_dir / f"{source_name}.json"
         if not path.is_file():

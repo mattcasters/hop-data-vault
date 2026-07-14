@@ -158,7 +158,7 @@ Sibling tables to load-run metrics (same connection pattern: retail **OPS** / `d
 | `quality_finding` | Individual findings |
 | `quality_alert` | Alert header rows when the `ops_table` sink runs (DDL always created; may stay empty) |
 
-Catalog stubs for retail live under `retail-example/catalog-data/hop/retail-example/operations/`.
+Catalog stubs for retail are published at runtime under `retail-example/work/edw-catalog/hop/retail-example/operations/`.
 
 === Evaluate quality gate
 
@@ -220,10 +220,10 @@ The `retail-example` project ships libraries and wiring for **both** pre-update 
 | Source rule set | `retail-example/metadata/data-quality-rule-set/retail-source-quality.json` |
 | Target rule set | `retail-example/metadata/data-quality-rule-set/retail-target-quality.json` |
 | Source bindings | `qualityRules` on each `E2E-*` catalog source (`scripts/generate-catalog-sources.py`) |
-| Target bindings | `hub_customer`, `sat_customer_demo`, `hub_order` under `catalog-data/hop/retail-example/models/retail-360/` |
+| Target bindings | `hub_customer`, `sat_customer_demo`, `hub_order` under `work/edw-catalog/hop/retail-example/models/retail-360/` |
 | Pre-load gate | `Measure source data quality` (`persistHistory` → OPS) → `Evaluate source quality gate` (`FAIL_ON_BLOCKING`) |
 | Post-load alert | `Measure target data quality (post)` (`POST_UPDATE`, persist OPS) → `Alert on target quality (post)` (`ALERT_ONLY`, `alertSinks=log,ops_table`, remeasure off) |
-| Ops catalog stubs | `catalog-data/hop/retail-example/operations/quality_*.json` |
+| Ops catalog stubs | `work/edw-catalog/hop/retail-example/operations/quality_*.json` (published at runtime) |
 
 Workflows: `run-retail-initial.hwf`, `run-retail-update.hwf`.
 

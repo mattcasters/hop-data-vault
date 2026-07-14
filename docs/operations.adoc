@@ -62,9 +62,9 @@ Retail example (`run-retail-update.hwf`):
 Load CSV to CRM → Begin Vault Update → update-retail-dv-bv-dm → End Vault Update → Advance load control
 ```
 
-Configure **End Vault Update** with the same execution metrics profile as the update actions (`retail-execution-metrics`). Report files default to `${PROJECT_HOME}/reports`.
+Configure **End Vault Update** with the same execution metrics profile as the update actions (`retail-execution-metrics`). Retail report files default to `${PROJECT_HOME}/work/reports`.
 
-Catalog record definitions live under `catalog-data/hop/<project>/operations/` (`workflow_load_overview`, `workflow_load_overview_model`).
+Catalog record definitions for ops tables are published under the FILE catalog storage root (retail: `work/edw-catalog/hop/<project>/operations/`) — for example `workflow_load_overview`, `workflow_load_overview_model`.
 
 The HTML report summarizes the wave (model count, pipeline count, total duration, rows inserted) and lists each DV/BV/DM model with per-model duration and row counts:
 

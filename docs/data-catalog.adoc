@@ -18,13 +18,13 @@ Sample projects use a file-based catalog configured in `metadata/data-catalog/lo
   "catalog": {
     "FILE": {
       "pluginId": "FILE",
-      "storageDirectory": "${PROJECT_HOME}/catalog-data"
+      "storageDirectory": "${PROJECT_HOME}/work/edw-catalog"
     }
   }
 }
 ----
 
-Definitions are JSON files under `catalog-data/`. The path after `catalog-data/` must match the record's **`namespace`** field.
+Definitions are JSON files under the FILE catalog **storage directory** (retail example: `work/edw-catalog/`, gitignored). The path after the storage root must match the record's **`namespace`** field. Other projects may still use a tracked folder such as `catalog-data/` — the path is only a metadata property.
 
 == Namespaces
 
@@ -47,13 +47,14 @@ The catalog **key** is `namespace/name` (for example `hop/retail-example/sources
 
 [source]
 ----
-catalog-data/
+work/edw-catalog/              # gitignored runtime FILE catalog
 └── hop/
     └── retail-example/
-        ├── sources/           # DV_SOURCE feeds
+        ├── sources/           # DV_SOURCE feeds (from bootstrap / generate-catalog-sources)
         ├── models/retail-360/ # Published DV table layouts
         ├── business-vault/    # Published BV tables
-        └── dimensional/       # Published dimensional tables
+        ├── dimensional/       # Published dimensional tables
+        └── operations/        # Ops / quality table stubs (published at runtime)
 ----
 
 == Working in Hop GUI
@@ -91,7 +92,7 @@ Versions live under the catalog storage directory in a **non-hidden** folder nam
 
 [source]
 ----
-catalog-data/
+{storageDirectory}/                 # e.g. work/edw-catalog/
 ├── hop/.../sources/*.json          # working tree (editable)
 └── catalog-versions/
     ├── versions.json               # tag → snapshot index

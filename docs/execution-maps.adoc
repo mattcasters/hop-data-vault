@@ -20,12 +20,16 @@ The map stores node positions, parent links, and crawl timestamp for reproducibl
 
 == Retail example
 
-`retail-example/execution-maps/` includes:
+Generated maps land under the gitignored runtime tree `retail-example/work/execution-maps/` (for example after `run-retail-initial.hwf` / `run-retail-update.hwf` write their HEM outputs, or after a manual crawl).
 
-| File | Root |
+Typical roots:
+
+| File (under `work/execution-maps/`) | Root |
 |------|------|
-| `update-retail-dv-bv-dm.hem` | `workflows/update-retail-dv-bv-dm.hwf` |
-| `simulate-6-months.hem` | `workflows/simulate-6-months.hwf` (initial load + six update cycles) |
+| `run-retail-initial.hem` | `workflows/run-retail-initial.hwf` |
+| `run-retail-update.hem` | `workflows/run-retail-update.hwf` |
+| `update-retail-dv-bv-dm.hem` | `workflows/update-retail-dv-bv-dm.hwf` (when crawled) |
+| `simulate-6-months.hem` | multi-month simulation workflow (when crawled) |
 
 Open a `.hem` file in Hop GUI. Use filters and focus controls to collapse or expand model subtrees and generated pipeline swimlanes.
 

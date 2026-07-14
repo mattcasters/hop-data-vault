@@ -3,7 +3,7 @@
   "highTransformDurationMs": 300000,
   "autoCreateTables": true,
   "targetDatabaseConnection": "OPS",
-  "metricsOutputFolder": "${PROJECT_HOME}/metrics",
+  "metricsOutputFolder": "${PROJECT_HOME}/work/metrics",
   "dataCatalogConnection": "local-catalog",
   "description": "Load-run metrics for retail DV/BV/DM update workflows",
   "operationsSchema": "dv_ops",

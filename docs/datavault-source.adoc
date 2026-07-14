@@ -11,7 +11,7 @@ Each definition combines:
 * **DV semantics** — record source indicator, optional **group** for partial workflow loads
 * **Physical layout** — today typically a **database** table (connection, schema, table, field list); file sources are planned
 
-Sources live under namespace `hop/{project}/sources` in `catalog-data/` and open in the **Data Catalog** perspective. See link:data-catalog.adoc[Data Catalog] for folder layout and refresh behavior.
+Sources live under namespace `hop/{project}/sources` in the FILE catalog storage directory (retail example: `work/edw-catalog/`) and open in the **Data Catalog** perspective. See link:data-catalog.adoc[Data Catalog] for folder layout and refresh behavior.
 
 == Create and edit a source
 
@@ -59,7 +59,7 @@ Each source is a JSON file. Important fields:
 |Hop row metadata for pipeline field resolution
 |===
 
-Example path: `retail-example/catalog-data/hop/retail-example/sources/E2E-customer-hub.json`.
+Example path: `retail-example/work/edw-catalog/hop/retail-example/sources/E2E-customer-hub.json`.
 
 == Record source indicator at runtime
 

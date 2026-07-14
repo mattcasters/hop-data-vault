@@ -110,12 +110,12 @@ limitations under the License.
       <set_append_logfile>N</set_append_logfile>
       <insertScript>Y</insertScript>
       <script>#!/bin/sh
-exec python3 "${PROJECT_HOME}/scripts/generate-catalog-sources.py" --project-home "${PROJECT_HOME}"</script>
-      <name>generate-catalog-sources.py</name>
-      <description/>
+exec python3 "${PROJECT_HOME}/scripts/bootstrap-retail-work.py" --project-home "${PROJECT_HOME}"</script>
+      <name>bootstrap-retail-work.py</name>
+      <description>Create work/ tree, E2E catalog sources, and schema-gate v1.0.0 baseline</description>
       <type>SHELL</type>
       <attributes/>
-      <xloc>208</xloc>
+      <xloc>112</xloc>
       <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -140,7 +140,7 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>SHELL</type>
       <attributes/>
-      <xloc>384</xloc>
+      <xloc>208</xloc>
       <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
@@ -168,8 +168,8 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>512</xloc>
-      <yloc>240</yloc>
+      <xloc>752</xloc>
+      <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -196,8 +196,8 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>PIPELINE</type>
       <attributes/>
-      <xloc>208</xloc>
-      <yloc>240</yloc>
+      <xloc>384</xloc>
+      <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -213,8 +213,8 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <description/>
       <type>SQL</type>
       <attributes/>
-      <xloc>368</xloc>
-      <yloc>240</yloc>
+      <xloc>560</xloc>
+      <yloc>144</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -259,13 +259,6 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>generate-catalog-sources.py</from>
-      <to>generate-retail-data.py</to>
-      <evaluation>Y</evaluation>
-      <unconditional>N</unconditional>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>generate-retail-data.py</from>
       <to>Create source tables</to>
       <evaluation>Y</evaluation>
@@ -287,17 +280,24 @@ exec python3 "${PROJECT_HOME}/scripts/generate-retail-data.py" --mode initial --
       <enabled>Y</enabled>
     </hop>
     <hop>
+      <from>Start</from>
+      <to>Drop source tables</to>
+      <evaluation>Y</evaluation>
+      <unconditional>Y</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
       <from>create-load-metrics-tables.sql</from>
-      <to>generate-catalog-sources.py</to>
+      <to>bootstrap-retail-work.py</to>
       <evaluation>Y</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Start</from>
-      <to>Drop source tables</to>
+      <from>bootstrap-retail-work.py</from>
+      <to>generate-retail-data.py</to>
       <evaluation>Y</evaluation>
-      <unconditional>Y</unconditional>
+      <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
   </hops>

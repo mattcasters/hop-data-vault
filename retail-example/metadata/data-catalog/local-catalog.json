@@ -1,11 +1,11 @@
 {
   "name": "local-catalog",
-  "description": "Local file-based data catalog for the retail example project",
+  "description": "Local file-based data catalog for the retail example project (runtime root: work/edw-catalog)",
   "enabled": true,
   "catalog": {
     "FILE": {
       "pluginId": "FILE",
-      "storageDirectory": "${PROJECT_HOME}/catalog-data"
+      "storageDirectory": "${PROJECT_HOME}/work/edw-catalog"
     }
   }
 }

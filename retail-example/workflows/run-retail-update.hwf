@@ -40,7 +40,7 @@ limitations under the License.
     <parameter>
       <name>METRICS_FOLDER</name>
       <description>Valid in the current workflow</description>
-      <default_value>${PROJECT_HOME}/metrics</default_value>
+      <default_value>${PROJECT_HOME}/work/metrics</default_value>
     </parameter>
     <parameter>
       <name>DV_UPDATE_LOAD_DATE</name>
@@ -70,7 +70,7 @@ limitations under the License.
     </action>
     <action>
       <rootArtifactFilename/>
-      <outputHemFile>${PROJECT_HOME}/execution-maps/run-retail-update.hem</outputHemFile>
+      <outputHemFile>${PROJECT_HOME}/work/execution-maps/run-retail-update.hem</outputHemFile>
       <includeGeneratedPipelines>Y</includeGeneratedPipelines>
       <includeDatasetNodes>Y</includeDatasetNodes>
       <captureSnapshots>Y</captureSnapshots>
