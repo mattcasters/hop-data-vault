@@ -49,10 +49,9 @@ class ActionValidateResourceDefinitionsTest {
     List<String> formats = action.getReportFormatOptions(null, null);
     assertEquals(3, formats.size());
 
-    // No group selected: only the empty "optional" entry.
+    // No group selected: empty list (ComboVar still allows free typing).
     List<String> tags = action.getCatalogVersionTagOptions(null, null);
-    assertEquals(1, tags.size());
-    assertEquals("", tags.getFirst());
+    assertTrue(tags.isEmpty());
   }
 
   @Test

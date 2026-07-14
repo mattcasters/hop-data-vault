@@ -72,10 +72,24 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
 
   public static final String GUI_PLUGIN_ELEMENT_PARENT_ID = "VALIDATE_RESOURCE_DEFINITIONS_ACTION";
 
+  /** Stable widget ids for GuiRegistry / dialog refresh (empty annotation ids are fragile). */
+  public static final String WIDGET_ID_RESOURCE_GROUP = "validate-resource-group";
+
+  public static final String WIDGET_ID_TARGET_VERSION = "validate-target-catalog-version";
+  public static final String WIDGET_ID_COMPARE_MODE = "validate-compare-mode";
+  public static final String WIDGET_ID_BASELINE_VERSION = "validate-baseline-catalog-version";
+  public static final String WIDGET_ID_REPORT_PATH = "validate-report-output-path";
+  public static final String WIDGET_ID_REPORT_BASENAME = "validate-report-file-basename";
+  public static final String WIDGET_ID_REPORT_FORMAT = "validate-report-format";
+  public static final String WIDGET_ID_FAILURE_SEVERITY = "validate-failure-severity";
+  public static final String WIDGET_ID_FAIL_ON_WARNINGS = "validate-fail-on-warnings";
+  public static final String WIDGET_ID_INCLUDE_IMPACT = "validate-include-impact";
+
   /** Extension-data key for downstream actions that want the report text. */
   public static final String RESULT_ATTR_REPORT = "schemaValidationReportText";
 
   @GuiWidgetElement(
+      id = WIDGET_ID_RESOURCE_GROUP,
       order = "0100",
       type = GuiElementType.METADATA,
       metadata = ResourceDefinitionGroupMeta.class,
@@ -85,11 +99,16 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
   @HopMetadataProperty
   private String resourceDefinitionGroup;
 
+  /**
+   * Editable ComboVar (variables=true). Tag items are filled by the dialog after widgets are
+   * created and when the resource group changes — not via comboValuesMethod during create — so a
+   * catalog listing failure cannot blank the entire settings panel.
+   */
   @GuiWidgetElement(
+      id = WIDGET_ID_TARGET_VERSION,
       order = "0200",
       type = GuiElementType.COMBO,
       variables = true,
-      comboValuesMethod = "getCatalogVersionTagOptions",
       label = "i18n::ActionValidateResourceDefinitions.TargetCatalogVersion.Label",
       toolTip = "i18n::ActionValidateResourceDefinitions.TargetCatalogVersion.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
@@ -97,8 +116,10 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
   private String targetCatalogVersion;
 
   @GuiWidgetElement(
+      id = WIDGET_ID_COMPARE_MODE,
       order = "0300",
       type = GuiElementType.COMBO,
+      variables = false,
       comboValuesMethod = "getCompareModeOptions",
       label = "i18n::ActionValidateResourceDefinitions.CompareMode.Label",
       toolTip = "i18n::ActionValidateResourceDefinitions.CompareMode.ToolTip",
@@ -106,11 +127,12 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
   @HopMetadataProperty
   private String compareMode = SchemaCompareMode.LIVE_SOURCE.name();
 
+  /** Same ComboVar pattern as {@link #targetCatalogVersion}; items filled by the dialog. */
   @GuiWidgetElement(
+      id = WIDGET_ID_BASELINE_VERSION,
       order = "0400",
       type = GuiElementType.COMBO,
       variables = true,
-      comboValuesMethod = "getCatalogVersionTagOptions",
       label = "i18n::ActionValidateResourceDefinitions.BaselineVersion.Label",
       toolTip = "i18n::ActionValidateResourceDefinitions.BaselineVersion.ToolTip",
       parentId = GUI_PLUGIN_ELEMENT_PARENT_ID)
@@ -118,6 +140,7 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
   private String baselineCatalogVersion;
 
   @GuiWidgetElement(
+      id = WIDGET_ID_REPORT_PATH,
       order = "0500",
       type = GuiElementType.TEXT,
       variables = true,
@@ -128,6 +151,7 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
   private String reportOutputPath;
 
   @GuiWidgetElement(
+      id = WIDGET_ID_REPORT_BASENAME,
       order = "0600",
       type = GuiElementType.TEXT,
       variables = true,
@@ -138,8 +162,10 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
   private String reportFileBaseName;
 
   @GuiWidgetElement(
+      id = WIDGET_ID_REPORT_FORMAT,
       order = "0700",
       type = GuiElementType.COMBO,
+      variables = false,
       comboValuesMethod = "getReportFormatOptions",
       label = "i18n::ActionValidateResourceDefinitions.ReportFormat.Label",
       toolTip = "i18n::ActionValidateResourceDefinitions.ReportFormat.ToolTip",
@@ -148,8 +174,10 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
   private String reportFormat = SchemaValidationReportFileWriter.ReportFormat.MARKDOWN.name();
 
   @GuiWidgetElement(
+      id = WIDGET_ID_FAILURE_SEVERITY,
       order = "0800",
       type = GuiElementType.COMBO,
+      variables = false,
       comboValuesMethod = "getFailureSeverityOptions",
       label = "i18n::ActionValidateResourceDefinitions.FailureSeverity.Label",
       toolTip = "i18n::ActionValidateResourceDefinitions.FailureSeverity.ToolTip",
@@ -162,6 +190,7 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
    * severity is unset/default, behaves as {@link SchemaValidationFailureSeverity#FAIL_ON_WARNINGS}.
    */
   @GuiWidgetElement(
+      id = WIDGET_ID_FAIL_ON_WARNINGS,
       order = "0900",
       type = GuiElementType.CHECKBOX,
       label = "i18n::ActionValidateResourceDefinitions.FailOnWarnings.Label",
@@ -171,6 +200,7 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
   private boolean failOnWarnings;
 
   @GuiWidgetElement(
+      id = WIDGET_ID_INCLUDE_IMPACT,
       order = "1000",
       type = GuiElementType.CHECKBOX,
       label = "i18n::ActionValidateResourceDefinitions.IncludeImpact.Label",
@@ -201,14 +231,16 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
    * Hop GUI comboValuesMethod contract: {@code (ILogChannel, IHopMetadataProvider) -> List}. With
    * {@code variables=true}, COMBO fields render as ComboVar.
    */
-  public List<String> getCompareModeOptions(ILogChannel log, IHopMetadataProvider metadataProvider) {
+  public List<String> getCompareModeOptions(
+      ILogChannel log, IHopMetadataProvider metadataProvider) {
     return Arrays.asList(
         SchemaCompareMode.LIVE_SOURCE.name(),
         SchemaCompareMode.WORKING_VS_VERSION.name(),
         SchemaCompareMode.VERSION_VS_VERSION.name());
   }
 
-  public List<String> getReportFormatOptions(ILogChannel log, IHopMetadataProvider metadataProvider) {
+  public List<String> getReportFormatOptions(
+      ILogChannel log, IHopMetadataProvider metadataProvider) {
     return Arrays.asList(
         SchemaValidationReportFileWriter.ReportFormat.MARKDOWN.name(),
         SchemaValidationReportFileWriter.ReportFormat.HTML.name(),
@@ -224,14 +256,29 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
   }
 
   /**
-   * Catalog version tags for the FILE catalog of the selected resource definition group. Leading
-   * empty entry means "no tag / working tree" depending on compare mode. Editable ComboVar still
-   * allows free typing (including variable expressions).
+   * Catalog version tags for the FILE catalog of the selected resource definition group. Editable
+   * ComboVar still allows free typing (including variable expressions). Never returns null; never
+   * throws (Hop GuiCompositeWidgets only catches Exception around invoke, so we swallow Throwable).
    */
   public List<String> getCatalogVersionTagOptions(
       ILogChannel log, IHopMetadataProvider metadataProvider) {
+    try {
+      return listCatalogVersionTags(metadataProvider, log);
+    } catch (Throwable t) {
+      if (log != null) {
+        log.logError(
+            "Unable to list catalog version tags for group '" + resourceDefinitionGroup + "'", t);
+      }
+      return new ArrayList<>();
+    }
+  }
+
+  /**
+   * Same as {@link #getCatalogVersionTagOptions} but usable from the dialog after group changes.
+   */
+  public List<String> listCatalogVersionTags(
+      IHopMetadataProvider metadataProvider, ILogChannel log) {
     Set<String> tags = new LinkedHashSet<>();
-    tags.add("");
     if (metadataProvider == null || Utils.isEmpty(resourceDefinitionGroup)) {
       return new ArrayList<>(tags);
     }
@@ -252,13 +299,13 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
           tags.add(entry.getTag().trim());
         }
       }
-    } catch (Exception e) {
+    } catch (Throwable t) {
       if (log != null) {
         log.logDetailed(
             "Unable to list catalog version tags for group '"
                 + resourceDefinitionGroup
                 + "': "
-                + e.getMessage());
+                + t.getMessage());
       }
     }
     return new ArrayList<>(tags);
@@ -316,15 +363,10 @@ public class ActionValidateResourceDefinitions extends ActionBase implements Clo
 
     String outputPath = resolveOptional(reportOutputPath);
     if (!Utils.isEmpty(outputPath)) {
-      SchemaValidationReportFileWriter.ReportFormat format =
-          parseReportFormat(reportFormat);
+      SchemaValidationReportFileWriter.ReportFormat format = parseReportFormat(reportFormat);
       List<String> written =
           SchemaValidationReportFileWriter.write(
-              outputPath,
-              reportFileBaseName,
-              simulation,
-              format,
-              getVariables());
+              outputPath, reportFileBaseName, simulation, format, getVariables());
       for (String path : written) {
         logBasic(
             BaseMessages.getString(
