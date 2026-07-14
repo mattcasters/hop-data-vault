@@ -59,10 +59,27 @@ public final class ValidationReport {
       IssueSeverity severity,
       String fieldName,
       String message,
-      List<RemediationProposal> proposals) {
+      List<RemediationProposal> proposals,
+      String downstreamImpact) {
 
     public ValidationIssue {
       proposals = proposals != null ? List.copyOf(proposals) : List.of();
+    }
+
+    /** Compatibility constructor without downstream impact annotation. */
+    public ValidationIssue(
+        String issueId,
+        IssueKind kind,
+        IssueSeverity severity,
+        String fieldName,
+        String message,
+        List<RemediationProposal> proposals) {
+      this(issueId, kind, severity, fieldName, message, proposals, null);
+    }
+
+    public ValidationIssue withDownstreamImpact(String impact) {
+      return new ValidationIssue(
+          issueId, kind, severity, fieldName, message, proposals, impact);
     }
   }
 
