@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <business-vault-model>
-  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/test/test-business-vault-model.hbv</filename>
+  <filename>/home/matt/git/mattcasters/hop-data-vault/retail-example/models/retail-customer-phone.hbv</filename>
   <name_sync_with_filename>Y</name_sync_with_filename>
   <description/>
   <configuration>
@@ -94,5 +94,5 @@ AND   cust_phone IS NOT NULL
       <yloc>176</yloc>
     </bv_reference>
   </bv_references>
-  <name>test-business-vault-model</name>
+  <name>retail-customer-phone</name>
 </business-vault-model>

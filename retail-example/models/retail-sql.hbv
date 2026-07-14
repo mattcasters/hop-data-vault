@@ -113,5 +113,6 @@ One insert-only sat_product row becomes a closed interval; the latest stays open
       <yloc>160</yloc>
     </dv_reference>
   </dv_references>
+  <bv_references/>
   <name>retail-sql</name>
 </business-vault-model>
