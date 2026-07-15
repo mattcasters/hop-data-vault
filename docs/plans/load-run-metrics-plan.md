@@ -177,7 +177,7 @@ At end of `DvPipelineOrchestratorSupport` run, publish **one run** with many pip
 
 **`load_pipeline_metric`**
 
-- FK `run_id`, `pipeline_name`, `element_type`, `element_name`, `source_name`, `source_rows_read`, `target_rows_read`, `target_rows_inserted`, `errors`
+- FK `run_id`, `pipeline_name`, `element_type`, `element_name`, `source_name`, `source_rows_read`, `target_rows_read`, `target_rows_inserted`, `errors`, `execution_start_date`, `execution_end_date`, `duration_ms`
 
 **`load_transform_metric`**
 

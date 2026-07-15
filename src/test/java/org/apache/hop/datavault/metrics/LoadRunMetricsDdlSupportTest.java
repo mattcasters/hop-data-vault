@@ -23,11 +23,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import org.apache.hop.core.HopEnvironment;
 import org.apache.hop.core.database.DatabaseMeta;
+import org.apache.hop.core.exception.HopException;
 import org.apache.hop.datavault.metadata.DvBulkLoadPluginSupport;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class LoadRunMetricsDdlSupportTest {
+
+  @BeforeAll
+  static void initHop() throws HopException {
+    HopEnvironment.init();
+  }
 
   @Test
   void defaultDdlUsesConnectionDefaultWithoutCreateSchema() {
@@ -46,6 +54,51 @@ class LoadRunMetricsDdlSupportTest {
             .anyMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS load_insight")));
     assertTrue(
         statements.stream().noneMatch(sql -> sql.contains("CREATE TABLE IF NOT EXISTS dv_ops.")));
+    assertPipelineMetricTimingColumns(statements);
+  }
+
+  @Test
+  void postgresPipelineMetricDdlIncludesTimingColumns() {
+    List<String> statements =
+        LoadRunMetricsDdlSupport.buildCreateStatements(
+            databaseMetaWithPluginId(DvBulkLoadPluginSupport.POSTGRESQL_DB_PLUGIN_ID));
+    assertPipelineMetricTimingColumns(statements);
+  }
+
+  @Test
+  void mysqlPipelineMetricDdlIncludesTimingColumns() {
+    List<String> statements =
+        LoadRunMetricsDdlSupport.buildCreateStatements(
+            databaseMetaWithPluginId(DvBulkLoadPluginSupport.MYSQL_DB_PLUGIN_ID));
+    assertPipelineMetricTimingColumns(statements);
+  }
+
+  @Test
+  void mssqlPipelineMetricDdlIncludesTimingColumns() {
+    List<String> statements =
+        LoadRunMetricsDdlSupport.buildCreateStatements(
+            databaseMetaWithPluginId(DvBulkLoadPluginSupport.MSSQL_DB_PLUGIN_ID));
+    String pipelineDdl =
+        statements.stream()
+            .filter(sql -> sql.contains("load_pipeline_metric"))
+            .findFirst()
+            .orElse("");
+    assertTrue(pipelineDdl.contains("execution_start_date"));
+    assertTrue(pipelineDdl.contains("execution_end_date"));
+    assertTrue(pipelineDdl.contains("duration_ms"));
+    assertTrue(pipelineDdl.contains("DATETIME2"));
+  }
+
+  private static void assertPipelineMetricTimingColumns(List<String> statements) {
+    String pipelineDdl =
+        statements.stream()
+            .filter(sql -> sql.contains("load_pipeline_metric"))
+            .findFirst()
+            .orElse("");
+    assertFalse(pipelineDdl.isEmpty(), "expected load_pipeline_metric CREATE statement");
+    assertTrue(pipelineDdl.contains("execution_start_date"), pipelineDdl);
+    assertTrue(pipelineDdl.contains("execution_end_date"), pipelineDdl);
+    assertTrue(pipelineDdl.contains("duration_ms"), pipelineDdl);
   }
 
   @Test

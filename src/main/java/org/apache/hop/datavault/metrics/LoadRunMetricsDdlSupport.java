@@ -50,6 +50,7 @@ public final class LoadRunMetricsDdlSupport {
     if (allMetricsTablesExist(db, schema)) {
       ensureLoadRunPipelineRunConfigurationColumn(db, schema, databaseMeta, log);
       ensureLoadRunWorkflowExecutionIdColumn(db, schema, databaseMeta, log);
+      ensureLoadPipelineMetricTimingColumns(db, schema, databaseMeta, log);
       WorkflowLoadOverviewDdlSupport.ensureOverviewTables(db, databaseMeta, schema, log);
       return;
     }
@@ -128,6 +129,9 @@ public final class LoadRunMetricsDdlSupport {
           target_rows_read       BIGINT       NULL,
           target_rows_inserted   BIGINT       NULL,
           errors                 BIGINT       NULL,
+          execution_start_date   TIMESTAMP    NULL,
+          execution_end_date     TIMESTAMP    NULL,
+          duration_ms            BIGINT       NULL,
           PRIMARY KEY (run_id, pipeline_name)
         )"""
             .formatted(
@@ -213,6 +217,9 @@ public final class LoadRunMetricsDdlSupport {
           target_rows_read       BIGINT       NULL,
           target_rows_inserted   BIGINT       NULL,
           errors                 BIGINT       NULL,
+          execution_start_date   DATETIME2    NULL,
+          execution_end_date     DATETIME2    NULL,
+          duration_ms            BIGINT       NULL,
           PRIMARY KEY (run_id, pipeline_name)
         )"""
             .formatted(
@@ -289,6 +296,9 @@ public final class LoadRunMetricsDdlSupport {
           target_rows_read       BIGINT       NULL,
           target_rows_inserted   BIGINT       NULL,
           errors                 BIGINT       NULL,
+          execution_start_date   TIMESTAMP    NULL,
+          execution_end_date     TIMESTAMP    NULL,
+          duration_ms            BIGINT       NULL,
           PRIMARY KEY (run_id, pipeline_name)
         )"""
             .formatted(
@@ -386,6 +396,66 @@ public final class LoadRunMetricsDdlSupport {
       log.logBasic(
           "Adding workflow_execution_id column to "
               + qualify(resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_RUN));
+    }
+    db.execStatement(alterSql);
+  }
+
+  /**
+   * Adds pipeline wall-clock timing columns to existing {@code load_pipeline_metric} tables when
+   * they were created before issue #87.
+   */
+  static void ensureLoadPipelineMetricTimingColumns(
+      Database db, String schema, DatabaseMeta databaseMeta, ILogChannel log) throws HopException {
+    if (db == null || databaseMeta == null) {
+      return;
+    }
+    String resolvedSchema =
+        LoadRunMetricsCatalogPublisher.resolvePhysicalOperationsSchema(schema, databaseMeta);
+    if (!db.checkTableExists(
+        resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC)) {
+      return;
+    }
+    String dateType = pipelineMetricDateColumnType(databaseMeta);
+    ensurePipelineMetricColumn(
+        db, resolvedSchema, databaseMeta, log, "execution_start_date", dateType);
+    ensurePipelineMetricColumn(
+        db, resolvedSchema, databaseMeta, log, "execution_end_date", dateType);
+    ensurePipelineMetricColumn(db, resolvedSchema, databaseMeta, log, "duration_ms", "BIGINT");
+  }
+
+  private static String pipelineMetricDateColumnType(DatabaseMeta databaseMeta) {
+    if (databaseMeta != null
+        && !Utils.isEmpty(databaseMeta.getPluginId())
+        && (DvBulkLoadPluginSupport.MSSQL_DB_PLUGIN_ID.equalsIgnoreCase(databaseMeta.getPluginId())
+            || DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID.equalsIgnoreCase(
+                databaseMeta.getPluginId()))) {
+      return "DATETIME2";
+    }
+    return "TIMESTAMP";
+  }
+
+  private static void ensurePipelineMetricColumn(
+      Database db,
+      String resolvedSchema,
+      DatabaseMeta databaseMeta,
+      ILogChannel log,
+      String columnName,
+      String sqlType)
+      throws HopException {
+    if (db.checkColumnExists(
+        resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC, columnName)) {
+      return;
+    }
+    String qualifiedTable =
+        databaseMeta.getQuotedSchemaTableCombination(
+            db, resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC);
+    String alterSql = "ALTER TABLE " + qualifiedTable + " ADD " + columnName + " " + sqlType + " NULL";
+    if (log != null) {
+      log.logBasic(
+          "Adding "
+              + columnName
+              + " column to "
+              + qualify(resolvedSchema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC));
     }
     db.execStatement(alterSql);
   }

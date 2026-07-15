@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.metrics;
 
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import lombok.Builder;
 import lombok.Singular;
@@ -40,11 +41,29 @@ public class DvUpdateTableMetrics {
   long targetRowsInserted;
   long errors;
   boolean success;
+  /** Pipeline wall-clock start from the Hop engine (may be null). */
+  Date executionStartDate;
+  /** Pipeline wall-clock end from the Hop engine (may be null). */
+  Date executionEndDate;
+  /** Wall-clock duration in ms (end − start when both dates are present). */
+  long durationMs;
 
   @Singular("transform")
   List<TransformRunMetrics> transforms;
 
   public List<TransformRunMetrics> getTransforms() {
     return transforms != null ? transforms : Collections.emptyList();
+  }
+
+  /**
+   * Wall-clock duration from pipeline execution start/end dates. Returns 0 when either date is
+   * missing or end is before start.
+   */
+  public static long resolveDurationMs(Date executionStartDate, Date executionEndDate) {
+    if (executionStartDate == null || executionEndDate == null) {
+      return 0L;
+    }
+    long duration = executionEndDate.getTime() - executionStartDate.getTime();
+    return Math.max(0L, duration);
   }
 }

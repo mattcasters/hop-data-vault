@@ -366,6 +366,9 @@ public final class LoadRunMetricsCatalogPublisher {
     fields.addValueMeta(new ValueMetaInteger("target_rows_read"));
     fields.addValueMeta(new ValueMetaInteger("target_rows_inserted"));
     fields.addValueMeta(new ValueMetaInteger("errors"));
+    fields.addValueMeta(new ValueMetaDate("execution_start_date"));
+    fields.addValueMeta(new ValueMetaDate("execution_end_date"));
+    fields.addValueMeta(new ValueMetaInteger("duration_ms"));
 
     RecordDefinition definition = new RecordDefinition();
     definition.setKey(new RecordDefinitionKey(namespace, TABLE_LOAD_PIPELINE_METRIC));
@@ -641,6 +644,9 @@ public final class LoadRunMetricsCatalogPublisher {
     layout.addValueMeta(new ValueMetaInteger("target_rows_read"));
     layout.addValueMeta(new ValueMetaInteger("target_rows_inserted"));
     layout.addValueMeta(new ValueMetaInteger("errors"));
+    layout.addValueMeta(new ValueMetaDate("execution_start_date"));
+    layout.addValueMeta(new ValueMetaDate("execution_end_date"));
+    layout.addValueMeta(new ValueMetaInteger("duration_ms"));
 
     Object[] row =
         new Object[] {
@@ -652,7 +658,10 @@ public final class LoadRunMetricsCatalogPublisher {
           pipeline.getSourceRowsRead(),
           pipeline.getTargetRowsRead(),
           pipeline.getTargetRowsInserted(),
-          pipeline.getErrors()
+          pipeline.getErrors(),
+          pipeline.getExecutionStartDate(),
+          pipeline.getExecutionEndDate(),
+          pipeline.getDurationMs()
         };
     db.insertRow(operationsSchema, TABLE_LOAD_PIPELINE_METRIC, layout, row);
   }

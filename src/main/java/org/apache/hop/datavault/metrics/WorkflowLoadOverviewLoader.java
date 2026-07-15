@@ -294,6 +294,10 @@ public final class WorkflowLoadOverviewLoader {
     return durations;
   }
 
+  /**
+   * Pipeline wall-clock durations: prefer {@code load_pipeline_metric.duration_ms} when present
+   * (issue #87). Fall back to summed transform durations for older OPS rows without the column.
+   */
   private static Map<String, Map<String, Long>> queryPipelineDurationByRunId(
       Database db,
       DatabaseMeta databaseMeta,
@@ -301,27 +305,51 @@ public final class WorkflowLoadOverviewLoader {
       List<LoadRunRow> runs,
       IVariables variables)
       throws HopException {
-    if (!db.checkTableExists(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_TRANSFORM_METRIC)) {
-      return Map.of();
-    }
     String inClause = buildRunIdInClause(variables, runs);
     if (Utils.isEmpty(inClause)) {
       return Map.of();
     }
+    Map<String, Map<String, Long>> durationsByRunId = new HashMap<>();
+    if (db.checkTableExists(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC)
+        && db.checkColumnExists(
+            schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC, "duration_ms")) {
+      String pipelineTable =
+          databaseMeta.getQuotedSchemaTableCombination(
+              variables, schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC);
+      String sql =
+          "SELECT run_id, pipeline_name, duration_ms FROM "
+              + pipelineTable
+              + " WHERE run_id IN ("
+              + inClause
+              + ")";
+      putPipelineDurations(db.getRows(sql, 1024), db.getReturnRowMeta(), durationsByRunId, false);
+    }
+    if (!db.checkTableExists(schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_TRANSFORM_METRIC)) {
+      return durationsByRunId;
+    }
     String transformTable =
         databaseMeta.getQuotedSchemaTableCombination(
             variables, schema, LoadRunMetricsCatalogPublisher.TABLE_LOAD_TRANSFORM_METRIC);
-    String sql =
+    String fallbackSql =
         "SELECT run_id, pipeline_name, SUM(COALESCE(duration_ms, 0)) AS duration_ms FROM "
             + transformTable
             + " WHERE run_id IN ("
             + inClause
             + ") GROUP BY run_id, pipeline_name";
-    List<Object[]> rows = db.getRows(sql, 1024);
-    IRowMeta rowMeta = db.getReturnRowMeta();
-    Map<String, Map<String, Long>> durationsByRunId = new HashMap<>();
+    // Only fill gaps (missing pipeline or null/zero pipeline duration with transform evidence).
+    putPipelineDurations(
+        db.getRows(fallbackSql, 1024), db.getReturnRowMeta(), durationsByRunId, true);
+    return durationsByRunId;
+  }
+
+  private static void putPipelineDurations(
+      List<Object[]> rows,
+      IRowMeta rowMeta,
+      Map<String, Map<String, Long>> durationsByRunId,
+      boolean onlyIfAbsent)
+      throws HopException {
     if (rows == null || rowMeta == null) {
-      return durationsByRunId;
+      return;
     }
     for (Object[] row : rows) {
       String runId = stringValue(rowMeta, row, "run_id");
@@ -330,11 +358,13 @@ public final class WorkflowLoadOverviewLoader {
       if (Utils.isEmpty(runId) || Utils.isEmpty(pipelineName) || duration == null) {
         continue;
       }
-      durationsByRunId
-          .computeIfAbsent(runId, id -> new HashMap<>())
-          .put(pipelineName, duration);
+      Map<String, Long> byPipeline =
+          durationsByRunId.computeIfAbsent(runId, id -> new HashMap<>());
+      if (onlyIfAbsent && byPipeline.containsKey(pipelineName)) {
+        continue;
+      }
+      byPipeline.put(pipelineName, duration);
     }
-    return durationsByRunId;
   }
 
   private static Map<String, List<WorkflowLoadOverviewReport.PipelineEntry>> queryPipelinesByRunId(

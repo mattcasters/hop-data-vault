@@ -19,6 +19,7 @@
 package org.apache.hop.datavault.metrics;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import org.apache.hop.core.util.Utils;
@@ -91,6 +92,8 @@ public final class MetadataMetricsResolver {
         GeneratedPipelineMetadataSupport.getPipelineAttribute(
             pipelineMeta, GeneratedPipelineMetadataConstants.MODEL_TYPE);
 
+    Date executionStartDate = engine.getExecutionStartDate();
+    Date executionEndDate = engine.getExecutionEndDate();
     return DvUpdateTableMetrics.builder()
         .runId(runId)
         .modelName(resolvedModelName)
@@ -104,6 +107,9 @@ public final class MetadataMetricsResolver {
         .targetRowsInserted(targetRowsInserted)
         .errors(engine.getErrors())
         .success(engine.getErrors() == 0)
+        .executionStartDate(executionStartDate)
+        .executionEndDate(executionEndDate)
+        .durationMs(DvUpdateTableMetrics.resolveDurationMs(executionStartDate, executionEndDate))
         .transforms(transforms)
         .build();
   }
