@@ -14,8 +14,8 @@ Raw Data Vault satellites record **when the warehouse loaded** a change (technic
 
 Hand-building SCD2 or as-of logic in SQL or dbt for every satellite is repetitive and drifts from the vault model. The plugin generates Hop pipelines from DV metadata:
 
-* **SCD2** — reads satellite history, collapses versions into `valid_from` / `valid_to` intervals, applies open-ended sentinels, loads a BV table
-* **PIT** — reads raw hub and satellite history, materializes snapshot dates with satellite load-timestamp pointers for fast as-of joins
+* **SCD2** — reads satellite history, collapses versions into `valid_from` / `valid_to` intervals, applies open-ended sentinels, loads a BV table. SCD2 is **pure Type 2**; hybrid Type 1 + Type 2 presentation and “always current” attributes are expected in dimensional models or via a separate current-state join, not by rewriting SCD2 history (see link:business-vault-scd2.adoc#type-1-vs-type-2-and-hybrid-attributes[Type 1 vs Type 2 and hybrid attributes]).
+* **PIT** — reads raw hub and satellite history, materializes snapshot dates with satellite load-timestamp pointers for fast as-of joins (not hybrid attribute storage)
 
 == Business Vault model (`.hbv`)
 
