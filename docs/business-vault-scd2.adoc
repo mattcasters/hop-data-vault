@@ -6,6 +6,38 @@ toc::[]
 
 SCD2 tables are the primary Business Vault output today. They materialize **functional timelines** from raw Data Vault satellite history.
 
+== Type 1 vs Type 2 and hybrid attributes
+
+Business Vault SCD2 tables are **pure SCD Type 2**: each functional change produces a version row with `valid_from` / `valid_to` (or your configured validity columns). The plugin does **not** support a per-column Type 1 mode that rewrites every historical version when a “current” value changes.
+
+That is intentional. BV SCD2 is **organizational memory made consumable** (harmonized names, multi-satellite merge, business-effective intervals). Hybrid Type 1 + Type 2 presentation rules usually belong further downstream.
+
+[cols="1,3", options="header"]
+|===
+|Need |Recommended approach
+
+|Historized attributes (as-of correct)
+|Map them on the SCD2 table (Type 2).
+
+|Always-current attributes (e.g. current sales rep on old facts)
+|Keep Type 2 history clean; resolve “current” at **mart or query** time by joining the open SCD2 row, a latest satellite, or a separate BV current table/view (see link:business-vault-sql-view.adoc[Business Vault SQL views and tables]). Prefer **hybrid SCD in the dimensional model** when product owners want Type 1 and Type 2 columns on one dimension.
+
+|Mix Type 1 and Type 2 **in the same BV SCD2 table**
+|Not a field-mapping feature. Mixing would make some columns look historical while they are not, weaken audit-friendly intermediate history, and is expensive under incremental watermarks.
+
+|Type 1 / Type 2 modes **on a PIT table**
+|Wrong layer. PIT tables store hub grain × snapshot dates with satellite load-timestamp **pointers** only. Compose attributes (including always-current ones) when joining raw or BV tables. See link:business-vault-pit.adoc[Business Vault PIT].
+|===
+
+In short:
+
+1. Prefer **pure Type 2** BV SCD2 for mapped attributes.
+2. Prefer a **separate current-state object** (or open-row filter) for always-current values.
+3. Prefer **hybrid Type 1 + Type 2 in the dimensional / information mart layer** for reporting rules.
+4. Treat hybrid Type 1 *inside* a historized BV SCD2 table as a last resort outside this builder, not core plugin behaviour.
+
+Dialog help (Hop GUI **?** on the SCD2 table dialog): `src/main/resources/org/apache/hop/datavault/hopgui/help/bv-scd2-table-dialog.md`.
+
 == What gets generated
 
 For each SCD2 table the plugin builds a Hop pipeline that:
