@@ -18,6 +18,7 @@
 
 package org.apache.hop.datavault.metrics;
 
+import java.util.Date;
 import org.apache.hop.pipeline.Pipeline;
 import org.apache.hop.pipeline.engine.EngineMetrics;
 import org.apache.hop.pipeline.engine.IEngineComponent;
@@ -49,6 +50,8 @@ public final class DvUpdateMetricsExtractor {
             name -> isWriteTransform(name, tableName),
             Pipeline.METRIC_OUTPUT);
 
+    Date executionStartDate = engine.getExecutionStartDate();
+    Date executionEndDate = engine.getExecutionEndDate();
     return DvUpdateTableMetrics.builder()
         .runId(runId)
         .modelName(modelName)
@@ -61,6 +64,9 @@ public final class DvUpdateMetricsExtractor {
         .targetRowsInserted(targetRowsInserted)
         .errors(engine.getErrors())
         .success(engine.getErrors() == 0)
+        .executionStartDate(executionStartDate)
+        .executionEndDate(executionEndDate)
+        .durationMs(DvUpdateTableMetrics.resolveDurationMs(executionStartDate, executionEndDate))
         .build();
   }
 

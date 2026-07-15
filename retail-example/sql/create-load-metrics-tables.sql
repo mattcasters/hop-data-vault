@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS dv_ops.load_pipeline_metric (
   target_rows_read       BIGINT       NULL,
   target_rows_inserted   BIGINT       NULL,
   errors                 BIGINT       NULL,
+  execution_start_date   TIMESTAMP    NULL,
+  execution_end_date     TIMESTAMP    NULL,
+  duration_ms            BIGINT       NULL,
   PRIMARY KEY (run_id, pipeline_name)
 );
 

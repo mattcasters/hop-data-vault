@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Date;
 import java.util.List;
 import org.apache.hop.catalog.impl.file.FileDataCatalog;
 import org.apache.hop.catalog.metadata.DataCatalogMeta;
@@ -73,6 +74,16 @@ class LoadRunMetricsCatalogPublisherTest {
     metadataProvider.getSerializer(DatabaseMeta.class).save(ops);
 
     RecordDefinitionRegistry.getInstance().invalidate();
+  }
+
+  @Test
+  void resolveDurationMsUsesWallClockWhenBothDatesPresent() {
+    Date start = new Date(1_700_000_000_000L);
+    Date end = new Date(1_700_000_001_500L);
+    assertEquals(1500L, DvUpdateTableMetrics.resolveDurationMs(start, end));
+    assertEquals(0L, DvUpdateTableMetrics.resolveDurationMs(null, end));
+    assertEquals(0L, DvUpdateTableMetrics.resolveDurationMs(start, null));
+    assertEquals(0L, DvUpdateTableMetrics.resolveDurationMs(end, start));
   }
 
   @Test
@@ -143,6 +154,21 @@ class LoadRunMetricsCatalogPublisherTest {
         LoadRunMetricsCatalogPublisher.DEFAULT_SCHEMA_NAME,
         loadRun.getPhysicalTable().getSchemaName());
     assertFalse(loadRun.getFields().isEmpty());
+
+    RecordDefinition pipelineMetric =
+        RecordDefinitionRegistry.getInstance()
+            .read(
+                CATALOG_CONNECTION,
+                new RecordDefinitionKey(
+                    namespace, LoadRunMetricsCatalogPublisher.TABLE_LOAD_PIPELINE_METRIC),
+                variables,
+                metadataProvider);
+    assertNotNull(pipelineMetric);
+    assertNotNull(pipelineMetric.getFields().searchValueMeta("pipeline_name"));
+    assertNotNull(pipelineMetric.getFields().searchValueMeta("execution_start_date"));
+    assertNotNull(pipelineMetric.getFields().searchValueMeta("execution_end_date"));
+    assertNotNull(pipelineMetric.getFields().searchValueMeta("duration_ms"));
+    assertTrue(pipelineMetric.getTags().contains("load-metrics"));
 
     RecordDefinition transformMetric =
         RecordDefinitionRegistry.getInstance()
