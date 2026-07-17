@@ -141,7 +141,7 @@ See [docs/data-quality.adoc](../docs/data-quality.adoc) for rule types and actio
 
 ## Data generation
 
-CSV files are written to `files/` by `../scripts/end-to-end/generate-retail-data.py`:
+CSV files are written to `files/` by `scripts/generate-retail-data.py` (workflows) — kept in sync with `../scripts/end-to-end/generate-retail-data.py`:
 
 | Mode | Description |
 |------|-------------|
@@ -149,6 +149,8 @@ CSV files are written to `files/` by `../scripts/end-to-end/generate-retail-data
 | `update` | Incremental wave for the current `retail_load_control.progress_date` |
 
 Default scale: 10,000 customers, 1,000 products, 100,000 orders.
+
+**Order lines** are generated at grain `(order_id, product_id, line_number)`. The same product can appear on multiple lines of one order; the first order in each wave is forced to do so (with different unit prices) so **transactional link** behaviour (`lnk_order_line` + dependent child key `line_number` in `models/retail-360.hdv`) is easy to verify.
 
 CSV wave selection uses Hop variable **`RETAIL_CSV_WAVE`** (for example `initial` or
 `2024-01`). `generate-retail-data.py` writes `work/retail-csv-wave.properties`; the

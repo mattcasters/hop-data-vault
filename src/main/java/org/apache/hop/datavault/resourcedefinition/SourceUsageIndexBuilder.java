@@ -191,6 +191,13 @@ public final class SourceUsageIndexBuilder {
           }
         }
       }
+      if (link.getDependentChildKeys() != null) {
+        for (org.apache.hop.datavault.metadata.DependentChildKey dck : link.getDependentChildKeys()) {
+          if (dck != null && !Utils.isEmpty(dck.resolveSourceFieldName())) {
+            mappedFields.add(dck.resolveSourceFieldName());
+          }
+        }
+      }
       addUsage(
           index,
           new RecordDefinitionKey(namespace, resolveName(variables, linkSource.getSourceName())),

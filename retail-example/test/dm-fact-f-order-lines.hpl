@@ -17,7 +17,7 @@
   <transform>
     <type>TableInput</type>
     <name>source_f_order_lines</name>
-    <sql>SELECT lol.order_hk, ho.order_id, lol.product_hk, hp.product_id, so.order_date, so.delivery_date, so.shipping_date, slol.discount_pct, slol.line_number, slol.quantity, slol.unit_price
+    <sql>SELECT lol.order_hk, ho.order_id, lol.product_hk, hp.product_id, so.order_date, so.delivery_date, so.shipping_date, slol.discount_pct, lol.line_number, slol.quantity, slol.unit_price
 FROM lnk_order_line lol
 JOIN (
   SELECT *
@@ -32,7 +32,7 @@ JOIN hub_product hp ON lol.product_hk = hp.product_hk
 JOIN (
   SELECT *
   FROM (
-    SELECT slol.*, ROW_NUMBER() OVER ( PARTITION BY lnk_order_line_hk, line_number ORDER BY x_load_ts DESC ) AS rn
+    SELECT slol.*, ROW_NUMBER() OVER ( PARTITION BY lnk_order_line_hk ORDER BY x_load_ts DESC ) AS rn
     FROM sat_lnk_order_line slol
   ) x
   WHERE rn = 1

@@ -109,6 +109,18 @@ public class DvParquetLinkSourcePipelineBuilder extends DvParquetFileSourcePipel
       }
     }
 
+    if (link.getDependentChildKeys() != null) {
+      for (org.apache.hop.datavault.metadata.DependentChildKey dck : link.getDependentChildKeys()) {
+        if (dck == null) {
+          continue;
+        }
+        String depSource = variables.resolve(dck.resolveSourceFieldName());
+        if (depSource != null && !depSource.isEmpty()) {
+          sourceToTarget.put(depSource, depSource);
+        }
+      }
+    }
+
     String sourceFieldName = variables.resolve(recordSource.getSourceIndicatorField());
     if (StringUtils.isNotEmpty(sourceFieldName)) {
       String targetSourceFieldName =
