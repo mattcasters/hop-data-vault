@@ -52,6 +52,7 @@ import org.apache.hop.core.row.ValueMetaAndData;
 import org.apache.hop.core.row.value.ValueMetaBase;
 import org.apache.hop.core.row.value.ValueMetaBinary;
 import org.apache.hop.core.row.value.ValueMetaDate;
+import org.apache.hop.core.row.value.ValueMetaFactory;
 import org.apache.hop.core.row.value.ValueMetaString;
 import org.apache.hop.core.row.value.ValueMetaTimestamp;
 import org.apache.hop.core.util.Utils;
@@ -121,6 +122,14 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
    * to look in the source data.
    */
   @HopMetadataProperty private List<String> drivingKeyNames = new ArrayList<>();
+
+  /**
+   * Optional dependent child key(s) for transactional (non-historized) links. Values are stored on
+   * the link table and included in the link hash so the same hub combination can appear more than
+   * once (e.g. measurement timestamp, transaction id, order line number).
+   */
+  @HopMetadataProperty(key = "dependentChildKey", groupKey = "dependentChildKeys")
+  private List<DependentChildKey> dependentChildKeys = new ArrayList<>();
 
   /**
    * Optional name for the link's surrogate hash key column. If empty, defaults to the link name +
@@ -233,6 +242,37 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
               new CheckResult(
                   ICheckResult.TYPE_RESULT_ERROR,
                   BaseMessages.getString(PKG, "DvLink.CheckResult.DrivingKeyNoName"),
+                  this));
+        }
+      }
+    }
+
+    if (Utils.isEmpty(dependentChildKeys)) {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(PKG, "DvLink.CheckResult.NoDependentChildKeys"),
+              this));
+    } else {
+      remarks.add(
+          new CheckResult(
+              ICheckResult.TYPE_RESULT_OK,
+              BaseMessages.getString(
+                  PKG, "DvLink.CheckResult.HasDependentChildKeys", dependentChildKeys.size()),
+              this));
+      for (DependentChildKey dck : dependentChildKeys) {
+        if (dck == null || Utils.isEmpty(dck.getName())) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(PKG, "DvLink.CheckResult.DependentChildKeyNoName"),
+                  this));
+        } else if (Utils.isEmpty(dck.resolveSourceFieldName())) {
+          remarks.add(
+              new CheckResult(
+                  ICheckResult.TYPE_RESULT_ERROR,
+                  BaseMessages.getString(
+                      PKG, "DvLink.CheckResult.DependentChildKeyNoSourceField", dck.getName()),
                   this));
         }
       }
@@ -366,6 +406,37 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
                   }
                 }
               }
+            }
+          }
+          // Dependent child keys are link-level; verify their source fields exist on this record
+          // source.
+          for (DependentChildKey dck : listDependentChildKeys()) {
+            if (dck == null) {
+              continue;
+            }
+            String dckSource = dck.resolveSourceFieldName();
+            if (Utils.isEmpty(dckSource)) {
+              continue;
+            }
+            boolean found = false;
+            for (SourceField sf : availableSourceFields) {
+              if (dckSource.equals(sf.getName())) {
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              remarks.add(
+                  new CheckResult(
+                      ICheckResult.TYPE_RESULT_ERROR,
+                      "Source field '"
+                          + dckSource
+                          + "' (for dependent child key '"
+                          + dck.getName()
+                          + "') not available in record source '"
+                          + source.getName()
+                          + "'",
+                      this));
             }
           }
         }
@@ -573,12 +644,27 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
           predecessorTransform = checkSumTransform;
         }
 
-        // Final checksum for the Link Hash itself
+        // Final checksum for the Link Hash itself: hub hashes + dependent child key values
+        // (source field names still in the stream at this point).
+        List<String> linkHashInputFields = new ArrayList<>(hubHashNames);
+        for (DependentChildKey dck : listDependentChildKeys()) {
+          String sourceField =
+              ctx.variables.resolve(Const.NVL(dck.resolveSourceFieldName(), ""));
+          if (Utils.isEmpty(sourceField)) {
+            throw new HopException(
+                "Dependent child key '"
+                    + dck.getName()
+                    + "' on link "
+                    + getName()
+                    + " has no source field name");
+          }
+          linkHashInputFields.add(sourceField);
+        }
         TransformMeta linkHashCalc =
             addDvHashKeyForFields(
                 pipelineMeta,
                 predecessorTransform,
-                hubHashNames,
+                linkHashInputFields,
                 linkHashKeyFieldName,
                 ctx.config,
                 index);
@@ -718,7 +804,12 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
         rowMeta.addValueMeta(hubHashMeta);
       }
 
-      // 3. Record source (per-link name if specified, else from config; supports variables)
+      // 3. Dependent child keys (transactional link identity columns)
+      for (DependentChildKey dck : listDependentChildKeys()) {
+        rowMeta.addValueMeta(createValueMetaFromDependentChildKey(dck, variables));
+      }
+
+      // 4. Record source (per-link name if specified, else from config; supports variables)
       String rsFieldName =
           DvSourceFieldMappingSupport.resolveRecordSourceFieldName(config, this, variables);
       String lengthString =
@@ -731,7 +822,7 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       rsMeta.setLength(rsLength);
       rowMeta.addValueMeta(rsMeta);
 
-      // 4. Load date
+      // 5. Load date
       String loadDateField = config.getLoadDateField();
       if (Utils.isEmpty(loadDateField)) loadDateField = "LOAD_DATE";
       IValueMeta loadMeta = new ValueMetaTimestamp(loadDateField);
@@ -837,6 +928,27 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       selectFields.add(selectField);
     }
 
+    // Dependent child keys: rename source field → target column name for storage
+    //
+    for (DependentChildKey dck : listDependentChildKeys()) {
+      String sourceField =
+          ctx.variables.resolve(Const.NVL(dck.resolveSourceFieldName(), ""));
+      String targetField = ctx.variables.resolve(Const.NVL(dck.getName(), ""));
+      if (Utils.isEmpty(sourceField) || Utils.isEmpty(targetField)) {
+        throw new HopException(
+            "Dependent child key on link "
+                + getName()
+                + " is missing a name or source field when building a pipeline for source "
+                + ctx.dataVaultSource.getName());
+      }
+      SelectField selectField = new SelectField();
+      selectField.setName(sourceField);
+      if (!sourceField.equals(targetField)) {
+        selectField.setRename(targetField);
+      }
+      selectFields.add(selectField);
+    }
+
     // Also keep the record source
     //
     SelectField sourceField = new SelectField();
@@ -872,6 +984,51 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
       }
     }
     return null;
+  }
+
+  /** Non-null list of configured dependent child keys (empty when none). */
+  private List<DependentChildKey> listDependentChildKeys() {
+    if (dependentChildKeys == null || dependentChildKeys.isEmpty()) {
+      return Collections.emptyList();
+    }
+    return dependentChildKeys;
+  }
+
+  private IValueMeta createValueMetaFromDependentChildKey(
+      DependentChildKey dck, IVariables variables) throws HopException {
+    String name = variables.resolve(Const.NVL(dck.getName(), ""));
+    if (Utils.isEmpty(name)) {
+      throw new HopException(
+          "Dependent child key on link " + getName() + " has no target column name");
+    }
+    String dt = dck.getDataType();
+    if (!Utils.isEmpty(dt)) {
+      dt = variables.resolve(dt);
+    }
+    int typeId = IValueMeta.TYPE_STRING;
+    if (!Utils.isEmpty(dt)) {
+      typeId = ValueMetaFactory.getIdForValueMeta(dt);
+      if (typeId <= 0) {
+        typeId = IValueMeta.TYPE_STRING;
+      }
+    }
+    try {
+      IValueMeta vm = ValueMetaFactory.createValueMeta(name, typeId);
+      String lengthStr = dck.getLength();
+      if (!Utils.isEmpty(lengthStr)) {
+        lengthStr = variables.resolve(lengthStr);
+      }
+      String precisionStr = dck.getPrecision();
+      if (!Utils.isEmpty(precisionStr)) {
+        precisionStr = variables.resolve(precisionStr);
+      }
+      vm.setLength(Const.toInt(lengthStr, -1));
+      vm.setPrecision(Const.toInt(precisionStr, -1));
+      return vm;
+    } catch (org.apache.hop.core.exception.HopPluginException e) {
+      throw new HopException(
+          "Error creating value meta for dependent child key " + name + " on link " + getName(), e);
+    }
   }
 
   private List<String> resolveHubSourceBusinessKeyFields(
@@ -974,6 +1131,13 @@ public class DvLink extends DvTableBase implements IDvTable, IGuiPosition, IBase
 
     for (String drivingKeyName : drivingKeyNames) {
       mergeRowsMeta.getPassThroughFields().add(new PassThroughField(drivingKeyName, null, false));
+    }
+
+    for (DependentChildKey dck : listDependentChildKeys()) {
+      String targetField = ctx.variables.resolve(Const.NVL(dck.getName(), ""));
+      if (!Utils.isEmpty(targetField)) {
+        mergeRowsMeta.getPassThroughFields().add(new PassThroughField(targetField, null, false));
+      }
     }
 
     // We also pass through the record source

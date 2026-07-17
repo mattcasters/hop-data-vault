@@ -31,6 +31,7 @@ import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
 import org.apache.hop.datavault.metadata.DvIntegrationMode;
 import org.apache.hop.core.ICheckResult;
+import org.apache.hop.datavault.metadata.DependentChildKey;
 import org.apache.hop.datavault.metadata.DvLink;
 import org.apache.hop.datavault.metadata.DvModelCheckOptions;
 import org.apache.hop.datavault.metadata.IDvTable;
@@ -69,8 +70,8 @@ import org.apache.hop.datavault.hopgui.help.HelpTopics;
  * Dialog to edit the properties of a DvLink using a TabFolder.
  * Name and description are placed at the top, buttons at the bottom.
  * Tabs: Options (hash key field, record source field, hasDescriptiveAttributes, participating hubs
- * and link satellites), Driving keys, Hub sources (DvLinkHubSourceDialog), Satellite sources
- * (DvLinkSatelliteSourceDialog).
+ * and link satellites), Driving keys, Dependent child keys (transactional links), Hub sources
+ * (DvLinkHubSourceDialog), Satellite sources (DvLinkSatelliteSourceDialog).
  */
 public class DvLinkDialog {
   private static final Class<?> PKG = DvLinkDialog.class;
@@ -100,6 +101,9 @@ public class DvLinkDialog {
 
   // Driving keys tab
   private TableView wDrivingKeyNames;
+
+  // Dependent child keys tab (transactional links)
+  private TableView wDependentChildKeys;
 
   // Hub sources tab
   private TableView wLinkHubSources;
@@ -202,6 +206,7 @@ public class DvLinkDialog {
     customPipelinesTab = new DvCustomPipelinesTabSupport(shell, hopGui, variables, margin);
     addOptionsTab();
     addDrivingKeysTab();
+    addDependentChildKeysTab();
     addHubSourcesTab();
     addSatelliteSourcesTab();
     customPipelinesTab.addTab(wTabFolder);
@@ -448,6 +453,78 @@ public class DvLinkDialog {
 
     wKeysComp.layout();
     wKeysTab.setControl(wKeysComp);
+  }
+
+  private void addDependentChildKeysTab() {
+    CTabItem wDepTab = new CTabItem(wTabFolder, SWT.NONE);
+    wDepTab.setFont(GuiResource.getInstance().getFontDefault());
+    wDepTab.setText(BaseMessages.getString(PKG, "DvLinkDialog.DependentChildKeys.Tab"));
+    wDepTab.setToolTipText(BaseMessages.getString(PKG, "DvLinkDialog.DependentChildKeys.ToolTip"));
+    Composite wDepComp = new Composite(wTabFolder, SWT.NONE);
+    PropsUi.setLook(wDepComp);
+    wDepComp.setLayout(new FormLayout());
+
+    Label wlDep = new Label(wDepComp, SWT.LEFT);
+    wlDep.setText(BaseMessages.getString(PKG, "DvLinkDialog.DependentChildKeys.Label"));
+    PropsUi.setLook(wlDep);
+    FormData fdlDep = new FormData();
+    fdlDep.left = new FormAttachment(0, 0);
+    fdlDep.top = new FormAttachment(0, 0);
+    wlDep.setLayoutData(fdlDep);
+
+    ColumnInfo[] depColumns =
+        new ColumnInfo[] {
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "DvLinkDialog.DependentChildKey.Name.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "DvLinkDialog.DependentChildKey.SourceField.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "DvLinkDialog.DependentChildKey.DataType.Column"),
+              ColumnInfo.COLUMN_TYPE_CCOMBO,
+              new String[] {
+                "String", "Integer", "Number", "BigNumber", "Date", "Timestamp", "Boolean", "Binary"
+              }),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "DvLinkDialog.DependentChildKey.Length.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "DvLinkDialog.DependentChildKey.Precision.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
+          new ColumnInfo(
+              BaseMessages.getString(PKG, "DvLinkDialog.DependentChildKey.Description.Column"),
+              ColumnInfo.COLUMN_TYPE_TEXT,
+              false),
+        };
+
+    int nrDepRows =
+        (input.getDependentChildKeys() != null && !input.getDependentChildKeys().isEmpty())
+            ? input.getDependentChildKeys().size()
+            : 1;
+    wDependentChildKeys =
+        new TableView(
+            variables,
+            wDepComp,
+            SWT.BORDER | SWT.FULL_SELECTION | SWT.MULTI,
+            depColumns,
+            nrDepRows,
+            null,
+            PropsUi.getInstance());
+
+    FormData fdDep = new FormData();
+    fdDep.left = new FormAttachment(0, 0);
+    fdDep.top = new FormAttachment(wlDep, margin);
+    fdDep.right = new FormAttachment(100, 0);
+    fdDep.bottom = new FormAttachment(100, 0);
+    wDependentChildKeys.setLayoutData(fdDep);
+
+    wDepComp.layout();
+    wDepTab.setControl(wDepComp);
   }
 
   private void addHubSourcesTab() {
@@ -787,6 +864,25 @@ public class DvLinkDialog {
     wDrivingKeyNames.setRowNums();
     wDrivingKeyNames.optWidth(true);
 
+    wDependentChildKeys.clearAll();
+    if (input.getDependentChildKeys() != null) {
+      for (DependentChildKey dck : input.getDependentChildKeys()) {
+        if (dck == null) {
+          continue;
+        }
+        TableItem item = new TableItem(wDependentChildKeys.table, SWT.NONE);
+        item.setText(1, Const.NVL(dck.getName(), ""));
+        item.setText(2, Const.NVL(dck.getSourceFieldName(), ""));
+        item.setText(3, Const.NVL(dck.getDataType(), "String"));
+        item.setText(4, Const.NVL(dck.getLength(), ""));
+        item.setText(5, Const.NVL(dck.getPrecision(), ""));
+        item.setText(6, Const.NVL(dck.getDescription(), ""));
+      }
+    }
+    wDependentChildKeys.removeEmptyRows();
+    wDependentChildKeys.setRowNums();
+    wDependentChildKeys.optWidth(true);
+
     currentLinkHubSources.clear();
     wLinkHubSources.clearAll();
     if (input.getLinkHubSources() != null) {
@@ -895,6 +991,23 @@ public class DvLinkDialog {
       }
     }
     target.setDrivingKeyNames(drives);
+
+    List<DependentChildKey> depKeys = new ArrayList<>();
+    for (TableItem item : wDependentChildKeys.getNonEmptyItems()) {
+      String name = item.getText(1);
+      if (Utils.isEmpty(name)) {
+        continue;
+      }
+      DependentChildKey dck = new DependentChildKey(name);
+      dck.setSourceFieldName(item.getText(2));
+      String dataType = item.getText(3);
+      dck.setDataType(Utils.isEmpty(dataType) ? "String" : dataType);
+      dck.setLength(item.getText(4));
+      dck.setPrecision(item.getText(5));
+      dck.setDescription(item.getText(6));
+      depKeys.add(dck);
+    }
+    target.setDependentChildKeys(depKeys);
 
     target.getLinkHubSources().clear();
     for (TableItem item : wLinkHubSources.getNonEmptyItems()) {

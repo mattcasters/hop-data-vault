@@ -571,22 +571,27 @@ limitations under the License.
                   <sourceFieldName>discount_pct</sourceFieldName>
                 </attributeSource>
               </attributeSources>
-              <drivingKeySources>
-                <drivingKeySource>
-                  <drivingKey>line_number</drivingKey>
-                  <sourceField>line_number</sourceField>
-                </drivingKeySource>
-              </drivingKeySources>
+              <drivingKeySources/>
             </satelliteSourceKeyField>
           </satelliteSourceKeyFields>
         </linkSatelliteSource>
       </linkSatelliteSources>
+      <dependentChildKeys>
+        <dependentChildKey>
+          <name>line_number</name>
+          <description>Order line number — dependent child key so the same product can appear more than once on one order</description>
+          <sourceFieldName>line_number</sourceFieldName>
+          <dataType>Integer</dataType>
+          <length>9</length>
+          <precision>0</precision>
+        </dependentChildKey>
+      </dependentChildKeys>
       <linkHashKeyFieldName>lnk_order_line_hk</linkHashKeyFieldName>
       <hubSourceKeyFields/>
       <hasDescriptiveAttributes>Y</hasDescriptiveAttributes>
       <recordSourceFieldName/>
       <tableName>lnk_order_line</tableName>
-      <description>Order line relationship between orders and products</description>
+      <description>Transactional order line link: order + product + line_number (dependent child key)</description>
       <tableType>LINK</tableType>
       <integrationMode>HOP_MANAGED</integrationMode>
       <customUpdatePipelinePaths/>
@@ -622,15 +627,15 @@ limitations under the License.
         <precision>2</precision>
         <includeInChangeDataCapture>Y</includeInChangeDataCapture>
       </attributes>
-      <drivingKey>line_number</drivingKey>
-      <drivingKeySourceField>line_number</drivingKeySourceField>
+      <drivingKey/>
+      <drivingKeySourceField/>
       <recordSource>E2E-order-line</recordSource>
       <statusTrackingEnabled>N</statusTrackingEnabled>
       <statusFieldName>record_status</statusFieldName>
       <activeStatusValue>ACTIVE</activeStatusValue>
       <deletedStatusValue>DELETED</deletedStatusValue>
       <tableName>sat_lnk_order_line</tableName>
-      <description>Multi-active order line satellite</description>
+      <description>Order line measures (quantity, price, discount) parented by transactional lnk_order_line</description>
       <tableType>SATELLITE</tableType>
       <integrationMode>HOP_MANAGED</integrationMode>
       <customUpdatePipelinePaths/>

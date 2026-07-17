@@ -332,14 +332,41 @@ def order_line_rows(
     anchor: date,
     max_product_id: int | None = None,
 ) -> list[list[object]]:
+    """Generate order lines.
+
+    Grain is (order_id, product_id, line_number). The same product may appear on
+    more than one line of an order (transactional link dependent-child demo).
+    The first order in the wave is forced to have at least two lines for the same
+    product with different unit prices so the collapse problem is visible.
+    """
     rows: list[list[object]] = []
     product_ceiling = max_product_id if max_product_id is not None else scale.products
-    for order_id in order_ids:
-        line_count = rng.randint(1, 4)
-        for line_number in range(1, line_count + 1):
-            product_id = rng.randint(1, product_ceiling)
+    order_id_list = list(order_ids)
+    for index, order_id in enumerate(order_id_list):
+        if index == 0:
+            # Demo: same product twice on one order (needs line_number on link hash)
+            shared_product = rng.randint(1, product_ceiling)
+            line_products = [shared_product, shared_product]
+            if product_ceiling > 1:
+                other = shared_product
+                while other == shared_product:
+                    other = rng.randint(1, product_ceiling)
+                line_products.append(other)
+        else:
+            line_count = rng.randint(1, 4)
+            line_products = [rng.randint(1, product_ceiling) for _ in range(line_count)]
+            # Occasionally reuse a product already on this order
+            if line_count >= 2 and rng.random() < 0.25:
+                line_products[-1] = line_products[0]
+
+        for line_number, product_id in enumerate(line_products, start=1):
             quantity = rng.randint(1, 5)
-            unit_price = round(rng.uniform(5.0, 499.99), 2)
+            if index == 0 and line_number <= 2:
+                unit_price = round(4.0 + line_number * 0.5, 2)
+                discount = round(0.05 * line_number, 2)
+            else:
+                unit_price = round(rng.uniform(5.0, 499.99), 2)
+                discount = round(rng.uniform(0.0, 0.25), 2)
             rows.append(
                 [
                     f"O{order_id:06d}",
@@ -347,7 +374,7 @@ def order_line_rows(
                     line_number,
                     quantity,
                     unit_price,
-                    round(rng.uniform(0.0, 0.25), 2),
+                    discount,
                     load_date,
                     "E2E-order-line",
                 ]

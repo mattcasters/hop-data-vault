@@ -105,6 +105,19 @@ public class DvDatabaseLinkSourcePipelineBuilder extends DvDatabaseSourcePipelin
       }
     }
 
+    // Dependent child key source fields (transactional link identity)
+    if (link.getDependentChildKeys() != null) {
+      for (DependentChildKey dck : link.getDependentChildKeys()) {
+        if (dck == null) {
+          continue;
+        }
+        String sourceField = variables.resolve(dck.resolveSourceFieldName());
+        if (sourceField != null && !sourceField.isEmpty()) {
+          quotedFields.add(sourceDbMeta.quoteField(sourceField));
+        }
+      }
+    }
+
     appendFields(sql, quotedFields);
 
     // Append the source field as well

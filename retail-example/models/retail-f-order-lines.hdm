@@ -141,7 +141,7 @@ limitations under the License.
        so.delivery_date,
        so.shipping_date,
        slol.discount_pct,
-       slol.line_number,
+       lol.line_number,
        slol.quantity,
        slol.unit_price
 FROM   lnk_order_line lol
@@ -161,7 +161,7 @@ JOIN   (
          FROM (
            SELECT slol.*,
                   ROW_NUMBER() OVER (
-                    PARTITION BY lnk_order_line_hk, line_number
+                    PARTITION BY lnk_order_line_hk
                     ORDER BY x_load_ts DESC
                   ) AS rn
            FROM   sat_lnk_order_line slol

@@ -29,6 +29,7 @@ import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.datavault.metadata.BusinessKeySource;
 import org.apache.hop.datavault.metadata.DataVaultModel;
 import org.apache.hop.datavault.metadata.DataVaultSource;
+import org.apache.hop.datavault.metadata.DependentChildKey;
 import org.apache.hop.datavault.metadata.DrivingKeySource;
 import org.apache.hop.datavault.metadata.DvHub;
 import org.apache.hop.datavault.metadata.DvLink;
@@ -105,6 +106,19 @@ public class DvCsvLinkSourcePipelineBuilder extends DvFileSourcePipelineBuilder 
                     + recordSource.getName());
           }
           sourceToTarget.put(drivingKeySource, drivingKeySource);
+        }
+      }
+    }
+
+    // Dependent child keys for transactional links
+    if (link.getDependentChildKeys() != null) {
+      for (DependentChildKey dck : link.getDependentChildKeys()) {
+        if (dck == null) {
+          continue;
+        }
+        String sourceField = variables.resolve(dck.resolveSourceFieldName());
+        if (sourceField != null && !sourceField.isEmpty()) {
+          sourceToTarget.put(sourceField, sourceField);
         }
       }
     }

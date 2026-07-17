@@ -139,6 +139,83 @@ class DvLinkValidationTest {
   }
 
   @Test
+  void targetTableLayoutIncludesDependentChildKeysAfterHubHashes() throws HopException {
+    DataVaultModel model = new DataVaultModel();
+    model.getConfigurationOrDefault().setRecordSourceField("x_record_source");
+    model.getConfigurationOrDefault().setLoadDateField("x_load_ts");
+
+    DvHub hubSensor = new DvHub("hub_sensor");
+    hubSensor.setHashKeyFieldName("sensor_hk");
+    DvHub hubMachine = new DvHub("hub_machine");
+    hubMachine.setHashKeyFieldName("machine_hk");
+
+    DvLink link = new DvLink("lnk_measurement");
+    link.setLinkHashKeyFieldName("measurement_lk");
+    link.getHubNames().add("hub_sensor");
+    link.getHubNames().add("hub_machine");
+
+    DependentChildKey ts = new DependentChildKey("measurement_ts");
+    ts.setSourceFieldName("reading_ts");
+    ts.setDataType("Timestamp");
+    DependentChildKey seq = new DependentChildKey("reading_seq");
+    seq.setDataType("Integer");
+    link.getDependentChildKeys().add(ts);
+    link.getDependentChildKeys().add(seq);
+
+    model.getTables().addAll(List.of(hubSensor, hubMachine, link));
+
+    IRowMeta layout =
+        link.getTargetTableLayout(new MemoryMetadataProvider(), new Variables(), model);
+
+    List<String> names = layout.getValueMetaList().stream().map(m -> m.getName()).toList();
+    assertTrue(names.contains("measurement_lk"));
+    assertTrue(names.contains("sensor_hk"));
+    assertTrue(names.contains("machine_hk"));
+    assertTrue(names.contains("measurement_ts"));
+    assertTrue(names.contains("reading_seq"));
+    assertTrue(names.indexOf("measurement_ts") > names.indexOf("machine_hk"));
+    assertTrue(names.indexOf("reading_seq") > names.indexOf("measurement_ts"));
+    assertTrue(names.indexOf("x_record_source") > names.indexOf("reading_seq"));
+  }
+
+  @Test
+  void checkReportsDependentChildKeysAndErrorsOnMissingName() {
+    DvLink link = new DvLink("lnk_measurement");
+    link.getHubNames().add("hub_sensor");
+    link.getHubNames().add("hub_machine");
+    link.setIntegrationMode(DvIntegrationMode.EXTERNAL_READ);
+
+    DependentChildKey ok = new DependentChildKey("measurement_ts");
+    ok.setSourceFieldName("reading_ts");
+    DependentChildKey bad = new DependentChildKey();
+    link.getDependentChildKeys().add(ok);
+    link.getDependentChildKeys().add(bad);
+
+    List<ICheckResult> remarks = new ArrayList<>();
+    link.check(
+        remarks, null, new Variables(), DvModelCheckOptions.defaults(), new DataVaultModel());
+
+    assertTrue(
+        remarks.stream()
+            .anyMatch(
+                r ->
+                    r.getType() == ICheckResult.TYPE_RESULT_OK
+                        && r.getText()
+                            .equals(
+                                BaseMessages.getString(
+                                    PKG, "DvLink.CheckResult.HasDependentChildKeys", 2))));
+    assertTrue(
+        remarks.stream()
+            .anyMatch(
+                r ->
+                    r.getType() == ICheckResult.TYPE_RESULT_ERROR
+                        && r.getText()
+                            .equals(
+                                BaseMessages.getString(
+                                    PKG, "DvLink.CheckResult.DependentChildKeyNoName"))));
+  }
+
+  @Test
   void validateLinkHubKeyFieldsFlagsMissingHubMappingRow() {
     DataVaultModel model = new DataVaultModel();
     DvHub hubCustomer = new DvHub("hub_customer");
