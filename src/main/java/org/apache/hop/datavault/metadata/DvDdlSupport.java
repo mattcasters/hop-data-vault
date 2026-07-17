@@ -45,17 +45,33 @@ public final class DvDdlSupport {
   public static final String SQL_SERVER_UTF8_COLLATION = "Latin1_General_100_CI_AS_SC_UTF8";
 
   /**
-   * Matches SQL Server non-Unicode string type tokens produced by Hop field definitions or ALTER
-   * DDL so a UTF-8 {@code COLLATE} clause can be appended.
+   * Multiplier applied to Hop string lengths when generating SQL Server {@code VARCHAR}/{@code CHAR}
+   * with a UTF-8 collation.
+   *
+   * <p>Source metadata (and Hop {@link IValueMeta} lengths) are character-oriented — matching
+   * {@code NVARCHAR(n)} where {@code n} is in UTF-16 code units. SQL Server {@code VARCHAR(n)} with
+   * a UTF-8 collation measures {@code n} in <em>bytes</em>. Multi-byte characters that fit in
+   * {@code NVARCHAR(50)} therefore overflow {@code VARCHAR(50)} (see issue #91). A factor of 3 is
+   * the worst-case UTF-8 size per BMP code unit that fits in NVARCHAR; supplementary characters
+   * need at most 2 bytes per code unit in UTF-8 relative to their NVARCHAR footprint.
    */
+  public static final int SQL_SERVER_UTF8_LENGTH_FACTOR = 3;
+
+  /** SQL Server maximum length for non-{@code MAX} {@code VARCHAR}/{@code CHAR}. */
+  public static final int SQL_SERVER_MAX_NON_MAX_STRING_LENGTH = 8000;
+
   /**
    * Match ANSI string types without a trailing word-boundary after {@code )} (which is non-word and
    * would never form {@code \b}). Negative lookbehind/ahead exclude {@code NCHAR}/{@code NVARCHAR}/
-   * {@code NTEXT}.
+   * {@code NTEXT}. Group 1 is the full type token (e.g. {@code VARCHAR(50)}); group 2 is {@code
+   * CHAR}/{@code VARCHAR}; group 3 is a numeric length; group 4 is {@code MAX} when present.
    */
   private static final Pattern SQL_SERVER_ANSI_STRING_TYPE =
       Pattern.compile(
-          "(?i)(?<![A-Za-z0-9_])((?:VAR)?CHAR\\s*\\(\\s*(?:\\d+|MAX)\\s*\\)|TEXT)(?![A-Za-z0-9_])"
+          "(?i)(?<![A-Za-z0-9_])("
+              + "((?:VAR)?CHAR)\\s*\\(\\s*(?:(\\d+)|(MAX))\\s*\\)"
+              + "|TEXT"
+              + ")(?![A-Za-z0-9_])"
               + "(?!\\s+COLLATE\\b)");
 
   private DvDdlSupport() {}
@@ -359,9 +375,10 @@ public final class DvDdlSupport {
   }
 
   /**
-   * Appends the UTF-8 collation clause to {@code CHAR}/{@code VARCHAR}/{@code TEXT} tokens that
-   * are not already followed by {@code COLLATE}. Skips {@code NCHAR}/{@code NVARCHAR}/{@code
-   * NTEXT} because the leading {@code N} is not part of the ANSI type pattern.
+   * Rewrites {@code CHAR}/{@code VARCHAR}/{@code TEXT} tokens for SQL Server EDW targets: expands
+   * numeric lengths for UTF-8 byte storage and appends the UTF-8 {@code COLLATE} clause when
+   * missing. Skips {@code NCHAR}/{@code NVARCHAR}/{@code NTEXT}. Tokens that already carry {@code
+   * COLLATE} are left unchanged (idempotent; avoids double length expansion).
    */
   static String rewriteSqlServerStringCollations(String sql) {
     if (Utils.isEmpty(sql)) {
@@ -370,13 +387,68 @@ public final class DvDdlSupport {
     Matcher matcher = SQL_SERVER_ANSI_STRING_TYPE.matcher(sql);
     StringBuffer out = new StringBuffer();
     while (matcher.find()) {
-      String type = matcher.group(1);
-      // Guard against NCHAR/NVARCHAR/NTEXT matched via CHAR/TEXT suffix without word boundary
-      // before N — the pattern uses word boundary before (VAR)?CHAR/TEXT so NCHAR is excluded.
-      matcher.appendReplacement(
-          out, Matcher.quoteReplacement(type + " COLLATE " + SQL_SERVER_UTF8_COLLATION));
+      String rewritten = rewriteSqlServerAnsiStringTypeMatch(matcher);
+      matcher.appendReplacement(out, Matcher.quoteReplacement(rewritten));
     }
     matcher.appendTail(out);
     return out.toString();
+  }
+
+  /**
+   * Builds the replacement type token for one ANSI string match: expanded length when needed, plus
+   * UTF-8 collation.
+   */
+  static String rewriteSqlServerAnsiStringTypeMatch(Matcher matcher) {
+    String fullToken = matcher.group(1);
+    String baseType = matcher.group(2); // CHAR / VARCHAR, or null for TEXT
+    String numericLength = matcher.group(3);
+    String maxToken = matcher.group(4);
+
+    String typeWithLength;
+    if (baseType == null) {
+      // TEXT
+      typeWithLength = fullToken;
+    } else if (maxToken != null) {
+      typeWithLength = baseType + "(MAX)";
+    } else if (numericLength != null) {
+      typeWithLength = expandSqlServerUtf8StringType(baseType, Integer.parseInt(numericLength));
+    } else {
+      typeWithLength = fullToken;
+    }
+    return typeWithLength + " COLLATE " + SQL_SERVER_UTF8_COLLATION;
+  }
+
+  /**
+   * Expands a character-oriented string length to a UTF-8 byte-oriented SQL Server type. Lengths
+   * that exceed {@link #SQL_SERVER_MAX_NON_MAX_STRING_LENGTH} after expansion become {@code
+   * VARCHAR(MAX)} (including oversized {@code CHAR}).
+   */
+  static String expandSqlServerUtf8StringType(String baseType, int characterLength) {
+    if (characterLength <= 0) {
+      return baseType + "(" + characterLength + ")";
+    }
+    int byteLength = utf8ByteLengthForCharacterLength(characterLength);
+    if (byteLength > SQL_SERVER_MAX_NON_MAX_STRING_LENGTH) {
+      // Prefer VARCHAR(MAX) over an illegal CHAR/VARCHAR(n>8000).
+      return "VARCHAR(MAX)";
+    }
+    return baseType + "(" + byteLength + ")";
+  }
+
+  /**
+   * Converts a character-oriented length (as stored on source fields / {@link IValueMeta}) to the
+   * minimum UTF-8 byte length that can hold the same Unicode content on SQL Server {@code
+   * VARCHAR}/{@code CHAR}. Returns a value greater than {@link
+   * #SQL_SERVER_MAX_NON_MAX_STRING_LENGTH} when {@code VARCHAR(MAX)} should be used.
+   */
+  public static int utf8ByteLengthForCharacterLength(int characterLength) {
+    if (characterLength <= 0) {
+      return characterLength;
+    }
+    long expanded = (long) characterLength * SQL_SERVER_UTF8_LENGTH_FACTOR;
+    if (expanded > Integer.MAX_VALUE) {
+      return Integer.MAX_VALUE;
+    }
+    return (int) expanded;
   }
 }

@@ -152,12 +152,14 @@ class DvDdlSupportTest {
   }
 
   @Test
-  void enrichSqlServerFieldDefinitionAppendsUtf8Collation() {
+  void enrichSqlServerFieldDefinitionAppendsUtf8CollationAndExpandsLength() {
     DatabaseMeta sqlServer = databaseMetaWithPluginId(DvBulkLoadPluginSupport.MSSQLNATIVE_DB_PLUGIN_ID);
     String definition = "customer_id VARCHAR(50)";
     String enriched = DvDdlSupport.enrichSqlServerFieldDefinition(sqlServer, definition);
+    // NVARCHAR(50)-style character length must become UTF-8 byte length (×3) so multi-byte
+    // values such as Portuguese addresses do not truncate (issue #91).
     assertEquals(
-        "customer_id VARCHAR(50) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION, enriched);
+        "customer_id VARCHAR(150) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION, enriched);
   }
 
   @Test
@@ -166,25 +168,25 @@ class DvDdlSupportTest {
     String create =
         "CREATE TABLE hub_item (\n  item_hk VARBINARY(16),\n  item_code VARCHAR(50)\n);";
     String rewritten = DvDdlSupport.enrichSqlServerDdl(sqlServer, create);
-    assertTrue(rewritten.contains("item_code VARCHAR(50) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+    assertTrue(rewritten.contains("item_code VARCHAR(150) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
     assertFalse(rewritten.toUpperCase().contains("VARBINARY(16) COLLATE"));
 
     String alter = "ALTER TABLE hub_item ADD name VARCHAR(100)";
     assertTrue(
         DvDdlSupport.enrichSqlServerDdl(sqlServer, alter)
-            .contains("VARCHAR(100) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+            .contains("VARCHAR(300) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
   }
 
   @Test
   void rewriteSqlServerStringCollationsDoesNotDoubleApply() {
     String already =
-        "customer_id VARCHAR(50) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION;
+        "customer_id VARCHAR(150) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION;
     assertEquals(already, DvDdlSupport.rewriteSqlServerStringCollations(already));
 
     String plain = "customer_id VARCHAR(50), name CHAR(10), notes TEXT";
     String rewritten = DvDdlSupport.rewriteSqlServerStringCollations(plain);
-    assertTrue(rewritten.contains("VARCHAR(50) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
-    assertTrue(rewritten.contains("CHAR(10) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+    assertTrue(rewritten.contains("VARCHAR(150) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+    assertTrue(rewritten.contains("CHAR(30) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
     assertTrue(rewritten.contains("TEXT COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
     assertFalse(rewritten.toUpperCase().contains("NVARCHAR"));
   }
@@ -195,7 +197,32 @@ class DvDdlSupportTest {
     String rewritten = DvDdlSupport.rewriteSqlServerStringCollations(sql);
     assertTrue(rewritten.contains("NVARCHAR(50)"));
     assertFalse(rewritten.matches("(?is).*NVARCHAR\\(50\\)\\s+COLLATE.*"));
-    assertTrue(rewritten.contains("VARCHAR(20) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+    assertTrue(rewritten.contains("VARCHAR(60) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION));
+  }
+
+  @Test
+  void utf8ByteLengthForCharacterLengthUsesFactorThree() {
+    assertEquals(0, DvDdlSupport.utf8ByteLengthForCharacterLength(0));
+    assertEquals(-1, DvDdlSupport.utf8ByteLengthForCharacterLength(-1));
+    assertEquals(150, DvDdlSupport.utf8ByteLengthForCharacterLength(50));
+    // 3000 * 3 = 9000 > 8000 → VARCHAR(MAX) path
+    assertEquals(9000, DvDdlSupport.utf8ByteLengthForCharacterLength(3000));
+    assertTrue(
+        DvDdlSupport.expandSqlServerUtf8StringType("VARCHAR", 3000).equals("VARCHAR(MAX)"));
+    assertEquals("VARCHAR(MAX)", DvDdlSupport.expandSqlServerUtf8StringType("CHAR", 4000));
+    assertEquals("VARCHAR(MAX)", DvDdlSupport.expandSqlServerUtf8StringType("VARCHAR", 8000));
+    assertEquals(
+        "notes VARCHAR(MAX) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION,
+        DvDdlSupport.rewriteSqlServerStringCollations("notes VARCHAR(MAX)"));
+  }
+
+  @Test
+  void rewriteSqlServerStringCollationsIsIdempotentOnExpandedDdl() {
+    String once = DvDdlSupport.rewriteSqlServerStringCollations("addr VARCHAR(50)");
+    String twice = DvDdlSupport.rewriteSqlServerStringCollations(once);
+    assertEquals(once, twice);
+    assertEquals(
+        "addr VARCHAR(150) COLLATE " + DvDdlSupport.SQL_SERVER_UTF8_COLLATION, once);
   }
 
   @Test
