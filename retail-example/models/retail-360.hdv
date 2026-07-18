@@ -771,6 +771,7 @@ limitations under the License.
           </satelliteSourceKeyFields>
         </linkSatelliteSource>
       </linkSatelliteSources>
+      <dependentChildKeys/>
       <linkHashKeyFieldName>lnk_warehouse_product_hk</linkHashKeyFieldName>
       <hubSourceKeyFields/>
       <hasDescriptiveAttributes>Y</hasDescriptiveAttributes>
@@ -852,6 +853,7 @@ limitations under the License.
         </linkHubSource>
       </linkHubSources>
       <linkSatelliteSources/>
+      <dependentChildKeys/>
       <linkHashKeyFieldName>lnk_order_hk</linkHashKeyFieldName>
       <hubSourceKeyFields/>
       <hasDescriptiveAttributes>N</hasDescriptiveAttributes>

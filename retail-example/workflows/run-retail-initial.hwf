@@ -82,8 +82,8 @@ limitations under the License.
       <name>Generate initial execution map</name>
       <type>GENERATE_EXECUTION_MAP</type>
       <attributes/>
-      <xloc>528</xloc>
-      <yloc>192</yloc>
+      <xloc>768</xloc>
+      <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -177,8 +177,22 @@ limitations under the License.
       <description/>
       <type>WORKFLOW</type>
       <attributes/>
-      <xloc>304</xloc>
-      <yloc>192</yloc>
+      <xloc>544</xloc>
+      <yloc>160</yloc>
+      <parallel>N</parallel>
+      <attributes_hac/>
+    </action>
+    <action>
+      <loglevel>Error</loglevel>
+      <logsubject>Start PostgreSQL</logsubject>
+      <logmessage>You can start your PostgreSQL databases with:  scripts/run-postgres.sh
+</logmessage>
+      <name>Start postgres</name>
+      <description/>
+      <type>WRITE_TO_LOG</type>
+      <attributes/>
+      <xloc>368</xloc>
+      <yloc>160</yloc>
       <parallel>N</parallel>
       <attributes_hac/>
     </action>
@@ -216,6 +230,13 @@ limitations under the License.
       <from>run-retail-update-models</from>
       <to>Generate initial execution map</to>
       <evaluation>Y</evaluation>
+      <unconditional>N</unconditional>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Check DB connections</from>
+      <to>Start postgres</to>
+      <evaluation>N</evaluation>
       <unconditional>N</unconditional>
       <enabled>Y</enabled>
     </hop>
