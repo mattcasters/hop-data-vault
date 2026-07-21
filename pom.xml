@@ -364,6 +364,10 @@
         <version>3.5.2</version>
         <configuration>
           <classpathDependencyScopeExclude>none</classpathDependencyScopeExclude>
+          <!-- Hop defaults audit state to ${user.dir}/audit; keep unit-test noise out of the repo. -->
+          <systemPropertyVariables>
+            <HOP_AUDIT_FOLDER>/tmp/hop-data-vault-audit</HOP_AUDIT_FOLDER>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
 
@@ -549,6 +553,9 @@
             <exclude>docs/.pnp/**</exclude>
             <exclude>docs/.pnp.js</exclude>
             <exclude>docs/yarn.lock</exclude>
+
+            <!-- Hop audit manager output (also redirected under /tmp for surefire) -->
+            <exclude>audit/**</exclude>
           </excludes>
         </configuration>
       </plugin>

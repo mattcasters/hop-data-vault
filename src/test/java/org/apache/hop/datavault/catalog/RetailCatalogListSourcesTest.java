@@ -63,8 +63,7 @@ class RetailCatalogListSourcesTest {
     catalog.setName("local-catalog");
     catalog.setEnabled(true);
     FileDataCatalog fileCatalog = new FileDataCatalog();
-    fileCatalog.setStorageDirectory(
-        Path.of("retail-example/catalog-data").toAbsolutePath().toString().replace('\\', '/'));
+    fileCatalog.setStorageDirectory(RetailExampleCatalogFixtures.catalogStorageRootPath());
     catalog.setCatalog(fileCatalog);
     metadataProvider.getSerializer(DataCatalogMeta.class).save(catalog);
 

@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.apache.hop.catalog.impl.file.FileDataCatalog;
@@ -40,6 +39,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.plugins.PluginRegistry;
 import org.apache.hop.core.variables.Variables;
+import org.apache.hop.datavault.catalog.RetailExampleCatalogFixtures;
 import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,21 +69,7 @@ class SchemaImpactSimulationServiceTest {
     variables.setVariable("PROJECT_HOME", projectHome.toString().replace('\\', '/'));
 
     Path catalogDir = tempDir.resolve("catalog-data");
-    Path sourceRoot = projectHome.resolve("catalog-data/hop/retail-example/sources");
-    Path targetRoot = catalogDir.resolve("hop/retail-example/sources");
-    Files.createDirectories(targetRoot);
-    try (var paths = Files.list(sourceRoot)) {
-      paths
-          .filter(path -> path.toString().endsWith(".json"))
-          .forEach(
-              path -> {
-                try {
-                  Files.copy(path, targetRoot.resolve(path.getFileName()));
-                } catch (Exception e) {
-                  throw new RuntimeException(e);
-                }
-              });
-    }
+    RetailExampleCatalogFixtures.copySeedSourcesInto(catalogDir);
 
     metadataProvider = new MemoryMetadataProvider();
     DataCatalogMeta catalog = new DataCatalogMeta();
