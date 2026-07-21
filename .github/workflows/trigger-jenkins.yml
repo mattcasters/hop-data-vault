@@ -8,18 +8,25 @@ on:
   workflow_dispatch:  # manual run from Actions tab
 
 jobs:
-  trigger:
+  jenkins:
+    name: Jenkins build
     runs-on: ubuntu-latest
     # Required so environment secrets (Settings → Environments → jenkins-data-hopper) are available
     environment: jenkins-data-hopper
+    # Must cover longest Jenkins job + queue wait (adjust if builds run longer)
+    timeout-minutes: 120
     steps:
-      - name: Trigger Jenkins job
+      - name: Trigger Jenkins job and wait for result
         env:
           JENKINS_URL: ${{ secrets.JENKINS_URL }}
           JENKINS_USER: ${{ secrets.JENKINS_USER }}
           JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
           JENKINS_JOB: ${{ secrets.JENKINS_JOB }}
           JENKINS_BUILD_TOKEN: ${{ secrets.JENKINS_BUILD_TOKEN }}
+          # Optional tuning (seconds)
+          POLL_INTERVAL: "15"
+          QUEUE_TIMEOUT: "900"
+          BUILD_TIMEOUT: "5400"
         run: |
           set -euo pipefail
 
@@ -48,9 +55,13 @@ jobs:
           JOB_API="$JENKINS_URL/job/$JOB_PATH"
           echo "Job API base: $JOB_API"
 
+          auth_curl() {
+            # -g: disable [] URL globbing (needed for ?tree=...)
+            curl -g -sS -u "$JENKINS_USER:$JENKINS_TOKEN" -b /tmp/jenkins-cookies "$@"
+          }
+
           # Verify credentials (401 here = bad user / API token, not job token)
-          WHO_HTTP=$(curl -sS -o /tmp/jenkins-who -w "%{http_code}" \
-            -u "$JENKINS_USER:$JENKINS_TOKEN" \
+          WHO_HTTP=$(auth_curl -o /tmp/jenkins-who -w "%{http_code}" \
             "$JENKINS_URL/whoAmI/api/json")
           echo "whoAmI HTTP $WHO_HTTP"
           if [ "$WHO_HTTP" != "200" ]; then
@@ -63,7 +74,7 @@ jobs:
           echo "Authenticated as: $(jq -r .name /tmp/jenkins-who 2>/dev/null || cat /tmp/jenkins-who)"
 
           # CSRF crumb + session cookie (many Jenkins installs require both)
-          CRUMB_HTTP=$(curl -sS -o /tmp/jenkins-crumb -w "%{http_code}" \
+          CRUMB_HTTP=$(curl -g -sS -o /tmp/jenkins-crumb -w "%{http_code}" \
             -u "$JENKINS_USER:$JENKINS_TOKEN" \
             -c /tmp/jenkins-cookies \
             "$JENKINS_URL/crumbIssuer/api/json")
@@ -78,9 +89,7 @@ jobs:
 
           # Parameterized jobs must use /buildWithParameters; plain jobs use /build.
           # Calling /build on a parameterized job returns 400 "expects a form submission".
-          # -g/--globoff: curl otherwise treats [...] in ?tree= as a bad URL range.
-          JOB_META_HTTP=$(curl -g -sS -o /tmp/jenkins-job -w "%{http_code}" \
-            -u "$JENKINS_USER:$JENKINS_TOKEN" \
+          JOB_META_HTTP=$(auth_curl -o /tmp/jenkins-job -w "%{http_code}" \
             "$JOB_API/api/json?tree=name,url,property[parameterDefinitions[name]]")
           echo "job api HTTP $JOB_META_HTTP"
           if [ "$JOB_META_HTTP" != "200" ]; then
@@ -100,7 +109,8 @@ jobs:
           echo "POST $BUILD_ENDPOINT"
 
           # Remote trigger token as query param; empty form body satisfies Stapler.
-          HTTP=$(curl -sS -o /tmp/jenkins-body -w "%{http_code}" \
+          # Capture Location (queue item URL) from response headers.
+          HTTP=$(curl -g -sS -D /tmp/jenkins-headers -o /tmp/jenkins-body -w "%{http_code}" \
             -X POST \
             -u "$JENKINS_USER:$JENKINS_TOKEN" \
             -b /tmp/jenkins-cookies \
@@ -110,17 +120,122 @@ jobs:
             "${BUILD_ENDPOINT}?token=$(printf %s "$JENKINS_BUILD_TOKEN" | jq -sRr @uri)")
 
           echo "build HTTP $HTTP"
-          # Location header would have queue URL; body often empty on success
           if [ -s /tmp/jenkins-body ]; then
             head -c 800 /tmp/jenkins-body || true
             echo
           fi
 
-          # 201 = queued; some setups return 200 or 302
           case "$HTTP" in
             200|201|302) echo "Build queued successfully." ;;
             *)
               echo "Unexpected status $HTTP"
+              exit 1
+              ;;
+          esac
+
+          # --- Resolve queue item from Location header ---
+          LOCATION=$(awk 'BEGIN{IGNORECASE=1} /^Location:/ {sub(/\r$/,""); print $2; exit}' /tmp/jenkins-headers || true)
+          if [ -z "${LOCATION:-}" ]; then
+            echo "No Location header from Jenkins; cannot track this build uniquely."
+            echo "Response headers:"
+            cat /tmp/jenkins-headers || true
+            exit 1
+          fi
+          # Relative Location → absolute
+          case "$LOCATION" in
+            http://*|https://*) ;;
+            /*) LOCATION="${JENKINS_URL}${LOCATION}" ;;
+            *) LOCATION="${JENKINS_URL}/${LOCATION}" ;;
+          esac
+          LOCATION="${LOCATION%/}"
+          echo "Queue item: $LOCATION"
+
+          # --- Wait until queue item becomes a build (or is cancelled) ---
+          echo "Waiting for Jenkins executor (queue timeout ${QUEUE_TIMEOUT}s)..."
+          QUEUE_DEADLINE=$((SECONDS + QUEUE_TIMEOUT))
+          BUILD_URL=""
+          while [ "$SECONDS" -lt "$QUEUE_DEADLINE" ]; do
+            Q_HTTP=$(auth_curl -o /tmp/jenkins-queue -w "%{http_code}" \
+              "$LOCATION/api/json?tree=cancelled,why,executable[url,number]")
+            if [ "$Q_HTTP" != "200" ]; then
+              echo "queue api HTTP $Q_HTTP (will retry)"
+              sleep "$POLL_INTERVAL"
+              continue
+            fi
+
+            CANCELLED=$(jq -r '.cancelled // false' /tmp/jenkins-queue)
+            if [ "$CANCELLED" = "true" ]; then
+              echo "Build was cancelled while still in the queue."
+              exit 1
+            fi
+
+            BUILD_URL=$(jq -r '.executable.url // empty' /tmp/jenkins-queue)
+            if [ -n "$BUILD_URL" ]; then
+              BUILD_URL="${BUILD_URL%/}"
+              BUILD_NUM=$(jq -r '.executable.number // empty' /tmp/jenkins-queue)
+              echo "Left queue as build #${BUILD_NUM}: $BUILD_URL"
+              break
+            fi
+
+            WHY=$(jq -r '.why // "waiting in queue"' /tmp/jenkins-queue)
+            echo "  still queued: $WHY"
+            sleep "$POLL_INTERVAL"
+          done
+
+          if [ -z "$BUILD_URL" ]; then
+            echo "Timed out after ${QUEUE_TIMEOUT}s waiting for an executor."
+            exit 1
+          fi
+
+          # --- Poll build until finished ---
+          echo "Waiting for build to finish (timeout ${BUILD_TIMEOUT}s, poll every ${POLL_INTERVAL}s)..."
+          BUILD_DEADLINE=$((SECONDS + BUILD_TIMEOUT))
+          RESULT=""
+          while [ "$SECONDS" -lt "$BUILD_DEADLINE" ]; do
+            B_HTTP=$(auth_curl -o /tmp/jenkins-build -w "%{http_code}" \
+              "$BUILD_URL/api/json?tree=building,result,number,url,duration,displayName,fullDisplayName")
+            if [ "$B_HTTP" != "200" ]; then
+              echo "build api HTTP $B_HTTP (will retry)"
+              sleep "$POLL_INTERVAL"
+              continue
+            fi
+
+            BUILDING=$(jq -r '.building' /tmp/jenkins-build)
+            RESULT=$(jq -r '.result // empty' /tmp/jenkins-build)
+            DISPLAY=$(jq -r '.fullDisplayName // .displayName // .number' /tmp/jenkins-build)
+
+            if [ "$BUILDING" = "false" ] && [ -n "$RESULT" ]; then
+              DURATION_MS=$(jq -r '.duration // 0' /tmp/jenkins-build)
+              DURATION_S=$((DURATION_MS / 1000))
+              echo "Build finished: $DISPLAY"
+              echo "Result: $RESULT (duration ${DURATION_S}s)"
+              echo "Console: ${BUILD_URL}/console"
+              break
+            fi
+
+            echo "  running: $DISPLAY (result so far: ${RESULT:-null})"
+            sleep "$POLL_INTERVAL"
+          done
+
+          if [ -z "${RESULT:-}" ]; then
+            echo "Timed out after ${BUILD_TIMEOUT}s waiting for build to finish."
+            echo "Build URL: $BUILD_URL"
+            exit 1
+          fi
+
+          case "$RESULT" in
+            SUCCESS)
+              echo "Jenkins build succeeded."
+              exit 0
+              ;;
+            UNSTABLE)
+              echo "Jenkins build is UNSTABLE (treating as failure for GitHub checks)."
+              echo "Console: ${BUILD_URL}/console"
+              exit 1
+              ;;
+            *)
+              echo "Jenkins build failed with result: $RESULT"
+              echo "Console: ${BUILD_URL}/console"
               exit 1
               ;;
           esac
