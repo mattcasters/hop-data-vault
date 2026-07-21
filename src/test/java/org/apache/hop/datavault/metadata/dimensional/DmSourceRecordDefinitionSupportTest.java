@@ -35,6 +35,7 @@ import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.plugins.PluginRegistry;
 import org.apache.hop.core.row.IValueMeta;
 import org.apache.hop.core.variables.Variables;
+import org.apache.hop.datavault.catalog.RetailExampleCatalogFixtures;
 import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
@@ -131,7 +132,7 @@ class DmSourceRecordDefinitionSupportTest {
     meta.setName(CATALOG_CONNECTION);
     meta.setEnabled(true);
     FileDataCatalog fileCatalog = new FileDataCatalog();
-    fileCatalog.setStorageDirectory("${PROJECT_HOME}/catalog-data");
+    fileCatalog.setStorageDirectory(RetailExampleCatalogFixtures.catalogStorageRootPath());
     meta.setCatalog(fileCatalog);
     return meta;
   }

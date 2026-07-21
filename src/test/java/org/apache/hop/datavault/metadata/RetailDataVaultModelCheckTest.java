@@ -34,6 +34,7 @@ import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.plugins.PluginRegistry;
 import org.apache.hop.core.variables.Variables;
 import org.apache.hop.core.xml.XmlHandler;
+import org.apache.hop.datavault.catalog.RetailExampleCatalogFixtures;
 import org.apache.hop.datavault.hopgui.file.vault.HopVaultFileType;
 import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
 import org.apache.hop.metadata.serializer.xml.XmlMetadataUtil;
@@ -75,8 +76,7 @@ class RetailDataVaultModelCheckTest {
     catalog.setName("local-catalog");
     catalog.setEnabled(true);
     FileDataCatalog fileCatalog = new FileDataCatalog();
-    fileCatalog.setStorageDirectory(
-        Path.of("retail-example/catalog-data").toAbsolutePath().toString().replace('\\', '/'));
+    fileCatalog.setStorageDirectory(RetailExampleCatalogFixtures.catalogStorageRootPath());
     catalog.setCatalog(fileCatalog);
     metadataProvider.getSerializer(DataCatalogMeta.class).save(catalog);
 

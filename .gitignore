@@ -44,3 +44,5 @@ scripts/video/.venv/
 
 docs/video-tutorials/**/output/**
 docs/video-tutorials/**/hop-project/metrics/**
+
+audit/

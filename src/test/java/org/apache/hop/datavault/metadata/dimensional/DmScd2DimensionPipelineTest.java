@@ -39,6 +39,7 @@ import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.Variables;
+import org.apache.hop.datavault.catalog.RetailExampleCatalogFixtures;
 import org.apache.hop.datavault.metadata.dimensional.pipeline.DmPipelineBuilderSupport;
 import org.apache.hop.metadata.api.IHopMetadataProvider;
 import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
@@ -392,7 +393,7 @@ class DmScd2DimensionPipelineTest {
     catalogMeta.setName("local-catalog");
     catalogMeta.setEnabled(true);
     FileDataCatalog fileCatalog = new FileDataCatalog();
-    fileCatalog.setStorageDirectory("${PROJECT_HOME}/catalog-data");
+    fileCatalog.setStorageDirectory(RetailExampleCatalogFixtures.catalogStorageRootPath());
     catalogMeta.setCatalog(fileCatalog);
     metadataProvider.getSerializer(DataCatalogMeta.class).save(catalogMeta);
 

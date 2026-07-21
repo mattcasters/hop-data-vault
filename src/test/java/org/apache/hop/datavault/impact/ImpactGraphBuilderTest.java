@@ -34,6 +34,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.plugins.PluginRegistry;
 import org.apache.hop.core.variables.Variables;
+import org.apache.hop.datavault.catalog.RetailExampleCatalogFixtures;
 import org.apache.hop.datavault.resourcedefinition.ResourceDefinitionGroupResolver;
 import org.apache.hop.datavault.resourcedefinition.ValidationModels;
 import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
@@ -66,8 +67,7 @@ class ImpactGraphBuilderTest {
     catalog.setName("local-catalog");
     catalog.setEnabled(true);
     FileDataCatalog fileCatalog = new FileDataCatalog();
-    fileCatalog.setStorageDirectory(
-        projectHome.resolve("catalog-data").toString().replace('\\', '/'));
+    fileCatalog.setStorageDirectory(RetailExampleCatalogFixtures.catalogStorageRootPath());
     catalog.setCatalog(fileCatalog);
     metadataProvider.getSerializer(DataCatalogMeta.class).save(catalog);
 
