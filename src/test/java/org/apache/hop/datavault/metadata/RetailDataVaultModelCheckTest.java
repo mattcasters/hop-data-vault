@@ -65,11 +65,14 @@ class RetailDataVaultModelCheckTest {
     variables.setVariable("OUTPUT_COPIES", "2");
 
     metadataProvider = new MemoryMetadataProvider();
+    // Match retail-example RDBMS plugin ids (Vault/CRM are PostgreSQL).
     DatabaseMeta vault = new DatabaseMeta();
     vault.setName("Vault");
+    vault.setDatabaseType("POSTGRESQL");
     metadataProvider.getSerializer(DatabaseMeta.class).save(vault);
     DatabaseMeta crm = new DatabaseMeta();
     crm.setName("CRM");
+    crm.setDatabaseType("POSTGRESQL");
     metadataProvider.getSerializer(DatabaseMeta.class).save(crm);
 
     DataCatalogMeta catalog = new DataCatalogMeta();
@@ -86,13 +89,12 @@ class RetailDataVaultModelCheckTest {
   @Test
   void retail360ModelCheckLoadsCatalogSources() throws Exception {
     DataVaultModel model = loadModel("retail-example/models/retail-360.hdv");
-    List<ICheckResult> remarks = model.check(metadataProvider, variables, DvModelCheckOptions.defaults());
+    // Offline unit test: no live JDBC and no Hop bulk-loader transform plugins on the classpath.
+    // The retail model uses native bulk load at runtime; force Table Output for model-check only.
+    model.getConfigurationOrDefault().setTargetLoadMode(DvTargetLoadMode.TABLE_OUTPUT.getDescription());
 
-    for (ICheckResult remark : remarks) {
-      if (remark.getType() == ICheckResult.TYPE_RESULT_ERROR) {
-        System.err.println("ERROR: " + remark.getText());
-      }
-    }
+    List<ICheckResult> remarks =
+        model.check(metadataProvider, variables, DvModelCheckOptions.fastOnly());
 
     assertTrue(
         remarks.stream()
@@ -102,6 +104,14 @@ class RetailDataVaultModelCheckTest {
                         && r.getText()
                             .contains("Error loading data vault metadata when model checking")),
         "Model check should load catalog sources for retail-360");
+    assertTrue(
+        remarks.stream().noneMatch(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR),
+        () ->
+            "Unexpected model-check errors: "
+                + remarks.stream()
+                    .filter(r -> r.getType() == ICheckResult.TYPE_RESULT_ERROR)
+                    .map(ICheckResult::getText)
+                    .toList());
   }
 
   private static DataVaultModel loadModel(String relativePath) throws Exception {
