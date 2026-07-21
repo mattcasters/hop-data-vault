@@ -35,25 +35,91 @@ jobs:
             exit 1
           fi
 
+          # Normalize base URL: strip whitespace and trailing slashes (avoids //job/...)
+          JENKINS_URL="$(echo -n "$JENKINS_URL" | tr -d '\r\n' | sed 's:/*$::')"
+          JENKINS_JOB="$(echo -n "$JENKINS_JOB" | tr -d '\r\n' | sed 's:^/::;s:/*$::')"
+
+          echo "Jenkins base URL host: $(echo "$JENKINS_URL" | sed -E 's#https?://([^/]+).*#\1#')"
+          echo "Jenkins user: $JENKINS_USER"
+          echo "Jenkins job: $JENKINS_JOB"
+
           # Job path: "folder/job" -> "job/folder/job/job"
           JOB_PATH=$(echo "$JENKINS_JOB" | sed 's#/#/job/#g')
+          JOB_API="$JENKINS_URL/job/$JOB_PATH"
+          echo "Job API base: $JOB_API"
 
-          # CSRF crumb (required on most Jenkins installs)
-          CRUMB_JSON=$(curl -fsS -u "$JENKINS_USER:$JENKINS_TOKEN" \
+          # Verify credentials (401 here = bad user / API token, not job token)
+          WHO_HTTP=$(curl -sS -o /tmp/jenkins-who -w "%{http_code}" \
+            -u "$JENKINS_USER:$JENKINS_TOKEN" \
+            "$JENKINS_URL/whoAmI/api/json")
+          echo "whoAmI HTTP $WHO_HTTP"
+          if [ "$WHO_HTTP" != "200" ]; then
+            echo "Auth failed on /whoAmI. Body:"
+            head -c 500 /tmp/jenkins-who || true
+            echo
+            echo "Fix JENKINS_USER + JENKINS_TOKEN on environment jenkins-data-hopper."
+            exit 1
+          fi
+          echo "Authenticated as: $(jq -r .name /tmp/jenkins-who 2>/dev/null || cat /tmp/jenkins-who)"
+
+          # CSRF crumb + session cookie (many Jenkins installs require both)
+          CRUMB_HTTP=$(curl -sS -o /tmp/jenkins-crumb -w "%{http_code}" \
+            -u "$JENKINS_USER:$JENKINS_TOKEN" \
+            -c /tmp/jenkins-cookies \
             "$JENKINS_URL/crumbIssuer/api/json")
-          CRUMB=$(echo "$CRUMB_JSON" | jq -r .crumb)
-          CRUMB_FIELD=$(echo "$CRUMB_JSON" | jq -r .crumbRequestField)
+          echo "crumbIssuer HTTP $CRUMB_HTTP"
+          if [ "$CRUMB_HTTP" != "200" ]; then
+            echo "Failed to get CSRF crumb. Body:"
+            head -c 500 /tmp/jenkins-crumb || true
+            exit 1
+          fi
+          CRUMB=$(jq -r .crumb /tmp/jenkins-crumb)
+          CRUMB_FIELD=$(jq -r .crumbRequestField /tmp/jenkins-crumb)
 
-          # Queue the build; pass git ref if the job uses parameters
+          # Parameterized jobs must use /buildWithParameters; plain jobs use /build.
+          # Calling /build on a parameterized job returns 400 "expects a form submission".
+          JOB_META_HTTP=$(curl -sS -o /tmp/jenkins-job -w "%{http_code}" \
+            -u "$JENKINS_USER:$JENKINS_TOKEN" \
+            "$JOB_API/api/json?tree=name,url,property[parameterDefinitions[name]]")
+          echo "job api HTTP $JOB_META_HTTP"
+          if [ "$JOB_META_HTTP" != "200" ]; then
+            echo "Could not load job metadata (wrong JENKINS_JOB path?). Body:"
+            head -c 800 /tmp/jenkins-job || true
+            exit 1
+          fi
+
+          PARAM_COUNT=$(jq '[.property[]? | select(.parameterDefinitions != null) | .parameterDefinitions[]] | length' /tmp/jenkins-job)
+          if [ "$PARAM_COUNT" -gt 0 ]; then
+            BUILD_ENDPOINT="$JOB_API/buildWithParameters"
+            echo "Job has $PARAM_COUNT parameter(s); using buildWithParameters"
+          else
+            BUILD_ENDPOINT="$JOB_API/build"
+            echo "Job has no parameters; using build"
+          fi
+          echo "POST $BUILD_ENDPOINT"
+
+          # Remote trigger token as query param; empty form body satisfies Stapler.
           HTTP=$(curl -sS -o /tmp/jenkins-body -w "%{http_code}" \
             -X POST \
             -u "$JENKINS_USER:$JENKINS_TOKEN" \
+            -b /tmp/jenkins-cookies \
             -H "$CRUMB_FIELD: $CRUMB" \
-            --data-urlencode "token=$JENKINS_BUILD_TOKEN" \
-            "$JENKINS_URL/job/$JOB_PATH/build")
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data "" \
+            "${BUILD_ENDPOINT}?token=$(printf %s "$JENKINS_BUILD_TOKEN" | jq -sRr @uri)")
 
-          echo "Jenkins responded HTTP $HTTP"
-          cat /tmp/jenkins-body || true
-          # 201 = queued; some setups return 200
-          test "$HTTP" = "201" -o "$HTTP" = "200"
+          echo "build HTTP $HTTP"
+          # Location header would have queue URL; body often empty on success
+          if [ -s /tmp/jenkins-body ]; then
+            head -c 800 /tmp/jenkins-body || true
+            echo
+          fi
 
+          # 201 = queued; some setups return 200 or 302
+          case "$HTTP" in
+            200|201|302) echo "Build queued successfully." ;;
+            *)
+              echo "Unexpected status $HTTP"
+              exit 1
+              ;;
+          esac
