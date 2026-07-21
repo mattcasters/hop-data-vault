@@ -26,10 +26,10 @@ import java.util.Comparator;
 import java.util.stream.Stream;
 
 /**
- * Locates committed retail E2E catalog source definitions for unit tests.
+ * Locates committed retail catalog fixtures for unit tests.
  *
  * <p>Runtime retail catalog data lives under gitignored {@code work/edw-catalog/}. CI and clean
- * checkouts use the schema-gate baseline fixture under {@code fixtures/}.
+ * checkouts use committed fixtures under {@code retail-example/fixtures/}.
  */
 public final class RetailExampleCatalogFixtures {
 
@@ -42,8 +42,8 @@ public final class RetailExampleCatalogFixtures {
   }
 
   /**
-   * FILE catalog storage root containing {@code hop/retail-example/sources/*.json}. Prefers a
-   * bootstrapped {@code work/edw-catalog}; otherwise the committed schema-gate baseline snapshot.
+   * FILE catalog storage root for general retail unit tests. Prefers a bootstrapped {@code
+   * work/edw-catalog}; otherwise the committed schema-gate baseline snapshot (E2E sources only).
    */
   public static Path catalogStorageRoot() {
     Path work = projectHome().resolve("work/edw-catalog");
@@ -51,6 +51,22 @@ public final class RetailExampleCatalogFixtures {
       return work;
     }
     return seedCatalogStorageRoot();
+  }
+
+  /**
+   * Committed catalog root used by preview/navigation tests. Includes a minimal set of model
+   * targets (hub/BV/DM) plus one E2E source so clean CI workspaces do not depend on {@code work/}.
+   */
+  public static Path unitCatalogStorageRoot() {
+    Path unit = projectHome().resolve("fixtures/unit-catalog");
+    if (!Files.isDirectory(unit.resolve(SOURCES_RELATIVE))) {
+      throw new IllegalStateException("Missing unit catalog fixtures at " + unit);
+    }
+    return unit;
+  }
+
+  public static String unitCatalogStorageRootPath() {
+    return unitCatalogStorageRoot().toString().replace('\\', '/');
   }
 
   /** Storage root of the committed schema-gate baseline snapshot records. */

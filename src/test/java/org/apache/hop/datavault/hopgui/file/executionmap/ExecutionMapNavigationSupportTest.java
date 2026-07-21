@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import org.apache.hop.catalog.impl.file.FileDataCatalog;
 import org.apache.hop.catalog.metadata.DataCatalogMeta;
+import org.apache.hop.catalog.model.RecordDefinitionKey;
 import org.apache.hop.catalog.registry.RecordDefinitionRegistry;
 import org.apache.hop.catalog.xp.RegisterDataCatalogMetadataExtensionPoint;
 import org.apache.hop.core.HopEnvironment;
@@ -33,18 +34,18 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.plugins.PluginRegistry;
 import org.apache.hop.core.variables.Variables;
-import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.hop.datavault.catalog.RetailExampleCatalogFixtures;
 import org.apache.hop.datavault.executionmap.ArtifactSnapshotSupport;
+import org.apache.hop.datavault.executionmap.DatasetNodeSupport;
 import org.apache.hop.datavault.executionmap.ExecutionMapDatasetCatalogSupport;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapArtifactSnapshot;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapArtifactType;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapDocument;
-import org.apache.hop.catalog.model.RecordDefinitionKey;
-import org.apache.hop.datavault.executionmap.DatasetNodeSupport;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNode;
 import org.apache.hop.datavault.metadata.executionmap.ExecutionMapNodeType;
+import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class ExecutionMapNavigationSupportTest {
@@ -70,11 +71,8 @@ class ExecutionMapNavigationSupportTest {
     catalog.setName("local-catalog");
     catalog.setEnabled(true);
     FileDataCatalog fileCatalog = new FileDataCatalog();
-    fileCatalog.setStorageDirectory(
-        Path.of("retail-example/work/edw-catalog")
-            .toAbsolutePath()
-            .toString()
-            .replace('\\', '/'));
+    // Committed unit fixtures (not gitignored work/edw-catalog) so CI has model + source defs.
+    fileCatalog.setStorageDirectory(RetailExampleCatalogFixtures.unitCatalogStorageRootPath());
     catalog.setCatalog(fileCatalog);
     metadataProvider.getSerializer(DataCatalogMeta.class).save(catalog);
     RecordDefinitionRegistry.getInstance().invalidate();
@@ -335,11 +333,8 @@ class ExecutionMapNavigationSupportTest {
     vaultCatalog.setName("vault-catalog");
     vaultCatalog.setEnabled(true);
     FileDataCatalog vaultFileCatalog = new FileDataCatalog();
-    vaultFileCatalog.setStorageDirectory(
-        Path.of("retail-example/work/edw-catalog")
-            .toAbsolutePath()
-            .toString()
-            .replace('\\', '/'));
+    // Alternate catalog that does contain retail model targets (local-catalog is integration-tests).
+    vaultFileCatalog.setStorageDirectory(RetailExampleCatalogFixtures.unitCatalogStorageRootPath());
     vaultCatalog.setCatalog(vaultFileCatalog);
     metadataProvider.getSerializer(DataCatalogMeta.class).save(vaultCatalog);
     RecordDefinitionRegistry.getInstance().invalidate();
