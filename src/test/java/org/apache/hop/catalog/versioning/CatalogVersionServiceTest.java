@@ -38,6 +38,7 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.plugins.PluginRegistry;
 import org.apache.hop.core.variables.Variables;
+import org.apache.hop.datavault.catalog.RetailExampleCatalogFixtures;
 import org.apache.hop.metadata.serializer.memory.MemoryMetadataProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,23 +67,9 @@ class CatalogVersionServiceTest {
     Path projectHome = Path.of("retail-example").toAbsolutePath();
     variables.setVariable("PROJECT_HOME", projectHome.toString().replace('\\', '/'));
 
-    // Copy retail sources into a temp catalog so we can mutate without touching git.
+    // Copy committed retail seed sources into a temp catalog so we can mutate safely.
     Path catalogDir = tempDir.resolve("catalog-data");
-    Path sourceRoot = projectHome.resolve("catalog-data/hop/retail-example/sources");
-    Path targetRoot = catalogDir.resolve("hop/retail-example/sources");
-    Files.createDirectories(targetRoot);
-    try (var paths = Files.list(sourceRoot)) {
-      paths
-          .filter(path -> path.toString().endsWith(".json"))
-          .forEach(
-              path -> {
-                try {
-                  Files.copy(path, targetRoot.resolve(path.getFileName()));
-                } catch (Exception e) {
-                  throw new RuntimeException(e);
-                }
-              });
-    }
+    RetailExampleCatalogFixtures.copySeedSourcesInto(catalogDir);
 
     metadataProvider = new MemoryMetadataProvider();
     DataCatalogMeta catalog = new DataCatalogMeta();
