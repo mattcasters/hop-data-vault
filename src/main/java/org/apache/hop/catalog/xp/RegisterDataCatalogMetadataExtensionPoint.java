@@ -69,7 +69,7 @@ public class RegisterDataCatalogMetadataExtensionPoint implements IExtensionPoin
     RecordDefinitionRegistry.getInstance().environmentReady();
 
     if (log != null) {
-      log.logBasic("Data Catalog metadata registered");
+      log.logDetailed("Data Catalog metadata registered");
     }
   }
 }
