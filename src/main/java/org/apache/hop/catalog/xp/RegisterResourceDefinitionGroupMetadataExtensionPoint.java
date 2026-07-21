@@ -64,7 +64,7 @@ public class RegisterResourceDefinitionGroupMetadataExtensionPoint
         false);
 
     if (log != null) {
-      log.logBasic("Resource Definition Group metadata registered");
+      log.logDetailed("Resource Definition Group metadata registered");
     }
   }
 }

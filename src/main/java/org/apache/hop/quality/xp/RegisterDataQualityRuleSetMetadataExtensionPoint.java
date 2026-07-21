@@ -63,7 +63,7 @@ public class RegisterDataQualityRuleSetMetadataExtensionPoint
         false);
 
     if (log != null) {
-      log.logBasic("Data Quality Rule Set metadata registered");
+      log.logDetailed("Data Quality Rule Set metadata registered");
     }
   }
 }

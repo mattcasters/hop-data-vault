@@ -64,7 +64,7 @@ public class RegisterExecutionMetricsProfileMetadataExtensionPoint
         false);
 
     if (log != null) {
-      log.logBasic("Execution Metrics Profile metadata registered");
+      log.logDetailed("Execution Metrics Profile metadata registered");
     }
   }
 }
