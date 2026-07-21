@@ -10,6 +10,8 @@ on:
 jobs:
   trigger:
     runs-on: ubuntu-latest
+    # Required so environment secrets (Settings → Environments → jenkins-data-hopper) are available
+    environment: jenkins-data-hopper
     steps:
       - name: Trigger Jenkins job
         env:
@@ -20,6 +22,18 @@ jobs:
           JENKINS_BUILD_TOKEN: ${{ secrets.JENKINS_BUILD_TOKEN }}
         run: |
           set -euo pipefail
+
+          missing=()
+          [ -n "${JENKINS_URL:-}" ] || missing+=(JENKINS_URL)
+          [ -n "${JENKINS_USER:-}" ] || missing+=(JENKINS_USER)
+          [ -n "${JENKINS_TOKEN:-}" ] || missing+=(JENKINS_TOKEN)
+          [ -n "${JENKINS_JOB:-}" ] || missing+=(JENKINS_JOB)
+          [ -n "${JENKINS_BUILD_TOKEN:-}" ] || missing+=(JENKINS_BUILD_TOKEN)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Missing or empty secrets: ${missing[*]}"
+            echo "Ensure they exist on environment 'jenkins-data-hopper' and the job has environment: set."
+            exit 1
+          fi
 
           # Job path: "folder/job" -> "job/folder/job/job"
           JOB_PATH=$(echo "$JENKINS_JOB" | sed 's#/#/job/#g')
