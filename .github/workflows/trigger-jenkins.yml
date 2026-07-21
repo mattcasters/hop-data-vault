@@ -78,7 +78,8 @@ jobs:
 
           # Parameterized jobs must use /buildWithParameters; plain jobs use /build.
           # Calling /build on a parameterized job returns 400 "expects a form submission".
-          JOB_META_HTTP=$(curl -sS -o /tmp/jenkins-job -w "%{http_code}" \
+          # -g/--globoff: curl otherwise treats [...] in ?tree= as a bad URL range.
+          JOB_META_HTTP=$(curl -g -sS -o /tmp/jenkins-job -w "%{http_code}" \
             -u "$JENKINS_USER:$JENKINS_TOKEN" \
             "$JOB_API/api/json?tree=name,url,property[parameterDefinitions[name]]")
           echo "job api HTTP $JOB_META_HTTP"
